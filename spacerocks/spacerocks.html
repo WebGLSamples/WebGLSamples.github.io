@@ -1,0 +1,453 @@
+<!--
+ * Copyright 2009, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+  "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>WebGL SpaceRocks</title>
+<style>
+body {
+  width: 100%;
+  height: 100%;
+  border: 0px;
+  padding: 0px;
+  margin: 0px;
+  background-color: black;
+}
+</style>
+<script type="text/javascript" src="js/webgl-test-utils.js"></script>
+<script type="text/javascript" src="o3djs/base.js"></script>
+<script type="text/javascript">
+o3djs.require('o3djs.math');
+window.onload = initialize;
+
+// globals
+var gl;                   // the gl context.
+var wu = WebGLTestUtils;  // some webgl utils
+var canvas;               // the canvas
+
+function createTangentsAndBinormals(
+    positions, normals, normalMapUVs, triangles) {
+  var math = o3djs.math;
+  // Maps from position, normal key to tangent and binormal matrix.
+  var tangentFrames = {};
+
+  // Rounds a vector to integer components.
+  function roundVector(v) {
+    return [Math.round(v[0]), Math.round(v[1]), Math.round(v[2])];
+  }
+
+  // Generates a key for the tangentFrames map from a position and normal
+  // vector. Rounds position and normal to allow some tolerance.
+  function tangentFrameKey(position, normal) {
+    return roundVector(math.mulVectorScalar(position, 100)) + ',' +
+        roundVector(math.mulVectorScalar(normal, 100));
+  }
+
+  // Accumulates into the tangent and binormal matrix at the approximate
+  // position and normal.
+  function addTangentFrame(position, normal, tangent, binormal) {
+    var key = tangentFrameKey(position, normal);
+    var frame = tangentFrames[key];
+    if (!frame) {
+      frame = [[0, 0, 0], [0, 0, 0]];
+    }
+    frame = math.addMatrix(frame, [tangent, binormal]);
+    tangentFrames[key] = frame;
+  }
+
+  // Get the tangent and binormal matrix at the approximate position and
+  // normal.
+  function getTangentFrame(position, normal) {
+    var key = tangentFrameKey(position, normal);
+    return tangentFrames[key];
+  }
+
+  var numTriangles = this.numElements();
+  for (var triangleIndex = 0; triangleIndex < numTriangles; ++triangleIndex) {
+    // Get the vertex indices, uvs and positions for the triangle.
+    var vertexIndices = triangles.getElement(triangleIndex);
+    var uvs = [];
+    var positions = [];
+    var normals = [];
+    for (var i = 0; i < 3; ++i) {
+      var vertexIndex = vertexIndices[i];
+      uvs[i] = normalMapUVs.getElement(vertexIndex);
+      positions[i] = positions.getElement(vertexIndex);
+      normals[i] = normals.getElement(vertexIndex);
+    }
+
+    // Calculate the tangent and binormal for the triangle using method
+    // described in Maya documentation appendix A: tangent and binormal
+    // vectors.
+    var tangent = [0, 0, 0];
+    var binormal = [0, 0, 0];
+    for (var axis = 0; axis < 3; ++axis) {
+      var edge1 = [positions[1][axis] - positions[0][axis],
+                   uvs[1][0] - uvs[0][0], uvs[1][1] - uvs[0][1]];
+      var edge2 = [positions[2][axis] - positions[0][axis],
+                   uvs[2][0] - uvs[0][0], uvs[2][1] - uvs[0][1]];
+      var edgeCross = math.normalize(math.cross(edge1, edge2));
+      if (edgeCross[0] == 0) {
+        edgeCross[0] = 1;
+      }
+      tangent[axis] = -edgeCross[1] / edgeCross[0];
+      binormal[axis] = -edgeCross[2] / edgeCross[0];
+    }
+
+    // Normalize the tangent and binornmal.
+    var tangentLength = math.length(tangent);
+    if (tangentLength > 0.001) {
+      tangent = math.mulVectorScalar(tangent, 1 / tangentLength);
+    }
+    var binormalLength = math.length(binormal);
+    if (binormalLength > 0.001) {
+      binormal = math.mulVectorScalar(binormal, 1 / binormalLength);
+    }
+
+    // Accumulate the tangent and binormal into the tangent frame map.
+    for (var i = 0; i < 3; ++i) {
+      addTangentFrame(positions[i], normals[i], tangent, binormal);
+    }
+  }
+
+  // Add the tangent and binormal streams.
+  var numVertices = positions.numElements;
+  tangents = new AttribBuffer(3, numVertices);
+  binormals = new AttribBuffer(3, numVertices);
+
+  // Extract the tangent and binormal for each vertex.
+  for (var vertexIndex = 0; vertexIndex < numVertices; ++vertexIndex) {
+    var position = positions.getElement(vertexIndex);
+    var normal = normals.getElement(vertexIndex);
+    var frame = getTangentFrame(position, normal);
+
+    // Orthonormalize the tangent with respect to the normal.
+    var tangent = frame[0];
+    tangent = math.subVector(
+        tangent, math.mulVectorScalar(normal, math.dot(normal, tangent)));
+    var tangentLength = math.length(tangent);
+    if (tangentLength > 0.001) {
+      tangent = math.mulVectorScalar(tangent, 1 / tangentLength);
+    }
+
+    // Orthonormalize the binormal with respect to the normal and the tangent.
+    var binormal = frame[1];
+    binormal = math.subVector(
+        binormal, math.mulVectorScalar(tangent, math.dot(tangent, binormal)));
+    binormal = math.subVector(
+        binormal, math.mulVectorScalar(normal, math.dot(normal, binormal)));
+    var binormalLength = math.length(binormal);
+    if (binormalLength > 0.001) {
+      binormal = math.mulVectorScalar(binormal, 1 / binormalLength);
+    }
+
+    tangents.push(tangent);
+    binormals.push(binormal);
+  }
+
+  return {
+    tangents: tangets,
+    binormals: binormals};
+};
+
+function AttribBuffer(numComponents, numElements, opt_type) {
+  opt_type = opt_type || 'Float32Array';
+  var type = window[opt_type];
+  this.buffer = new type(numComponents * numElements);
+  this.cursor = 0;
+  this.numComponents = numComponents;
+  this.numElements = numElements;
+}
+
+AttribBuffer.prototype.getElement = function(index) {
+  var offset = index * this.numComponents;
+  var value = [];
+  for (var ii = 0; ii < this.numComponents; ++ii) {
+    value.push(this.buffer[offset + ii]);
+  }
+  return value;
+}
+
+AttribBuffer.prototype.setElement = function(index, value) {
+  var offset = index * this.numComponents;
+  for (var ii = 0; ii < this.numComponents; ++ii) {
+    this.buffer[offset + ii] = value[ii];
+  }
+};
+
+AttribBuffer.prototype.push = function(value) {
+  this.setElement(this.cursor++, value);
+};
+
+function createSphere(radius,
+                      subdivisionsAxis,
+                      subdivisionsHeight,
+                      opt_startLatitudeInRadians,
+                      opt_endLatitudeInRadians,
+                      opt_startLongitudeInRadians,
+                      opt_endLongitudeInRadians) {
+  if (subdivisionsAxis <= 0 || subdivisionsHeight <= 0) {
+    throw Error('subdivisionAxis and subdivisionHeight must be > 0');
+  }
+
+  opt_startLatitdueInRadians = opt_startLatitdueInRadians || 0;
+  opt_endLatitdueInRadians = opt_EndLatitdueInRadians || Math.PI;
+  opt_startLongitdueInRadians = opt_startLongitdueInRadians || 0;
+  opt_endLongitdueInRadians = opt_EndLongitdueInRadians || (Math.PI * 2);
+
+  latRange = opt_endLatitudeInRadians - opt_startLatitudeInRadians;
+  longRange = opt_endLongitudeInRadians - opt_startLongitudeInRadians;
+
+  // We are going to generate our sphere by iterating through its
+  // spherical coordinates and generating 2 triangles for each quad on a
+  // ring of the sphere.
+  var numVertices = (subdivisionsAxis + 1) * (subdivisionsHeight + 1);
+  var positions = new AttribBuffer(3, numVertices);
+  var normals = new AttribBuffer(3, numVertices);
+  var texCoords = new AttribBuffer(2, numVertices);
+
+  var positionOffset = 0;
+  var normalOffset = 0;
+  var texCoords = 0;
+  // Generate the individual vertices in our vertex buffer.
+  for (var y = 0; y <= subdivisionsHeight; y++) {
+    for (var x = 0; x <= subdivisionsAxis; x++) {
+      // Generate a vertex based on its spherical coordinates
+      var u = x / subdivisionsAxis;
+      var v = y / subdivisionsHeight;
+      var theta = longRange * u;
+      var phi = latRange * v;
+      var sinTheta = Math.sin(theta);
+      var cosTheta = Math.cos(theta);
+      var sinPhi = Math.sin(phi);
+      var cosPhi = Math.cos(phi);
+      var ux = cosTheta * sinPhi;
+      var uy = cosPhi;
+      var uz = sinTheta * sinPhi;
+      positions.push([radius * ux, radius * uy, radius * uz]);
+      normals.push([ux, uy, uz]);
+      texCoords.push([u, v]);
+    }
+  }
+
+  var numVertsAround = subdivisionsAxis + 1;
+  var indices = new AttribBuffer(
+      3, subdivisionsAxis * subdivisionsHeight, 'Uint16Array');
+
+  for (var x = 0; x < subdivisionsAxis; x++) {
+    for (var y = 0; y < subdivisionsHeight; y++) {
+      // Make triangle 1 of quad.
+      indices.push([
+          (y + 0) * numVertsAround + x,
+          (y + 0) * numVertsAround + x + 1,
+          (y + 1) * numVertsAround + x]);
+
+      // Make triangle 2 of quad.
+      indices.push([
+          (y + 1) * numVertsAround + x,
+          (y + 0) * numVertsAround + x + 1,
+          (y + 1) * numVertsAround + x + 1]);
+    }
+  }
+
+  return {
+    positions: position,
+    normals: normals,
+    texCoords: texCoords,
+    triangles: indices};
+};
+
+function createBumpmapSphere(radius,
+                      subdivisionsAxis,
+                      subdivisionsHeight,
+                      opt_startLatitudeInRadians,
+                      opt_endLatitudeInRadians,
+                      opt_startLongitudeInRadians,
+                      opt_endLongitudeInRadians)
+
+function Texture(url) {
+  var that = this;
+  var tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  var pixel = Uint8Buffer([200, 200, 30, 255]);
+  gl.texImage2D(
+      gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+  var img = document.createElement('img');
+  img.onload = function() {
+    that.updateTexture();
+  }
+
+  this.img = img;
+  this.texture = tex;
+
+  img.src = url;
+}
+
+Texture.prototype.updateTexture() = function() {
+  gl.bindTexture(gl.TEXTURE_2D, this.texture);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.img);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.FALSE);
+};
+
+function Program(vertexShader, fragmentShader) {
+  // Compile shaders
+  var program = wu.loadProgram(vertexShader, fragmentShader);
+  if (!program) {
+    throw ("could not compile program");
+  }
+
+  // Look up attribs.
+  var attribs = {
+  };
+  var numAttribs = gl.getProgramParameter(gl.ACTIVE_ATTRIBUTES);
+  for (var ii = 0; ii < numAttribs; ++ii) {
+    var info = gl.getActiveAttrib(program, ii);
+    attribs[info.name] = gl.getActiveLocation(program, info.name);
+  }
+
+  // Look up uniforms
+  var numUniforms = gl.getProgramParameter(gl.ACTIVE_UNIFORMS);
+  var uniforms = {
+  };
+  for (var ii = 0; ii < numUniforms; ++ii) {
+    var info = gl.getActiveUniform(program, ii);
+    uniforms[info.name] = gl.getUniformocation(program, info.name);
+  }
+
+  this.program = program;
+  this.attribs = attribs;
+  this.uniforms = uniforms;
+}
+
+function createProgramFromTags(vertexTagId, fragmentTagId) {
+  new Program(
+      document.getElementById(vertexTagId).text,
+      document.getElementById(framentTagId).text);
+}
+
+function initialize() {
+  canvas = document.getElementById("canvas");
+  wtu.create3DContext(canvas);
+  program = createProgramFromTags(
+      'normalMapVertexShader',
+      'normalMapFragmentShader');
+  circle
+}
+</script>
+</head>
+<body>
+<canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas></body>
+<script id="normalMapVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord0;
+attribute vec3 tangent;
+attribute vec3 binormal;
+attribute vec2 bumpUV;
+varying vec4 v_position;
+varying vec2 v_diffuseUV;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec2 v_bumpUV;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+void main() {
+  v_diffuseUV = texCoord0;
+  v_bumpUV = bumpUV;
+  v_position = (worldViewProjection * position);
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;
+  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="normalMapFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform vec4 lightColor;
+varying vec4 v_position;
+varying vec2 v_diffuseUV;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec2 v_bumpUV;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform vec4 emissive;
+uniform vec4 ambient;
+uniform sampler2D diffuseSampler;
+uniform vec4 specular;
+uniform sampler2D bumpSampler;
+uniform float shininess;
+uniform float specularFactor;
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec4 diffuse = texture2D(diffuseSampler, v_diffuseUV);
+  mat3 tangentToWorld = mat3(v_tangent,
+                             v_binormal,
+                             v_normal);
+  vec3 tangentNormal = texture2D(bumpSampler, v_bumpUV.xy).xyz -
+                                 vec3(0.5, 0.5, 0.5);
+  vec3 normal = (tangentToWorld * tangentNormal);
+  normal = normalize(normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  gl_FragColor = vec4((emissive +
+  lightColor * (ambient * diffuse + diffuse * litR.y +
+                        + specular * litR.z * specularFactor)).rgb,
+      diffuse.a);
+}
+</script>
+</html>
+
+
