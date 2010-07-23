@@ -16,6 +16,10 @@ var log = function(msg) {
 
 var lastError = "";
 
+var testFailed = function(msg) {
+  throw(msg)
+};
+
 /**
  * Returns the last compiler/linker error.
  * @return {string} The last compiler/linker error.
@@ -438,11 +442,11 @@ var linkProgram = function(gl, program) {
     // something went wrong with the link
     var error = gl.getProgramInfoLog (program);
 
+    testFailed("Error in program linking:" + error);
+
     gl.deleteProgram(program);
     gl.deleteProgram(fragmentShader);
     gl.deleteProgram(vertexShader);
-
-    testFailed("Error in program linking:" + error);
   }
 };
 
@@ -683,10 +687,10 @@ var loadProgram = function(gl, vertexShader, fragmentShader) {
   var program = gl.createProgram();
   gl.attachShader(
       program,
-      loadShader(gl, vertexScript, gl.VERTEX_SHADER));
+      loadShader(gl, vertexShader, gl.VERTEX_SHADER));
   gl.attachShader(
       program,
-      loadShader(gl, fragmentriptId,  gl.FRAGMENT_SHADER));
+      loadShader(gl, fragmentShader,  gl.FRAGMENT_SHADER));
   linkProgram(gl, program);
   return program;
 };
