@@ -179,7 +179,6 @@ tdl.textures.CubeMap.prototype.recoverFromLostContext = function() {
  */
 tdl.textures.CubeMap.prototype.updateTexture = function(faceIndex) {
   // mark the face as loaded
-console.log("mark face " + faceIndex + " as loaded");
   var face = this.faces[faceIndex];
   face.loaded = true;
   // If all 6 faces are loaded then upload to GPU.

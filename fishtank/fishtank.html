@@ -55,8 +55,8 @@ CANVAS {
   font-family: sans-serif;
 }
 </style>
-<script type="text/javascript" src="js/webgl-test-utils.js"></script>
-<script type="text/javascript" src="js/webgl-debug.js"></script>
+<script type="text/javascript" src="../js/webgl-test-utils.js"></script>
+<script type="text/javascript" src="../js/webgl-debug.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
@@ -77,7 +77,7 @@ var math;                 // the math lib.
 var g_fpsTimer;           // object to measure frames per second;
 var logGLCalls = true     // whether or not to log webgl calls
 var debug = true;         // whether or not to debug.
-//debug = false;
+debug = false;
 
 var g_numMeteorsAcross = 3;
 var g_eyeSpeed         = 1;
@@ -113,11 +113,11 @@ function createProgramFromTags(vertexTagId, fragmentTagId) {
       document.getElementById(fragmentTagId).text);
 }
 
-function setupMeteor() {
+function setupMeteor(skybox) {
   var textures = {
     diffuseSampler: new tdl.textures.Texture('assets/rock-color.png'),
-    bumpSampler: new tdl.textures.Texture('assets/rock-nmap.png')
-  };
+    bumpSampler: new tdl.textures.Texture('assets/rock-nmap.png'),
+    skybox: skybox};
   var program = createProgramFromTags(
       'normalMapVertexShader',
       'normalMapFragmentShader');
@@ -161,10 +161,10 @@ function initialize() {
   gl.enable(gl.DEPTH_TEST);
 //  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
 
-  Log("--Setup Meteor---------------------------------------");
-  var meteor = setupMeteor();
   Log("--Setup Skybox---------------------------------------");
   var skybox = setupSkybox();
+  Log("--Setup Meteor---------------------------------------");
+  var meteor = setupMeteor(skybox.textures.skybox);
 
   var then = 0.0;
   var clock = 0.0;
@@ -229,7 +229,7 @@ function initialize() {
       emissive: [0,0,0,1],
       ambient: [0,0,0,0],
       specular: [1,1,1,1],
-      shininess: 50,
+      shininess: 100,
       specularFactor: 1.0
     };
 
@@ -344,6 +344,7 @@ uniform vec4 ambient;
 uniform sampler2D diffuseSampler;
 uniform vec4 specular;
 uniform sampler2D bumpSampler;
+uniform samplerCube skybox;
 uniform float shininess;
 uniform float specularFactor;
 
@@ -360,15 +361,19 @@ void main() {
                              v_normal);
   vec3 tangentNormal = texture2D(bumpSampler, v_texCoord.xy).xyz -
                                  vec3(0.5, 0.5, 0.5);
+  tangentNormal = normalize(tangentNormal + vec3(0, 0, 3));
   vec3 normal = (tangentToWorld * tangentNormal);
   normal = normalize(normal);
   vec3 surfaceToLight = normalize(v_surfaceToLight);
   vec3 surfaceToView = normalize(v_surfaceToView);
+  vec4 skyColor = textureCube(skybox, -reflect(surfaceToView, normal));
   vec3 halfVector = normalize(surfaceToLight + surfaceToView);
   vec4 litR = lit(dot(normal, surfaceToLight),
                     dot(normal, halfVector), shininess);
   gl_FragColor = vec4((emissive +
-  lightColor * (ambient * diffuse + diffuse * litR.y +
+  lightColor * (ambient * diffuse +
+                (diffuse * vec4(0.0, 0.0, 0.0, 0.0) +
+                 skyColor * vec4(1.0, 1.0, 1.0, 1.0)) /* * litR.y */ +
                         + specular * litR.z * specularFactor)).rgb,
       diffuse.a);
 }
