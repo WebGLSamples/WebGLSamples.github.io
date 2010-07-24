@@ -50,6 +50,16 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
     throw ("could not compile program");
   }
 
+  // TODO(gman): remove the need for this.
+  function flatten(array){
+    var flat = [];
+    for (var i = 0, l = array.length; i < l; i++) {
+      var type = Object.prototype.toString.call(array[i]).split(' ').pop().split(']').shift().toLowerCase();
+      if (type) { flat = flat.concat(/^(array|collection|arguments|object)$/.test(type) ? flatten(array[i]) : array[i]); }
+    }
+    return flat;
+  }
+
   // Look up attribs.
   var attribs = {
   };
@@ -121,7 +131,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
         return function(v) { gl.uniform1iv(loc, v); };
       if (type == gl.SAMPLER_CUBE_MAP)
         return function(v) { gl.uniform1iv(loc, v); };
-      throw ("unknown type");
+      throw ("unknown type: 0x" + type.toString(16));
     } else {
       if (type == gl.FLOAT)
         return function(v) { gl.uniform1f(loc, v); };
@@ -148,16 +158,16 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
       if (type == gl.BOOL_VEC4)
         return function(v) { gl.uniform4iv(loc, v); };
       if (type == gl.FLOAT_MAT2)
-        return function(v) { gl.uniformMatrix2fv(loc, false, v); };
+        return function(v) { gl.uniformMatrix2fv(loc, false, flatten(v)); };
       if (type == gl.FLOAT_MAT3)
-        return function(v) { gl.uniformMatrix3fv(loc, false, v); };
+        return function(v) { gl.uniformMatrix3fv(loc, false, flatten(v)); };
       if (type == gl.FLOAT_MAT4)
-        return function(v) { gl.uniformMatrix4fv(loc, false, v); };
+        return function(v) { gl.uniformMatrix4fv(loc, false, flatten(v)); };
       if (type == gl.SAMPLER_2D)
         return function(v) { gl.uniform1i(loc, v); };
-      if (type == gl.SAMPLER_CUBE_MAP)
+      if (type == gl.SAMPLER_CUBE)
         return function(v) { gl.uniform1i(loc, v); };
-      throw ("unknown type");
+      throw ("unknown type: 0x" + type.toString(16));
     }
   }
 

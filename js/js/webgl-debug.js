@@ -17,6 +17,20 @@ var log = function(msg) {
 };
 
 /**
+ * Wrapped error logging function.
+ * @param {string} msg Message to log.
+ */
+var error = function(msg) {
+  if (window.console) {
+    if (window.console.error) {
+      window.console.error(msg);
+    } else if (window.console.log) {
+      window.console.log(msg);
+    }
+  }
+};
+
+/**
  * Which arguements are enums.
  * @type {!Object.<number, string>}
  */
@@ -173,8 +187,26 @@ function glFunctionArgToString(functionName, argumentIndex, value) {
       return glEnumToString(value);
     }
   }
-  return value.toString();
+  return (value !== undefined) ? value.toString() : "undefined";
 }
+
+/**
+ * Converts the arguments of a WebGL function to a string.
+ * Attempts to convert enum arguments to strings.
+ *
+ * @param {string} functionName the name of the WebGL function.
+ * @param {number} args The arguments.
+ * @return {string} The arguments as a string.
+ */
+function glFunctionArgsToString(functionName, args) {
+  // apparently we can't do args.join(",");
+  var argStr = "";
+  for (var ii = 0; ii < args.length; ++ii) {
+    argStr += ((ii == 0) ? '' : ', ') +
+        glFunctionArgToString(functionName, ii, args[ii]);
+  }
+  return argStr;
+};
 
 /**
  * Given a WebGL context returns a wrapped context that calls
@@ -187,43 +219,32 @@ function glFunctionArgToString(functionName, argumentIndex, value) {
  *        The function to call when gl.getError returns an
  *        error. If not specified the default function calls
  *        console.log with a message.
+ * @param {!function(funcName, args): void} opt_onFunc The
+ *        function to call when each webgl function is called.
+ *        You can use this to log all calls for example.
  */
-function makeDebugContext(ctx, opt_onErrorFunc) {
+function makeDebugContext(ctx, opt_onErrorFunc, opt_onFunc) {
   init(ctx);
   opt_onErrorFunc = opt_onErrorFunc || function(err, functionName, args) {
-        // apparently we can't do args.join(",");
-        var argStr = "";
-        for (var ii = 0; ii < args.length; ++ii) {
-          argStr += ((ii == 0) ? '' : ', ') +
-              glFunctionArgToString(functionName, ii, args[ii]);
-        }
-        log("WebGL error "+ glEnumToString(err) + " in "+ functionName +
-            "(" + argStr + ")");
+        error("WebGL error "+ glEnumToString(err) + " in "+ functionName +
+            "(" + glFunctionArgsToString(functionName, args) + ")");
       };
 
   // Holds booleans for each GL error so after we get the error ourselves
   // we can still return it to the client app.
   var glErrorShadow = { };
 
-  function ExpandArgs(args) {
-    var a = "";
-    var s = "";
-    for (var ii = 0; ii < args.length; ++ii) {
-      var arg = args[ii];
-      a += s + arg;
-      s = ", ";
-    }
-    return a;
-  }
-
   // Makes a function that calls a WebGL function and then calls getError.
   function makeErrorWrapper(ctx, functionName) {
     return function() {
+      if (opt_onFunc) {
+        opt_onFunc(functionName, arguments);
+      }
       try {
-        console.log("gl: " + functionName + "(" + ExpandArgs(arguments) + ")");
         var result = ctx[functionName].apply(ctx, arguments);
       } catch (e) {
-        console.errror(functionName + "(" + ExpandArgs(arguments) + ")");
+        opt_onErrorFunc(ctx.NO_ERROR, functionName, arguments);
+        throw(e);
       }
       var err = ctx.getError();
       if (err != 0) {
@@ -305,6 +326,26 @@ return {
   'glFunctionArgToString': glFunctionArgToString,
 
   /**
+   * Converts the arguments of a WebGL function to a string.
+   * Attempts to convert enum arguments to strings.
+   *
+   * Example:
+   *   function LogGLCall(functionName, args) {
+   *     console.log("gl: " + functionName + "(" +
+   *         WebGLDebugUtil.glFunctionArgsToString(
+   *             functionName, args) + ")");
+   *   }
+   *
+   *   WebGLDebugUtil.makeDebugContext(
+   *       canvas.getContext("webgl"), undefined, LogGLCall);
+   *
+   * @param {string} functionName the name of the WebGL function.
+   * @param {number} args The arguments.
+   * @return {string} The arguments as a string.
+   */
+  'glFunctionArgsToString': glFunctionArgsToString,
+
+  /**
    * Given a WebGL context returns a wrapped context that calls
    * gl.getError after every command and calls a function if the
    * result is not NO_ERROR.
@@ -324,6 +365,9 @@ return {
    * @param {!function(err, funcName, args): void} opt_onErrorFunc The function
    *     to call when gl.getError returns an error. If not specified the default
    *     function calls console.log with a message.
+   * @param {!function(funcName, args): void} opt_onFunc The
+   *        function to call when each webgl function is called.
+   *        You can use this to log all calls for example.
    */
   'makeDebugContext': makeDebugContext
 };

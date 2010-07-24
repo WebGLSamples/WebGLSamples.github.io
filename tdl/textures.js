@@ -48,7 +48,7 @@ tdl.textures = tdl.textures || {};
  * @param {*} opt_updateOb Object with update function to call
  *     when texture is updated with image.
  */
-tdl.textures.Texture = function(url, updateOb) {
+tdl.textures.Texture = function(url, opt_updateOb) {
   var that = this;
   this.texture = gl.createTexture();
   this.uploadTexture();
@@ -57,7 +57,7 @@ tdl.textures.Texture = function(url, updateOb) {
     that.updateTexture();
   }
   this.img = img;
-  this.updateOb = updateOb;
+  this.updateOb = opt_updateOb;
 
   img.src = url;
 };
@@ -77,7 +77,9 @@ tdl.textures.Texture.prototype.uploadTexture = function() {
 tdl.textures.Texture.prototype.updateTexture = function() {
   this.loaded = true;
   this.uploadTexture();
-  this.updateOb.update();
+  if (this.updateOb) {
+    this.updateOb.update();
+  }
 };
 
 tdl.textures.Texture.prototype.recoverFromLostContext = function() {
@@ -99,30 +101,34 @@ tdl.textures.Texture.prototype.bindToUnit = function(unit) {
  * @param {*} opt_updateOb Object with update function to call
  *     when images have been uploaded into texture.
  */
-tdl.textures.CubeMap = function(urls, updateOb) {
+tdl.textures.CubeMap = function(urls, opt_updateOb) {
   // TODO(gman): make this global.
-  this.faceTargets = [
-    gl.TEXTURE_CUBE_MAP_POSITIVE_X,
-    gl.TEXTURE_CUBE_MAP_NEGATIVE_X,
-    gl.TEXTURE_CUBE_MAP_POSITIVE_Y,
-    gl.TEXTURE_CUBE_MAP_NEGATIVE_Y,
-    gl.TEXTURE_CUBE_MAP_POSITIVE_Z,
-    gl.TEXTURE_CUBE_MAP_NEGATIVE_Z];
+  if (!tdl.textures.CubeMap.faceTargets) {
+    tdl.textures.CubeMap.faceTargets = [
+      gl.TEXTURE_CUBE_MAP_POSITIVE_X,
+      gl.TEXTURE_CUBE_MAP_NEGATIVE_X,
+      gl.TEXTURE_CUBE_MAP_POSITIVE_Y,
+      gl.TEXTURE_CUBE_MAP_NEGATIVE_Y,
+      gl.TEXTURE_CUBE_MAP_POSITIVE_Z,
+      gl.TEXTURE_CUBE_MAP_NEGATIVE_Z];
+  }
+  var faceTargets = tdl.textures.CubeMap.faceTargets;
   var tex = gl.createTexture();
   this.texture = tex;
-  this.updateOb = updateOb;
-  var faces = [];
+  this.updateOb = opt_updateOb;
+  this.faces = [];
+  var that = this;
   for (var ff = 0; ff < faceTargets.length; ++ff) {
     var face = { };
-    faces[ff] = face;
-    var img = document.createImage('img');
+    this.faces[ff] = face;
+    var img = document.createElement('img');
     face.img = img;
     img.onload = function(faceIndex) {
-      var that = this;
       return function() {
         that.updateTexture(faceIndex);
       }
-    } (faceIndex);
+    } (ff);
+    img.src = urls[ff];
   }
   this.uploadTextures();
 };
@@ -145,18 +151,19 @@ tdl.textures.CubeMap.prototype.loaded = function() {
  */
 tdl.textures.CubeMap.prototype.uploadTextures = function() {
   var all6FacesLoaded = this.loaded();
+  var faceTargets = tdl.textures.CubeMap.faceTargets;
   for (var faceIndex = 0; faceIndex < this.faces.length; ++faceIndex) {
     var face = this.faces[faceIndex];
-    var target = this.faceTargets[faceIndex];
-    gl.bindTexture(target, this.texture);
+    var target = faceTargets[faceIndex];
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.texture);
     if (all6FacesLoaded) {
       gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, face.img);
-      gl.generateMipmap(target);
     } else {
       var pixel = new Uint8Array([100,100,255,255]);
-      gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+      gl.texImage2D(target, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
     }
   }
+  gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
 };
 
 /**
@@ -172,13 +179,16 @@ tdl.textures.CubeMap.prototype.recoverFromLostContext = function() {
  */
 tdl.textures.CubeMap.prototype.updateTexture = function(faceIndex) {
   // mark the face as loaded
+console.log("mark face " + faceIndex + " as loaded");
   var face = this.faces[faceIndex];
   face.loaded = true;
   // If all 6 faces are loaded then upload to GPU.
   var loaded = this.loaded();
   if (loaded) {
     this.uploadTextures();
-    this.updateOb.update();
+    if (this.updateOb) {
+      this.updateOb.update();
+    }
   }
 };
 

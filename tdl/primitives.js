@@ -44,6 +44,141 @@ tdl.require('tdl.math');
  */
 tdl.primitives = tdl.primitives || {};
 
+/**
+ * AttriBuffer manages a TypedArray as an array of vectors.
+ *
+ * @param {number} numComponents Number of components per
+ *     vector.
+ * @param {number} numElements Number of vectors.
+ * @param {string} opt_type The type of the TypedArray to
+ *     create. Default = 'Float32Array'.
+ */
+tdl.primitives.AttribBuffer = function(numComponents, numElements, opt_type) {
+  opt_type = opt_type || 'Float32Array';
+  var type = window[opt_type];
+  this.buffer = new type(numComponents * numElements);
+  this.cursor = 0;
+  this.numComponents = numComponents;
+  this.numElements = numElements;
+};
+
+tdl.primitives.AttribBuffer.prototype.stride = function() {
+  return 0;
+};
+
+tdl.primitives.AttribBuffer.prototype.offset = function() {
+  return 0;
+};
+
+tdl.primitives.AttribBuffer.prototype.getElement = function(index) {
+  var offset = index * this.numComponents;
+  var value = [];
+  for (var ii = 0; ii < this.numComponents; ++ii) {
+    value.push(this.buffer[offset + ii]);
+  }
+  return value;
+};
+
+tdl.primitives.AttribBuffer.prototype.setElement = function(index, value) {
+  var offset = index * this.numComponents;
+  for (var ii = 0; ii < this.numComponents; ++ii) {
+    this.buffer[offset + ii] = value[ii];
+  }
+};
+
+tdl.primitives.AttribBuffer.prototype.push = function(value) {
+  this.setElement(this.cursor++, value);
+};
+
+/**
+ * Reorients positions by the given matrix. In other words, it
+ * multiplies each vertex by the given matrix.
+ * @param {!tdl.primitives.AttribBuffer} array AttribBuffer to
+ *     reorient.
+ * @param {!tdl.math.Matrix4} matrix Matrix by which to
+ *     multiply.
+ */
+tdl.primitives.reorientPositions = function(array, matrix) {
+  var math = tdl.math;
+  var matrixInverse = math.inverse(math.matrix4.getUpper3x3(matrix));
+
+  var numElements = array.numElements;
+  for (var ii = 0; ii < numElements; ++ii) {
+    array.setElement(ii,
+        math.matrix4.transformPoint(matrix,
+            array.getElement(ii)));
+  }
+};
+
+/**
+ * Reorients normals by the inverse-transpose of the given
+ * matrix..
+ * @param {!tdl.primitives.AttribBuffer} array AttribBuffer to
+ *     reorient.
+ * @param {!tdl.math.Matrix4} matrix Matrix by which to
+ *     multiply.
+ */
+tdl.primitives.reorientNormals = function(array, matrix) {
+  var math = tdl.math;
+  var matrixInverse = math.inverse(math.matrix4.getUpper3x3(matrix));
+
+  var numElements = array.numElements();
+  for (var ii = 0; ii < numElements; ++ii) {
+    array.setElementVector(ii,
+        math.matrix4.transformNormal(matrix,
+            array.getElement(ii)));
+  }
+};
+
+/**
+ * Reorients directions by the given matrix..
+ * @param {!tdl.primitives.AttribBuffer} array AttribBuffer to
+ *     reorient.
+ * @param {!tdl.math.Matrix4} matrix Matrix by which to
+ *     multiply.
+ */
+tdl.primitives.reorientDirections = function(array, matrix) {
+  var math = tdl.math;
+
+  var numElements = array.numElements();
+  for (var ii = 0; ii < numElements; ++ii) {
+    array.setElement(ii,
+        math.matrix4.transformDirection(matrix,
+            array.getElement(ii)));
+  }
+};
+
+/**
+ * Reorients arrays by the given matrix. Assumes arrays have
+ * names that start with 'position', 'normal', 'tangent',
+ * 'binormal'
+ *
+ * @param {!Object.<string, !tdl.primitive.AttribBuffer>} arrays
+ *        The arrays to remap.
+ * @param {!tdl.math.Matrix4} matrix The matrix to remap by
+ */
+tdl.primitives.reorient = function(arrays, matrix) {
+  for (var array in arrays) {
+    if (array.match(/^position/)) {
+      tdl.primitives.reorientPositions(arrays[array], matrix);
+    } else if (array.match(/^normal/)) {
+      tdl.primitives.reorientNormals(arrays[array], matrix);
+    } else if (array.match(/^tangent/) || array.match(/^binormal/)) {
+      tdl.primitives.reorientDirections(arrays[array], matrix);
+    }
+  }
+};
+
+/**
+ * Creats tangents and normals.
+ *
+ * @param {!AttibArray} positionArray Positions
+ * @param {!AttibArray} normalArray Normals
+ * @param {!AttibArray} normalMapUVArray UVs for the normal map.
+ * @param {!AttibArray} triangles The indicies of the trianlges.
+ * @returns {!{tangent: {!AttribArray},
+ *     binormal: {!AttribArray}}
+ */
 tdl.primitives.createTangentsAndBinormals = function(
     positionArray, normalArray, normalMapUVArray, triangles) {
   var math = tdl.math;
@@ -169,43 +304,22 @@ tdl.primitives.createTangentsAndBinormals = function(
     binormal: binormals};
 };
 
-tdl.primitives.AttribBuffer = function(numComponents, numElements, opt_type) {
-  opt_type = opt_type || 'Float32Array';
-  var type = window[opt_type];
-  this.buffer = new type(numComponents * numElements);
-  this.cursor = 0;
-  this.numComponents = numComponents;
-  this.numElements = numElements;
-}
-
-tdl.primitives.AttribBuffer.prototype.stride = function() {
-  return 0;
-}
-
-tdl.primitives.AttribBuffer.prototype.offset = function() {
-  return 0;
-}
-
-tdl.primitives.AttribBuffer.prototype.getElement = function(index) {
-  var offset = index * this.numComponents;
-  var value = [];
-  for (var ii = 0; ii < this.numComponents; ++ii) {
-    value.push(this.buffer[offset + ii]);
-  }
-  return value;
-}
-
-tdl.primitives.AttribBuffer.prototype.setElement = function(index, value) {
-  var offset = index * this.numComponents;
-  for (var ii = 0; ii < this.numComponents; ++ii) {
-    this.buffer[offset + ii] = value[ii];
-  }
-};
-
-tdl.primitives.AttribBuffer.prototype.push = function(value) {
-  this.setElement(this.cursor++, value);
-};
-
+/**
+ * Creates sphere vertices.
+ * The created sphere has position, normal and uv streams.
+ *
+ * @param {number} radius radius of the sphere.
+ * @param {number} subdivisionsAxis number of steps around the sphere.
+ * @param {number} subdivisionsHeight number of vertically on the sphere.
+ * @param {number} opt_startLatitudeInRadians where to start the
+ *     top of the sphere. Default = 0.
+ * @param {number} opt_endLatitudeInRadians Where to end the
+ *     bottom of the sphere. Default = Math.PI.
+ * @param {number} opt_startLongitudeInRadians where to start
+ *     wrapping the sphere. Default = 0.
+ * @param {number} opt_endLongitudeInRadians where to end
+ *     wrapping the sphere. Default = 2 * Math.PI.
+ */
 tdl.primitives.createSphere = function(
     radius,
     subdivisionsAxis,
@@ -258,7 +372,6 @@ tdl.primitives.createSphere = function(
   var numVertsAround = subdivisionsAxis + 1;
   var indices = new tdl.primitives.AttribBuffer(
       3, subdivisionsAxis * subdivisionsHeight * 2, 'Uint16Array');
-
   for (var x = 0; x < subdivisionsAxis; x++) {
     for (var y = 0; y < subdivisionsHeight; y++) {
       // Make triangle 1 of quad.
@@ -308,5 +421,74 @@ tdl.primitives.createBumpmapSphere = function(
   return arrays;
 };
 
+/**
+ * Creates XZ plane vertices.
+ * The created plane has position, normal and uv streams.
+ *
+ * @param {number} width Width of the plane.
+ * @param {number} depth Depth of the plane.
+ * @param {number} subdivisionsWidth Number of steps across the plane.
+ * @param {number} subdivisionsDepth Number of steps down the plane.
+ * @param {!o3djs.math.Matrix4} opt_matrix A matrix by which to multiply
+ *     all the vertices.
+ * @return {!o3djs.primitives.VertexInfo} The created plane vertices.
+ */
+tdl.primitives.createPlane = function(
+    width,
+    depth,
+    subdivisionsWidth,
+    subdivisionsDepth) {
+  if (subdivisionsWidth <= 0 || subdivisionsDepth <= 0) {
+    throw Error('subdivisionWidth and subdivisionDepth must be > 0');
+  }
 
+  // We are going to generate our sphere by iterating through its
+  // spherical coordinates and generating 2 triangles for each quad on a
+  // ring of the sphere.
+  var numVertices = (subdivisionsWidth + 1) * (subdivisionsDepth + 1);
+  var positions = new tdl.primitives.AttribBuffer(3, numVertices);
+  var normals = new tdl.primitives.AttribBuffer(3, numVertices);
+  var texCoords = new tdl.primitives.AttribBuffer(2, numVertices);
+
+  // Generate the individual vertices in our vertex buffer.
+  for (var z = 0; z <= subdivisionsDepth; z++) {
+    for (var x = 0; x <= subdivisionsWidth; x++) {
+      // Generate a vertex based on its spherical coordinates
+      var u = x / subdivisionsWidth;
+      var v = z / subdivisionsDepth;
+      positions.push([
+          width * u - width * 0.5,
+          0,
+          depth * v - depth * 0.5]);
+      normals.push([0, 1, 0]);
+      texCoords.push([u, v]);
+    }
+  }
+
+  var numVertsAcross = subdivisionsWidth + 1;
+  var indices = new tdl.primitives.AttribBuffer(
+      3, subdivisionsWidth * subdivisionsDepth * 2, 'Uint16Array');
+
+  for (var z = 0; z < subdivisionsDepth; z++) {
+    for (var x = 0; x < subdivisionsWidth; x++) {
+      // Make triangle 1 of quad.
+      indices.push([
+          (z + 0) * numVertsAcross + x,
+          (z + 1) * numVertsAcross + x,
+          (z + 0) * numVertsAcross + x + 1]);
+
+      // Make triangle 2 of quad.
+      indices.push([
+          (z + 1) * numVertsAcross + x,
+          (z + 1) * numVertsAcross + x + 1,
+          (z + 0) * numVertsAcross + x + 1]);
+    }
+  }
+
+  return {
+    position: positions,
+    normal: normals,
+    texCoord: texCoords,
+    indices: indices};
+};
 

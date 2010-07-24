@@ -14,6 +14,22 @@ var log = function(msg) {
   }
 };
 
+/**
+ * Wrapped logging function.
+ * @param {string} msg The message to log.
+ */
+var error = function(msg) {
+  if (window.console) {
+    if (window.console.error) {
+      window.console.error(msg);
+    }
+    else if (window.console.log) {
+      window.console.log(msg);
+    }
+  }
+};
+
+
 var lastError = "";
 
 var testFailed = function(msg) {
@@ -119,7 +135,7 @@ var setupProgram = function(gl, shaders, attribs, opt_locations) {
   if (!linked) {
       // something went wrong with the link
       lastError = gl.getProgramInfoLog (program);
-      log("Error in program linking:" + lastError);
+      error("Error in program linking:" + lastError);
 
       gl.deleteProgram(program);
       return null;
@@ -375,7 +391,7 @@ function create3DContextWithWrapperThatThrowsOnGLError(canvas) {
         wrap[i] = context[i];
       }
     } catch (e) {
-      log("createContextWrapperThatThrowsOnGLError: Error accessing " + i);
+      error("createContextWrapperThatThrowsOnGLError: Error accessing " + i);
     }
   }
   wrap.getError = function() {
@@ -558,7 +574,7 @@ var loadShader = function(gl, shaderSource, shaderType) {
   // Create the shader object
   var shader = gl.createShader(shaderType);
   if (shader == null) {
-    log("*** Error: unable to create shader '"+shaderSource+"'");
+    error("*** Error: unable to create shader '"+shaderSource+"'");
     return null;
   }
 
@@ -573,7 +589,7 @@ var loadShader = function(gl, shaderSource, shaderType) {
   if (!compiled) {
     // Something went wrong during compilation; get the error
     lastError = gl.getShaderInfoLog(shader);
-    log("*** Error compiling shader '" + shader + "':" + lastError);
+    error("*** Error compiling shader '" + shader + "':" + lastError);
     gl.deleteShader(shader);
     return null;
   }
@@ -770,6 +786,7 @@ return {
   loadStandardVertexShader: loadStandardVertexShader,
   loadStandardFragmentShader: loadStandardFragmentShader,
   log: log,
+  error: error,
   setupProgram: setupProgram,
   setupSimpleTextureFragmentShader: setupSimpleTextureFragmentShader,
   setupSimpleTextureProgram: setupSimpleTextureProgram,

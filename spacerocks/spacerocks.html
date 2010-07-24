@@ -46,13 +46,23 @@ body {
 CANVAS {
   background-color: gray;
 }
+.fpsContainer {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  color: white;
+  font-family: sans-serif;
+}
 </style>
-<script type="text/javascript" src="js/webgl-test-utils.js"></script>
-<script type="text/javascript" src="js/webgl-debug.js"></script>
+<script type="text/javascript" src="../js/webgl-test-utils.js"></script>
+<script type="text/javascript" src="../js/webgl-debug.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
+tdl.require('tdl.fps');
 tdl.require('tdl.math');
+tdl.require('tdl.models');
 tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
 tdl.require('tdl.textures');
@@ -64,6 +74,38 @@ var wu = WebGLTestUtils;  // some webgl utils
 var wd = WebGLDebugUtils; // more webgl utils
 var canvas;               // the canvas
 var math;                 // the math lib.
+var g_fpsTimer;           // object to measure frames per second;
+var logGLCalls = true     // whether or not to log webgl calls
+var debug = true;         // whether or not to debug.
+//debug = false;
+
+var g_numMeteorsAcross = 3;
+var g_eyeSpeed         = 1;
+var g_eyeHeight        = 16;
+var g_eyeRadius        = 50;
+
+function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
+  for (var ii = 0; ii < args.length; ++ii) {
+    if (args[ii] === undefined) {
+      console.error("undefined passed to gl." + functionName + "(" +
+                wd.glFunctionArgsToString(functionName, args) + ")");
+    }
+  }
+}
+
+function Log(msg) {
+  if (logGLCalls) {
+    wu.log(msg);
+  }
+}
+
+function LogGLCall(functionName, args) {
+  if (logGLCalls) {
+    ValidateNoneOfTheArgsAreUndefined(functionName, args)
+    console.log("gl." + functionName + "(" +
+                wd.glFunctionArgsToString(functionName, args) + ")");
+  }
+}
 
 function createProgramFromTags(vertexTagId, fragmentTagId) {
   return new tdl.programs.Program(
@@ -71,98 +113,161 @@ function createProgramFromTags(vertexTagId, fragmentTagId) {
       document.getElementById(fragmentTagId).text);
 }
 
-function flatten(array){
-  var flat = [];
-  for (var i = 0, l = array.length; i < l; i++) {
-    var type = Object.prototype.toString.call(array[i]).split(' ').pop().split(']').shift().toLowerCase();
-    if (type) { flat = flat.concat(/^(array|collection|arguments|object)$/.test(type) ? flatten(array[i]) : array[i]); }
-  }
-  return flat;
+function setupMeteor() {
+  var textures = {
+    diffuseSampler: new tdl.textures.Texture('assets/rock-color.png'),
+    bumpSampler: new tdl.textures.Texture('assets/rock-nmap.png')
+  };
+  var program = createProgramFromTags(
+      'normalMapVertexShader',
+      'normalMapFragmentShader');
+  var arrays = tdl.primitives.createBumpmapSphere(1, 10, 10);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+function setupSkybox() {
+  var textures = {
+    skybox: new tdl.textures.CubeMap([
+        'assets/terrain_positive_x.png',
+        'assets/terrain_negative_x.png',
+        'assets/terrain_positive_y.png',
+        'assets/terrain_negative_y.png',
+        'assets/terrain_positive_z.png',
+        'assets/terrain_negative_z.png'])
+  };
+  var program = createProgramFromTags(
+      'skyboxVertexShader',
+      'skyboxFragmentShader');
+  var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
+  delete arrays['normal'];
+  delete arrays['texCoord'];
+  tdl.primitives.reorient(arrays,
+      [[1, 0, 0, 0],
+       [0, 0, 1, 0],
+       [0,-1, 0, 0],
+       [0, 0, 0.99, 1]]);
+  return new tdl.models.Model(program, arrays, textures);
 }
 
 function initialize() {
   math = tdl.math;
   canvas = document.getElementById("canvas");
+  g_fpsTimer = new tdl.fps.FPSTimer();
   gl = wu.create3DContext(canvas);
-  gl = wd.makeDebugContext(gl);
+  if (debug) {
+    gl = wd.makeDebugContext(gl, undefined, LogGLCall);
+  }
   gl.disable(gl.BLEND);
   gl.enable(gl.DEPTH_TEST);
-  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
-  updateOb = {
-    update: function() { }
-  };
-  var colorMap = new tdl.textures.Texture('assets/rock-color.png', updateOb);
-  var normalMap = new tdl.textures.Texture('assets/rock-nmap.png', updateOb);
-  program = createProgramFromTags(
-      'normalMapVertexShader',
-      'normalMapFragmentShader');
-  arrays = tdl.primitives.createBumpmapSphere(1, 30, 30);
-  buffers = { };
-  for (name in arrays) {
-    var target = (name == 'indices') ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER;
-    var b = new tdl.buffers.Buffer(arrays[name], target);
-    buffers[name] = b;
-  }
-  program.use();
-  for (buffer in buffers) {
-    if (buffer == 'indices') {
-      continue;
-    }
-    var b = buffers[buffer];
-    program.attrib[buffer](b);
-  }
+//  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
 
-  var eyePosition = [3, 4, 14];
-  var lightPosition = [6, 9, 14];
-  var projection = math.matrix4.perspective(
-      math.degToRad(30),
-      canvas.clientWidth / canvas.clientHeight,
-      1,
-      5000);
-  var view = math.matrix4.lookAt(
-      eyePosition,
-      [0, 0, 0],
-      [0, 1, 0]);
-  var world = math.matrix4.identity();
-  var viewProjection = math.matrix4.mul(view, projection);
-  var worldViewProjection = math.matrix4.mul(world, viewProjection);
-  var viewInverse = math.matrix4.inverse(view);
-  var worldInverse = math.matrix4.inverse(world);
-  var worldInverseTranspose = math.transpose(worldInverse);
-  //console.log("world:" + world);
-  //console.log("view:" + view);
-  //console.log("projection:" + projection);
-  //console.log("viewProjection:" + viewProjection);
-  //console.log("wvp:" + worldViewProjection);
+  Log("--Setup Meteor---------------------------------------");
+  var meteor = setupMeteor();
+  Log("--Setup Skybox---------------------------------------");
+  var skybox = setupSkybox();
 
-  program.setUniform('worldViewProjection', flatten(worldViewProjection));
-  program.setUniform('lightColor', [1,1,1,1]);
-  program.setUniform('lightWorldPos', lightPosition);
-  program.setUniform('world', flatten(world));
-  program.setUniform('viewInverse', flatten(viewInverse));
-  program.setUniform('worldInverseTranspose', flatten(worldInverseTranspose));
-  program.setUniform('emissive', [0,0,0,1]);
-  program.setUniform('ambient', [0,0,0,0]);
-  program.setUniform('specular', [1,1,1,1]);
-  program.setUniform('shininess', 50);
-  program.setUniform('specularFactor', 1.3);
-  program.setUniform('diffuseSampler', 0);
-  program.setUniform('bumpSampler', 1);
+  var then = 0.0;
+  var clock = 0.0;
+  var fpsElem = document.getElementById("fps");
 
-  updateOb.update = render;
-  render();
-
+  var intervalId = setInterval(render, 1000.0 / 70.0);
   function render() {
+//    clearInterval(intervalId);
+    var now = (new Date()).getTime() * 0.001;
+    var elapsedTime;
+    if(then == 0.0) {
+      elapsedTime = 0.0;
+    } else {
+      elapsedTime = now - then;
+    }
+    then = now;
+
+    g_fpsTimer.update(elapsedTime);
+    fps.innerHTML = g_fpsTimer.averageFPS;
+
+    clock += elapsedTime;
+    eyePosition = [
+        Math.sin(clock * g_eyeSpeed) * g_eyeRadius,
+        g_eyeHeight,
+        Math.cos(clock * g_eyeSpeed) * g_eyeRadius];
+
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
-    colorMap.bindToUnit(0);
-    normalMap.bindToUnit(1);
-    gl.drawElements(gl.TRIANGLES, buffers.indices.totalComponents(), gl.UNSIGNED_SHORT, 0);
+
+    var projection = math.matrix4.perspective(
+        math.degToRad(30),
+        canvas.clientWidth / canvas.clientHeight,
+        1,
+        5000);
+    var view = math.matrix4.lookAt(
+        eyePosition,
+        [0, 0, 0],
+        [0, 1, 0]);
+    var viewProjection = math.matrix4.mul(view, projection);
+    var viewInverse = math.matrix4.inverse(view);
+    var viewProjectionInverse = math.matrix4.inverse(viewProjection);
+
+//      view: view,
+//      projection: projection,
+//      viewProjection: viewProjection,
+
+    // Draw Skybox
+    skybox.drawPrep({});
+    skybox.draw({
+        viewProjectionInverse: viewProjectionInverse,
+      });
+
+    // Draw Meteors.
+    var constUniforms = {
+      viewInverse: viewInverse,
+      eyePosition: eyePosition,
+      lightWorldPos: math.addVector(
+          math.addVector(
+            eyePosition,
+            math.mulVectorScalar(viewInverse[0].slice(0, 3), 20)),
+          math.mulVectorScalar(viewInverse[1].slice(0, 3), 30)),
+      lightColor: [1,1,1,1],
+      emissive: [0,0,0,1],
+      ambient: [0,0,0,0],
+      specular: [1,1,1,1],
+      shininess: 50,
+      specularFactor: 1.0
+    };
+
+    Log("--Draw Meteor---------------------------------------");
+    meteor.drawPrep(constUniforms);
+    for (var zz = 0; zz < g_numMeteorsAcross; ++zz) {
+      for (var xx = 0; xx < g_numMeteorsAcross; ++xx) {
+        var range = g_numMeteorsAcross - 1;
+        var half = range * 0.5;
+        var x = xx - half;
+        var z = zz - half;
+        var scale = 1.0 + range - (Math.abs(x) + Math.abs(z));
+        var world = math.matrix4.mul(
+            math.matrix4.translation([x * 3, 0, z * 3]),
+            math.matrix4.scaling([scale, scale, scale]));
+        var worldViewProjection = math.matrix4.mul(world, viewProjection);
+        var worldInverse = math.matrix4.inverse(world);
+        var worldInverseTranspose = math.transpose(worldInverse);
+        var uniforms = {
+          world: world,
+          worldViewProjection: worldViewProjection,
+          worldInverse: worldInverse,
+          worldInverseTranspose: worldInverseTranspose,
+        };
+        meteor.draw(uniforms);
+      }
+    }
+
+    // turn off logging after 1 frame.
+    logGLCalls = false;
   }
+
 
 }
 </script>
 </head>
 <body>
+<div class="fpsContainer">fps: <span id="fps"></div>
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </body>
 <!--
@@ -266,6 +371,28 @@ void main() {
   lightColor * (ambient * diffuse + diffuse * litR.y +
                         + specular * litR.z * specularFactor)).rgb,
       diffuse.a);
+}
+</script>
+<!-- ===[ SkyBox ]============================================== -->
+<script id="skyboxVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+varying vec4 v_position;
+void main() {
+  v_position = position;
+  gl_Position = position;
+}
+</script>
+<script id="skyboxFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform samplerCube skybox;
+uniform mat4 viewProjectionInverse;
+varying vec4 v_position;
+void main() {
+  gl_FragColor = textureCube(
+      skybox,
+      normalize((viewProjectionInverse * v_position).xyz));
 }
 </script>
 </html>

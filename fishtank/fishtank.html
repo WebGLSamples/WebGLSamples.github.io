@@ -41,120 +41,360 @@ body {
   border: 0px;
   padding: 0px;
   margin: 0px;
-  background-color: black;
+  background-color: red;
+}
+CANVAS {
+  background-color: gray;
+}
+.fpsContainer {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  color: white;
+  font-family: sans-serif;
 }
 </style>
+<script type="text/javascript" src="js/webgl-test-utils.js"></script>
+<script type="text/javascript" src="js/webgl-debug.js"></script>
+<script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
+tdl.require('tdl.buffers');
+tdl.require('tdl.fps');
+tdl.require('tdl.math');
+tdl.require('tdl.models');
+tdl.require('tdl.primitives');
+tdl.require('tdl.programs');
+tdl.require('tdl.textures');
 window.onload = initialize;
 
-function AttribBuffer(numComponents, numElements, opt_type) {
-  opt_type = opt_type || 'Float32Array';
-  var type = window[opt_type];
-  this.buffer = new type(numComponents * numElements);
-  this.cursor = 0;
-  this.numComponents = numComponents;
-  this.numElements = numElements;
+// globals
+var gl;                   // the gl context.
+var wu = WebGLTestUtils;  // some webgl utils
+var wd = WebGLDebugUtils; // more webgl utils
+var canvas;               // the canvas
+var math;                 // the math lib.
+var g_fpsTimer;           // object to measure frames per second;
+var logGLCalls = true     // whether or not to log webgl calls
+var debug = true;         // whether or not to debug.
+//debug = false;
+
+var g_numMeteorsAcross = 3;
+var g_eyeSpeed         = 1;
+var g_eyeHeight        = 16;
+var g_eyeRadius        = 50;
+
+function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
+  for (var ii = 0; ii < args.length; ++ii) {
+    if (args[ii] === undefined) {
+      console.error("undefined passed to gl." + functionName + "(" +
+                wd.glFunctionArgsToString(functionName, args) + ")");
+    }
+  }
 }
 
-AttribBuffer.prototype.setElement = function(index, value) {
-  var offset = index * this.numComponents;
-  for (var ii = 0; ii < this.numComponents; ++ii) {
-    this.buffer[offset + ii] = value[ii];
+function Log(msg) {
+  if (logGLCalls) {
+    wu.log(msg);
   }
-};
+}
 
-AttribBuffer.prototype.push = function(value) {
-  this.setElement(this.cursor++, value);
-};
-
-function createSphere(radius,
-                      subdivisionsAxis,
-                      subdivisionsHeight,
-                      opt_startLatitudeInRadians,
-                      opt_endLatitudeInRadians,
-                      opt_startLongitudeInRadians,
-                      opt_endLongitudeInRadians) {
-  if (subdivisionsAxis <= 0 || subdivisionsHeight <= 0) {
-    throw Error('subdivisionAxis and subdivisionHeight must be > 0');
+function LogGLCall(functionName, args) {
+  if (logGLCalls) {
+    ValidateNoneOfTheArgsAreUndefined(functionName, args)
+    console.log("gl." + functionName + "(" +
+                wd.glFunctionArgsToString(functionName, args) + ")");
   }
+}
 
-  opt_startLatitdueInRadians = opt_startLatitdueInRadians || 0;
-  opt_endLatitdueInRadians = opt_EndLatitdueInRadians || Math.PI;
-  opt_startLongitdueInRadians = opt_startLongitdueInRadians || 0;
-  opt_endLongitdueInRadians = opt_EndLongitdueInRadians || (Math.PI * 2);
+function createProgramFromTags(vertexTagId, fragmentTagId) {
+  return new tdl.programs.Program(
+      document.getElementById(vertexTagId).text,
+      document.getElementById(fragmentTagId).text);
+}
 
-  latRange = opt_endLatitudeInRadians - opt_startLatitudeInRadians;
-  longRange = opt_endLongitudeInRadians - opt_startLongitudeInRadians;
-
-  // We are going to generate our sphere by iterating through its
-  // spherical coordinates and generating 2 triangles for each quad on a
-  // ring of the sphere.
-  var numVertices = (subdivisionsAxis + 1) * (subdivisionsHeight + 1);
-  var positions = new AttribBuffer(3, numVertices);
-  var normals = new AttribBuffer(3, numVertices);
-  var texCoords = new AttribBuffer(2, numVertices);
-
-  var positionOffset = 0;
-  var normalOffset = 0;
-  var texCoords = 0;
-  // Generate the individual vertices in our vertex buffer.
-  for (var y = 0; y <= subdivisionsHeight; y++) {
-    for (var x = 0; x <= subdivisionsAxis; x++) {
-      // Generate a vertex based on its spherical coordinates
-      var u = x / subdivisionsAxis;
-      var v = y / subdivisionsHeight;
-      var theta = longRange * u;
-      var phi = latRange * v;
-      var sinTheta = Math.sin(theta);
-      var cosTheta = Math.cos(theta);
-      var sinPhi = Math.sin(phi);
-      var cosPhi = Math.cos(phi);
-      var ux = cosTheta * sinPhi;
-      var uy = cosPhi;
-      var uz = sinTheta * sinPhi;
-      positions.push([radius * ux, radius * uy, radius * uz]);
-      normals.push([ux, uy, uz]);
-      texCoords.push([u, v]);
-    }
-  }
-
-  var numVertsAround = subdivisionsAxis + 1;
-  var indices = new AttribBuffer(
-      3, subdivisionsAxis * subdivisionsHeight, 'Uint16Array');
-
-  for (var x = 0; x < subdivisionsAxis; x++) {
-    for (var y = 0; y < subdivisionsHeight; y++) {
-      // Make triangle 1 of quad.
-      indices.push([
-          (y + 0) * numVertsAround + x,
-          (y + 0) * numVertsAround + x + 1,
-          (y + 1) * numVertsAround + x]);
-
-      // Make triangle 2 of quad.
-      indices.push([
-          (y + 1) * numVertsAround + x,
-          (y + 0) * numVertsAround + x + 1,
-          (y + 1) * numVertsAround + x + 1]);
-    }
-  }
-
-  return {
-    positions: position,
-    normals: normals,
-    texCoords: texCoords
+function setupMeteor() {
+  var textures = {
+    diffuseSampler: new tdl.textures.Texture('assets/rock-color.png'),
+    bumpSampler: new tdl.textures.Texture('assets/rock-nmap.png')
   };
-};
+  var program = createProgramFromTags(
+      'normalMapVertexShader',
+      'normalMapFragmentShader');
+  var arrays = tdl.primitives.createBumpmapSphere(1, 10, 10);
+  return new tdl.models.Model(program, arrays, textures);
+}
 
+function setupSkybox() {
+  var textures = {
+    skybox: new tdl.textures.CubeMap([
+        'assets/room_positive_x.png',
+        'assets/room_negative_x.png',
+        'assets/room_positive_y.png',
+        'assets/room_negative_y.png',
+        'assets/room_positive_z.png',
+        'assets/room_negative_z.png'])
+  };
+  var program = createProgramFromTags(
+      'skyboxVertexShader',
+      'skyboxFragmentShader');
+  var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
+  delete arrays['normal'];
+  delete arrays['texCoord'];
+  tdl.primitives.reorient(arrays,
+      [[1, 0, 0, 0],
+       [0, 0, 1, 0],
+       [0,-1, 0, 0],
+       [0, 0, 0.99, 1]]);
+  return new tdl.models.Model(program, arrays, textures);
+}
 
 function initialize() {
-  var canvas = document.getElementById("canvas");
-  var ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#f00";
-  ctx.fillRect(0, 50, 300, 10);
+  math = tdl.math;
+  canvas = document.getElementById("canvas");
+  g_fpsTimer = new tdl.fps.FPSTimer();
+  gl = wu.create3DContext(canvas);
+  if (debug) {
+    gl = wd.makeDebugContext(gl, undefined, LogGLCall);
+  }
+  gl.disable(gl.BLEND);
+  gl.enable(gl.DEPTH_TEST);
+//  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
+
+  Log("--Setup Meteor---------------------------------------");
+  var meteor = setupMeteor();
+  Log("--Setup Skybox---------------------------------------");
+  var skybox = setupSkybox();
+
+  var then = 0.0;
+  var clock = 0.0;
+  var fpsElem = document.getElementById("fps");
+
+  var intervalId = setInterval(render, 1000.0 / 70.0);
+  function render() {
+//    clearInterval(intervalId);
+    var now = (new Date()).getTime() * 0.001;
+    var elapsedTime;
+    if(then == 0.0) {
+      elapsedTime = 0.0;
+    } else {
+      elapsedTime = now - then;
+    }
+    then = now;
+
+    g_fpsTimer.update(elapsedTime);
+    fps.innerHTML = g_fpsTimer.averageFPS;
+
+    clock += elapsedTime;
+    eyePosition = [
+        Math.sin(clock * g_eyeSpeed) * g_eyeRadius,
+        g_eyeHeight,
+        Math.cos(clock * g_eyeSpeed) * g_eyeRadius];
+
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+    var projection = math.matrix4.perspective(
+        math.degToRad(30),
+        canvas.clientWidth / canvas.clientHeight,
+        1,
+        5000);
+    var view = math.matrix4.lookAt(
+        eyePosition,
+        [0, 0, 0],
+        [0, 1, 0]);
+    var viewProjection = math.matrix4.mul(view, projection);
+    var viewInverse = math.matrix4.inverse(view);
+    var viewProjectionInverse = math.matrix4.inverse(viewProjection);
+
+//      view: view,
+//      projection: projection,
+//      viewProjection: viewProjection,
+
+    // Draw Skybox
+    skybox.drawPrep({});
+    skybox.draw({
+        viewProjectionInverse: viewProjectionInverse,
+      });
+
+    // Draw Meteors.
+    var constUniforms = {
+      viewInverse: viewInverse,
+      eyePosition: eyePosition,
+      lightWorldPos: math.addVector(
+          math.addVector(
+            eyePosition,
+            math.mulVectorScalar(viewInverse[0].slice(0, 3), 20)),
+          math.mulVectorScalar(viewInverse[1].slice(0, 3), 30)),
+      lightColor: [1,1,1,1],
+      emissive: [0,0,0,1],
+      ambient: [0,0,0,0],
+      specular: [1,1,1,1],
+      shininess: 50,
+      specularFactor: 1.0
+    };
+
+    Log("--Draw Meteor---------------------------------------");
+    meteor.drawPrep(constUniforms);
+    for (var zz = 0; zz < g_numMeteorsAcross; ++zz) {
+      for (var xx = 0; xx < g_numMeteorsAcross; ++xx) {
+        var range = g_numMeteorsAcross - 1;
+        var half = range * 0.5;
+        var x = xx - half;
+        var z = zz - half;
+        var scale = 1.0 + range - (Math.abs(x) + Math.abs(z));
+        var world = math.matrix4.mul(
+            math.matrix4.translation([x * 3, 0, z * 3]),
+            math.matrix4.scaling([scale, scale, scale]));
+        var worldViewProjection = math.matrix4.mul(world, viewProjection);
+        var worldInverse = math.matrix4.inverse(world);
+        var worldInverseTranspose = math.transpose(worldInverse);
+        var uniforms = {
+          world: world,
+          worldViewProjection: worldViewProjection,
+          worldInverse: worldInverse,
+          worldInverseTranspose: worldInverseTranspose,
+        };
+        meteor.draw(uniforms);
+      }
+    }
+
+    // turn off logging after 1 frame.
+    logGLCalls = false;
+  }
+
+
 }
 </script>
 </head>
 <body>
-<canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas></body>
+<div class="fpsContainer">fps: <span id="fps"></div>
+<canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
+</body>
+<!--
+<script id="constVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+//attribute vec3 normal;
+//attribute vec2 texCoord;
+//varying vec2 v_texCoord;
+//varying vec3 v_normal;
+uniform mat4 worldViewProjection;
+void main() {
+  //v_texCoord = texCoord;
+  //v_normal = normal;
+  gl_Position = (worldViewProjection * position);
+}
+</script>
+<script id="constFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+//varying vec2 v_texCoord;
+//varying vec3 v_normal;
+void main() {
+//  gl_FragColor = vec4(vec3(v_texCoord, 1) + v_normal, 1);
+  gl_FragColor = vec4(1, 1, 0, 1);
+}
+</script>
+-->
+<script id="normalMapVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+attribute vec3 tangent;
+attribute vec3 binormal;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+void main() {
+  v_texCoord = texCoord;
+  v_position = (worldViewProjection * position);
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;
+  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="normalMapFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform vec4 lightColor;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform vec4 emissive;
+uniform vec4 ambient;
+uniform sampler2D diffuseSampler;
+uniform vec4 specular;
+uniform sampler2D bumpSampler;
+uniform float shininess;
+uniform float specularFactor;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec4 diffuse = texture2D(diffuseSampler, v_texCoord);
+  mat3 tangentToWorld = mat3(v_tangent,
+                             v_binormal,
+                             v_normal);
+  vec3 tangentNormal = texture2D(bumpSampler, v_texCoord.xy).xyz -
+                                 vec3(0.5, 0.5, 0.5);
+  vec3 normal = (tangentToWorld * tangentNormal);
+  normal = normalize(normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  gl_FragColor = vec4((emissive +
+  lightColor * (ambient * diffuse + diffuse * litR.y +
+                        + specular * litR.z * specularFactor)).rgb,
+      diffuse.a);
+}
+</script>
+<!-- ===[ SkyBox ]============================================== -->
+<script id="skyboxVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+varying vec4 v_position;
+void main() {
+  v_position = position;
+  gl_Position = position;
+}
+</script>
+<script id="skyboxFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform samplerCube skybox;
+uniform mat4 viewProjectionInverse;
+varying vec4 v_position;
+void main() {
+  gl_FragColor = textureCube(
+      skybox,
+      normalize((viewProjectionInverse * v_position).xyz));
+}
+</script>
 </html>
+
 
