@@ -525,8 +525,8 @@ void main() {
   v_texCoord = texCoord;
   float s = sin(time);
   float a = sign(s);
-  float mult = position.z > 0 ? (position.z / 10) : (-position.z / 20);  // 10 = radius.
-  float offset = pow(mult, 2) * s * 20;
+  float mult = position.z > 0.0 ? (position.z / 10.0) : (-position.z / 20.0);  // 10 = radius.
+  float offset = pow(mult, 2.0) * s * 20.0;
   v_position = (
       worldViewProjection *
       (position +
@@ -653,7 +653,7 @@ void main() {
   vec4 waterColor = vec4(0,0.9,1,1);
   float fudgeAmount = 1.1;
   vec3 fudge = skyColor.rgb * vec3(fudgeAmount, fudgeAmount, fudgeAmount);
-  float bright = min(1, fudge.r * fudge.g * fudge.b);
+  float bright = min(1.0, fudge.r * fudge.g * fudge.b);
   gl_FragColor = lerp(vec4(skyColor.rgb, bright), waterColor, waterAmount);
 }
 </script>
