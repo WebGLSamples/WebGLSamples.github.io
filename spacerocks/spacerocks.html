@@ -76,8 +76,9 @@ var canvas;               // the canvas
 var math;                 // the math lib.
 var g_fpsTimer;           // object to measure frames per second;
 var logGLCalls = true     // whether or not to log webgl calls
-var debug = true;         // whether or not to debug.
-debug = false;
+var debug = false;         // whether or not to debug.
+
+//debug = true;
 
 var g_numMeteorsAcross = 3;
 var g_eyeSpeed         = 1;
@@ -108,15 +109,15 @@ function LogGLCall(functionName, args) {
 }
 
 function createProgramFromTags(vertexTagId, fragmentTagId) {
-  return new tdl.programs.Program(
+  return tdl.programs.loadProgram(
       document.getElementById(vertexTagId).text,
       document.getElementById(fragmentTagId).text);
 }
 
 function setupMeteor() {
   var textures = {
-    diffuseSampler: new tdl.textures.Texture('assets/rock-color.png'),
-    bumpSampler: new tdl.textures.Texture('assets/rock-nmap.png')
+    diffuseSampler: tdl.textures.loadTexture('assets/rock-color.png'),
+    bumpSampler: tdl.textures.loadTexture('assets/rock-nmap.png')
   };
   var program = createProgramFromTags(
       'normalMapVertexShader',
@@ -127,7 +128,7 @@ function setupMeteor() {
 
 function setupSkybox() {
   var textures = {
-    skybox: new tdl.textures.CubeMap([
+    skybox: tdl.textures.loadTexture([
         'assets/terrain_positive_x.png',
         'assets/terrain_negative_x.png',
         'assets/terrain_positive_y.png',
@@ -213,8 +214,7 @@ function initialize() {
     // Draw Skybox
     skybox.drawPrep({});
     skybox.draw({
-        viewProjectionInverse: viewProjectionInverse,
-      });
+        viewProjectionInverse: viewProjectionInverse});
 
     // Draw Meteors.
     var constUniforms = {
@@ -230,8 +230,7 @@ function initialize() {
       ambient: [0,0,0,0],
       specular: [1,1,1,1],
       shininess: 50,
-      specularFactor: 1.0
-    };
+      specularFactor: 1.0};
 
     Log("--Draw Meteor---------------------------------------");
     meteor.drawPrep(constUniforms);
@@ -252,8 +251,7 @@ function initialize() {
           world: world,
           worldViewProjection: worldViewProjection,
           worldInverse: worldInverse,
-          worldInverseTranspose: worldInverseTranspose,
-        };
+          worldInverseTranspose: worldInverseTranspose};
         meteor.draw(uniforms);
       }
     }

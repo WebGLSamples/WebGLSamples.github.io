@@ -471,8 +471,12 @@ tdl.math.normalize = function(a) {
   for (var i = 0; i < aLength; ++i)
     n += a[i] * a[i];
   n = Math.sqrt(n);
-  for (var i = 0; i < aLength; ++i)
-    r[i] = a[i] / n;
+  if (n > 0.00001) {
+    for (var i = 0; i < aLength; ++i)
+      r[i] = a[i] / n;
+  } else {
+    r = [0,0,0];
+  }
   return r;
 };
 
@@ -1897,6 +1901,28 @@ tdl.math.matrix4.lookAt = function(eye, target, up) {
   var vy = tdl.math.cross(vz, vx).concat(0);
 
   return tdl.math.inverse([vx, vy, vz, eye.concat(1)]);
+};
+
+/**
+ * Computes a 4-by-4 camera look-at transformation. This is the
+ * inverse of lookAt The transformation generated is an
+ * orthogonal rotation matrix with translation component.
+ * @param {(!tdl.math.Vector3|!tdl.math.Vector4)} eye The position
+ *     of the eye.
+ * @param {(!tdl.math.Vector3|!tdl.math.Vector4)} target The
+ *     position meant to be viewed.
+ * @param {(!tdl.math.Vector3|!tdl.math.Vector4)} up A vector
+ *     pointing up.
+ * @return {!tdl.math.Matrix4} The camera look-at matrix.
+ */
+tdl.math.matrix4.cameraLookAt = function(eye, target, up) {
+  var vz = tdl.math.normalize(
+      tdl.math.subVector(eye, target).slice(0, 3)).concat(0);
+  var vx = tdl.math.normalize(
+      tdl.math.cross(up, vz)).concat(0);
+  var vy = tdl.math.cross(vz, vx).concat(0);
+
+  return [vx, vy, vz, eye.concat(1)];
 };
 
 /**

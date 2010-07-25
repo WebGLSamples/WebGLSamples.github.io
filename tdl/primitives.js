@@ -91,6 +91,47 @@ tdl.primitives.AttribBuffer.prototype.push = function(value) {
 };
 
 /**
+ * Computes the extents
+ * @param {!AttribBuffer} positions The positions
+ * @return {!{min: !tdl.math.Vector3, max:!tdl.math.Vector3}}
+ *     The min and max extents.
+ */
+tdl.primitives.AttribBuffer.prototype.computeExtents = function() {
+  var numElements = this.numElements;
+  var numComponents = this.numComponents;
+  var minExtent = this.getElement(0);
+  var maxExtent = this.getElement(0);
+  for (var ii = 1; ii < numElements; ++ii) {
+    var element = this.getElement(ii);
+    for (var jj = 0; jj < numComponents; ++jj) {
+      minExtent[jj] = Math.min(minExtent[jj], element[jj]);
+      maxExtent[jj] = Math.max(maxExtent[jj], element[jj]);
+    }
+  }
+  return {min: minExtent, max: maxExtent};
+};
+
+/**
+ * Reorients positions by the given matrix. In other words, it
+ * multiplies each vertex by the given matrix.
+ * @param {!tdl.primitives.AttribBuffer} array AttribBuffer to
+ *     reorient.
+ * @param {!tdl.math.Matrix4} matrix Matrix by which to
+ *     multiply.
+ */
+tdl.primitives.mulComponents = function(array, multiplier) {
+  var numElements = array.numElements;
+  var numComponents = array.numComponents;
+  for (var ii = 0; ii < numElements; ++ii) {
+    var element = array.getElement(ii);
+    for (var jj = 0; jj < numComponents; ++jj) {
+      element[jj] *= multiplier[jj];
+    }
+    array.setElement(ii, element);
+  }
+};
+
+/**
  * Reorients positions by the given matrix. In other words, it
  * multiplies each vertex by the given matrix.
  * @param {!tdl.primitives.AttribBuffer} array AttribBuffer to
@@ -122,9 +163,9 @@ tdl.primitives.reorientNormals = function(array, matrix) {
   var math = tdl.math;
   var matrixInverse = math.inverse(math.matrix4.getUpper3x3(matrix));
 
-  var numElements = array.numElements();
+  var numElements = array.numElements;
   for (var ii = 0; ii < numElements; ++ii) {
-    array.setElementVector(ii,
+    array.setElement(ii,
         math.matrix4.transformNormal(matrix,
             array.getElement(ii)));
   }
@@ -140,7 +181,7 @@ tdl.primitives.reorientNormals = function(array, matrix) {
 tdl.primitives.reorientDirections = function(array, matrix) {
   var math = tdl.math;
 
-  var numElements = array.numElements();
+  var numElements = array.numElements;
   for (var ii = 0; ii < numElements; ++ii) {
     array.setElement(ii,
         math.matrix4.transformDirection(matrix,
@@ -170,7 +211,7 @@ tdl.primitives.reorient = function(arrays, matrix) {
 };
 
 /**
- * Creats tangents and normals.
+ * Creates tangents and normals.
  *
  * @param {!AttibArray} positionArray Positions
  * @param {!AttibArray} normalArray Normals
@@ -250,11 +291,11 @@ tdl.primitives.createTangentsAndBinormals = function(
 
     // Normalize the tangent and binornmal.
     var tangentLength = math.length(tangent);
-    if (tangentLength > 0.001) {
+    if (tangentLength > 0.00001) {
       tangent = math.mulVectorScalar(tangent, 1 / tangentLength);
     }
     var binormalLength = math.length(binormal);
-    if (binormalLength > 0.001) {
+    if (binormalLength > 0.00001) {
       binormal = math.mulVectorScalar(binormal, 1 / binormalLength);
     }
 
@@ -280,7 +321,7 @@ tdl.primitives.createTangentsAndBinormals = function(
     tangent = math.subVector(
         tangent, math.mulVectorScalar(normal, math.dot(normal, tangent)));
     var tangentLength = math.length(tangent);
-    if (tangentLength > 0.001) {
+    if (tangentLength > 0.00001) {
       tangent = math.mulVectorScalar(tangent, 1 / tangentLength);
     }
 
@@ -291,7 +332,7 @@ tdl.primitives.createTangentsAndBinormals = function(
     binormal = math.subVector(
         binormal, math.mulVectorScalar(normal, math.dot(normal, binormal)));
     var binormalLength = math.length(binormal);
-    if (binormalLength > 0.001) {
+    if (binormalLength > 0.00001) {
       binormal = math.mulVectorScalar(binormal, 1 / binormalLength);
     }
 
@@ -302,6 +343,36 @@ tdl.primitives.createTangentsAndBinormals = function(
   return {
     tangent: tangents,
     binormal: binormals};
+};
+
+tdl.primitives.addTangentsAndBinormals = function(arrays) {
+  var bn = tdl.primitives.createTangentsAndBinormals(
+      arrays.position,
+      arrays.normal,
+      arrays.texCoord,
+      arrays.indices);
+  arrays.tangent = bn.tangent;
+  arrays.binormal = bn.binormal;
+  return arrays;
+};
+
+/**
+ * Applies planar UV mapping in the XZ plane.
+ * @param {!AttribBuffer} positions The positions
+ * @param {!AttribBuffer} texCoords The texCoords
+ */
+tdl.primitives.applyPlanarUVMapping = function(positions, texCoords) {
+  // compute the extents
+  var extents = positions.computeExtents();
+  var ranges = tdl.math.subVector(extents.max, extents.min);
+
+  var numElements = positions.numElements;
+  for (var ii = 0; ii < numElements; ++ii) {
+    var position = positions.getElement(ii);
+    var u = (position[0] - extents.min[0]) / ranges[0];
+    var v = (position[2] - extents.min[2]) / ranges[2];
+    texCoords.setElement(ii, [u, v]);
+  }
 };
 
 /**
@@ -319,6 +390,8 @@ tdl.primitives.createTangentsAndBinormals = function(
  *     wrapping the sphere. Default = 0.
  * @param {number} opt_endLongitudeInRadians where to end
  *     wrapping the sphere. Default = 2 * Math.PI.
+ * @return {!Object.<string, !tdl.primitives.AttribBuffer>} The
+ *         created plane vertices.
  */
 tdl.primitives.createSphere = function(
     radius,
@@ -431,7 +504,8 @@ tdl.primitives.createBumpmapSphere = function(
  * @param {number} subdivisionsDepth Number of steps down the plane.
  * @param {!o3djs.math.Matrix4} opt_matrix A matrix by which to multiply
  *     all the vertices.
- * @return {!o3djs.primitives.VertexInfo} The created plane vertices.
+ * @return {!Object.<string, !tdl.primitives.AttribBuffer>} The
+ *         created plane vertices.
  */
 tdl.primitives.createPlane = function(
     width,
@@ -490,5 +564,234 @@ tdl.primitives.createPlane = function(
     normal: normals,
     texCoord: texCoords,
     indices: indices};
+};
+
+
+/**
+ * Array of the indices of corners of each face of a cube.
+ * @private
+ * @type {!Array.<!Array.<number>>}
+ */
+tdl.primitives.CUBE_FACE_INDICES_ = [
+  [3, 7, 5, 1],
+  [0, 4, 6, 2],
+  [6, 7, 3, 2],
+  [0, 1, 5, 4],
+  [5, 7, 6, 4],
+  [2, 3, 1, 0]
+];
+
+/**
+ * Creates the vertices and indices for a cube. The
+ * cube will be created around the origin. (-size / 2, size / 2)
+ *
+ * @param {number} size Width, height and depth of the cube.
+ * @return {!Object.<string, !tdl.primitives.AttribBuffer>} The
+ *         created plane vertices.
+ */
+tdl.primitives.createCube = function(size) {
+  var k = size / 2;
+
+  var cornerVertices = [
+    [-k, -k, -k],
+    [+k, -k, -k],
+    [-k, +k, -k],
+    [+k, +k, -k],
+    [-k, -k, +k],
+    [+k, -k, +k],
+    [-k, +k, +k],
+    [+k, +k, +k]
+  ];
+
+  var faceNormals = [
+    [+1, +0, +0],
+    [-1, +0, +0],
+    [+0, +1, +0],
+    [+0, -1, +0],
+    [+0, +0, +1],
+    [+0, +0, -1]
+  ];
+
+  var uvCoords = [
+    [0, 0],
+    [1, 0],
+    [1, 1],
+    [0, 1]
+  ];
+
+  var numVertices = 6 * 4;
+  var positions = new tdl.primitives.AttribBuffer(3, numVertices);
+  var normals = new tdl.primitives.AttribBuffer(3, numVertices);
+  var texCoords = new tdl.primitives.AttribBuffer(2, numVertices);
+  var indices = new tdl.primitives.AttribBuffer(3, 6 * 2, 'Uint16Array');
+
+  for (var f = 0; f < 6; ++f) {
+    var faceIndices = o3djs.primitives.CUBE_FACE_INDICES_[f];
+    for (var v = 0; v < 4; ++v) {
+      var position = cornerVertices[faceIndices[v]];
+      var normal = faceNormals[f];
+      var uv = uvCoords[v];
+
+      // Each face needs all four vertices because the normals and texture
+      // coordinates are not all the same.
+      positions.push(position);
+      normals.push(normal);
+      texCoords.push(uv);
+
+      // Two triangles make a square face.
+      var offset = 4 * f;
+      indices.push(offset + 0, offset + 1, offset + 2);
+      indices.push(offset + 0, offset + 2, offset + 3);
+    }
+  }
+
+  return {
+    position: positions,
+    normal: normals,
+    texCoord: texCoords,
+    indices: indices};
+};
+
+/**
+ * Creates vertices for a truncated cone, which is like a cylinder
+ * except that it has different top and bottom radii. A truncated cone
+ * can also be used to create cylinders and regular cones. The
+ * truncated cone will be created centered about the origin, with the
+ * y axis as its vertical axis. The created cone has position, normal
+ * and uv streams.
+ *
+ * @param {number} bottomRadius Bottom radius of truncated cone.
+ * @param {number} topRadius Top radius of truncated cone.
+ * @param {number} height Height of truncated cone.
+ * @param {number} radialSubdivisions The number of subdivisions around the
+ *     truncated cone.
+ * @param {number} verticalSubdivisions The number of subdivisions down the
+ *     truncated cone.
+ * @param {boolean} opt_topCap Create top cap. Default = true.
+ * @param {boolean} opt_bottomCap Create bottom cap. Default =
+ *        true.
+ * @return {!Object.<string, !tdl.primitives.AttribBuffer>} The
+ *         created plane vertices.
+ */
+tdl.primitives.createTruncatedCone = function(
+    bottomRadius,
+    topRadius,
+    height,
+    radialSubdivisions,
+    verticalSubdivisions,
+    opt_topCap,
+    opt_bottomCap) {
+  if (radialSubdivisions < 3) {
+    throw Error('radialSubdivisions must be 3 or greater');
+  }
+
+  if (verticalSubdivisions < 1) {
+    throw Error('verticalSubdivisions must be 1 or greater');
+  }
+
+  var topCap = (opt_topCap === undefined) ? true : opt_topCap;
+  var bottomCap = (opt_bottomCap === undefined) ? true : opt_bottomCap;
+
+  var extra = (topCap ? 2 : 0) + (bottomCap ? 2 : 0);
+
+  var numVertices = (radialSubdivisions + 1) * (verticalSubdivisions + 1 + extra);
+  var positions = new tdl.primitives.AttribBuffer(3, numVertices);
+  var normals = new tdl.primitives.AttribBuffer(3, numVertices);
+  var texCoords = new tdl.primitives.AttribBuffer(2, numVertices);
+  var indices = new tdl.primitives.AttribBuffer(
+      3, radialSubdivisions * (verticalSubdivisions + extra) * 2, 'Uint16Array');
+
+  var vertsAroundEdge = radialSubdivisions + 1;
+
+  // The slant of the cone is constant across its surface
+  var slant = Math.atan2(bottomRadius - topRadius, height);
+  var cosSlant = Math.cos(slant);
+  var sinSlant = Math.sin(slant);
+
+  var start = topCap ? -2 : 0;
+  var end = verticalSubdivisions + (bottomCap ? 2 : 0);
+
+  for (var yy = start; yy <= end; ++yy) {
+    var v = yy / verticalSubdivisions
+    var y = height * v;
+    var ringRadius;
+    if (yy < 0) {
+      y = 0;
+      v = 1;
+      ringRadius = bottomRadius;
+    } else if (yy > verticalSubdivisions) {
+      y = height;
+      v = 1;
+      ringRadius = topRadius;
+    } else {
+      ringRadius = bottomRadius +
+        (topRadius - bottomRadius) * (yy / verticalSubdivisions);
+    }
+    if (yy == -2 || yy == verticalSubdivisions + 2) {
+      ringRadius = 0;
+      v = 0;
+    }
+    y -= height / 2;
+    for (var ii = 0; ii < vertsAroundEdge; ++ii) {
+      var sin = Math.sin(ii * Math.PI * 2 / radialSubdivisions);
+      var cos = Math.cos(ii * Math.PI * 2 / radialSubdivisions);
+      positions.push([sin * ringRadius, y, cos * ringRadius]);
+      normals.push([
+          (yy < 0 || yy > verticalSubdivisions) ? 0 : (sin * cosSlant),
+          (yy < 0) ? -1 : (yy > verticalSubdivisions ? 1 : sinSlant),
+          (yy < 0 || yy > verticalSubdivisions) ? 0 : (cos * cosSlant)]);
+      texCoords.push([ii / radialSubdivisions, v]);
+    }
+  }
+
+  for (var yy = 0; yy < verticalSubdivisions + extra; ++yy) {
+    for (var ii = 0; ii < radialSubdivisions; ++ii) {
+      indices.push([vertsAroundEdge * (yy + 0) + 0 + ii,
+                   vertsAroundEdge * (yy + 0) + 1 + ii,
+                   vertsAroundEdge * (yy + 1) + 1 + ii]);
+      indices.push([vertsAroundEdge * (yy + 0) + 0 + ii,
+                   vertsAroundEdge * (yy + 1) + 1 + ii,
+                   vertsAroundEdge * (yy + 1) + 0 + ii]);
+    }
+  }
+
+  return {
+    position: positions,
+    normal: normals,
+    texCoord: texCoords,
+    indices: indices};
+};
+
+/**
+ * Creates cylinder vertices. The cylinder will be created around the origin
+ * along the y-axis. The created cylinder has position, normal and uv streams.
+ *
+ * @param {number} radius Radius of cylinder.
+ * @param {number} height Height of cylinder.
+ * @param {number} radialSubdivisions The number of subdivisions around the
+ *     cylinder.
+ * @param {number} verticalSubdivisions The number of subdivisions down the
+ *     cylinder.
+ * @param {boolean} opt_topCap Create top cap. Default = true.
+ * @param {boolean} opt_bottomCap Create bottom cap. Default =
+ *        true.
+ * @return {!Object.<string, !tdl.primitives.AttribBuffer>} The
+ *         created plane vertices.
+ */
+tdl.primitives.createCylinder = function(
+    radius,
+    height,
+    radialSubdivisions,
+    verticalSubdivisions,
+    opt_topCap,
+    opt_bottomCap) {
+  return tdl.primitives.createTruncatedCone(
+      radius,
+      radius,
+      height,
+      radialSubdivisions,
+      verticalSubdivisions,
+      opt_topCap,
+      opt_bottomCap);
 };
 

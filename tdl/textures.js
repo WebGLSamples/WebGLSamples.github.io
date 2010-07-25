@@ -43,6 +43,65 @@ tdl.provide('tdl.textures');
 tdl.textures = tdl.textures || {};
 
 /**
+ * All the textures currently loaded.
+ * @type {!Object.<string, !tdl.textures.Texture>}
+ */
+tdl.textures.textureDB = {};
+
+/**
+ * Loads a texture
+ * @param {{!tdl.math.Vector4|string|!Array.<string>}} Passing a
+ *        color makes a solid 1pixel 2d texture, passing a URL
+ *        makes a 2d texture with that url, passing an array of
+ *        urls makes a cubemap.
+ */
+tdl.textures.loadTexture = function(arg) {
+  var texture = tdl.textures.textureDB[arg.toString()];
+  if (texture) {
+    return texture;
+  }
+  if (typeof arg == 'string') {
+    texture = new tdl.textures.Texture(arg);
+  } else if (arg.length == 4 && typeof arg[0] == 'number') {
+    texture = new tdl.textures.SolidTexture(arg);
+  } else if (arg.length == 6 && typeof arg[0] == 'string') {
+    texture = new tdl.textures.CubeMap(arg);
+  } else {
+    throw "bad args";
+  }
+  tdl.textures.textureDB[arg.toString()] = texture;
+  return texture;
+};
+
+/**
+ * A solid color texture.
+ * @constructor
+ * @param {!tdl.math.vector4} color.
+ */
+tdl.textures.SolidTexture = function(color) {
+  this.texture = gl.createTexture();
+  this.color = color.slice(0, 4);
+  this.uploadTexture();
+};
+
+tdl.textures.SolidTexture.prototype.uploadTexture = function() {
+  gl.bindTexture(gl.TEXTURE_2D, this.texture);
+  var pixel = new Uint8Array(this.color);
+  gl.texImage2D(
+    gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+};
+
+tdl.textures.SolidTexture.prototype.recoverFromLostContext = function() {
+  this.texture = gl.createTexture();
+  this.uploadTexture();
+};
+
+tdl.textures.SolidTexture.prototype.bindToUnit = function(unit) {
+  gl.activeTexture(gl.TEXTURE0 + unit);
+  gl.bindTexture(gl.TEXTURE_2D, this.texture);
+};
+
+/**
  * @constructor
  * @param {string} url URL of image to load into texture.
  * @param {*} opt_updateOb Object with update function to call
@@ -114,6 +173,9 @@ tdl.textures.CubeMap = function(urls, opt_updateOb) {
   }
   var faceTargets = tdl.textures.CubeMap.faceTargets;
   var tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_CUBE_MAP, tex);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   this.texture = tex;
   this.updateOb = opt_updateOb;
   this.faces = [];

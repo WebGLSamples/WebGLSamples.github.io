@@ -43,6 +43,29 @@ tdl.provide('tdl.programs');
  */
 tdl.programs = tdl.programs || {};
 
+/**
+ * All the programs currently loaded.
+ * @type {!Object.<string, !tdl.programs.Program>}
+ */
+tdl.programs.programDB = {};
+
+/**
+ * All the programs currently loaded.
+ * @type {!Object.<string, !WebGLShader>}
+ */
+tdl.programs.shaderDB = {};
+
+tdl.programs.loadProgram = function(vertexShader, fragmentShader) {
+  var id = vertexShader + fragmentShader;
+  var program = tdl.programs.programDB[id];
+  if (program) {
+    return program;
+  }
+  program = new tdl.programs.Program(vertexShader, fragmentShader);
+  tdl.programs.programDB[id] = program;
+  return program;
+};
+
 tdl.programs.Program = function(vertexShader, fragmentShader) {
   // Compile shaders
   var program = wu.loadProgram(gl, vertexShader, fragmentShader);
