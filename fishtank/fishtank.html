@@ -407,7 +407,7 @@ function initialize() {
       var yRadius = 2.0 + math.pseudoRandom() * (g_tankHeight - 8.0) * 0.5;
       var zRadius = 2.0 + math.pseudoRandom() * (g_tankRadius - 6.0);
       var xClock = fishClock * speed;
-      var yClock = fishClock * speed * 1.1;
+      var yClock = fishClock * speed * 0.3;
       var zClock = fishClock * speed * 1.3;
       var x = Math.sin(xClock) * xRadius;
       var y = Math.sin(yClock) * yRadius + 4;
