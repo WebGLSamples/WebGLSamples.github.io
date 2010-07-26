@@ -141,19 +141,6 @@ tdl.math.rowMajor = tdl.math.rowMajor || {};
 tdl.math.columnMajor = tdl.math.columnMajor || {};
 
 /**
- * Functions that do error checking are stored in their own namespace.
- * @namespace
- */
-tdl.math.errorCheck = tdl.math.errorCheck || {};
-
-/**
- * Functions that do no error checking and have a separate version that does in
- * tdl.math.errorCheck are stored in their own namespace.
- * @namespace
- */
-tdl.math.errorCheckFree = tdl.math.errorCheckFree || {};
-
-/**
  * An Array of 2 floats
  * @type {!Array.<number>}
  */

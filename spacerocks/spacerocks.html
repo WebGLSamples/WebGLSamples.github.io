@@ -60,6 +60,7 @@ CANVAS {
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
+tdl.require('tdl.fast');
 tdl.require('tdl.fps');
 tdl.require('tdl.math');
 tdl.require('tdl.models');
@@ -74,6 +75,7 @@ var wu = WebGLTestUtils;  // some webgl utils
 var wd = WebGLDebugUtils; // more webgl utils
 var canvas;               // the canvas
 var math;                 // the math lib.
+var fast;                 // the fast math lib.
 var g_fpsTimer;           // object to measure frames per second;
 var logGLCalls = true     // whether or not to log webgl calls
 var debug = false;         // whether or not to debug.
@@ -152,6 +154,7 @@ function setupSkybox() {
 
 function initialize() {
   math = tdl.math;
+  fast = tdl.fast;
   canvas = document.getElementById("canvas");
   g_fpsTimer = new tdl.fps.FPSTimer();
   gl = wu.create3DContext(canvas);
@@ -171,6 +174,46 @@ function initialize() {
   var clock = 0.0;
   var fpsElem = document.getElementById("fps");
 
+  var projection = new Float32Array(16);
+  var view = new Float32Array(16);
+  var world = new Float32Array(16);
+  var worldInverse = new Float32Array(16);
+  var worldInverseTranspose = new Float32Array(16);
+  var viewProjection = new Float32Array(16);
+  var worldViewProjection = new Float32Array(16);
+  var viewInverse = new Float32Array(16);
+  var viewProjectionInverse = new Float32Array(16);
+  var eyePosition = new Float32Array(3);
+  var target = new Float32Array(3);
+  var up = new Float32Array([0,1,0]);
+  var lightWorldPos = new Float32Array(3);
+  var v3t0 = new Float32Array(3);
+  var v3t1 = new Float32Array(3);
+  var m4t0 = new Float32Array(16);
+  var m4t1 = new Float32Array(16);
+  var zero4 = new Float32Array(4);
+  var one4 = new Float32Array([1,1,1,1]);
+
+  // Sky uniforms.
+  var skyConst = {viewProjectionInverse: viewProjectionInverse};
+  var skyPer = {};
+
+  // Draw Meteors.
+  var meteorConst = {
+    viewInverse: viewInverse,
+    lightWorldPos: lightWorldPos,
+    lightColor: one4,
+    emissive: zero4,
+    ambient: zero4,
+    specular: one4,
+    shininess: 50,
+    specularFactor: 1.0};
+  var meteorPer = {
+    world: world,
+    worldViewProjection: worldViewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose};
+
   var intervalId = setInterval(render, 1000.0 / 70.0);
   function render() {
 //    clearInterval(intervalId);
@@ -187,53 +230,44 @@ function initialize() {
     fps.innerHTML = g_fpsTimer.averageFPS;
 
     clock += elapsedTime;
-    eyePosition = [
-        Math.sin(clock * g_eyeSpeed) * g_eyeRadius,
-        g_eyeHeight,
-        Math.cos(clock * g_eyeSpeed) * g_eyeRadius];
+    eyePosition[0] = Math.sin(clock * g_eyeSpeed) * g_eyeRadius;
+    eyePosition[1] = g_eyeHeight;
+    eyePosition[2] = Math.cos(clock * g_eyeSpeed) * g_eyeRadius;
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
-    var projection = math.matrix4.perspective(
+    fast.matrix4.perspective(
+        projection,
         math.degToRad(30),
         canvas.clientWidth / canvas.clientHeight,
         1,
         5000);
-    var view = math.matrix4.lookAt(
+    fast.matrix4.lookAt(
+        view,
         eyePosition,
-        [0, 0, 0],
-        [0, 1, 0]);
-    var viewProjection = math.matrix4.mul(view, projection);
-    var viewInverse = math.matrix4.inverse(view);
-    var viewProjectionInverse = math.matrix4.inverse(viewProjection);
+        target,
+        up);
+    fast.matrix4.mul(viewProjection, view, projection);
+    fast.matrix4.inverse(viewInverse, view);
+    fast.matrix4.inverse(viewProjectionInverse, viewProjection);
+
+    fast.matrix4.getAxis(v3t0, viewInverse, 0); // x
+    fast.matrix4.getAxis(v3t1, viewInverse, 1); // y;
+    fast.mulScalarVector(v3t0, 20, v3t0);
+    fast.mulScalarVector(v3t1, 30, v3t1);
+    fast.addVector(lightWorldPos, eyePosition, v3t0);
+    fast.addVector(lightWorldPos, lightWorldPos, v3t1);
 
 //      view: view,
 //      projection: projection,
 //      viewProjection: viewProjection,
 
     // Draw Skybox
-    skybox.drawPrep({});
-    skybox.draw({
-        viewProjectionInverse: viewProjectionInverse});
-
-    // Draw Meteors.
-    var constUniforms = {
-      viewInverse: viewInverse,
-      eyePosition: eyePosition,
-      lightWorldPos: math.addVector(
-          math.addVector(
-            eyePosition,
-            math.mulVectorScalar(viewInverse[0].slice(0, 3), 20)),
-          math.mulVectorScalar(viewInverse[1].slice(0, 3), 30)),
-      lightColor: [1,1,1,1],
-      emissive: [0,0,0,1],
-      ambient: [0,0,0,0],
-      specular: [1,1,1,1],
-      shininess: 50,
-      specularFactor: 1.0};
+    skybox.drawPrep(skyConst);
+    skybox.draw(skyPer);
 
     Log("--Draw Meteor---------------------------------------");
-    meteor.drawPrep(constUniforms);
+    meteor.drawPrep(meteorConst);
     for (var zz = 0; zz < g_numMeteorsAcross; ++zz) {
       for (var xx = 0; xx < g_numMeteorsAcross; ++xx) {
         var range = g_numMeteorsAcross - 1;
@@ -241,18 +275,13 @@ function initialize() {
         var x = xx - half;
         var z = zz - half;
         var scale = 1.0 + range - (Math.abs(x) + Math.abs(z));
-        var world = math.matrix4.mul(
-            math.matrix4.translation([x * 3, 0, z * 3]),
-            math.matrix4.scaling([scale, scale, scale]));
-        var worldViewProjection = math.matrix4.mul(world, viewProjection);
-        var worldInverse = math.matrix4.inverse(world);
-        var worldInverseTranspose = math.transpose(worldInverse);
-        var uniforms = {
-          world: world,
-          worldViewProjection: worldViewProjection,
-          worldInverse: worldInverse,
-          worldInverseTranspose: worldInverseTranspose};
-        meteor.draw(uniforms);
+        fast.matrix4.mul(world,
+            fast.matrix4.translation(m4t0, [x * 3, 0, z * 3]),
+            fast.matrix4.scaling(m4t1, [scale, scale, scale]));
+        fast.matrix4.mul(worldViewProjection, world, viewProjection);
+        fast.matrix4.inverse(worldInverse, world);
+        fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+        meteor.draw(meteorPer);
       }
     }
 

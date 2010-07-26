@@ -181,11 +181,11 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
       if (type == gl.BOOL_VEC4)
         return function(v) { gl.uniform4iv(loc, v); };
       if (type == gl.FLOAT_MAT2)
-        return function(v) { gl.uniformMatrix2fv(loc, false, flatten(v)); };
+        return function(v) { gl.uniformMatrix2fv(loc, false, v); };
       if (type == gl.FLOAT_MAT3)
-        return function(v) { gl.uniformMatrix3fv(loc, false, flatten(v)); };
+        return function(v) { gl.uniformMatrix3fv(loc, false, v); };
       if (type == gl.FLOAT_MAT4)
-        return function(v) { gl.uniformMatrix4fv(loc, false, flatten(v)); };
+        return function(v) { gl.uniformMatrix4fv(loc, false, v); };
       if (type == gl.SAMPLER_2D)
         return function(v) { gl.uniform1i(loc, v); };
       if (type == gl.SAMPLER_CUBE)
@@ -212,9 +212,23 @@ tdl.programs.Program.prototype.use = function() {
   gl.useProgram(this.program);
 };
 
+//function dumpValue(msg, name, value) {
+//  var str;
+//  if (value.length) {
+//      str = value[0].toString();
+//     for (var ii = 1; ii < value.length; ++ii) {
+//       str += "," + value[ii];
+//     }
+//  } else {
+//    str = value.toString();
+//  }
+//  console.log(msg + name + ": " + str);
+//}
+
 tdl.programs.Program.prototype.setUniform = function(uniform, value) {
   var func = this.uniform[uniform];
   if (func) {
+    //dumpValue("SET UNI:", uniform, value);
     func(value);
   }
 };
