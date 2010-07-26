@@ -127,7 +127,8 @@ function setupMeteor() {
   var program = createProgramFromTags(
       'normalMapVertexShader',
       'normalMapFragmentShader');
-  var arrays = tdl.primitives.createBumpmapSphere(1, 10, 10);
+  var arrays = tdl.primitives.createSphere(1, 10, 10);
+  tdl.primitives.addTangentsAndBinormals(arrays);
   return new tdl.models.Model(program, arrays, textures);
 }
 

@@ -141,7 +141,8 @@ function setupFish(skybox) {
   var program = createProgramFromTags(
       'fishVertexShader',
       'fishFragmentShader');
-  var arrays = tdl.primitives.createBumpmapSphere(1, 10, 10);
+  var arrays = tdl.primitives.createSphere(1, 10, 10);
+  tdl.primitives.addTangentsAndBinormals(arrays);
   tdl.primitives.reorient(arrays,
       [[0.2, 0, 0, 0],
        [0, 0.5, 0, 0],
