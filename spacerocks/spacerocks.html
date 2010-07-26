@@ -77,10 +77,13 @@ var canvas;               // the canvas
 var math;                 // the math lib.
 var fast;                 // the fast math lib.
 var g_fpsTimer;           // object to measure frames per second;
-var logGLCalls = true     // whether or not to log webgl calls
-var debug = false;         // whether or not to debug.
+var g_logGLCalls = true;  // whether or not to log webgl calls
+var g_debug = false;      // whether or not to debug.
+var g_drawOnce = false;   // draw just one frame.
+var g_setCountElements = [];
 
-//debug = true;
+//g_drawOnce = true;
+//g_debug = true;
 
 var g_numMeteorsAcross = 3;
 var g_eyeSpeed         = 1;
@@ -97,13 +100,13 @@ function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
 }
 
 function Log(msg) {
-  if (logGLCalls) {
+  if (g_logGLCalls) {
     wu.log(msg);
   }
 }
 
 function LogGLCall(functionName, args) {
-  if (logGLCalls) {
+  if (g_logGLCalls) {
     ValidateNoneOfTheArgsAreUndefined(functionName, args)
     console.log("gl." + functionName + "(" +
                 wd.glFunctionArgsToString(functionName, args) + ")");
@@ -152,13 +155,67 @@ function setupSkybox() {
   return new tdl.models.Model(program, arrays, textures);
 }
 
+/**
+ * Sets the count
+ */
+function setCount(elem, count) {
+  switch(count) {
+  case 1:
+    g_eyeRadius = 8;
+    g_eyeHeight = 1;
+    break;
+  case 10:
+    g_eyeRadius = 40;
+    g_eyeHeight = 16;
+    break;
+  case 100:
+    g_eyeRadius = 120;
+    g_eyeHeight = 50;
+    break;
+  case 1000:
+    g_eyeRadius = 120;
+    g_eyeHeight = 50;
+    break;
+  }
+  g_numMeteorsAcross = Math.floor(Math.sqrt(count));
+  for (var ii = 0; ii < g_setCountElements.length; ++ii) {
+    g_setCountElements[ii].style.color = "gray";
+  }
+  elem.style.color = "red";
+}
+
+/**
+ * Sets up the count buttons.
+ */
+function setupCountButtons() {
+  count = 1;
+  for (var ii = 0; ii < 100; ++ii) {
+    var elem = document.getElementById("setCount" + ii);
+    if (!elem) {
+      break;
+    }
+    g_setCountElements.push(elem);
+    elem.onclick = function(elem, count) {
+      return function () {
+        setCount(elem, count);
+      }}(elem, count);
+    if (g_numMeteorsAcross == count) {
+      setCount(elem, count);
+    }
+    count *= 10;
+  }
+}
+
 function initialize() {
   math = tdl.math;
   fast = tdl.fast;
   canvas = document.getElementById("canvas");
   g_fpsTimer = new tdl.fps.FPSTimer();
+
+  setupCountButtons();
+
   gl = wu.create3DContext(canvas);
-  if (debug) {
+  if (g_debug) {
     gl = wd.makeDebugContext(gl, undefined, LogGLCall);
   }
   gl.disable(gl.BLEND);
@@ -216,7 +273,9 @@ function initialize() {
 
   var intervalId = setInterval(render, 1000.0 / 70.0);
   function render() {
-//    clearInterval(intervalId);
+    if (g_drawOnce) {
+      clearInterval(intervalId);
+    }
     var now = (new Date()).getTime() * 0.001;
     var elapsedTime;
     if(then == 0.0) {
@@ -286,7 +345,7 @@ function initialize() {
     }
 
     // turn off logging after 1 frame.
-    logGLCalls = false;
+    g_logGLCalls = false;
   }
 
 
@@ -294,7 +353,14 @@ function initialize() {
 </script>
 </head>
 <body>
-<div class="fpsContainer">fps: <span id="fps"></div>
+<div class="fpsContainer">
+  <div class="fps">fps: <span id="fps"></div>
+  <div>Number of Meteors</div>
+  <div id="setCount0">1</div>
+  <div id="setCount1">10</div>
+  <div id="setCount2">100</div>
+  <div id="setCount3">1000</div>
+</div>
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </body>
 <!--
