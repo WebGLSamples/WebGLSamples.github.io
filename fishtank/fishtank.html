@@ -252,7 +252,7 @@ function setupStand() {
       'normalMapVertexShader',
       'normalMapFragmentShader');
   var arrays = tdl.primitives.createCylinder(
-      g_tankRadius + 0.1, g_standHeight, 30, 1, false, false);
+      g_tankRadius + 0.2, g_standHeight, 30, 1, false, false);
   tdl.primitives.addTangentsAndBinormals(arrays);
   var domeHeight = g_tankRadius * (1 - Math.cos(g_endOfDome));
   tdl.primitives.reorient(arrays,
@@ -750,13 +750,12 @@ void main() {
   vec4 skyColor = textureCube(skybox, -reflect(surfaceToView, normal));
   float waterAmount = 0.2;
   vec4 waterColor = vec4(0,0.9,1,1);
-  vec4 glassColor = vec4(1,1,1,1);
   float fudgeAmount = 1.1;
   vec3 fudge = skyColor.rgb * vec3(fudgeAmount, fudgeAmount, fudgeAmount);
   float bright = min(1.0, fudge.r * fudge.g * fudge.b);
   vec4 reflectColor = lerp(vec4(skyColor.rgb, bright), waterColor, waterAmount);
   float r = abs(dot(surfaceToView, normal));
-  gl_FragColor = lerp(glassColor, reflectColor, r + 0.3);
+  gl_FragColor = lerp(skyColor, reflectColor, r + 0.3);
 }
 </script>
 <!-- ===[ Normal Map Shader ]============================================== -->
