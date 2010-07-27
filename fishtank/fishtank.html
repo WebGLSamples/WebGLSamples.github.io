@@ -531,7 +531,7 @@ function initialize() {
       fast.matrix4.mul(worldViewProjection, world, viewProjection);
       fast.matrix4.inverse(worldInverse, world);
       fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-      fishPer.time = (clock + ii * g_tailOffsetMult) * g_tailSpeed;
+      fishPer.time = (clock + ii * g_tailOffsetMult) * g_tailSpeed * speed * 0.2;
       fish.draw(fishPer);
     }
 
@@ -623,9 +623,9 @@ varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
 void main() {
   v_texCoord = texCoord;
-  float s = sin(time);
-  float a = sign(s);
   float mult = position.z > 0.0 ? (position.z / 10.0) : (-position.z / 20.0);  // 10 = radius.
+  float s = sin(time + mult * 3.0);
+  float a = sign(s);
   float offset = pow(mult, 2.0) * s * 20.0;
   v_position = (
       worldViewProjection *
