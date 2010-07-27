@@ -86,7 +86,7 @@ var g_setCountElements = [];
 //g_debug = true;
 
 var g_numMeteorsAcross = 3;
-var g_eyeSpeed         = 1;
+var g_eyeSpeed         = 0.3;
 var g_eyeHeight        = 16;
 var g_eyeRadius        = 50;
 
@@ -135,12 +135,12 @@ function setupMeteor() {
 function setupSkybox() {
   var textures = {
     skybox: tdl.textures.loadTexture([
-        'assets/terrain_positive_x.png',
-        'assets/terrain_negative_x.png',
-        'assets/terrain_positive_y.png',
-        'assets/terrain_negative_y.png',
-        'assets/terrain_positive_z.png',
-        'assets/terrain_negative_z.png'])
+        'assets/space_rt.jpg',
+        'assets/space_lf.jpg',
+        'assets/space_up.jpg',
+        'assets/space_dn.jpg',
+        'assets/space_fr.jpg',
+        'assets/space_bk.jpg'])
   };
   var program = createProgramFromTags(
       'skyboxVertexShader',
@@ -298,7 +298,7 @@ function initialize() {
 
     fast.matrix4.perspective(
         projection,
-        math.degToRad(30),
+        math.degToRad(60),
         canvas.clientWidth / canvas.clientHeight,
         1,
         5000);
