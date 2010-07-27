@@ -750,10 +750,13 @@ void main() {
   vec4 skyColor = textureCube(skybox, -reflect(surfaceToView, normal));
   float waterAmount = 0.2;
   vec4 waterColor = vec4(0,0.9,1,1);
+  vec4 glassColor = vec4(1,1,1,1);
   float fudgeAmount = 1.1;
   vec3 fudge = skyColor.rgb * vec3(fudgeAmount, fudgeAmount, fudgeAmount);
   float bright = min(1.0, fudge.r * fudge.g * fudge.b);
-  gl_FragColor = lerp(vec4(skyColor.rgb, bright), waterColor, waterAmount);
+  vec4 reflectColor = lerp(vec4(skyColor.rgb, bright), waterColor, waterAmount);
+  float r = abs(dot(surfaceToView, normal));
+  gl_FragColor = lerp(glassColor, reflectColor, r + 0.3);
 }
 </script>
 <!-- ===[ Normal Map Shader ]============================================== -->
