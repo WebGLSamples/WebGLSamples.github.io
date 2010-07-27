@@ -93,13 +93,16 @@ var g_fishSpeed        = 0.3;
 var g_fishClockOffset  = 0.3;
 var g_eyeSpeed         = 0.01;
 var g_eyeHeight        = 8;
-var g_eyeRadius        = 40;
+var g_eyeRadius        = 60;
 var g_tailSpeed        = 30;
 var g_tailOffsetMult   = 1;
 var g_endOfDome        = Math.PI / 8;
-var g_tankRadius       = 12;
-var g_tankHeight       = 20;
+var g_tankRadius       = 22;
+var g_tankHeight       = 30;
 var g_standHeight      = 25;
+var g_fishXClock       = 1;
+var g_fishYClock       = 0.17;
+var g_fishZClock       = 1.09;
 
 var g_skyBoxUrls = [
   'assets/room_positive_x.png',
@@ -234,7 +237,7 @@ function setupGlass() {
       [[1, 0, 0, 0],
        [0, 1, 0, 0],
        [0, 0, 1, 0],
-       [0, (g_tankHeight - 4) / 2, 0, 1]]);
+       [0, (g_tankHeight - 6) / 2, 0, 1]]);
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -323,7 +326,7 @@ function initialize() {
   var glass = setupGlass();
   Log("--Setup Stand---------------------------------------");
   var stand = setupStand();
-g_fish = fish;
+
   var then = 0.0;
   var clock = 0.0;
   var fpsElem = document.getElementById("fps");
@@ -348,6 +351,7 @@ g_fish = fish;
   var m4t1 = new Float32Array(16);
   var zero4 = new Float32Array(4);
   var one4 = new Float32Array([1,1,1,1]);
+  var colorMult = new Float32Array([1,1,1,1]);
 
   // Sky uniforms.
   var skyConst = {viewProjectionInverse: viewProjectionInverse};
@@ -384,6 +388,7 @@ g_fish = fish;
     worldViewProjection: worldViewProjection,
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose,
+    colorMult: colorMult,
     time: 0};
 
   // Stand uniforms.
@@ -495,23 +500,30 @@ g_fish = fish;
 
     fish.drawPrep(fishConst);
     math.resetPseudoRandom();
+    var pseudoRandom = math.pseudoRandom;
+    //var pseudoRandom = function() {
+    //  return 0.5;
+    //};
     var fishClock = clock * g_fishSpeed;
     for (var ii = 0; ii < g_numFish; ++ii) {
       var fishClock = clock * g_fishSpeed + ii * g_fishClockOffset;
       var speed = 0.5 + math.pseudoRandom() * 4;
       var scale = 1.0 + math.pseudoRandom() * 1;
-      var xRadius = 2.0 + math.pseudoRandom() * (g_tankRadius - 6.0);
-      var yRadius = 2.0 + math.pseudoRandom() * (g_tankHeight - 8.0) * 0.5;
-      var zRadius = 2.0 + math.pseudoRandom() * (g_tankRadius - 6.0);
-      var xClock = fishClock * speed;
-      var yClock = fishClock * speed * 0.3;
-      var zClock = fishClock * speed * 1.3;
+      var xRadius = 2.0 + pseudoRandom() * (g_tankRadius - 8.0);
+      var yRadius = 2.0 + pseudoRandom() * (g_tankHeight - 8.0) * 0.3;
+      var zRadius = 2.0 + pseudoRandom() * (g_tankRadius - 8.0);
+      var xClock = fishClock * speed * g_fishXClock;
+      var yClock = fishClock * speed * g_fishYClock;
+      var zClock = fishClock * speed * g_fishZClock;
       var x = Math.sin(xClock) * xRadius;
       var y = Math.sin(yClock) * yRadius + 4;
       var z = Math.cos(zClock) * zRadius;
-      var nextX = Math.sin(xClock + 0.1) * xRadius;
-      var nextY = Math.sin(yClock + 0.1) * yRadius + 4;
-      var nextZ = Math.cos(zClock + 0.1) * zRadius;
+      var nextX = Math.sin(xClock + 0.01) * xRadius;
+      var nextY = Math.sin(yClock + 0.01) * yRadius + 4;
+      var nextZ = Math.cos(zClock + 0.01) * zRadius;
+      colorMult[0] = 0.7 + math.pseudoRandom() * 0.3;
+      colorMult[1] = 0.7 + math.pseudoRandom() * 0.3;
+      colorMult[2] = 0.7 + math.pseudoRandom() * 0.3;
 
       fast.matrix4.mul(world,
           fast.matrix4.scaling(m4t0, [scale, scale, scale]),
@@ -642,7 +654,7 @@ varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
 
 uniform vec4 emissive;
-uniform vec4 ambient;
+uniform vec4 colorMult;
 uniform sampler2D diffuseSampler;
 uniform vec4 specular;
 uniform sampler2D bumpSampler;
@@ -673,8 +685,7 @@ void main() {
   vec4 litR = lit(dot(normal, surfaceToLight),
                     dot(normal, halfVector), shininess);
   gl_FragColor = vec4((emissive +
-  lightColor * (ambient * diffuse +
-                (diffuse * vec4(0.0, 0.0, 0.0, 0.0) +
+  lightColor * colorMult * ((diffuse * vec4(0.0, 0.0, 0.0, 0.0) +
                  skyColor * vec4(1.0, 1.0, 1.0, 1.0)) /* * litR.y */ +
                         + specular * litR.z * specularFactor)).rgb,
       diffuse.a);
