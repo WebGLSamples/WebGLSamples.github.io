@@ -88,10 +88,10 @@ var g_setCountElements = [];
 //g_debug = true;
 //g_drawOnce = true;
 
-var g_numFish          = 100;
+var g_numFish          = 1;
 var g_fishSpeed        = 0.3;
 var g_fishClockOffset  = 0.3;
-var g_eyeSpeed         = 1;
+var g_eyeSpeed         = 0.01;
 var g_eyeHeight        = 8;
 var g_eyeRadius        = 40;
 var g_tailSpeed        = 30;
@@ -100,6 +100,14 @@ var g_endOfDome        = Math.PI / 8;
 var g_tankRadius       = 12;
 var g_tankHeight       = 20;
 var g_standHeight      = 25;
+
+var g_skyBoxUrls = [
+  'assets/room_positive_x.png',
+  'assets/room_negative_x.png',
+  'assets/room_positive_y.png',
+  'assets/room_negative_y.png',
+  'assets/room_positive_z.png',
+  'assets/room_negative_z.png']
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -133,21 +141,36 @@ function createProgramFromTags(vertexTagId, fragmentTagId) {
 /**
  * Set Fish
  */
-function setupFish(skybox) {
+function setupFish() {
   var textures = {
     diffuseSampler: tdl.textures.loadTexture('assets/rock-color.png'),
     bumpSampler: tdl.textures.loadTexture('assets/rock-nmap.png'),
-    skybox: skybox};
+    skybox: tdl.textures.loadTexture(g_skyBoxUrls)};
   var program = createProgramFromTags(
       'fishVertexShader',
       'fishFragmentShader');
-  var arrays = tdl.primitives.createSphere(1, 10, 10);
-  tdl.primitives.addTangentsAndBinormals(arrays);
-  tdl.primitives.reorient(arrays,
+  var sphereArrays = tdl.primitives.createSphere(1, 10, 10);
+  tdl.primitives.addTangentsAndBinormals(sphereArrays);
+  tdl.primitives.reorient(sphereArrays,
       [[0.2, 0, 0, 0],
        [0, 0.5, 0, 0],
        [0, 0, 1, 0],
        [0, 0, 0, 1]]);
+  var tailArrays = tdl.primitives.createCresent(0.75, 1, 0.5, 0.01, 10);
+  tdl.primitives.addTangentsAndBinormals(tailArrays);
+  tdl.primitives.reorient(tailArrays,
+      [[-1, 0, 0, 0],
+       [0, 1, 0, 0],
+       [0, 0, -1, 0],
+       [0, 0, 1.7, 1]]);
+  var finArrays = tdl.primitives.createCresent(1, 1, 0.5, 0.01, 10);
+  tdl.primitives.addTangentsAndBinormals(finArrays);
+  tdl.primitives.reorient(finArrays,
+      [[-1, 0, 0, 0],
+       [0, 1, 0, 0],
+       [0, 0, -1, 0],
+       [0, 0, 0.7, 1]]);
+  var arrays = tdl.primitives.concat([sphereArrays, tailArrays, finArrays]);
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -156,14 +179,7 @@ function setupFish(skybox) {
  */
 function setupSkybox() {
   var textures = {
-    skybox: tdl.textures.loadTexture([
-        'assets/room_positive_x.png',
-        'assets/room_negative_x.png',
-        'assets/room_positive_y.png',
-        'assets/room_negative_y.png',
-        'assets/room_positive_z.png',
-        'assets/room_negative_z.png'])
-  };
+    skybox: tdl.textures.loadTexture(g_skyBoxUrls)};
   var program = createProgramFromTags(
       'skyboxVertexShader',
       'skyboxFragmentShader');
@@ -204,10 +220,10 @@ function setupSand() {
 /**
  * Sets up the Glass
  */
-function setupGlass(skybox) {
+function setupGlass() {
   var textures = {
     bumpSampler: tdl.textures.loadTexture('assets/sand-nmap.png'),
-    skybox: skybox};
+    skybox: tdl.textures.loadTexture(g_skyBoxUrls)};
   var program = createProgramFromTags(
       'glassVertexShader',
       'glassFragmentShader');
@@ -225,7 +241,7 @@ function setupGlass(skybox) {
 /**
  * Sets up the Stand
  */
-function setupStand(skybox) {
+function setupStand() {
   var textures = {
     diffuseSampler: tdl.textures.loadTexture('assets/stand-color.jpg'),
     bumpSampler: tdl.textures.loadTexture([128,128,255,255])};
@@ -300,14 +316,14 @@ function initialize() {
   Log("--Setup Skybox---------------------------------------");
   var skybox = setupSkybox();
   Log("--Setup Fish---------------------------------------");
-  var fish = setupFish(skybox.textures.skybox);
+  var fish = setupFish();
   Log("--Setup Sand---------------------------------------");
   var sand = setupSand();
   Log("--Setup Glass---------------------------------------");
-  var glass = setupGlass(skybox.textures.skybox);
+  var glass = setupGlass();
   Log("--Setup Stand---------------------------------------");
   var stand = setupStand();
-
+g_fish = fish;
   var then = 0.0;
   var clock = 0.0;
   var fpsElem = document.getElementById("fps");

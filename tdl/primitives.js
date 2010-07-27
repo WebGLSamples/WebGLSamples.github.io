@@ -60,6 +60,7 @@ tdl.primitives.AttribBuffer = function(numComponents, numElements, opt_type) {
   this.cursor = 0;
   this.numComponents = numComponents;
   this.numElements = numElements;
+  this.type = opt_type;
 };
 
 tdl.primitives.AttribBuffer.prototype.stride = function() {
@@ -88,6 +89,25 @@ tdl.primitives.AttribBuffer.prototype.setElement = function(index, value) {
 
 tdl.primitives.AttribBuffer.prototype.push = function(value) {
   this.setElement(this.cursor++, value);
+};
+
+tdl.primitives.AttribBuffer.prototype.pushArray = function(array) {
+//  this.buffer.set(array, this.cursor * this.numComponents);
+//  this.cursor += array.numElements;
+  for (var ii = 0; ii < array.numElements; ++ii) {
+    this.push(array.getElement(ii));
+  }
+};
+
+tdl.primitives.AttribBuffer.prototype.pushArrayWithOffset =
+   function(array, offset) {
+  for (var ii = 0; ii < array.numElements; ++ii) {
+    var elem = array.getElement(ii);
+    for (var jj = 0; jj < offset.length; ++jj) {
+      elem[jj] += offset[jj];
+    }
+    this.push(elem);
+  }
 };
 
 /**
@@ -345,6 +365,12 @@ tdl.primitives.createTangentsAndBinormals = function(
     binormal: binormals};
 };
 
+/**
+ * Adds tangents and binormals.
+ *
+ * @param {!Object.<string,!AttibArray>} arrays Arrays containing position,
+ *        normal and texCoord.
+ */
 tdl.primitives.addTangentsAndBinormals = function(arrays) {
   var bn = tdl.primitives.createTangentsAndBinormals(
       arrays.position,
@@ -354,6 +380,63 @@ tdl.primitives.addTangentsAndBinormals = function(arrays) {
   arrays.tangent = bn.tangent;
   arrays.binormal = bn.binormal;
   return arrays;
+};
+
+/**
+ * Concats 2 sets of arrays. Assumes each set of arrays has arrays that match
+ * the other sets.
+ * @param {!Array<!Object.<string, !AttribBuffer>>} arrays Arrays to concat
+ * @return {!Object.<string, !AttribBuffer> concatenated result.
+ */
+tdl.primitives.concat = function(arrayOfArrays) {
+  var names = {};
+  var baseName;
+  // get names of all arrays.
+  for (var ii = 0; ii < arrayOfArrays.length; ++ii) {
+    var arrays = arrayOfArrays[ii];
+    for (var name in arrays) {
+      if (!names[name]) {
+        names[name] = [];
+      }
+      if (!baseName && name != 'indices') {
+        baseName = name;
+      }
+      var array = arrays[name];
+      names[name].push(array.numElements);
+    }
+  }
+
+  var base = names[baseName];
+
+  var newArrays = {};
+  for (var name in names) {
+    var numElements = 0;
+    var numComponents;
+    var type;
+    for (var ii = 0; ii < arrayOfArrays.length; ++ii) {
+      var arrays = arrayOfArrays[ii];
+      var array = arrays[name];
+      numElements += array.numElements;
+      numComponents = array.numComponents;
+      type = array.type;
+    }
+    var newArray = new tdl.primitives.AttribBuffer(
+        numComponents, numElements, type);
+    var baseIndex = 0;
+    for (var ii = 0; ii < arrayOfArrays.length; ++ii) {
+      var arrays = arrayOfArrays[ii];
+      var array = arrays[name];
+      if (name == 'indices') {
+        newArray.pushArrayWithOffset(
+            array, [baseIndex, baseIndex, baseIndex]);
+        baseIndex += base[ii];
+      } else {
+        newArray.pushArray(array);
+      }
+    }
+    newArrays[name] = newArray;
+  }
+  return newArrays;
 };
 
 /**
@@ -404,6 +487,7 @@ tdl.primitives.createSphere = function(
   if (subdivisionsAxis <= 0 || subdivisionsHeight <= 0) {
     throw Error('subdivisionAxis and subdivisionHeight must be > 0');
   }
+  var math = tdl.math;
 
   opt_startLatitudeInRadians = opt_startLatitudeInRadians || 0;
   opt_endLatitudeInRadians = opt_endLatitudeInRadians || Math.PI;
@@ -468,32 +552,6 @@ tdl.primitives.createSphere = function(
     indices: indices};
 };
 
-tdl.primitives.createBumpmapSphere = function(
-    radius,
-    subdivisionsAxis,
-    subdivisionsHeight,
-    opt_startLatitudeInRadians,
-    opt_endLatitudeInRadians,
-    opt_startLongitudeInRadians,
-    opt_endLongitudeInRadians) {
-  var arrays = tdl.primitives.createSphere(
-      radius,
-      subdivisionsAxis,
-      subdivisionsHeight,
-      opt_startLatitudeInRadians,
-      opt_endLatitudeInRadians,
-      opt_startLongitudeInRadians,
-      opt_endLongitudeInRadians);
-  var bn = tdl.primitives.createTangentsAndBinormals(
-      arrays.position,
-      arrays.normal,
-      arrays.texCoord,
-      arrays.indices);
-  arrays.tangent = bn.tangent;
-  arrays.binormal = bn.binormal;
-  return arrays;
-};
-
 /**
  * Creates cresent vertices. The created sphere has position, normal and uv
  * streams.
@@ -508,71 +566,82 @@ tdl.primitives.createBumpmapSphere = function(
  *         created plane vertices.
  */
 tdl.primitives.createCresent = function(
-    radius,
+    verticalRadius,
     outerRadius,
     innerRadius,
     thickness,
-    subdivisionsDown,
-    subdivisionsThick) {
-  if (subdivisionsAxis <= 0 || subdivisionsHeight <= 0) {
-    throw Error('subdivisionAxis and subdivisionHeight must be > 0');
+    subdivisionsDown) {
+  if (subdivisionsDown <= 0) {
+    throw Error('subdivisionDown must be > 0');
   }
+  var math = tdl.math;
 
-  opt_startLatitudeInRadians = opt_startLatitudeInRadians || 0;
-  opt_endLatitudeInRadians = opt_endLatitudeInRadians || Math.PI;
-  opt_startLongitudeInRadians = opt_startLongitudeInRadians || 0;
-  opt_endLongitudeInRadians = opt_endLongitudeInRadians || (Math.PI * 2);
+  var subdivisionsThick = 2;
 
-  latRange = opt_endLatitudeInRadians - opt_startLatitudeInRadians;
-  longRange = opt_endLongitudeInRadians - opt_startLongitudeInRadians;
-
-  // We are going to generate our sphere by iterating through its
-  // spherical coordinates and generating 2 triangles for each quad on a
-  // ring of the sphere.
-  var numVertices = (subdivisionsAxis + 1) * (subdivisionsHeight + 1);
+  var numVertices = (subdivisionsDown + 1) * 2 * (2 + subdivisionsThick);
   var positions = new tdl.primitives.AttribBuffer(3, numVertices);
   var normals = new tdl.primitives.AttribBuffer(3, numVertices);
   var texCoords = new tdl.primitives.AttribBuffer(2, numVertices);
 
-  // Generate the individual vertices in our vertex buffer.
-  for (var y = 0; y <= subdivisionsHeight; y++) {
-    for (var x = 0; x <= subdivisionsAxis; x++) {
-      // Generate a vertex based on its spherical coordinates
-      var u = x / subdivisionsAxis;
-      var v = y / subdivisionsHeight;
-      var theta = longRange * u;
-      var phi = latRange * v;
-      var sinTheta = Math.sin(theta);
-      var cosTheta = Math.cos(theta);
-      var sinPhi = Math.sin(phi);
-      var cosPhi = Math.cos(phi);
-      var ux = cosTheta * sinPhi;
-      var uy = cosPhi;
-      var uz = sinTheta * sinPhi;
-      positions.push([radius * ux, radius * uy, radius * uz]);
-      normals.push([ux, uy, uz]);
-      texCoords.push([u, v]);
+  function createArc(arcRadius, x, normalMult, normalAdd, uMult, uAdd) {
+    for (var z = 0; z <= subdivisionsDown; z++) {
+      var uBack = x / (subdivisionsThick - 1);
+      var v = z / subdivisionsDown;
+      var xBack = (uBack - 0.5) * 2;
+      var angle = v * Math.PI;
+      var s = Math.sin(angle);
+      var c = Math.cos(angle);
+      var radius = math.lerpScalar(verticalRadius, arcRadius, s);
+      var px = xBack * thickness;
+      var py = c * verticalRadius;
+      var pz = s * radius;
+      positions.push([px, py, pz]);
+      // TODO(gman): fix! This is not correct.
+      var n = math.addVector(
+          math.mulVectorVector([0, s, c], normalMult), normalAdd);
+      normals.push(n);
+      texCoords.push([uBack * uMult + uAdd, v]);
     }
   }
 
-  var numVertsAround = subdivisionsAxis + 1;
+  // Generate the individual vertices in our vertex buffer.
+  for (var x = 0; x < subdivisionsThick; x++) {
+    var uBack = (x / (subdivisionsThick - 1) - 0.5) * 2;
+    createArc(outerRadius, x, [1, 1, 1], [0,     0, 0], 1, 0);
+    createArc(outerRadius, x, [0, 0, 0], [uBack, 0, 0], 0, 0);
+    createArc(innerRadius, x, [1, 1, 1], [0,     0, 0], 1, 0);
+    createArc(innerRadius, x, [0, 0, 0], [uBack, 0, 0], 0, 1);
+  }
+
+  // Do outer surface.
   var indices = new tdl.primitives.AttribBuffer(
-      3, subdivisionsAxis * subdivisionsHeight * 2, 'Uint16Array');
-  for (var x = 0; x < subdivisionsAxis; x++) {
-    for (var y = 0; y < subdivisionsHeight; y++) {
+      3, (subdivisionsDown * 2) * (2 + subdivisionsThick), 'Uint16Array');
+
+  function createSurface(leftArcOffset, rightArcOffset) {
+    for (var z = 0; z < subdivisionsDown; ++z) {
       // Make triangle 1 of quad.
       indices.push([
-          (y + 0) * numVertsAround + x,
-          (y + 0) * numVertsAround + x + 1,
-          (y + 1) * numVertsAround + x]);
+          leftArcOffset + z + 0,
+          leftArcOffset + z + 1,
+          rightArcOffset + z + 0]);
 
       // Make triangle 2 of quad.
       indices.push([
-          (y + 1) * numVertsAround + x,
-          (y + 0) * numVertsAround + x + 1,
-          (y + 1) * numVertsAround + x + 1]);
+          leftArcOffset + z + 1,
+          rightArcOffset + z + 1,
+          rightArcOffset + z + 0]);
     }
   }
+
+  var numVerticesDown = subdivisionsDown + 1;
+  // front
+  createSurface(numVerticesDown * 0, numVerticesDown * 4);
+  // right
+  createSurface(numVerticesDown * 5, numVerticesDown * 7);
+  // back
+  createSurface(numVerticesDown * 6, numVerticesDown * 2);
+  // left
+  createSurface(numVerticesDown * 3, numVerticesDown * 1);
 
   return {
     position: positions,
@@ -602,6 +671,7 @@ tdl.primitives.createPlane = function(
   if (subdivisionsWidth <= 0 || subdivisionsDepth <= 0) {
     throw Error('subdivisionWidth and subdivisionDepth must be > 0');
   }
+  var math = tdl.math;
 
   // We are going to generate our sphere by iterating through its
   // spherical coordinates and generating 2 triangles for each quad on a
