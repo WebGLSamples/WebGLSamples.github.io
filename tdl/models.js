@@ -51,8 +51,10 @@ tdl.models = tdl.models || {};
  *     AttribBuffers to bind to draw this model.
  * @param {!Object.<string, Texture>} textures The textures to
  *     bind to draw this model.
+ * @param {number} opt_mode Mode to call drawElements with. Default =
+ *        gl.TRIANGLES
  */
-tdl.models.Model = function(program, arrays, textures) {
+tdl.models.Model = function(program, arrays, textures, opt_mode) {
   buffers = { };
   for (name in arrays) {
     var target = (name == 'indices') ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER;
@@ -60,6 +62,7 @@ tdl.models.Model = function(program, arrays, textures) {
     buffers[name] = b;
   }
 
+  this.mode = (opt_mode === undefined) ? gl.TRIANGLES : opt_mode;
   this.program = program;
   this.buffers = buffers;
   this.textures = textures;
@@ -114,7 +117,8 @@ tdl.models.Model.prototype.draw = function(uniforms) {
     program.setUniform(uniform, uniforms[uniform]);
   }
   var buffers = this.buffers;
-  gl.drawElements(gl.TRIANGLES, buffers.indices.totalComponents(), gl.UNSIGNED_SHORT, 0);
+  gl.drawElements(
+      this.mode, buffers.indices.totalComponents(), gl.UNSIGNED_SHORT, 0);
 };
 
 

@@ -50,10 +50,11 @@ tdl.textures.textureDB = {};
 
 /**
  * Loads a texture
- * @param {{!tdl.math.Vector4|string|!Array.<string>}} Passing a
+ * @param {{!tdl.math.Vector4|string|!Array.<string>|!img|!canvas}} Passing a
  *        color makes a solid 1pixel 2d texture, passing a URL
  *        makes a 2d texture with that url, passing an array of
- *        urls makes a cubemap.
+ *        urls makes a cubemap, passing an img or canvas makes a 2d texture with
+ *        that image.
  */
 tdl.textures.loadTexture = function(arg) {
   var texture = tdl.textures.textureDB[arg.toString()];
@@ -61,16 +62,38 @@ tdl.textures.loadTexture = function(arg) {
     return texture;
   }
   if (typeof arg == 'string') {
-    texture = new tdl.textures.Texture(arg);
+    texture = new tdl.textures.Texture2D(arg);
   } else if (arg.length == 4 && typeof arg[0] == 'number') {
     texture = new tdl.textures.SolidTexture(arg);
   } else if (arg.length == 6 && typeof arg[0] == 'string') {
     texture = new tdl.textures.CubeMap(arg);
+  } else if (arg.tagName == 'CANVAS' || arg.tagName == 'IMG') {
+    texture = new tdl.textures.Texture2D(arg);
   } else {
     throw "bad args";
   }
   tdl.textures.textureDB[arg.toString()] = texture;
   return texture;
+};
+
+tdl.textures.Texture = function(target, texture) {
+  this.target = target;
+  this.texture = gl.createTexture();
+  this.params = { };
+};
+
+tdl.textures.Texture.prototype.setParameter = function(pname, value) {
+  this.params[pname] = value;
+  gl.bindTexture(this.target, this.texture);
+  gl.texParameteri(this.target, pname, value);
+};
+
+tdl.textures.Texture.prototype.recoverFromLostContext = function() {
+  this.texture = gl.createTexture();
+  gl.bindTexture(this.target, this.texture);
+  for (var pname in this.params) {
+    gl.texParameteri(this.target, pname, this.params[pname]);
+  }
 };
 
 /**
@@ -79,10 +102,12 @@ tdl.textures.loadTexture = function(arg) {
  * @param {!tdl.math.vector4} color.
  */
 tdl.textures.SolidTexture = function(color) {
-  this.texture = gl.createTexture();
+  tdl.textures.Texture.call(this, gl.TEXTURE_2D);
   this.color = color.slice(0, 4);
   this.uploadTexture();
 };
+
+tdl.base.inherit(tdl.textures.SolidTexture, tdl.textures.Texture);
 
 tdl.textures.SolidTexture.prototype.uploadTexture = function() {
   gl.bindTexture(gl.TEXTURE_2D, this.texture);
@@ -92,7 +117,7 @@ tdl.textures.SolidTexture.prototype.uploadTexture = function() {
 };
 
 tdl.textures.SolidTexture.prototype.recoverFromLostContext = function() {
-  this.texture = gl.createTexture();
+  tdl.textures.Texture.recoverFromLostContext.call(this);
   this.uploadTexture();
 };
 
@@ -103,25 +128,35 @@ tdl.textures.SolidTexture.prototype.bindToUnit = function(unit) {
 
 /**
  * @constructor
- * @param {string} url URL of image to load into texture.
+ * @param {{string|!Element}} url URL of image to load into texture.
  * @param {*} opt_updateOb Object with update function to call
  *     when texture is updated with image.
  */
-tdl.textures.Texture = function(url, opt_updateOb) {
+tdl.textures.Texture2D = function(url, opt_updateOb) {
+  tdl.textures.Texture.call(this, gl.TEXTURE_2D);
   var that = this;
-  this.texture = gl.createTexture();
-  this.uploadTexture();
-  var img = document.createElement('img');
-  img.onload = function() {
-    that.updateTexture();
+  var img
+  if (typeof url !== 'string') {
+    img = url;
+    this.loaded = true;
+  } else {
+    img = document.createElement('img');
+    img.onload = function() {
+      that.updateTexture();
+    }
   }
   this.img = img;
   this.updateOb = opt_updateOb;
+  this.uploadTexture();
 
-  img.src = url;
+  if (!this.loaded) {
+    img.src = url;
+  }
 };
 
-tdl.textures.Texture.prototype.uploadTexture = function() {
+tdl.base.inherit(tdl.textures.Texture2D, tdl.textures.Texture);
+
+tdl.textures.Texture2D.prototype.uploadTexture = function() {
   gl.bindTexture(gl.TEXTURE_2D, this.texture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -135,7 +170,7 @@ tdl.textures.Texture.prototype.uploadTexture = function() {
   }
 };
 
-tdl.textures.Texture.prototype.updateTexture = function() {
+tdl.textures.Texture2D.prototype.updateTexture = function() {
   this.loaded = true;
   this.uploadTexture();
   if (this.updateOb) {
@@ -143,12 +178,12 @@ tdl.textures.Texture.prototype.updateTexture = function() {
   }
 };
 
-tdl.textures.Texture.prototype.recoverFromLostContext = function() {
-  this.texture = gl.createTexture();
+tdl.textures.Texture2D.prototype.recoverFromLostContext = function() {
+  tdl.textures.Texture.recoverFromLostContext.call(this);
   this.uploadTexture();
 };
 
-tdl.textures.Texture.prototype.bindToUnit = function(unit) {
+tdl.textures.Texture2D.prototype.bindToUnit = function(unit) {
   gl.activeTexture(gl.TEXTURE0 + unit);
   gl.bindTexture(gl.TEXTURE_2D, this.texture);
 };
@@ -163,6 +198,7 @@ tdl.textures.Texture.prototype.bindToUnit = function(unit) {
  *     when images have been uploaded into texture.
  */
 tdl.textures.CubeMap = function(urls, opt_updateOb) {
+  tdl.textures.Texture.call(this, gl.TEXTURE_CUBE_MAP);
   // TODO(gman): make this global.
   if (!tdl.textures.CubeMap.faceTargets) {
     tdl.textures.CubeMap.faceTargets = [
@@ -174,13 +210,11 @@ tdl.textures.CubeMap = function(urls, opt_updateOb) {
       gl.TEXTURE_CUBE_MAP_NEGATIVE_Z];
   }
   var faceTargets = tdl.textures.CubeMap.faceTargets;
-  var tex = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_CUBE_MAP, tex);
+  gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.texture);
   gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
   gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  this.texture = tex;
   this.updateOb = opt_updateOb;
   this.faces = [];
   var that = this;
@@ -198,6 +232,8 @@ tdl.textures.CubeMap = function(urls, opt_updateOb) {
   }
   this.uploadTextures();
 };
+
+tdl.base.inherit(tdl.textures.CubeMap, tdl.textures.Texture);
 
 /**
  * Check if all 6 faces are loaded.
@@ -236,6 +272,7 @@ tdl.textures.CubeMap.prototype.uploadTextures = function() {
  * Recover from lost context.
  */
 tdl.textures.CubeMap.prototype.recoverFromLostContext = function() {
+  tdl.textures.Texture.recoverFromLostContext.call(this);
   this.uploadTextures();
 };
 

@@ -1137,6 +1137,48 @@ tdl.fast.matrix4.translate = function(m, v) {
 tdl.fast.matrix4.transpose = tdl.fast.transpose4;
 
 /**
+ * Creates a 4-by-4 matrix which rotates around the given axis by the given
+ * angle.
+ * @param {(!tdl.math.Vector3|!tdl.math.Vector4)} axis The axis
+ *     about which to rotate.
+ * @param {number} angle The angle by which to rotate (in radians).
+ * @return {!tdl.math.Matrix4} A matrix which rotates angle radians
+ *     around the axis.
+ */
+tdl.fast.matrix4.axisRotation = function(dst, axis, angle) {
+  var x = axis[0];
+  var y = axis[1];
+  var z = axis[2];
+  var n = Math.sqrt(x * x + y * y + z * z);
+  x /= n;
+  y /= n;
+  z /= n;
+  var xx = x * x;
+  var yy = y * y;
+  var zz = z * z;
+  var c = Math.cos(angle);
+  var s = Math.sin(angle);
+  var oneMinusCosine = 1 - c;
+
+  dst[ 0] = xx + (1 - xx) * c;
+  dst[ 1] = x * y * oneMinusCosine + z * s;
+  dst[ 2] = x * z * oneMinusCosine - y * s;
+  dst[ 3] = 0;
+  dst[ 4] = x * y * oneMinusCosine - z * s;
+  dst[ 5] = yy + (1 - yy) * c;
+  dst[ 6] = y * z * oneMinusCosine + x * s;
+  dst[ 7] = 0;
+  dst[ 8] = x * z * oneMinusCosine + y * s;
+  dst[ 9] = y * z * oneMinusCosine - x * s;
+  dst[10] = zz + (1 - zz) * c;
+  dst[11] = 0;
+  dst[12] = 0;
+  dst[13] = 0;
+  dst[14] = 0;
+  dst[15] = 1;
+};
+
+/**
  * Creates a 4-by-4 matrix which scales in each dimension by an amount given by
  * the corresponding entry in the given vector; assumes the vector has three
  * entries.

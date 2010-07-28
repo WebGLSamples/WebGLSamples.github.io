@@ -85,10 +85,17 @@ var g_setCountElements = [];
 //g_drawOnce = true;
 //g_debug = true;
 
-var g_numMeteorsAcross = 3;
-var g_eyeSpeed         = 0.3;
-var g_eyeHeight        = 16;
-var g_eyeRadius        = 50;
+var g_numMeteors        = 20;
+var g_numShockwaves     = 1;
+var g_eyeSpeed          = 0.1;
+var g_eyeHeight         = 2;
+var g_eyeRadius         = 3;
+var g_shockwaveSpeed    = 1;
+var g_shockwaveDuration = 3;
+var g_meteorSpeed       = 1;
+var g_meteorDuration    = 3;
+var g_meteorDistance    = 2;
+var g_launchSpeed       = 0.5;
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -119,19 +126,96 @@ function createProgramFromTags(vertexTagId, fragmentTagId) {
       document.getElementById(fragmentTagId).text);
 }
 
-function setupMeteor() {
+/**
+ * Sets up Planet.
+ */
+function setupPlanet() {
   var textures = {
     diffuseSampler: tdl.textures.loadTexture('assets/rock-color.png'),
-    bumpSampler: tdl.textures.loadTexture('assets/rock-nmap.png')
-  };
+    bumpSampler: tdl.textures.loadTexture('assets/rock-nmap.png'),
+    heightSampler: tdl.textures.loadTexture('assets/height-map.png')};
   var program = createProgramFromTags(
-      'normalMapVertexShader',
-      'normalMapFragmentShader');
-  var arrays = tdl.primitives.createSphere(1, 10, 10);
+      'planetVertexShader',
+      'planetFragmentShader');
+  var arrays = tdl.primitives.createSphere(1, 100, 100);
   tdl.primitives.addTangentsAndBinormals(arrays);
   return new tdl.models.Model(program, arrays, textures);
 }
 
+/**
+ * Sets up Ocean.
+ */
+function setupOcean() {
+  var textures = {
+    diffuseSampler: tdl.textures.loadTexture([15,100,200,200]),
+    bumpSampler: tdl.textures.loadTexture([128,128,255,128])};
+  var program = createProgramFromTags(
+      'waterVertexShader',
+      'waterFragmentShader');
+  var arrays = tdl.primitives.createSphere(1, 100, 100);
+  tdl.primitives.addTangentsAndBinormals(arrays);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
+ * Sets up Meteor.
+ */
+function setupMeteor() {
+  var textures = {
+    diffuseSampler: tdl.textures.loadTexture('assets/rock-color.png'),
+    bumpSampler: tdl.textures.loadTexture('assets/rock-nmap.png'),
+    heightSampler: tdl.textures.loadTexture('assets/height-map.png')};
+  var program = createProgramFromTags(
+      'meteorVertexShader',
+      'meteorFragmentShader');
+  var arrays = tdl.primitives.createSphere(1, 8, 8);
+  tdl.primitives.addTangentsAndBinormals(arrays);
+  tdl.primitives.reorient(arrays,
+      [[0.6, 0, 0, 0],
+       [0, 1, 0, 0],
+       [0, 0, 0.8, 0],
+       [0, 0, 0, 1]]);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
+ * Sets up Shield.
+ */
+function setupShield() {
+  var textures = {
+    diffuseSampler: tdl.textures.loadTexture([255,255,255,255])};
+  var program = createProgramFromTags(
+      'constTexturedVertexShader',
+      'constTexturedFragmentShader');
+  var arrays = tdl.primitives.createSphere(1.1, 20, 20);
+  delete arrays.normal;
+  return new tdl.models.Model(program, arrays, textures, gl.LINES);
+}
+
+/**
+ * Sets up ShockWave.
+ */
+function setupShockwave() {
+  var textures = {
+    shieldGradient: tdl.textures.loadTexture('assets/shield-gradient.png'),
+    shieldNoise: tdl.textures.loadTexture('assets/shield-noise.png')};
+  textures.shieldGradient.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  var program = createProgramFromTags(
+      'shockwaveVertexShader',
+      'shockwaveFragmentShader');
+  var arrays = tdl.primitives.createSphere(1.1, 20, 20);
+  delete arrays.normal;
+  tdl.primitives.reorient(arrays,
+      [[1, 0, 0, 0],
+       [0, 0, 1, 0],
+       [0, -1, 0, 0],
+       [0, 0, 0, 1]]);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
+ * Sets up Skybox.
+ */
 function setupSkybox() {
   var textures = {
     skybox: tdl.textures.loadTexture([
@@ -160,25 +244,7 @@ function setupSkybox() {
  * Sets the count
  */
 function setCount(elem, count) {
-  switch(count) {
-  case 1:
-    g_eyeRadius = 8;
-    g_eyeHeight = 1;
-    break;
-  case 10:
-    g_eyeRadius = 40;
-    g_eyeHeight = 16;
-    break;
-  case 100:
-    g_eyeRadius = 120;
-    g_eyeHeight = 50;
-    break;
-  case 1000:
-    g_eyeRadius = 120;
-    g_eyeHeight = 50;
-    break;
-  }
-  g_numMeteorsAcross = Math.floor(Math.sqrt(count));
+  g_numMeteors = count;
   for (var ii = 0; ii < g_setCountElements.length; ++ii) {
     g_setCountElements[ii].style.color = "gray";
   }
@@ -200,7 +266,7 @@ function setupCountButtons() {
       return function () {
         setCount(elem, count);
       }}(elem, count);
-    if (g_numMeteorsAcross == count) {
+    if (g_numMeteors == count) {
       setCount(elem, count);
     }
     count *= 10;
@@ -223,10 +289,18 @@ function initialize() {
   gl.enable(gl.DEPTH_TEST);
 //  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
 
+  Log("--Setup Planet---------------------------------------");
+  var planet = setupPlanet();
+  Log("--Setup Ocean---------------------------------------");
+  var ocean = setupOcean();
   Log("--Setup Meteor---------------------------------------");
   var meteor = setupMeteor();
   Log("--Setup Skybox---------------------------------------");
   var skybox = setupSkybox();
+  Log("--Setup Shield---------------------------------------");
+  var shield = setupShield();
+  Log("--Setup ShockWave---------------------------------------");
+  var shockwave = setupShockwave();
 
   var then = 0.0;
   var clock = 0.0;
@@ -247,8 +321,12 @@ function initialize() {
   var lightWorldPos = new Float32Array(3);
   var v3t0 = new Float32Array(3);
   var v3t1 = new Float32Array(3);
+  var v3t2 = new Float32Array(3);
+  var v3t3 = new Float32Array(3);
   var m4t0 = new Float32Array(16);
   var m4t1 = new Float32Array(16);
+  var m4t2 = new Float32Array(16);
+  var m4t3 = new Float32Array(16);
   var zero4 = new Float32Array(4);
   var one4 = new Float32Array([1,1,1,1]);
 
@@ -256,8 +334,24 @@ function initialize() {
   var skyConst = {viewProjectionInverse: viewProjectionInverse};
   var skyPer = {};
 
-  // Draw Meteors.
-  var meteorConst = {
+  // Planet uniforms.
+  var planetConst = {
+    viewInverse: viewInverse,
+    lightWorldPos: lightWorldPos,
+    lightColor: one4,
+    emissive: zero4,
+    ambient: zero4,
+    specular: one4,
+    shininess: 50,
+    specularFactor: 0.2};
+  var planetPer = {
+    world: world,
+    worldViewProjection: worldViewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose};
+
+  // Ocean uniforms.
+  var oceanConst = {
     viewInverse: viewInverse,
     lightWorldPos: lightWorldPos,
     lightColor: one4,
@@ -266,14 +360,79 @@ function initialize() {
     specular: one4,
     shininess: 50,
     specularFactor: 1.0};
-  var meteorPer = {
+  var oceanPer = {
     world: world,
     worldViewProjection: worldViewProjection,
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose};
 
+  // Meteor uniforms.
+  var meteorConst = {
+    viewInverse: viewInverse,
+    lightWorldPos: lightWorldPos,
+    lightColor: one4,
+    emissive: zero4,
+    ambient: zero4,
+    specular: one4,
+    shininess: 50,
+    specularFactor: 0.2};
+  var meteorPer = {
+    world: world,
+    worldViewProjection: worldViewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose};
+  var freeMeteors = [];
+  var meteorActive = [];
+  var meteorTimer = [];
+  var meteorScale = [];
+  var meteorColor = [];
+  var meteorVector = [];
+  var meteorSpeed = [];
+  var meteorAxis = [];
+  var meteorRotationSpeed = [];
+  var timeTillLaunch = 0;
+  for (var ii = 0; ii < g_numMeteors; ++ii) {
+    freeMeteors[ii] = ii;
+    meteorActive[ii] = false;
+    meteorTimer[ii] = 0;
+    meteorAxis[ii] = [0,0,0];
+    meteorSpeed[ii] = 1;
+    meteorRotationSpeed[ii] = 1;
+    meteorScale[ii] = 1;
+    meteorVector[ii] = new Float32Array([0, 1, 0]);
+    meteorColor[ii] = new Float32Array([
+        Math.random() * 0.3 + 0.7,
+        Math.random() * 0.3 + 0.7,
+        Math.random() * 0.3 + 0.7,
+        1]);
+  }
+
+  // Shield uniforms
+  var shieldConst = {
+    worldViewProjection: worldViewProjection};
+  var shieldBackPer = {};
+  var shieldFrontPer = {};
+
+  // Shockwave uniforms
+  var shockwaveConst = {};
+  var shockwavePer = {
+    worldViewProjection: worldViewProjection,
+    time: 0,
+    voff: 0,
+    colorMult: new Float32Array([1,1,1,1])};
+  var shockwaveTimer = [];
+  var shockwaveColor = [];
+  var shockwavePoint = [];
+  for (var ii = 0; ii < g_numShockwaves; ++ii) {
+    shockwaveTimer[ii] = 0;
+    shockwavePoint[ii] = new Float32Array([0, 1, 0]);
+    shockwaveColor[ii] = new Float32Array([0.2, 1, 0.2, 1]);
+  }
+
+  var frameCount = 0;
   var intervalId = setInterval(render, 1000.0 / 70.0);
   function render() {
+    ++frameCount;
     if (g_drawOnce) {
       clearInterval(intervalId);
     }
@@ -294,7 +453,13 @@ function initialize() {
     eyePosition[1] = g_eyeHeight;
     eyePosition[2] = Math.cos(clock * g_eyeSpeed) * g_eyeRadius;
 
+    gl.colorMask(true, true, true, true);
+    gl.clearColor(0,0,0,0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+    gl.disable(gl.BLEND);
+    gl.enable(gl.CULL_FACE);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     fast.matrix4.perspective(
         projection,
@@ -313,10 +478,13 @@ function initialize() {
 
     fast.matrix4.getAxis(v3t0, viewInverse, 0); // x
     fast.matrix4.getAxis(v3t1, viewInverse, 1); // y;
-    fast.mulScalarVector(v3t0, 20, v3t0);
-    fast.mulScalarVector(v3t1, 30, v3t1);
+    fast.matrix4.getAxis(v3t2, viewInverse, 2); // z;
+    fast.mulScalarVector(v3t0, 10, v3t0);
+    fast.mulScalarVector(v3t1, 10, v3t1);
+    fast.mulScalarVector(v3t2, 10, v3t2);
     fast.addVector(lightWorldPos, eyePosition, v3t0);
     fast.addVector(lightWorldPos, lightWorldPos, v3t1);
+    fast.addVector(lightWorldPos, lightWorldPos, v3t2);
 
 //      view: view,
 //      projection: projection,
@@ -326,37 +494,147 @@ function initialize() {
     skybox.drawPrep(skyConst);
     skybox.draw(skyPer);
 
-    Log("--Draw Meteor---------------------------------------");
+    Log("--Draw Planet---------------------------------------");
+    planet.drawPrep(planetConst);
+    fast.matrix4.translation(world, [0, 0, 0]),
+    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+    fast.matrix4.inverse(worldInverse, world);
+    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+    planet.draw(planetPer);
+
+    Log("--Draw Ocean---------------------------------------");
+    gl.enable(gl.BLEND);
+    ocean.drawPrep(oceanConst);
+    fast.matrix4.translation(world, [0, 0, 0]),
+    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+    fast.matrix4.inverse(worldInverse, world);
+    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+    ocean.draw(oceanPer);
+
+    Log("--Draw Meteors--------------------------------------");
+    gl.disable(gl.BLEND);
     meteor.drawPrep(meteorConst);
-    for (var zz = 0; zz < g_numMeteorsAcross; ++zz) {
-      for (var xx = 0; xx < g_numMeteorsAcross; ++xx) {
-        var range = g_numMeteorsAcross - 1;
-        var half = range * 0.5;
-        var x = xx - half;
-        var z = zz - half;
-        var scale = 1.0 + range - (Math.abs(x) + Math.abs(z));
-        fast.matrix4.mul(world,
-            fast.matrix4.translation(m4t0, [x * 3, 0, z * 3]),
-            fast.matrix4.scaling(m4t1, [scale, scale, scale]));
-        fast.matrix4.mul(worldViewProjection, world, viewProjection);
-        fast.matrix4.inverse(worldInverse, world);
-        fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-        meteor.draw(meteorPer);
+
+    timeTillLaunch -= elapsedTime;
+    if (timeTillLaunch <= 0) {
+      timeTillLaunch = g_launchSpeed;
+      if (freeMeteors.length > 0) {
+        var ii = freeMeteors.pop();
+        meteorActive[ii] = true;
+        meteorTimer[ii] = g_meteorDuration;
+        tdl.fast.normalize(
+            meteorVector[ii],
+            [Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5]);
+        tdl.fast.normalize(
+            meteorAxis[ii],
+            [Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5]);
+        meteorSpeed[ii] = Math.random() * 0.2 + 0.9;
+        meteorRotationSpeed[ii] =
+            (Math.random() * 0.5 + 2.5) * g_meteorDuration;
+        meteorScale[ii] = [
+            Math.random() * 0.2 + 0.1,
+            Math.random() * 0.2 + 0.1,
+            Math.random() * 0.2 + 0.1];
       }
     }
+
+    for (var ii = 0; ii < g_numMeteors; ++ii) {
+      if (!meteorActive[ii]) {
+        continue;
+      }
+      var vector = meteorVector[ii];
+      if (meteorTimer[ii] <= 0) {
+        meteorActive[ii] = false;
+        freeMeteors.push(ii);
+      } else {
+        meteorTimer[ii] -= elapsedTime * meteorSpeed[ii] * g_meteorSpeed;
+      }
+      var lerp = meteorTimer[ii] / g_meteorDuration;
+      fast.mulScalarVector(v3t0, lerp * g_meteorDistance + 1, vector);
+      fast.matrix4.translation(m4t0, v3t0);
+      fast.matrix4.scaling(m4t1, meteorScale[ii]);
+      fast.matrix4.axisRotation(
+          m4t2, meteorAxis[ii], lerp * meteorRotationSpeed[ii]);
+      fast.matrix4.mul(m4t3, m4t1, m4t2);
+      fast.matrix4.mul(world, m4t3, m4t0);
+      fast.matrix4.mul(worldViewProjection, world, viewProjection);
+      fast.matrix4.inverse(worldInverse, world);
+      fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+      meteor.draw(meteorPer);
+    }
+
+    Log("--Draw Shield---------------------------------------");
+    gl.enable(gl.BLEND);
+    gl.enable(gl.CULL_FACE);
+
+    fast.matrix4.translation(world, [0, 0, 0]);
+    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+    fast.matrix4.inverse(worldInverse, world);
+    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+    shield.drawPrep(shieldConst);
+
+    // Draw front of class
+    gl.cullFace(gl.FRONT);
+    shield.draw(shieldBackPer);
+
+    // Draw front of class
+    gl.cullFace(gl.BACK);
+    shield.draw(shieldFrontPer);
+
+    Log("--Draw ShockWaves------------------------------------");
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.disable(gl.CULL_FACE);
+
+    shockwave.drawPrep(shockwaveConst);
+
+    for (var ii = 0; ii < g_numShockwaves; ++ii) {
+      var point = shockwavePoint[ii];
+      if (shockwaveTimer[ii] <= 0) {
+        shockwaveTimer[ii] = g_shockwaveDuration;
+        tdl.fast.normalize(
+            point,
+            [Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5]);
+      } else {
+        shockwaveTimer[ii] -= elapsedTime * g_shockwaveSpeed;
+      }
+      fast.matrix4.cameraLookAt(
+          world,
+          [0, 0, 0],
+          point,
+          [point[1], point[0], point[2]]);
+      fast.matrix4.mul(worldViewProjection, world, viewProjection);
+      fast.matrix4.inverse(worldInverse, world);
+      fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+      var lerp = shockwaveTimer[ii] / g_shockwaveDuration;
+      var color = shockwaveColor[ii];
+      var colorLerp = (lerp * 8 - 6) * 2;
+      color[0] = (frameCount & 1) ? 0 : (0.2 * colorLerp);
+      color[1] = (frameCount & 1) ? 0 : (1.0 * colorLerp);
+      color[2] = (frameCount & 1) ? 0 : (1.0 * colorLerp);
+      color[3] = (frameCount & 1) ? 0 : (1 * colorLerp);
+      shockwavePer.voff = 2 - lerp * 4;
+      shockwavePer.colorMult = color;
+      shockwavePer.time = shockwaveTimer[ii];
+      shockwave.draw(shockwavePer);
+    }
+
+
+    // Set the alpha to 255.
+    gl.colorMask(false, false, false, true);
+    gl.clearColor(0,0,0,1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
 
     // turn off logging after 1 frame.
     g_logGLCalls = false;
   }
-
-
 }
 </script>
 </head>
 <body>
 <div class="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
-  <div>Number of Meteors</div>
+  <div>Number of Planets</div>
   <div id="setCount0">1</div>
   <div id="setCount1">10</div>
   <div id="setCount2">100</div>
@@ -390,6 +668,292 @@ void main() {
 }
 </script>
 -->
+<script id="constTexturedVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+attribute vec2 texCoord;
+varying vec2 v_texCoord;
+uniform mat4 worldViewProjection;
+void main() {
+  v_texCoord = texCoord;
+  gl_Position = (worldViewProjection * position);
+}
+</script>
+<script id="constTexturedFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+varying vec2 v_texCoord;
+uniform sampler2D diffuseSampler;
+void main() {
+  gl_FragColor = texture2D(diffuseSampler, v_texCoord);
+}
+</script>
+<script id="shockwaveVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+attribute vec2 texCoord;
+varying vec2 v_texCoord;
+uniform mat4 worldViewProjection;
+void main() {
+  v_texCoord = texCoord;
+  gl_Position = (worldViewProjection * position);
+}
+</script>
+<script id="shockwaveFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+varying vec2 v_texCoord;
+uniform float voff;
+uniform float time;
+uniform vec4 colorMult;
+uniform sampler2D shieldGradient;
+uniform sampler2D shieldNoise;
+void main() {
+  vec4 grad = texture2D(shieldGradient,
+                        vec2(0, voff) + v_texCoord * vec2(2, 2)).rgbr;
+  vec4 noise1 = texture2D(shieldNoise,
+                          v_texCoord + vec2(time, time) * vec2(0.0, 0.3)).rgbr;
+  vec4 noise2 = texture2D(shieldNoise,
+                          v_texCoord + vec2(time, time) * vec2(0.0, 0.4)).rgbr;
+  gl_FragColor = grad * (noise1 * noise2) * colorMult;
+}
+</script>
+<script id="planetVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+uniform sampler2D heightSampler;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+attribute vec3 tangent;
+attribute vec3 binormal;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+void main() {
+  v_texCoord = texCoord;
+  float height =
+      (1.0 - texture2D(heightSampler, v_texCoord).x - 0.5) * 2.0 * 0.03;
+  v_position = (worldViewProjection *
+                (position + vec4(normal * vec3(height, height, height), 0.0)));
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;
+  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="planetFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform vec4 lightColor;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform vec4 emissive;
+uniform vec4 ambient;
+uniform sampler2D diffuseSampler;
+uniform vec4 specular;
+uniform sampler2D bumpSampler;
+uniform float shininess;
+uniform float specularFactor;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec4 diffuse = texture2D(diffuseSampler, v_texCoord);
+  mat3 tangentToWorld = mat3(v_tangent,
+                             v_binormal,
+                             v_normal);
+  vec3 tangentNormal = texture2D(bumpSampler, v_texCoord.xy).xyz -
+                                 vec3(0.5, 0.5, 0.5);
+  vec3 normal = (tangentToWorld * tangentNormal);
+  normal = normalize(normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  gl_FragColor = vec4((emissive +
+  lightColor * (ambient * diffuse + diffuse * litR.y +
+                        + specular * litR.z * specularFactor)).rgb,
+      diffuse.a);
+}
+</script>
+<script id="waterVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+attribute vec3 tangent;
+attribute vec3 binormal;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+void main() {
+  v_texCoord = texCoord;
+  v_position = (worldViewProjection * position);
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;
+  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="waterFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform vec4 lightColor;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform vec4 emissive;
+uniform vec4 ambient;
+uniform sampler2D diffuseSampler;
+uniform vec4 specular;
+uniform sampler2D bumpSampler;
+uniform float shininess;
+uniform float specularFactor;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec4 diffuse = texture2D(diffuseSampler, v_texCoord);
+  mat3 tangentToWorld = mat3(v_tangent,
+                             v_binormal,
+                             v_normal);
+  vec3 tangentNormal = texture2D(bumpSampler, v_texCoord.xy).xyz -
+                                 vec3(0.5, 0.5, 0.5);
+  vec3 normal = (tangentToWorld * tangentNormal);
+  normal = normalize(normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  vec4 spec = specular * litR.z * specularFactor;
+  gl_FragColor = vec4((emissive +
+  lightColor * (ambient * diffuse + diffuse * litR.y +
+                        + spec)).rgb,
+      diffuse.a + spec.a);
+}
+</script>
+<script id="meteorVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+attribute vec3 tangent;
+attribute vec3 binormal;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+void main() {
+  v_texCoord = texCoord;
+  v_position = (worldViewProjection * position);
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;
+  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="meteorFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform vec4 lightColor;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform vec4 emissive;
+uniform vec4 ambient;
+uniform sampler2D diffuseSampler;
+uniform vec4 specular;
+uniform sampler2D bumpSampler;
+uniform float shininess;
+uniform float specularFactor;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec4 diffuse = texture2D(diffuseSampler, v_texCoord);
+  mat3 tangentToWorld = mat3(v_tangent,
+                             v_binormal,
+                             v_normal);
+  vec3 tangentNormal = texture2D(bumpSampler, v_texCoord.xy).xyz -
+                                 vec3(0.5, 0.5, 0.5);
+  vec3 normal = (tangentToWorld * tangentNormal);
+  normal = normalize(normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  gl_FragColor = vec4((emissive +
+  lightColor * (ambient * diffuse + diffuse * litR.y +
+                        + specular * litR.z * specularFactor)).rgb,
+      diffuse.a);
+}
+</script>
 <script id="normalMapVertexShader" type="text/something-not-javascript">
 uniform mat4 worldViewProjection;
 uniform vec3 lightWorldPos;
@@ -484,9 +1048,10 @@ uniform samplerCube skybox;
 uniform mat4 viewProjectionInverse;
 varying vec4 v_position;
 void main() {
-  gl_FragColor = textureCube(
+  vec4 color = textureCube(
       skybox,
       normalize((viewProjectionInverse * v_position).xyz));
+  gl_FragColor = color * color * color;
 }
 </script>
 </html>
