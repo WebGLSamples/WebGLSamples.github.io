@@ -84,6 +84,7 @@ var g_drawOnce = false;   // draw just one frame.
 var g_setCountElements = [];
 var g_poofIndex = 0;
 var g_poofs = [];
+var g_anims = [];
 var g_timeTillLaunch = 0;
 
 //g_drawOnce = true;
@@ -304,6 +305,36 @@ function setupFlame(particleSystem) {
       spinSpeedRange: 4});
 }
 
+function setupAnims(particleSystem) {
+    var texture = tdl.textures.loadTexture('assets/rocks.png');
+    var emitter = particleSystem.createParticleEmitter(texture.texture);
+    emitter.setTranslation(0, 0, 0);
+    emitter.setColorRamp(
+        [1, 1, 1, 1,
+         1, 1, 1, 1,
+         1, 1, 1, 0]);
+    emitter.setParameters({
+        numParticles: 10,
+        numFrames: 4,
+        frameDuration: 50.0,
+        frameStartRange: 4,
+        lifeTime: 2,
+        startTime: 0,
+        startSize: 0.3,
+        endSize: 0.0,
+        spinSpeedRange: 4},
+        function(index, parameters) {
+            var speed = Math.random() * 0.6 + 0.2;
+            var speed2 = Math.random() * 0.2 + 0.1;
+            var angle = Math.random() * 2 * Math.PI;
+            parameters.velocity = math.matrix4.transformPoint(
+                math.matrix4.rotationZ(angle), [speed, speed2, 0]);
+        });
+    for (var ii = 0; ii < g_numPoofs; ++ii) {
+        g_anims[ii] = emitter.createOneShot();
+    }
+}
+
 function setupPoofs(particleSystem) {
     var emitter = particleSystem.createParticleEmitter();
     emitter.setState(tdl.particles.ParticleStateIds.ADD);
@@ -342,6 +373,7 @@ function triggerPoof(transNorm) {
     tdl.fast.addVector(_tv_, transNorm, transNorm);
     tdl.fast.matrix4.cameraLookAt(_tp_, transNorm, _tv_, [0, 1, 0]);
     g_poofs[g_poofIndex].trigger(_tp_);
+    g_anims[g_poofIndex].trigger(_tp_);
     g_poofIndex++;
     if (g_poofIndex == g_numPoofs) {
         g_poofIndex = 0;
@@ -380,6 +412,7 @@ function initialize() {
       gl, null, math.pseudoRandom);
   setupFlame(particleSystem);
   setupPoofs(particleSystem);
+  setupAnims(particleSystem);
 
   var then = 0.0;
   var clock = 0.0;
