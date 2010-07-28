@@ -1105,31 +1105,27 @@ tdl.fast.matrix4.translate = function(m, v) {
   var v0 = v[0];
   var v1 = v[1];
   var v2 = v[2];
-  var m0 = m[0];
-  var m1 = m[1];
-  var m2 = m[2];
-  var m3 = m[3];
-  var m00 = m0[0];
-  var m01 = m0[1];
-  var m02 = m0[2];
-  var m03 = m0[3];
-  var m10 = m1[0];
-  var m11 = m1[1];
-  var m12 = m1[2];
-  var m13 = m1[3];
-  var m20 = m2[0];
-  var m21 = m2[1];
-  var m22 = m2[2];
-  var m23 = m2[3];
-  var m30 = m3[0];
-  var m31 = m3[1];
-  var m32 = m3[2];
-  var m33 = m3[3];
+  var m00 = m[0];
+  var m01 = m[1];
+  var m02 = m[2];
+  var m03 = m[3];
+  var m10 = m[1 * 4 + 0];
+  var m11 = m[1 * 4 + 1];
+  var m12 = m[1 * 4 + 2];
+  var m13 = m[1 * 4 + 3];
+  var m20 = m[2 * 4 + 0];
+  var m21 = m[2 * 4 + 1];
+  var m22 = m[2 * 4 + 2];
+  var m23 = m[2 * 4 + 3];
+  var m30 = m[3 * 4 + 0];
+  var m31 = m[3 * 4 + 1];
+  var m32 = m[3 * 4 + 2];
+  var m33 = m[3 * 4 + 3];
 
-  m3.splice(0, 4, m00 * v0 + m10 * v1 + m20 * v2 + m30,
-                  m01 * v0 + m11 * v1 + m21 * v2 + m31,
-                  m02 * v0 + m12 * v1 + m22 * v2 + m32,
-                  m03 * v0 + m13 * v1 + m23 * v2 + m33);
+  m[12] = m00 * v0 + m10 * v1 + m20 * v2 + m30;
+  m[13] = m01 * v0 + m11 * v1 + m21 * v2 + m31;
+  m[14] = m02 * v0 + m12 * v1 + m22 * v2 + m32;
+  m[15] = m03 * v0 + m13 * v1 + m23 * v2 + m33;
 
   return m;
 };

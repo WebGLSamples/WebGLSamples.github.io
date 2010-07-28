@@ -64,6 +64,7 @@ tdl.require('tdl.fast');
 tdl.require('tdl.fps');
 tdl.require('tdl.math');
 tdl.require('tdl.models');
+tdl.require('tdl.particles');
 tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
 tdl.require('tdl.textures');
@@ -81,17 +82,21 @@ var g_logGLCalls = true;  // whether or not to log webgl calls
 var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;   // draw just one frame.
 var g_setCountElements = [];
+var g_poofIndex = 0;
+var g_poofs = [];
+var g_timeTillLaunch = 0;
 
 //g_drawOnce = true;
 //g_debug = true;
 
 var g_numMeteors        = 50;
 var g_numShockwaves     = 20;
+var g_numPoofs          = 20;
 var g_eyeSpeed          = 0.1;
 var g_eyeHeight         = 2;
 var g_eyeRadius         = 3;
 var g_shockwaveSpeed    = 1;
-var g_shockwaveDuration = 3;
+var g_shockwaveDuration = 6;
 var g_meteorSpeed       = 1;
 var g_meteorDuration    = 3;
 var g_meteorDistance    = 2;
@@ -170,11 +175,11 @@ function setupMeteor() {
       'meteorFragmentShader');
   var arrays = tdl.primitives.createSphere(1, 8, 8);
   tdl.primitives.addTangentsAndBinormals(arrays);
-  tdl.primitives.reorient(arrays,
-      [[0.6, 0, 0, 0],
-       [0, 1, 0, 0],
-       [0, 0, 0.8, 0],
-       [0, 0, 0, 1]]);
+//  tdl.primitives.reorient(arrays,
+//      [[0.6, 0, 0, 0],
+//       [0, 1, 0, 0],
+//       [0, 0, 0.8, 0],
+//       [0, 0, 0, 1]]);
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -185,8 +190,8 @@ function setupShield() {
   var textures = {
     diffuseSampler: tdl.textures.loadTexture([255,255,255,255])};
   var program = createProgramFromTags(
-      'constTexturedVertexShader',
-      'constTexturedFragmentShader');
+      'shieldVertexShader',
+      'shieldFragmentShader');
   var arrays = tdl.primitives.createSphere(1.1, 20, 20);
   delete arrays.normal;
   return new tdl.models.Model(program, arrays, textures, gl.LINES);
@@ -200,6 +205,7 @@ function setupShockwave() {
     shieldGradient: tdl.textures.loadTexture('assets/shield-gradient.png'),
     shieldNoise: tdl.textures.loadTexture('assets/shield-noise.png')};
   textures.shieldGradient.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  textures.shieldGradient.setParameter(gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   var program = createProgramFromTags(
       'shockwaveVertexShader',
       'shockwaveFragmentShader');
@@ -244,6 +250,7 @@ function setupSkybox() {
  * Sets the count
  */
 function setCount(elem, count) {
+  g_timeTillLaunch = 0;
   g_launchSpeed = count;
   for (var ii = 0; ii < g_setCountElements.length; ++ii) {
     g_setCountElements[ii].style.color = "gray";
@@ -276,6 +283,72 @@ function setupCountButtons() {
            g_launchDurations[0]);
 }
 
+function setupFlame(particleSystem) {
+  var emitter = particleSystem.createParticleEmitter();
+  emitter.setTranslation(0, 0, 0);
+  emitter.setState(tdl.particles.ParticleStateIds.ADD);
+  emitter.setColorRamp(
+      [1, 1, 0, 1,
+       1, 0, 0, 1,
+       0, 0, 0, 1,
+       0, 0, 0, 0.5,
+       0, 0, 0, 0]);
+  emitter.setParameters({
+      numParticles: 20,
+      lifeTime: 2,
+      timeRange: 2,
+      startSize: 0.5,
+      endSize: 0.9,
+      velocity:[0, 0.60, 0], velocityRange: [0.15, 0.15, 0.15],
+      worldAcceleration: [0, -0.20, 0],
+      spinSpeedRange: 4});
+}
+
+function setupPoofs(particleSystem) {
+    var emitter = particleSystem.createParticleEmitter();
+    emitter.setState(tdl.particles.ParticleStateIds.ADD);
+    emitter.setColorRamp(
+        [1, 1, 1, 1,
+         1, 1, 0, 1,
+         1, 0, 0, 1,
+         1, 1, 1, 0.5,
+         1, 1, 1, 0]);
+    emitter.setParameters({
+        numParticles: 60,
+        lifeTime: 1.5,
+        startTime: 0,
+        startSize: 0.2,
+        endSize: 1.0,
+        spinSpeedRange: 10},
+        function(index, parameters) {
+            var speed = Math.random() * 0.4 + 0.8;
+            var angle = Math.random() * 2 * Math.PI;
+            parameters.velocity = math.matrix4.transformPoint(
+                math.matrix4.rotationZ(angle), [speed, 0, 0]);
+            parameters.acceleration = math.mulVectorVector(
+                parameters.velocity, [speed * -0.3, speed * -0.3, 0]);
+        });
+    // make 3 poofs one shots
+    for (var ii = 0; ii < g_numPoofs; ++ii) {
+        g_poofs[ii] = emitter.createOneShot();
+    }
+}
+
+var _tp_ = new Float32Array(16);
+var _tv_ = new Float32Array(3);
+function triggerPoof(transNorm) {
+    // We have multiple poofs because if you only have one and it is still going
+    // when you trigger it a second time it will immediately start over.
+    tdl.fast.addVector(_tv_, transNorm, transNorm);
+    tdl.fast.matrix4.cameraLookAt(_tp_, transNorm, _tv_, [0, 1, 0]);
+    g_poofs[g_poofIndex].trigger(_tp_);
+    g_poofIndex++;
+    if (g_poofIndex == g_numPoofs) {
+        g_poofIndex = 0;
+    }
+}
+
+
 function initialize() {
   math = tdl.math;
   fast = tdl.fast;
@@ -302,6 +375,11 @@ function initialize() {
   var shield = setupShield();
   Log("--Setup ShockWave---------------------------------------");
   var shockwave = setupShockwave();
+
+  particleSystem = new tdl.particles.ParticleSystem(
+      gl, null, math.pseudoRandom);
+  setupFlame(particleSystem);
+  setupPoofs(particleSystem);
 
   var then = 0.0;
   var clock = 0.0;
@@ -391,7 +469,6 @@ function initialize() {
   var meteorSpeed = [];
   var meteorAxis = [];
   var meteorRotationSpeed = [];
-  var timeTillLaunch = 0;
   for (var ii = 0; ii < g_numMeteors; ++ii) {
     freeMeteors[ii] = ii;
     meteorActive[ii] = false;
@@ -410,9 +487,15 @@ function initialize() {
 
   // Shield uniforms
   var shieldConst = {
-    worldViewProjection: worldViewProjection};
+    worldViewProjection: worldViewProjection,
+    colorMult: new Float32Array([1,1,1,1])};
   var shieldBackPer = {};
   var shieldFrontPer = {};
+  var shieldColors = [
+      new Float32Array([0.3,1,0.8,1]),
+      new Float32Array([0.3,1,1,1]),
+      new Float32Array([0.3,0.8,1,1])
+    ];
 
   // Shockwave uniforms
   var shockwaveConst = {};
@@ -523,9 +606,9 @@ function initialize() {
     gl.disable(gl.BLEND);
     meteor.drawPrep(meteorConst);
 
-    timeTillLaunch -= elapsedTime;
-    if (timeTillLaunch <= 0) {
-      timeTillLaunch = g_launchSpeed;
+    g_timeTillLaunch -= elapsedTime;
+    if (g_timeTillLaunch <= 0) {
+      g_timeTillLaunch = g_launchSpeed;
       if (freeMeteors.length > 0) {
         var ii = freeMeteors.pop();
         meteorActive[ii] = true;
@@ -562,11 +645,13 @@ function initialize() {
         tdl.fast.normalize(
             shockwavePoint[ss],
             vector);
+
+        triggerPoof(vector);
       } else {
         meteorTimer[ii] -= elapsedTime * meteorSpeed[ii] * g_meteorSpeed;
       }
       var lerp = meteorTimer[ii] / g_meteorDuration;
-      fast.mulScalarVector(v3t0, lerp * g_meteorDistance + 1, vector);
+      fast.mulScalarVector(v3t0, lerp * g_meteorDistance + 1.3, vector);
       fast.matrix4.translation(m4t0, v3t0);
       fast.matrix4.scaling(m4t1, meteorScale[ii]);
       fast.matrix4.axisRotation(
@@ -588,6 +673,7 @@ function initialize() {
     fast.matrix4.mul(worldViewProjection, world, viewProjection);
     fast.matrix4.inverse(worldInverse, world);
     fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+    shieldConst.colorMult = shieldColors[frameCount % shieldColors.length];
     shield.drawPrep(shieldConst);
 
     // Draw front of class
@@ -626,16 +712,19 @@ function initialize() {
       var lerp = shockwaveTimer[ii] / g_shockwaveDuration;
       var color = shockwaveColor[ii];
       var colorLerp = (lerp * 8 - 6) * 2;
-      color[0] = (frameCount & 1) ? 0 : (0.2 * colorLerp);
-      color[1] = (frameCount & 1) ? 0 : (1.0 * colorLerp);
-      color[2] = (frameCount & 1) ? 0 : (1.0 * colorLerp);
-      color[3] = (frameCount & 1) ? 0 : (1 * colorLerp);
+      colorLerp *= (frameCount & 1) ? 1 : 0.5;
+      color[0] = 2*1.2 * colorLerp;
+      color[1] = 2*0.3 * colorLerp;
+      color[2] = 2*0.2 * colorLerp;
+      color[3] = 2*1 * colorLerp;
       shockwavePer.voff = 2 - lerp * 4;
       shockwavePer.colorMult = color;
       shockwavePer.time = shockwaveTimer[ii];
       shockwave.draw(shockwavePer);
     }
 
+    fast.matrix4.translation(world, [0, 0, 0]);
+    particleSystem.draw(viewProjection, world, viewInverse);
 
     // Set the alpha to 255.
     gl.colorMask(false, false, false, true);
@@ -685,7 +774,7 @@ void main() {
 }
 </script>
 -->
-<script id="constTexturedVertexShader" type="text/something-not-javascript">
+<script id="shieldVertexShader" type="text/something-not-javascript">
 attribute vec4 position;
 attribute vec2 texCoord;
 varying vec2 v_texCoord;
@@ -695,14 +784,15 @@ void main() {
   gl_Position = (worldViewProjection * position);
 }
 </script>
-<script id="constTexturedFragmentShader" type="text/something-not-javascript">
+<script id="shieldFragmentShader" type="text/something-not-javascript">
 #ifdef GL_ES
 precision highp float;
 #endif
 varying vec2 v_texCoord;
 uniform sampler2D diffuseSampler;
+uniform vec4 colorMult;
 void main() {
-  gl_FragColor = texture2D(diffuseSampler, v_texCoord);
+  gl_FragColor = texture2D(diffuseSampler, v_texCoord) * colorMult;
 }
 </script>
 <script id="shockwaveVertexShader" type="text/something-not-javascript">

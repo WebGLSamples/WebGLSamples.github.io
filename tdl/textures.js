@@ -69,6 +69,8 @@ tdl.textures.loadTexture = function(arg) {
     texture = new tdl.textures.CubeMap(arg);
   } else if (arg.tagName == 'CANVAS' || arg.tagName == 'IMG') {
     texture = new tdl.textures.Texture2D(arg);
+  } else if (arg.width) {
+    texture = new tdl.textures.ColorTexture2D(arg);
   } else {
     throw "bad args";
   }
@@ -122,6 +124,42 @@ tdl.textures.SolidTexture.prototype.recoverFromLostContext = function() {
 };
 
 tdl.textures.SolidTexture.prototype.bindToUnit = function(unit) {
+  gl.activeTexture(gl.TEXTURE0 + unit);
+  gl.bindTexture(gl.TEXTURE_2D, this.texture);
+};
+
+/**
+ * A color from an array of values texture.
+ * @constructor
+ * @param {!{width: number, height: number: pixels:
+ *        !Array.<number>} data.
+ */
+tdl.textures.ColorTexture = function(data, opt_format, opt_type) {
+  tdl.textures.Texture.call(this, gl.TEXTURE_2D);
+  this.format = opt_format || gl.RGBA;
+  this.type   = opt.type || gl.UNSIGNED_BYTE;
+  if (data.pixels instanceof Array) {
+    data.pixels = new Uint8Array(data.pixels);
+  }
+  this.data   = data;
+  this.uploadTexture();
+};
+
+tdl.base.inherit(tdl.textures.ColorTexture, tdl.textures.Texture);
+
+tdl.textures.ColorTexture.prototype.uploadTexture = function() {
+  gl.bindTexture(gl.TEXTURE_2D, this.texture);
+  gl.texImage2D(
+    gl.TEXTURE_2D, 0, this.format, this.data.width, this.data.height,
+    0, this.format, this.type, this.data.pixels);
+};
+
+tdl.textures.ColorTexture.prototype.recoverFromLostContext = function() {
+  tdl.textures.Texture.recoverFromLostContext.call(this);
+  this.uploadTexture();
+};
+
+tdl.textures.ColorTexture.prototype.bindToUnit = function(unit) {
   gl.activeTexture(gl.TEXTURE0 + unit);
   gl.bindTexture(gl.TEXTURE_2D, this.texture);
 };
