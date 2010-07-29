@@ -84,7 +84,9 @@ var g_logGLCalls = true   // whether or not to log webgl calls
 var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;
 var g_setCountElements = [];
+var g_refract = true;
 
+//g_refract = false;
 //g_debug = true;
 //g_drawOnce = true;
 
@@ -99,6 +101,7 @@ var g_tailOffsetMult   = 1;
 var g_endOfDome        = Math.PI / 8;
 var g_tankRadius       = 22;
 var g_tankHeight       = 30;
+var g_tankRefractionRatio = 1.33;
 var g_standHeight      = 25;
 var g_fishXClock       = 1;
 var g_fishYClock       = 0.17;
@@ -183,9 +186,16 @@ function setupFish() {
 function setupSkybox() {
   var textures = {
     skybox: tdl.textures.loadTexture(g_skyBoxUrls)};
-  var program = createProgramFromTags(
-      'skyboxVertexShader',
-      'skyboxFragmentShader');
+  var program;
+  if (g_refract) {
+    program = createProgramFromTags(
+        'refractSkyboxVertexShader',
+        'refractSkyboxFragmentShader');
+  } else {
+    program = createProgramFromTags(
+        'skyboxVertexShader',
+        'skyboxFragmentShader');
+  }
   var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
   delete arrays['normal'];
   delete arrays['texCoord'];
@@ -355,6 +365,15 @@ function initialize() {
 
   // Sky uniforms.
   var skyConst = {viewProjectionInverse: viewProjectionInverse};
+  if (g_refract) {
+    skyConst = {
+      viewProjectionInverse: viewProjectionInverse,
+      viewInverse: viewInverse,
+      tankRadiusSquared: g_tankRadius * g_tankRadius,
+      tankRadiusInverse: 1.0 / g_tankRadius,
+      tankRefractionRatio: g_tankRefractionRatio
+    };
+  }
   var skyPer = {};
 
   // Sand uniforms.
@@ -546,8 +565,10 @@ function initialize() {
     glass.drawPrep(glassConst);
 
     // Draw front of class
-    gl.cullFace(gl.FRONT);
-    glass.draw(glassBackPer);
+    if (!g_refract) {
+      gl.cullFace(gl.FRONT);
+      glass.draw(glassBackPer);
+    }
 
     // Draw front of class
     gl.cullFace(gl.BACK);
@@ -837,6 +858,84 @@ void main() {
 }
 </script>
 <!-- ===[ SkyBox ]============================================== -->
+<script id="refractSkyboxVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+varying vec4 v_position;
+
+void main() {
+  v_position = position;
+  gl_Position = position;
+}
+</script>
+<script id="refractSkyboxFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform samplerCube skybox;
+uniform mat4 viewProjectionInverse;
+uniform mat4 viewInverse;
+uniform float tankRadiusSquared;
+uniform float tankRadiusInverse;
+uniform float tankRefractionRatio;
+varying vec4 v_position;
+
+void main() {
+  vec4 fragment = viewProjectionInverse * v_position;
+  fragment /= fragment.w;
+  vec3 viewPosition = viewInverse[3].xyz;
+  vec3 viewDirection = normalize(fragment.xyz - viewPosition);
+
+  // Trace ray from camera to tank cylinder. Start with an infinite cylinder.
+  float a = dot(viewDirection.xz, viewDirection.xz);
+  float b = 2.0 * dot(viewPosition.xz, viewDirection.xz);
+  float c = dot(viewPosition.xz, viewPosition.xz) - tankRadiusSquared;
+  float discriminant = b * b - 4.0 * a * c;
+
+  // If the discrimant is negative then the ray does not collide with the tank.
+  if (discriminant < 0.0) {
+    gl_FragColor = textureCube(skybox, viewDirection);
+  } else {
+    // Calculate the near and far collision times and pick the closest.
+    float sqrtDiscrimant = sqrt(discriminant);
+    float inverse2a = 1.0 / (2.0 * a);
+    float tn = (-b - sqrtDiscrimant) * inverse2a;
+    vec3 nearPosition = viewPosition + tn * viewDirection;
+
+    // The surface normal for the sphere is the intersecting position normalized
+    // by dividing by the radius.
+    vec3 nearSurfaceNormal = normalize(vec3(nearPosition.x, 0, nearPosition.z));
+    vec3 nearRefractedDirection = refract(viewDirection, nearSurfaceNormal, 1.0 / tankRefractionRatio);
+
+    // Trace ray from near intersection to tank cylinder.
+    a = dot(nearRefractedDirection.xz, nearRefractedDirection.xz);
+    b = 2.0 * dot(nearPosition.xz, nearRefractedDirection.xz);
+    c = dot(nearPosition.xz, nearPosition.xz) - tankRadiusSquared;
+    discriminant = b * b - 4.0 * a * c;
+
+    // Assume discriminant is not negative because we should have been tracing
+    // through the cylinder. Calculate near and far collision times and pick
+    // far one. Near one should be approximately zero. TODO: optimization here?
+    sqrtDiscrimant = sqrt(discriminant);
+    inverse2a = 1.0 / (2.0 * a);
+    float tf = (-b + sqrtDiscrimant) * inverse2a;
+    vec3 farPosition = nearPosition + tf * nearRefractedDirection;
+
+    // The surface normal for the sphere is the intersecting position normalized
+    // by dividing by the radius.
+    vec3 farSurfaceNormal = normalize(vec3(farPosition.x, 0, farPosition.z));
+    vec3 farRefractedDirection = refract(nearRefractedDirection, -farSurfaceNormal, tankRefractionRatio);
+
+    vec4 externalColor = textureCube(skybox, farRefractedDirection);
+
+    vec4 murkColor = vec4(0.1, 0.11, 0.1, 1.0);
+    float murkVisibilityDistance = 100.0;
+
+    float murkiness = min(1.0, tf / murkVisibilityDistance);
+
+    gl_FragColor = mix(externalColor, murkColor, murkiness);
+  }
+}
+</script>
 <script id="skyboxVertexShader" type="text/something-not-javascript">
 attribute vec4 position;
 varying vec4 v_position;
@@ -858,6 +957,8 @@ void main() {
       normalize((viewProjectionInverse * v_position).xyz));
 }
 </script>
+
+
 </html>
 
 
