@@ -187,7 +187,13 @@ function glFunctionArgToString(functionName, argumentIndex, value) {
       return glEnumToString(value);
     }
   }
-  return (value !== undefined) ? value.toString() : "undefined";
+  if (value === null) {
+    return "null";
+  } else if (value === undefined) {
+    return "undefined";
+  } else {
+    return value.toString();
+  }
 }
 
 /**
