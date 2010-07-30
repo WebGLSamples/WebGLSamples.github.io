@@ -46,15 +46,25 @@ body {
 CANVAS {
   background-color: gray;
 }
+#ui {
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  width: 250px;
+  z-index: 2;
+}
 .fpsContainer {
   position: absolute;
   top: 10px;
-  left: 10px;
+  left: 20px;
   z-index: 2;
   color: white;
   font-family: sans-serif;
 }
 </style>
+<link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
 <script type="text/javascript" src="../js/webgl-test-utils.js"></script>
 <script type="text/javascript" src="../js/webgl-debug.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
@@ -68,7 +78,6 @@ tdl.require('tdl.particles');
 tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
 tdl.require('tdl.textures');
-window.onload = initialize;
 
 // globals
 var gl;                   // the gl context.
@@ -82,6 +91,16 @@ var g_logGLCalls = true;  // whether or not to log webgl calls
 var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;   // draw just one frame.
 var g_setCountElements = [];
+var g_grassConst = {};
+
+var g_ui = [
+  { name: 'bladeWidth',      value: 0.05, max:  1 },
+  { name: 'bladeSpacing',    value: 0.06, max:  1 },
+  { name: 'xTimeMult',       value: 1.0,  max:  5 },
+  { name: 'zTimeMult',       value: 2.01, max:  5 },
+  { name: 'swayRange',       value: 0.2,  max:  1 },
+  { name: 'elevationPeriod', value: 1.0,  max:  5 },
+  { name: 'elevationRange',  value: 0.4,  max:  3 }];
 
 //g_drawOnce = true;
 //g_debug = true;
@@ -90,8 +109,6 @@ var g_numGrass          = 50;
 var g_eyeSpeed          = 0.1;
 var g_eyeHeight         = 2;
 var g_eyeRadius         = 3;
-var g_grassWidth        = 0.05;
-var g_grassSpacing      = 0.06;
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -137,7 +154,7 @@ function setupGrass() {
        [0, 1, 0, 0],
        [0, 0.5, 0, 1]]);
   delete arrays.normal;
-  delete arrays.texCoords;
+  delete arrays.texCoord;
   var numElements = arrays.position.numElements;
   var blades = [arrays]
   var across = 10;
@@ -280,11 +297,9 @@ function initialize() {
   var skyPer = {};
 
   // Grass uniforms.
-  var grassConst = {
-    viewInverse: viewInverse,
-    time: 0,
-    bladeWidth: g_grassWidth,
-    bladeSpacing: g_grassSpacing};
+  g_grassConst.viewInverse = viewInverse;
+  g_grassConst.time = 0;
+
   var grassPer = {
     world: world,
     worldViewProjection: worldViewProjection,
@@ -359,10 +374,10 @@ function initialize() {
     skybox.draw(skyPer);
 
     Log("--Draw grass---------------------------------------");
-    grassConst.time = clock;
-    grass.drawPrep(grassConst);
+    g_grassConst.time = clock;
+    grass.drawPrep(g_grassConst);
     var across = Math.floor(Math.sqrt(g_numGrass));
-    var width = g_grassSpacing * 10;
+    var width = g_grassConst.bladeSpacing * 10;
     var base = width * across * -0.5;
     for (var zz = 0; zz < across; ++zz) {
       for (var xx = 0; xx < across; ++xx) {
@@ -383,6 +398,55 @@ function initialize() {
     g_logGLCalls = false;
   }
 }
+
+var g_event;
+var g_ui;
+
+function getParamId(id) {
+  return id.substr(6).replace(/(\w)/, function(m) {return m.toLowerCase() });
+}
+
+function setParam(event, ui) {
+  var id = event.target.id;
+  var value = ui.value / 1000;
+  console.log(id + ": " + value);
+  g_grassConst[id] = value;
+}
+
+function getUIValue(id) {
+  return g_grassConst[id] * 1000;
+}
+
+function setupSlider($, elem, ui) {
+  var labelDiv = document.createElement('div');
+  labelDiv.appendChild(document.createTextNode(ui.name));
+  var sliderDiv = document.createElement('div');
+  sliderDiv.id = ui.name;
+  elem.appendChild(labelDiv);
+  elem.appendChild(sliderDiv);
+  $(sliderDiv).slider({
+    range: false,
+    step: 1,
+    max: ui.max * 1000,
+    value: getUIValue(ui.name),
+    slide: setParam
+  });
+}
+
+$(function(){
+  var uiElem = document.getElementById('ui');
+  for (var ii = 0; ii < g_ui.length; ++ii) {
+    var ui = g_ui[ii];
+    g_grassConst[ui.name] = ui.value;
+    var div = document.createElement('div');
+    setupSlider($, div, ui);
+    uiElem.appendChild(div);
+  }
+
+  initialize();
+});
+
+
 </script>
 </head>
 <body>
@@ -394,6 +458,12 @@ function initialize() {
   <div id="setCount2">many</div>
   <div id="setCount3">lots</div>
 </div>
+<div id="ui">
+  <!--
+  <div id="sliderBladeWidth"></div>
+  <div id="sliderBladeSpacing"></div>
+  -->
+</div>
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </body>
 <script id="grassVertexShader" type="text/something-not-javascript">
@@ -403,6 +473,11 @@ uniform mat4 viewInverse;
 uniform float time;
 uniform float bladeWidth;
 uniform float bladeSpacing;
+uniform float xTimeMult;
+uniform float zTimeMult;
+uniform float swayRange;
+uniform float elevationPeriod;
+uniform float elevationRange;
 attribute vec4 position;
 attribute vec2 bladeId;
 varying vec4 v_color;
@@ -426,16 +501,18 @@ void main() {
   float hbase = time * sin((xbase + zbase) * 0.1);
   float hsin  = sin(hbase);
   float hcos  = cos(hbase);
-  float xoff  = sin(time * 1.00 + xbase * 0.0 + sin(zbase)) * 0.2;
-  float yoff  = sin(hsin) * 0.1;
-  float zoff  = sin(time * 2.01 + zbase * 0.1 + cos(xbase) * 1.3) * 0.2;
+  float xoff  = sin(time * xTimeMult + xbase * 0.0 + sin(zbase)) * swayRange;
+  float yoff  = 0.0;
+  float zoff  = sin(time * zTimeMult + zbase * 0.1 + cos(xbase) * 1.3) * swayRange;
   float effect = sin(3.14159 * 0.5 * lerp) * 1.0;
   vec4 p = vec4(
       pt.x + xbase * bladeSpacing + xoff * effect,
       pt.y + yoff,
       pt.z + zbase * bladeSpacing + zoff * effect,
       1);
-  gl_Position = worldViewProjection * p;
+  vec4 wp = world * p;
+  float elevation = sin(wp.x * wp.z * elevationPeriod) * elevationRange;
+  gl_Position = worldViewProjection * vec4(p.x, p.y + elevation, p.z, 1);
   v_color = vec4(
     0.3,
     0.7 + (hcos - 0.5) * 2.0 * 0.1,
