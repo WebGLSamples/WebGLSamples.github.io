@@ -399,15 +399,14 @@ function initialize() {
 
   function setupShadowPass() {
     gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFrame);
+    gl.viewport(0, 0, g_shadowMapWidth, g_shadowMapHeight);
 
-    /*
     // TODO enne - find the viewport bounds once.
     fast.matrix4.ortho(
         projection,
         -70, 70,
         -70, 70,
         1, 5000);
-    */
     fast.matrix4.lookAt(
         view,
         lightWorldPos,
@@ -425,6 +424,7 @@ function initialize() {
 
   function setupMainPass() {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
 
     fast.matrix4.perspective(
         projection,
@@ -513,11 +513,6 @@ function initialize() {
 <script id="shadowWriteVertexShader" type="text/something-not-javascript">
 uniform mat4 worldViewProjection;
 attribute vec4 position;
-// TODO enne - how does GLES handle mismatched vert attributes?
-attribute vec3 normal;
-attribute vec2 texCoord;
-attribute vec3 tangent;
-attribute vec3 binormal;
 varying vec4 v_position;
 void main() {
   v_position = (worldViewProjection * position);
@@ -530,7 +525,7 @@ precision highp float;
 #endif
 varying vec4 v_position;
 void main() {
-  gl_FragColor = vec4(v_position.z, v_position.z, v_position.z, v_position.z);
+  gl_FragColor = vec4(1.0, 0, 0, 1.0);
 }
 </script>
 <!-- Shadow Read Shader -->
