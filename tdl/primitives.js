@@ -87,6 +87,13 @@ tdl.primitives.AttribBuffer.prototype.setElement = function(index, value) {
   }
 };
 
+tdl.primitives.AttribBuffer.prototype.clone = function() {
+  var copy = new tdl.primitives.AttribBuffer(
+      this.numComponents, this.numElements, this.type);
+  copy.pushArray(this);
+  return copy;
+}
+
 tdl.primitives.AttribBuffer.prototype.push = function(value) {
   this.setElement(this.cursor++, value);
 };
@@ -380,6 +387,14 @@ tdl.primitives.addTangentsAndBinormals = function(arrays) {
   arrays.tangent = bn.tangent;
   arrays.binormal = bn.binormal;
   return arrays;
+};
+
+tdl.primitives.clone = function(arrays) {
+  var newArrays = { };
+  for (var array in arrays) {
+    newArrays[array] = arrays[array].clone();
+  }
+  return newArrays;
 };
 
 /**

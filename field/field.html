@@ -1,0 +1,511 @@
+<!--
+ * Copyright 2009, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+  "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>WebGL Field</title>
+<style>
+body {
+  width: 100%;
+  height: 100%;
+  border: 0px;
+  padding: 0px;
+  margin: 0px;
+  background-color: red;
+}
+CANVAS {
+  background-color: gray;
+}
+.fpsContainer {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  color: white;
+  font-family: sans-serif;
+}
+</style>
+<script type="text/javascript" src="../js/webgl-test-utils.js"></script>
+<script type="text/javascript" src="../js/webgl-debug.js"></script>
+<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript">
+tdl.require('tdl.buffers');
+tdl.require('tdl.fast');
+tdl.require('tdl.fps');
+tdl.require('tdl.math');
+tdl.require('tdl.models');
+tdl.require('tdl.particles');
+tdl.require('tdl.primitives');
+tdl.require('tdl.programs');
+tdl.require('tdl.textures');
+window.onload = initialize;
+
+// globals
+var gl;                   // the gl context.
+var wu = WebGLTestUtils;  // some webgl utils
+var wd = WebGLDebugUtils; // more webgl utils
+var canvas;               // the canvas
+var math;                 // the math lib.
+var fast;                 // the fast math lib.
+var g_fpsTimer;           // object to measure frames per second;
+var g_logGLCalls = true;  // whether or not to log webgl calls
+var g_debug = false;      // whether or not to debug.
+var g_drawOnce = false;   // draw just one frame.
+var g_setCountElements = [];
+
+//g_drawOnce = true;
+//g_debug = true;
+
+var g_numGrass          = 50;
+var g_eyeSpeed          = 0.1;
+var g_eyeHeight         = 2;
+var g_eyeRadius         = 3;
+var g_grassWidth        = 0.1;
+var g_grassSpacing      = 0.11;
+
+function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
+  for (var ii = 0; ii < args.length; ++ii) {
+    if (args[ii] === undefined) {
+      console.error("undefined passed to gl." + functionName + "(" +
+                wd.glFunctionArgsToString(functionName, args) + ")");
+    }
+  }
+}
+
+function Log(msg) {
+  if (g_logGLCalls) {
+    wu.log(msg);
+  }
+}
+
+function LogGLCall(functionName, args) {
+  if (g_logGLCalls) {
+    ValidateNoneOfTheArgsAreUndefined(functionName, args)
+    console.log("gl." + functionName + "(" +
+                wd.glFunctionArgsToString(functionName, args) + ")");
+  }
+}
+
+function createProgramFromTags(vertexTagId, fragmentTagId) {
+  return tdl.programs.loadProgram(
+      document.getElementById(vertexTagId).text,
+      document.getElementById(fragmentTagId).text);
+}
+
+/**
+ * Sets up Grass.
+ */
+function setupGrass() {
+  var textures = {
+    diffuseSampler: tdl.textures.loadTexture([128, 255, 128, 255])};
+  var program = createProgramFromTags(
+      'grassVertexShader',
+      'grassFragmentShader');
+  var arrays = tdl.primitives.createPlane(1, 1, 1, 10);
+  tdl.primitives.reorient(arrays,
+      [[g_grassWidth, 0, 0, 0],
+       [0, 0, -1, 0],
+       [0, 1, 0, 0],
+       [0, 0.5, 0, 1]]);
+  var a2 = tdl.primitives.clone(arrays);
+  tdl.primitives.reorient(a2,
+      [[0, 0, -1, 0],
+       [0, 1, 0, 0],
+       [1, 0, 0, 0],
+       [0, 0, 0, 1]]);
+  var arrays = tdl.primitives.concat([arrays, a2]);
+  tdl.primitives.reorient(arrays,
+      [[1, 0, 0, 0],
+       [0, 1, 0, 0],
+       [0, 0, 1, 0],
+       [g_grassSpacing, 0, g_grassSpacing, 1]]);
+  var blades = [arrays]
+  for (var xx = 1; xx < 10; ++xx) {
+    var a2 = tdl.primitives.clone(arrays);
+    tdl.primitives.reorient(a2,
+        [[1, 0, 0, 0],
+         [0, 1, 0, 0],
+         [0, 0, 1, 0],
+         [xx * g_grassSpacing, 0, 0, 1]]);
+    blades[xx] = a2;
+  }
+  var arrays = tdl.primitives.concat(blades);
+  var blades = [arrays]
+  for (var zz = 1; zz < 10; ++zz) {
+    var a2 = tdl.primitives.clone(arrays);
+    tdl.primitives.reorient(a2,
+        [[1, 0, 0, 0],
+         [0, 1, 0, 0],
+         [0, 0, 1, 0],
+         [0, 0, zz * g_grassSpacing, 1]]);
+    blades[zz] = a2;
+  }
+  var arrays = tdl.primitives.concat(blades);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
+ * Sets up Skybox.
+ */
+function setupSkybox() {
+  var textures = {
+    skybox: tdl.textures.loadTexture([
+        'assets/mid.png',
+        'assets/mid.png',
+        'assets/top.png',
+        'assets/bottom.png',
+        'assets/mid.png',
+        'assets/mid.png'])
+  };
+  var program = createProgramFromTags(
+      'skyboxVertexShader',
+      'skyboxFragmentShader');
+  var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
+  delete arrays['normal'];
+  delete arrays['texCoord'];
+  tdl.primitives.reorient(arrays,
+      [[1, 0, 0, 0],
+       [0, 0, 1, 0],
+       [0,-1, 0, 0],
+       [0, 0, 0.99, 1]]);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
+ * Sets the count
+ */
+function setCount(elem, count) {
+  g_numGrass = count;
+  for (var ii = 0; ii < g_setCountElements.length; ++ii) {
+    g_setCountElements[ii].style.color = "gray";
+  }
+  elem.style.color = "red";
+}
+
+/**
+ * Sets up the count buttons.
+ */
+function setupCountButtons() {
+  var g_grassAmounts = [
+    1,
+    10,
+    100,
+    1000,
+  ];
+  for (var ii = 0; ii < g_grassAmounts.length; ++ii) {
+    var elem = document.getElementById("setCount" + ii);
+    if (!elem) {
+      break;
+    }
+    g_setCountElements.push(elem);
+    elem.onclick = function(elem, count) {
+      return function () {
+        setCount(elem, count);
+      }}(elem, g_grassAmounts[ii]);
+  }
+  setCount(document.getElementById('setCount0'),
+           g_grassAmounts[0]);
+}
+
+function initialize() {
+  math = tdl.math;
+  fast = tdl.fast;
+  canvas = document.getElementById("canvas");
+  g_fpsTimer = new tdl.fps.FPSTimer();
+
+  setupCountButtons();
+
+  gl = wu.create3DContext(canvas);
+  if (g_debug) {
+    gl = wd.makeDebugContext(gl, undefined, LogGLCall);
+  }
+
+  Log("--Setup Grass---------------------------------------");
+  var grass = setupGrass();
+  Log("--Setup Skybox---------------------------------------");
+  var skybox = setupSkybox();
+
+  var then = 0.0;
+  var clock = 0.0;
+  var fpsElem = document.getElementById("fps");
+
+  var projection = new Float32Array(16);
+  var view = new Float32Array(16);
+  var world = new Float32Array(16);
+  var worldInverse = new Float32Array(16);
+  var worldInverseTranspose = new Float32Array(16);
+  var viewProjection = new Float32Array(16);
+  var worldViewProjection = new Float32Array(16);
+  var viewInverse = new Float32Array(16);
+  var viewProjectionInverse = new Float32Array(16);
+  var eyePosition = new Float32Array(3);
+  var target = new Float32Array(3);
+  var up = new Float32Array([0,1,0]);
+  var lightWorldPos = new Float32Array(3);
+  var v3t0 = new Float32Array(3);
+  var v3t1 = new Float32Array(3);
+  var v3t2 = new Float32Array(3);
+  var v3t3 = new Float32Array(3);
+  var m4t0 = new Float32Array(16);
+  var m4t1 = new Float32Array(16);
+  var m4t2 = new Float32Array(16);
+  var m4t3 = new Float32Array(16);
+  var zero4 = new Float32Array(4);
+  var one4 = new Float32Array([1,1,1,1]);
+
+  // Sky uniforms.
+  var skyConst = {viewProjectionInverse: viewProjectionInverse};
+  var skyPer = {};
+
+  // Grass uniforms.
+  var grassConst = {
+    viewInverse: viewInverse,
+    lightWorldPos: lightWorldPos,
+    lightColor: one4,
+    time: 0};
+  var grassPer = {
+    world: world,
+    worldViewProjection: worldViewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose};
+
+  var frameCount = 0;
+  var intervalId = setInterval(render, 1000.0 / 70.0);
+  function render() {
+    ++frameCount;
+    if (g_drawOnce) {
+      clearInterval(intervalId);
+    }
+    var now = (new Date()).getTime() * 0.001;
+    var elapsedTime;
+    if(then == 0.0) {
+      elapsedTime = 0.0;
+    } else {
+      elapsedTime = now - then;
+    }
+    then = now;
+
+    g_fpsTimer.update(elapsedTime);
+    fps.innerHTML = g_fpsTimer.averageFPS;
+
+    clock += elapsedTime;
+    eyePosition[0] = Math.sin(clock * g_eyeSpeed) * g_eyeRadius;
+    eyePosition[1] = g_eyeHeight;
+    eyePosition[2] = Math.cos(clock * g_eyeSpeed) * g_eyeRadius;
+
+    gl.colorMask(true, true, true, true);
+    gl.depthMask(true);
+    gl.clearColor(0,0,0,0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+    gl.disable(gl.BLEND);
+    gl.depthFunc(gl.LESS);
+    gl.disable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    fast.matrix4.perspective(
+        projection,
+        math.degToRad(60),
+        canvas.clientWidth / canvas.clientHeight,
+        1,
+        5000);
+    fast.matrix4.lookAt(
+        view,
+        eyePosition,
+        target,
+        up);
+    fast.matrix4.mul(viewProjection, view, projection);
+    fast.matrix4.inverse(viewInverse, view);
+    fast.matrix4.inverse(viewProjectionInverse, viewProjection);
+
+    fast.matrix4.getAxis(v3t0, viewInverse, 0); // x
+    fast.matrix4.getAxis(v3t1, viewInverse, 1); // y;
+    fast.matrix4.getAxis(v3t2, viewInverse, 2); // z;
+    fast.mulScalarVector(v3t0, 1, v3t0);
+    fast.mulScalarVector(v3t1, 1, v3t1);
+    fast.mulScalarVector(v3t2, 1, v3t2);
+    fast.addVector(lightWorldPos, eyePosition, v3t0);
+    fast.addVector(lightWorldPos, lightWorldPos, v3t1);
+    fast.addVector(lightWorldPos, lightWorldPos, v3t2);
+//      view: view,
+//      projection: projection,
+//      viewProjection: viewProjection,
+
+    // Draw Skybox
+    skybox.drawPrep(skyConst);
+    skybox.draw(skyPer);
+
+    Log("--Draw grass---------------------------------------");
+    grassConst.time = clock;
+    grass.drawPrep(grassConst);
+    var across = Math.floor(Math.sqrt(g_numGrass));
+    var width = g_grassSpacing * 10;
+    var base = width * across * -0.5;
+    for (var zz = 0; zz < across; ++zz) {
+      for (var xx = 0; xx < across; ++xx) {
+        fast.matrix4.translation(world, [base + xx * width, 0, base + zz * width]),
+        fast.matrix4.mul(worldViewProjection, world, viewProjection);
+        fast.matrix4.inverse(worldInverse, world);
+        fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+        grass.draw(grassPer);
+      }
+    }
+
+    // Set the alpha to 255.
+    gl.colorMask(false, false, false, true);
+    gl.clearColor(0,0,0,1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    // turn off logging after 1 frame.
+    g_logGLCalls = false;
+  }
+}
+</script>
+</head>
+<body>
+<div class="fpsContainer">
+  <div class="fps">fps: <span id="fps"></div>
+  <div>Grass</div>
+  <div id="setCount0">1</div>
+  <div id="setCount1">a few</div>
+  <div id="setCount2">many</div>
+  <div id="setCount3">lots</div>
+</div>
+<canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
+</body>
+<script id="grassVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+uniform float time;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+attribute vec3 tangent;
+attribute vec3 binormal;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+varying vec3 v_c;
+void main() {
+  v_texCoord = texCoord;
+  vec4 wp = world * position;
+  float height = position.y;
+  float fx = position.x + 0.05 + 0.11 * 11.0;
+  float fz = position.z + 0.05 + 0.11 * 11.0;
+  float xblade = mod(fx, 0.11) - 0.05;
+  float zblade = mod(fz, 0.11) - 0.05;
+  float xbase = floor(fx / 0.11);
+  float zbase = floor(fz / 0.11);
+  v_c = vec3(mod(xbase * 0.5, 1.0), 0, mod(zbase * 0.25, 1.0));
+  float lerp = height;
+  float xoff = sin(time * 1.00 + xbase * 0.0 + sin(zbase)) * 0.2;
+  float zoff = sin(time * 2.01 + zbase * 0.1 + cos(xbase) * 1.3) * 0.2;
+  float effect = sin(3.14159 * 0.5 * lerp) * 1.0;
+  vec4 p = vec4(
+      position.x - xblade * lerp + xoff * effect,
+      position.y,
+      position.z - zblade * lerp + zoff * effect,
+      1);
+  v_position = (worldViewProjection * p);
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="grassFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform vec4 lightColor;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+varying vec3 v_c;
+
+uniform vec4 ambient;
+uniform sampler2D diffuseSampler;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec4 diffuse = texture2D(diffuseSampler, v_texCoord);
+  vec3 normal = normalize(v_normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  float l = dot(normal, surfaceToLight);
+  gl_FragColor = vec4((lightColor * (diffuse * l)).rgb,
+      diffuse.a) * 1.0 + vec4(v_c.x, 0, v_c.z, 1) * 0.0;
+}
+</script>
+<!-- ===[ SkyBox ]============================================== -->
+<script id="skyboxVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+varying vec4 v_position;
+void main() {
+  v_position = position;
+  gl_Position = position;
+}
+</script>
+<script id="skyboxFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform samplerCube skybox;
+uniform mat4 viewProjectionInverse;
+varying vec4 v_position;
+void main() {
+  vec4 t = (viewProjectionInverse * v_position);
+  vec4 color = textureCube(
+      skybox,
+      normalize(t.xyz / t.w));
+  gl_FragColor = color * color * color;
+}
+</script>
+</html>
+
+
