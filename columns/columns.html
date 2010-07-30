@@ -87,6 +87,7 @@ var g_drawOnce = false;   // draw just one frame.
 // shadowing globals
 var g_shadowMapWidth = 512;
 var g_shadowMapHeight = 512;
+var g_debugTexture = true;
 
 var g_setCountElements = [];
 
@@ -244,6 +245,44 @@ function setupGround(depthTexture) {
   return new tdl.models.Model(readProgram, arrays, textures);
 }
 
+// Generate a debug quad of size (width, height) at screen coords (x, y).
+// Coordinates and dimensions are all in NDC space.
+function setupDebugTex(tex, x, y, width, height)
+{
+  var program = createProgramFromTags('debugTextureVertexShader',
+      'debugTextureFragmentShader');
+
+  var numVertices = 4;
+  var positions = new tdl.primitives.AttribBuffer(3, numVertices);
+  var texCoords = new tdl.primitives.AttribBuffer(2, numVertices);
+  var indices = new tdl.primitives.AttribBuffer(3, 2, 'Uint16Array');
+
+  positions.push([x, y, 0]);
+  positions.push([x + width, y, 0]);
+  positions.push([x, y + height, 0]);
+  positions.push([x + width, y + height, 0]);
+
+  texCoords.push([0,0]);
+  texCoords.push([1,0]);
+  texCoords.push([0,1]);
+  texCoords.push([1,1]);
+
+  indices.push([0,1,2]);
+  indices.push([2,1,3]);
+
+  var arrays = {
+    position: positions,
+    texCoord: texCoords,
+    indices: indices,
+  };
+
+  var textures = {
+    tex : tex,
+  };
+
+  return new tdl.models.Model(program, arrays, textures);
+};
+
 /**
  * Initializes stuff.
  */
@@ -287,6 +326,13 @@ function initialize() {
   Log("--Setup Ground---------------------------------------");
   var sand = setupGround(depthTexture);
 
+  // scale is [0..1], and is a fraction of the screen height.
+  var scale = 0.5; 
+  var aspectRatio = (canvas.clientWidth / canvas.clientHeight) *
+    (g_shadowMapHeight / g_shadowMapWidth);
+  var debugTex = setupDebugTex(depthTexture, -1, -1, 2*scale / aspectRatio,
+      2*scale);
+
   var then = 0.0;
   var clock = 0.0;
   var fpsElem = document.getElementById("fps");
@@ -314,6 +360,15 @@ function initialize() {
   var target = new Float32Array(3);
   var up = new Float32Array([0,1,0]);
   var lightWorldDir = new Float32Array(g_lightWorldDir);
+  var lightWorldPos = new Float32Array(3);
+  var lightWorldTarget = new Float32Array([0,0,0]);
+
+  // TODO enne - automatically calculate light position from world bound.
+  tdl.fast.normalize(lightWorldPos, lightWorldDir);
+  lightWorldPos[0] = -lightWorldPos[0] * g_groundRadius * 2;
+  lightWorldPos[1] = -lightWorldPos[1] * g_groundRadius * 2;
+  lightWorldPos[2] = -lightWorldPos[2] * g_groundRadius * 2;
+
   var zero4 = new Float32Array(4);
   var one4 = new Float32Array([1,1,1,1]);
   var colorMult = new Float32Array([1,1,1,1]);
@@ -345,16 +400,18 @@ function initialize() {
   function setupShadowPass() {
     gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFrame);
 
-    fast.matrix4.perspective(
+    /*
+    // TODO enne - find the viewport bounds once.
+    fast.matrix4.ortho(
         projection,
-        math.degToRad(30),
-        canvas.clientWidth / canvas.clientHeight,
-        1,
-        5000);
+        -70, 70,
+        -70, 70,
+        1, 5000);
+    */
     fast.matrix4.lookAt(
         view,
-        eyePosition,
-        target,
+        lightWorldPos,
+        lightWorldTarget,
         up);
     fast.matrix4.mul(viewProjection, view, projection);
     fast.matrix4.inverse(viewInverse, view);
@@ -433,6 +490,12 @@ function initialize() {
     sand.draw(uniforms);
     columns.read.drawPrep(shadowReadConst);
     columns.read.draw(uniforms);
+
+    // Debug
+    if (g_debugTexture) {
+      debugTex.drawPrep({});
+      debugTex.draw({});
+    }
 
     // turn off logging after 1 frame.
     g_logGLCalls = false;
@@ -565,6 +628,26 @@ void main() {
   gl_FragColor = textureCube(
       skybox,
       normalize((viewProjectionInverse * v_position).xyz));
+}
+</script>
+<!-- Debug Texture Shader -->
+<script id="debugTextureVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+attribute vec2 texCoord;
+varying vec2 v_texCoord;
+void main() {
+    gl_Position = position;
+    v_texCoord = texCoord;
+}
+</script>
+<script id="debugTextureFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform sampler2D tex;
+varying vec2 v_texCoord;
+void main() {
+    gl_FragColor = texture2D(tex, v_texCoord);
 }
 </script>
 </html>
