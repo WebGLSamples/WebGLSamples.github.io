@@ -86,7 +86,10 @@ tdl.models.Model.prototype.drawPrep = function(uniforms) {
     if (buffer == 'indices') {
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, b.buffer());
     } else {
-      program.attrib[buffer](b);
+      var attrib = program.attrib[buffer];
+      if (attrib) {
+        attrib(b);
+      }
     }
   }
 
