@@ -90,8 +90,8 @@ var g_numGrass          = 50;
 var g_eyeSpeed          = 0.1;
 var g_eyeHeight         = 2;
 var g_eyeRadius         = 3;
-var g_grassWidth        = 0.1;
-var g_grassSpacing      = 0.11;
+var g_grassWidth        = 0.05;
+var g_grassSpacing      = 0.06;
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -126,51 +126,43 @@ function createProgramFromTags(vertexTagId, fragmentTagId) {
  * Sets up Grass.
  */
 function setupGrass() {
-  var textures = {
-    diffuseSampler: tdl.textures.loadTexture([128, 255, 128, 255])};
+  var textures = { };
   var program = createProgramFromTags(
       'grassVertexShader',
       'grassFragmentShader');
   var arrays = tdl.primitives.createPlane(1, 1, 1, 10);
   tdl.primitives.reorient(arrays,
-      [[g_grassWidth, 0, 0, 0],
+      [[1, 0, 0, 0],
        [0, 0, -1, 0],
        [0, 1, 0, 0],
        [0, 0.5, 0, 1]]);
-  var a2 = tdl.primitives.clone(arrays);
-  tdl.primitives.reorient(a2,
-      [[0, 0, -1, 0],
-       [0, 1, 0, 0],
-       [1, 0, 0, 0],
-       [0, 0, 0, 1]]);
-  var arrays = tdl.primitives.concat([arrays, a2]);
-  tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 1, 0, 0],
-       [0, 0, 1, 0],
-       [g_grassSpacing, 0, g_grassSpacing, 1]]);
+  delete arrays.normal;
+  delete arrays.texCoords;
+  var numElements = arrays.position.numElements;
   var blades = [arrays]
-  for (var xx = 1; xx < 10; ++xx) {
+  var across = 10;
+  for (var xx = 1; xx < across; ++xx) {
     var a2 = tdl.primitives.clone(arrays);
-    tdl.primitives.reorient(a2,
-        [[1, 0, 0, 0],
-         [0, 1, 0, 0],
-         [0, 0, 1, 0],
-         [xx * g_grassSpacing, 0, 0, 1]]);
     blades[xx] = a2;
   }
   var arrays = tdl.primitives.concat(blades);
   var blades = [arrays]
-  for (var zz = 1; zz < 10; ++zz) {
+  for (var zz = 1; zz < across; ++zz) {
     var a2 = tdl.primitives.clone(arrays);
-    tdl.primitives.reorient(a2,
-        [[1, 0, 0, 0],
-         [0, 1, 0, 0],
-         [0, 0, 1, 0],
-         [0, 0, zz * g_grassSpacing, 1]]);
     blades[zz] = a2;
   }
   var arrays = tdl.primitives.concat(blades);
+  var numBlades = across * across;
+  var bladeId = new tdl.primitives.AttribBuffer(
+      2, numElements * numBlades);
+  for (var xx = 0; xx < across; ++xx) {
+    for (var zz = 0; zz < across; ++zz) {
+      for (var jj = 0; jj < numElements; ++jj) {
+        bladeId.push([xx, zz]);
+      }
+    }
+  }
+  arrays.bladeId = bladeId;
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -290,9 +282,9 @@ function initialize() {
   // Grass uniforms.
   var grassConst = {
     viewInverse: viewInverse,
-    lightWorldPos: lightWorldPos,
-    lightColor: one4,
-    time: 0};
+    time: 0,
+    bladeWidth: g_grassWidth,
+    bladeSpacing: g_grassSpacing};
   var grassPer = {
     world: world,
     worldViewProjection: worldViewProjection,
@@ -406,47 +398,54 @@ function initialize() {
 </body>
 <script id="grassVertexShader" type="text/something-not-javascript">
 uniform mat4 worldViewProjection;
-uniform vec3 lightWorldPos;
 uniform mat4 world;
 uniform mat4 viewInverse;
-uniform mat4 worldInverseTranspose;
 uniform float time;
+uniform float bladeWidth;
+uniform float bladeSpacing;
 attribute vec4 position;
-attribute vec3 normal;
-attribute vec2 texCoord;
-attribute vec3 tangent;
-attribute vec3 binormal;
-varying vec4 v_position;
-varying vec2 v_texCoord;
-varying vec3 v_normal;
-varying vec3 v_surfaceToLight;
-varying vec3 v_surfaceToView;
-varying vec3 v_c;
+attribute vec2 bladeId;
+varying vec4 v_color;
 void main() {
-  v_texCoord = texCoord;
-  vec4 wp = world * position;
+//  vec4 wp = world * position;
   float height = position.y;
-  float fx = position.x + 0.05 + 0.11 * 11.0;
-  float fz = position.z + 0.05 + 0.11 * 11.0;
-  float xblade = mod(fx, 0.11) - 0.05;
-  float zblade = mod(fz, 0.11) - 0.05;
-  float xbase = floor(fx / 0.11);
-  float zbase = floor(fz / 0.11);
-  v_c = vec3(mod(xbase * 0.5, 1.0), 0, mod(zbase * 0.25, 1.0));
   float lerp = height;
-  float xoff = sin(time * 1.00 + xbase * 0.0 + sin(zbase)) * 0.2;
-  float zoff = sin(time * 2.01 + zbase * 0.1 + cos(xbase) * 1.3) * 0.2;
+  mat4 vm = mat4(
+      viewInverse[0],
+      viewInverse[1],
+      viewInverse[2],
+     vec4(0,0,0,1));
+  vec4 pt = vm * vec4(
+      position.x * bladeWidth * (1.0 - lerp),
+      0,
+      position.z * bladeWidth * (1.0 - lerp),
+      1) +
+      vec4(0, position.y, 0, 0);
+  float xbase = bladeId.x;
+  float zbase = bladeId.y;
+  float hbase = time * sin((xbase + zbase) * 0.1);
+  float hsin  = sin(hbase);
+  float hcos  = cos(hbase);
+  float xoff  = sin(time * 1.00 + xbase * 0.0 + sin(zbase)) * 0.2;
+  float yoff  = sin(hsin) * 0.1;
+  float zoff  = sin(time * 2.01 + zbase * 0.1 + cos(xbase) * 1.3) * 0.2;
   float effect = sin(3.14159 * 0.5 * lerp) * 1.0;
   vec4 p = vec4(
-      position.x - xblade * lerp + xoff * effect,
-      position.y,
-      position.z - zblade * lerp + zoff * effect,
+      pt.x + xbase * bladeSpacing + xoff * effect,
+      pt.y + yoff,
+      pt.z + zbase * bladeSpacing + zoff * effect,
       1);
-  v_position = (worldViewProjection * p);
-  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
-  v_surfaceToLight = lightWorldPos - (world * position).xyz;
-  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
-  gl_Position = v_position;
+  gl_Position = worldViewProjection * p;
+  v_color = vec4(
+    0.3,
+    0.7 + (hcos - 0.5) * 2.0 * 0.1,
+    0.3,
+    1);
+  //v_color = vec4(
+  //    0.0 + 0.0 * mod(xbase * 0.43, 1.0),
+  //    0.5 + 0.5 * mod((xbase + zbase) * 0.21, 1.0),
+  //    0.0 + 0.0 * mod(zbase * 0.69, 1.0),
+  //    1);
 }
 
 </script>
@@ -454,32 +453,10 @@ void main() {
 #ifdef GL_ES
 precision highp float;
 #endif
-uniform vec4 lightColor;
-varying vec4 v_position;
-varying vec2 v_texCoord;
-varying vec3 v_normal;
-varying vec3 v_surfaceToLight;
-varying vec3 v_surfaceToView;
-varying vec3 v_c;
+varying vec4 v_color;
 
-uniform vec4 ambient;
-uniform sampler2D diffuseSampler;
-
-vec4 lit(float l ,float h, float m) {
-  return vec4(1.0,
-              max(l, 0.0),
-              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
-              1.0);
-}
 void main() {
-  vec4 diffuse = texture2D(diffuseSampler, v_texCoord);
-  vec3 normal = normalize(v_normal);
-  vec3 surfaceToLight = normalize(v_surfaceToLight);
-  vec3 surfaceToView = normalize(v_surfaceToView);
-  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
-  float l = dot(normal, surfaceToLight);
-  gl_FragColor = vec4((lightColor * (diffuse * l)).rgb,
-      diffuse.a) * 1.0 + vec4(v_c.x, 0, v_c.z, 1) * 0.0;
+  gl_FragColor = v_color;
 }
 </script>
 <!-- ===[ SkyBox ]============================================== -->
