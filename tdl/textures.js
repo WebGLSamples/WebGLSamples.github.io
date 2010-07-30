@@ -227,6 +227,36 @@ tdl.textures.Texture2D.prototype.bindToUnit = function(unit) {
 };
 
 /**
+ * Create a texture to be managed externally.
+ * @constructor
+ * @param {string} type GL enum for texture type.
+ */
+tdl.textures.ExternalTexture = function(type) {
+  tdl.textures.Texture.call(this, type);
+  this.type = type;
+};
+
+tdl.base.inherit(tdl.textures.ExternalTexture, tdl.textures.Texture);
+
+tdl.textures.ExternalTexture.prototype.recoverFromLostContext = function() {
+};
+
+tdl.textures.ExternalTexture.prototype.bindToUnit = function(unit) {
+  gl.activeTexture(gl.TEXTURE0 + unit);
+  gl.bindTexture(this.type, this.texture);
+}
+
+/**
+ * Create a 2D texture to be managed externally.
+ * @constructor
+ */
+tdl.textures.ExternalTexture2D = function() {
+  tdl.textures.ExternalTexture.call(this, gl.TEXTURE_2D);
+};
+
+tdl.base.inherit(tdl.textures.ExternalTexture2D, tdl.textures.ExternalTexture);
+
+/**
  * Create and load a CubeMap.
  * @constructor
  * @param {!Array.<string>} urls The urls of the 6 faces, which
