@@ -981,32 +981,6 @@ tdl.fast.matrix4.perspective = function(dst, angle, aspect, near, far) {
   return dst;
 };
 
-// TODO enne - add a comment
-tdl.fast.matrix4.ortho = function(dst, width, height, near, far) {
-  var rangeInv = 1.0 / (near - far);
-
-  dst[0]  = 2 / width;
-  dst[1]  = 0;
-  dst[2]  = 0;
-  dst[3]  = 0;
-
-  dst[4]  = 0;
-  dst[5]  = 2 / height;
-  dst[6]  = 0;
-  dst[7]  = 0;
-
-  dst[8]  = 0;
-  dst[9]  = 0;
-  dst[10] = rangeInv;
-  dst[11] = 0;
-
-  dst[12] = 0;
-  dst[13] = 0;
-  dst[14] = -near * rangeInv;
-  dst[15] = 1;
-
-  return dst;
-}
 
 /**
  * Computes a 4-by-4 look-at transformation.  The transformation generated is
