@@ -983,6 +983,47 @@ tdl.fast.matrix4.perspective = function(dst, angle, aspect, near, far) {
 
 
 /**
+ * Computes a 4-by-4 othogonal transformation matrix given the left, right,
+ * bottom, and top dimensions of the near clipping plane as well as the
+ * near and far clipping plane distances.
+ * @param {!tdl.math.Matrix4} dst Output matrix.
+ * @param {number} left Left side of the near clipping plane viewport.
+ * @param {number} right Right side of the near clipping plane viewport.
+ * @param {number} top Top of the near clipping plane viewport.
+ * @param {number} bottom Bottom of the near clipping plane viewport.
+ * @param {number} near The depth (negative z coordinate)
+ *     of the near clipping plane.
+ * @param {number} far The depth (negative z coordinate)
+ *     of the far clipping plane.
+ * @return {!tdl.math.Matrix4} The perspective matrix.
+ */
+tdl.fast.matrix4.ortho = function(dst, left, right, bottom, top, near, far) {
+  
+
+  dst[0]  = 2 / (right - left);
+  dst[1]  = 0;
+  dst[2]  = 0;
+  dst[3]  = 0;
+
+  dst[4]  = 0;
+  dst[5]  = 2 / (top - bottom);
+  dst[6]  = 0;
+  dst[7]  = 0;
+
+  dst[8]  = 0;
+  dst[9]  = 0;
+  dst[10] = -1 / (far - near);
+  dst[11] = 0;
+
+  dst[12] = (right + left) / (left - right);
+  dst[13] = (top + bottom) / (bottom - top);
+  dst[14] = -near / (near - far);
+  dst[15] = 1;
+
+  return dst;
+}
+
+/**
  * Computes a 4-by-4 look-at transformation.  The transformation generated is
  * an orthogonal rotation matrix with translation component.  The translation
  * component sends the eye to the origin.  The rotation component sends the
