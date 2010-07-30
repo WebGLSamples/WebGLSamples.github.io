@@ -84,10 +84,14 @@ var g_logGLCalls = true   // whether or not to log webgl calls
 var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;   // draw just one frame.
 
+// shadowing globals
+var g_shadowMapWidth = 512;
+var g_shadowMapHeight = 512;
+
 var g_setCountElements = [];
 
 //g_drawOnce = true;
-//g_debug = true;
+g_debug = true;
 
 var g_eyeSpeed        = 0.01;
 var g_eyeHeight       = 15;
@@ -99,6 +103,8 @@ var g_columnMaxHeight = 30;
 var g_columnMinRadius = 0.4;
 var g_columnMaxRadius = 3.0;
 var g_radialSubdivisions = 10;
+var g_lightWorldDir = [-20, -45, -50];
+var g_ambientColor = [0.1, 0.1, 0.1, 1.0];
 
 var g_skyBoxUrls = [
   'assets/skybox_positive_x.png',
@@ -146,13 +152,16 @@ function createProgramFromTags(vertexTagId, fragmentTagId) {
 /**
  * Create columns
  */
-function setupColumns() {
+function setupColumns(depthTexture) {
+  var readProgram = createProgramFromTags('shadowReadVertexShader',
+      'shadowReadFragmentShader');
+  var writeProgram = createProgramFromTags('shadowWriteVertexShader',
+      'shadowWriteFragmentShader');
   var textures = {
     diffuseSampler: tdl.textures.loadTexture('assets/rock-color.png'),
-    bumpSampler: tdl.textures.loadTexture('assets/rock-nmap.png')};
-  var program = createProgramFromTags(
-      'normalMapVertexShader',
-      'normalMapFragmentShader');
+    bumpSampler: tdl.textures.loadTexture('assets/rock-nmap.png'),
+    depthSampler: depthTexture,
+  };
 
   var verticalSubdivisions = 2;
 
@@ -162,7 +171,6 @@ function setupColumns() {
       (g_columnMaxRadius - g_columnMinRadius);
     var height = g_columnMinHeight + tdl.math.pseudoRandom() *
       (g_columnMaxHeight - g_columnMinHeight);
-    // TODO enne
     var x = tdl.math.pseudoRandom() * g_groundRadius - g_groundRadius / 2;
     var y = tdl.math.pseudoRandom() * g_groundRadius - g_groundRadius / 2;
 
@@ -186,8 +194,10 @@ function setupColumns() {
     }
   };
 
-  // var concatArrays = tdl.primitives.concat(arrays[0], arrays[1]);
-  return new tdl.models.Model(program, arrays, textures);
+  return {
+    read: new tdl.models.Model(readProgram, arrays, textures),
+    write: new tdl.models.Model(writeProgram, arrays, null),
+  };
 }
 
 /**
@@ -213,13 +223,14 @@ function setupSkybox() {
 /**
  * Sets up the ground
  */
-function setupGround() {
+function setupGround(depthTexture) {
+  var readProgram = createProgramFromTags('shadowReadVertexShader',
+      'shadowReadFragmentShader');
   var textures = {
     diffuseSampler: tdl.textures.loadTexture('assets/sand-color.png'),
-    bumpSampler: tdl.textures.loadTexture('assets/sand-nmap.png')};
-  var program = createProgramFromTags(
-      'normalMapVertexShader',
-      'normalMapFragmentShader');
+    bumpSampler: tdl.textures.loadTexture('assets/sand-nmap.png'),
+    depthSampler: depthTexture,
+  };
   var radius = g_groundRadius;
   var divs = 10;
   var arrays = tdl.primitives.createPlane(radius, radius, divs, divs);
@@ -230,7 +241,7 @@ function setupGround() {
        [0, 1, 0, 0],
        [0, 0, 1, 0],
        [0, 0, 0, 1]]);
-  return new tdl.models.Model(program, arrays, textures);
+  return new tdl.models.Model(readProgram, arrays, textures);
 }
 
 /**
@@ -249,12 +260,32 @@ function initialize() {
   gl.enable(gl.DEPTH_TEST);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
+  var shadowFrame = gl.createFramebuffer();
+  var depthTexture = new tdl.textures.ExternalTexture2D();
+  var depthBuffer = gl.createRenderbuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFrame);
+  gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
+  gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16,
+      g_shadowMapWidth, g_shadowMapHeight);
+  gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT,
+      gl.RENDERBUFFER, depthBuffer);
+  gl.bindTexture(gl.TEXTURE_2D, depthTexture.texture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  // TODO enne - are there any depth formats?
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, g_shadowMapWidth, g_shadowMapHeight,
+      0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D,
+    depthTexture.texture, 0);
+
   Log("--Setup Skybox---------------------------------------");
   var skybox = setupSkybox();
   Log("--Setup Columns--------------------------------------");
-  var columns = setupColumns();
+  var columns = setupColumns(depthTexture);
   Log("--Setup Ground---------------------------------------");
-  var sand = setupGround();
+  var sand = setupGround(depthTexture);
 
   var then = 0.0;
   var clock = 0.0;
@@ -264,20 +295,25 @@ function initialize() {
   var projection = new Float32Array(16);
   var view = new Float32Array(16);
   var world = new Float32Array(16);
+  var worldViewProjection = new Float32Array(16);
+  var viewInverse = new Float32Array(16);
+  var viewProjectionInverse = new Float32Array(16);
   var worldInverse = new Float32Array(16);
   var worldInverseTranspose = new Float32Array(16);
   var viewProjection = new Float32Array(16);
   var worldViewProjection = new Float32Array(16);
   var viewInverse = new Float32Array(16);
   var viewProjectionInverse = new Float32Array(16);
+  var cameraWorld = new Float32Array(16);
+  var cameraWorldInverse = new Float32Array(16);
+  var cameraViewProjection = new Float32Array(16);
+  var cameraWorldViewProjection = new Float32Array(16);
+  var cameraViewInverse = new Float32Array(16);
+  var cameraProjectionInverse = new Float32Array(16);
   var eyePosition = new Float32Array(3);
   var target = new Float32Array(3);
   var up = new Float32Array([0,1,0]);
-  var lightWorldPos = new Float32Array(3);
-  var v3t0 = new Float32Array(3);
-  var v3t1 = new Float32Array(3);
-  var m4t0 = new Float32Array(16);
-  var m4t1 = new Float32Array(16);
+  var lightWorldDir = new Float32Array(g_lightWorldDir);
   var zero4 = new Float32Array(4);
   var one4 = new Float32Array([1,1,1,1]);
   var colorMult = new Float32Array([1,1,1,1]);
@@ -286,37 +322,73 @@ function initialize() {
   var skyConst = {viewProjectionInverse: viewProjectionInverse};
   var skyPer = {};
 
-  // Sand uniforms.
-  var sandConst = {
+  var shadowReadConst = {
     viewInverse: viewInverse,
-    lightWorldPos: lightWorldPos,
+    lightWorldDir: lightWorldDir,
     lightColor: one4,
     emissive: zero4,
-    ambient: zero4,
+    ambient: g_ambientColor,
     specular: one4,
     shininess: 5,
-    specularFactor: 0.3};
-  var sandPer = {
-    world: world,
-    worldViewProjection: worldViewProjection,
-    worldInverse: worldInverse,
-    worldInverseTranspose: worldInverseTranspose};
+    specularFactor: 0.3,
+  };
+  var shadowWriteConst = {
+  };
 
-  // Column uniforms.
-  var columnConst = {
-    viewInverse: viewInverse,
-    lightWorldPos: lightWorldPos,
-    lightColor: one4,
-    emissive: zero4,
-    ambient: zero4,
-    specular: one4,
-    shininess: 5,
-    specularFactor: 0.3};
-  var columnPer = {
+  var uniforms = {
     world: world,
     worldViewProjection: worldViewProjection,
     worldInverse: worldInverse,
-    worldInverseTranspose: worldInverseTranspose};
+    worldInverseTranspose: worldInverseTranspose,
+  };
+
+  function setupShadowPass() {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFrame);
+
+    fast.matrix4.perspective(
+        projection,
+        math.degToRad(30),
+        canvas.clientWidth / canvas.clientHeight,
+        1,
+        5000);
+    fast.matrix4.lookAt(
+        view,
+        eyePosition,
+        target,
+        up);
+    fast.matrix4.mul(viewProjection, view, projection);
+    fast.matrix4.inverse(viewInverse, view);
+    fast.matrix4.inverse(viewProjectionInverse, viewProjection);
+
+    fast.matrix4.translation(world, [0, 0, 0]);
+    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+    fast.matrix4.inverse(worldInverse, world);
+    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+  }
+
+  function setupMainPass() {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    fast.matrix4.perspective(
+        projection,
+        math.degToRad(30),
+        canvas.clientWidth / canvas.clientHeight,
+        1,
+        5000);
+    fast.matrix4.lookAt(
+        view,
+        eyePosition,
+        target,
+        up);
+    fast.matrix4.mul(viewProjection, view, projection);
+    fast.matrix4.inverse(viewInverse, view);
+    fast.matrix4.inverse(viewProjectionInverse, viewProjection);
+
+    fast.matrix4.translation(world, [0, 0, 0]);
+    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+    fast.matrix4.inverse(worldInverse, world);
+    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+  }
 
   function render() {
     if (g_drawOnce) {
@@ -343,43 +415,24 @@ function initialize() {
     gl.clearColor(0,0,0,0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
-    fast.matrix4.perspective(
-        projection,
-        math.degToRad(30),
-        canvas.clientWidth / canvas.clientHeight,
-        1,
-        5000);
-    fast.matrix4.lookAt(
-        view,
-        eyePosition,
-        target,
-        up);
-    fast.matrix4.mul(viewProjection, view, projection);
-    fast.matrix4.inverse(viewInverse, view);
-    fast.matrix4.inverse(viewProjectionInverse, viewProjection);
+    // *** Shadow Pass
+    setupShadowPass();
 
-    fast.matrix4.getAxis(v3t0, viewInverse, 0); // x
-    fast.matrix4.getAxis(v3t1, viewInverse, 1); // y;
-    fast.mulScalarVector(v3t0, 20, v3t0);
-    fast.mulScalarVector(v3t1, 30, v3t1);
-    fast.addVector(lightWorldPos, eyePosition, v3t0);
-    fast.addVector(lightWorldPos, lightWorldPos, v3t1);
+    // Draw Columns
+    columns.write.drawPrep(shadowWriteConst);
+    columns.write.draw(uniforms);
+
+    // *** Main Pass
+    setupMainPass();
 
     // Draw Skybox
     skybox.drawPrep(skyConst);
     skybox.draw(skyPer);
 
-    // Draw Sand
-    sand.drawPrep(sandConst);
-    fast.matrix4.translation(world, [0, -5, 0]);
-    fast.matrix4.mul(worldViewProjection, world, viewProjection);
-    fast.matrix4.inverse(worldInverse, world);
-    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-    sand.draw(sandPer);
-
-    // Draw Columns
-    columns.drawPrep(columnConst);
-    columns.draw(columnPer);
+    sand.drawPrep(shadowReadConst);
+    sand.draw(uniforms);
+    columns.read.drawPrep(shadowReadConst);
+    columns.read.draw(uniforms);
 
     // turn off logging after 1 frame.
     g_logGLCalls = false;
@@ -393,10 +446,33 @@ function initialize() {
 </div>
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </body>
-<!-- ===[ Normal Map Shader ]============================================== -->
-<script id="normalMapVertexShader" type="text/something-not-javascript">
+<!-- Shadow Write Shader -->
+<script id="shadowWriteVertexShader" type="text/something-not-javascript">
 uniform mat4 worldViewProjection;
-uniform vec3 lightWorldPos;
+attribute vec4 position;
+// TODO enne - how does GLES handle mismatched vert attributes?
+attribute vec3 normal;
+attribute vec2 texCoord;
+attribute vec3 tangent;
+attribute vec3 binormal;
+varying vec4 v_position;
+void main() {
+  v_position = (worldViewProjection * position);
+  gl_Position = v_position;
+}
+</script>
+<script id="shadowWriteFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+varying vec4 v_position;
+void main() {
+  gl_FragColor = vec4(v_position.z, v_position.z, v_position.z, v_position.z);
+}
+</script>
+<!-- Shadow Read Shader -->
+<script id="shadowReadVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
 uniform mat4 world;
 uniform mat4 viewInverse;
 uniform mat4 worldInverseTranspose;
@@ -410,31 +486,28 @@ varying vec2 v_texCoord;
 varying vec3 v_tangent;
 varying vec3 v_binormal;
 varying vec3 v_normal;
-varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
 void main() {
   v_texCoord = texCoord;
   v_position = (worldViewProjection * position);
   v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
-  v_surfaceToLight = lightWorldPos - (world * position).xyz;
   v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
   v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;
   v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;
   gl_Position = v_position;
 }
-
 </script>
-<script id="normalMapFragmentShader" type="text/something-not-javascript">
+<script id="shadowReadFragmentShader" type="text/something-not-javascript">
 #ifdef GL_ES
 precision highp float;
 #endif
 uniform vec4 lightColor;
+uniform vec3 lightWorldDir;
 varying vec4 v_position;
 varying vec2 v_texCoord;
 varying vec3 v_tangent;
 varying vec3 v_binormal;
 varying vec3 v_normal;
-varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
 
 uniform vec4 emissive;
@@ -442,6 +515,7 @@ uniform vec4 ambient;
 uniform sampler2D diffuseSampler;
 uniform vec4 specular;
 uniform sampler2D bumpSampler;
+uniform sampler2D depthSampler;
 uniform float shininess;
 uniform float specularFactor;
 
@@ -460,7 +534,7 @@ void main() {
                                  vec3(0.5, 0.5, 0.5);
   vec3 normal = (tangentToWorld * tangentNormal);
   normal = normalize(normal);
-  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToLight = normalize(-lightWorldDir);
   vec3 surfaceToView = normalize(v_surfaceToView);
   vec3 halfVector = normalize(surfaceToLight + surfaceToView);
   vec4 litR = lit(dot(normal, surfaceToLight),
@@ -471,7 +545,7 @@ void main() {
       diffuse.a);
 }
 </script>
-<!-- ===[ SkyBox ]============================================== -->
+<!-- Skybox Shader -->
 <script id="skyboxVertexShader" type="text/something-not-javascript">
 attribute vec4 position;
 varying vec4 v_position;
