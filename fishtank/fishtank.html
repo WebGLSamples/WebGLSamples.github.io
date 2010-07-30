@@ -952,9 +952,10 @@ uniform samplerCube skybox;
 uniform mat4 viewProjectionInverse;
 varying vec4 v_position;
 void main() {
+  vec4 t = viewProjectionInverse * v_position;
   gl_FragColor = textureCube(
       skybox,
-      normalize((viewProjectionInverse * v_position).xyz));
+      normalize(t.xyz / t.w));
 }
 </script>
 

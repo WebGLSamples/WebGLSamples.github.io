@@ -1191,7 +1191,7 @@ void main() {
   vec4 t = (viewProjectionInverse * v_position);
   vec4 color = textureCube(
       skybox,
-      normalize(t.xyz));
+      normalize(t.xyz / t.w));
   gl_FragColor = color * color * color;
 }
 </script>
