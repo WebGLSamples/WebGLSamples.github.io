@@ -92,24 +92,25 @@ var g_logGLCalls = true;  // whether or not to log webgl calls
 var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;   // draw just one frame.
 var g_setCountElements = [];
-var g_grassConst = {};
-var g_globals = {};
+var g = {
+  grassConst: {},
+  globals: {}};
 
 var g_ui = [
-  { type: 'uniform', name: 'bladeSpacing',    value: 0.06,  max:  0.5 },
-  { type: 'uniform', name: 'bladeWidth',      value: 0.075, max:  0.5 },
-  { type: 'uniform', name: 'topWidth',        value: 0.007, max:  0.5 },
-  { type: 'uniform', name: 'heightRange',     value: 0.1,   max:  0.5 },
-  { type: 'uniform', name: 'xTimeMult',       value: 1.0,   max:  5 },
-  { type: 'uniform', name: 'zTimeMult',       value: 2.01,  max:  5 },
-  { type: 'uniform', name: 'swayRange',       value: 0.2,   max:  1 },
-  { type: 'uniform', name: 'elevationPeriod', value: 1.0,   max:  5 },
-  { type: 'uniform', name: 'elevationRange',  value: 0.4,   max:  3 },
-  { type: 'global',  name: 'targetHeight',    value: 1,     max:  5 },
-  { type: 'global',  name: 'targetRadius',    value: 1,     max:  5 },
-  { type: 'global',  name: 'eyeHeight',       value: 2,     max:  10 },
-  { type: 'global',  name: 'eyeRadius',       value: 3,     max:  10 },
-  { type: 'global',  name: 'eyeSpeed',        value: 0.1,   max:  1 },
+  { obj: 'grassConst', name: 'bladeSpacing',    value: 0.06,  max:  0.5 },
+  { obj: 'grassConst', name: 'bladeWidth',      value: 0.075, max:  0.5 },
+  { obj: 'grassConst', name: 'topWidth',        value: 0.007, max:  0.5 },
+  { obj: 'grassConst', name: 'heightRange',     value: 0.1,   max:  0.5 },
+  { obj: 'grassConst', name: 'xTimeMult',       value: 1.0,   max:  5 },
+  { obj: 'grassConst', name: 'zTimeMult',       value: 2.01,  max:  5 },
+  { obj: 'grassConst', name: 'swayRange',       value: 0.2,   max:  1 },
+  { obj: 'grassConst', name: 'elevationPeriod', value: 1.0,   max:  5 },
+  { obj: 'grassConst', name: 'elevationRange',  value: 0.4,   max:  3 },
+  { obj: 'globals',    name: 'targetHeight',    value: 1,     max:  5 },
+  { obj: 'globals',    name: 'targetRadius',    value: 1,     max:  5 },
+  { obj: 'globals',    name: 'eyeHeight',       value: 2,     max:  10 },
+  { obj: 'globals',    name: 'eyeRadius',       value: 3,     max:  10 },
+  { obj: 'globals',    name: 'eyeSpeed',        value: 0.1,   max:  1 },
   ];
 
 //g_drawOnce = true;
@@ -306,8 +307,8 @@ function initialize() {
   var skyPer = {};
 
   // Grass uniforms.
-  g_grassConst.viewInverse = viewInverse;
-  g_grassConst.time = 0;
+  g.grassConst.viewInverse = viewInverse;
+  g.grassConst.time = 0;
 
   var grassPer = {
     world: world,
@@ -335,13 +336,13 @@ function initialize() {
     fps.innerHTML = g_fpsTimer.averageFPS;
 
     clock += elapsedTime;
-    var eyeClock = clock * g_globals.eyeSpeed;
-    eyePosition[0] = Math.sin(eyeClock) * g_globals.eyeRadius;
-    eyePosition[1] = g_globals.eyeHeight;
-    eyePosition[2] = Math.cos(eyeClock) * g_globals.eyeRadius;
-    target[0] = Math.sin(eyeClock + Math.PI) * g_globals.targetRadius;
-    target[1] = g_globals.targetHeight;
-    target[2] = Math.cos(eyeClock + Math.PI) * g_globals.targetRadius;
+    var eyeClock = clock * g.globals.eyeSpeed;
+    eyePosition[0] = Math.sin(eyeClock) * g.globals.eyeRadius;
+    eyePosition[1] = g.globals.eyeHeight;
+    eyePosition[2] = Math.cos(eyeClock) * g.globals.eyeRadius;
+    target[0] = Math.sin(eyeClock + Math.PI) * g.globals.targetRadius;
+    target[1] = g.globals.targetHeight;
+    target[2] = Math.cos(eyeClock + Math.PI) * g.globals.targetRadius;
 
     gl.colorMask(true, true, true, true);
     gl.depthMask(true);
@@ -387,10 +388,10 @@ function initialize() {
     skybox.draw(skyPer);
 
     Log("--Draw grass---------------------------------------");
-    g_grassConst.time = clock;
-    grass.drawPrep(g_grassConst);
+    g.grassConst.time = clock;
+    grass.drawPrep(g.grassConst);
     var across = Math.floor(Math.sqrt(g_numGrass));
-    var width = g_grassConst.bladeSpacing * 10;
+    var width = g.grassConst.bladeSpacing * 10;
     var base = width * across * -0.5;
     for (var zz = 0; zz < across; ++zz) {
       for (var xx = 0; xx < across; ++xx) {
@@ -450,12 +451,7 @@ $(function(){
   var uiElem = document.getElementById('ui');
   for (var ii = 0; ii < g_ui.length; ++ii) {
     var ui = g_ui[ii];
-    var obj;
-    if (ui.type == 'uniform') {
-      obj = g_grassConst;
-    } else {
-      obj = g_globals
-    }
+    var obj = g[ui.obj];
     obj[ui.name] = ui.value;
     var div = document.createElement('div');
     setupSlider($, div, ui, obj);
