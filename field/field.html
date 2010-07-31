@@ -42,6 +42,7 @@ body {
   padding: 0px;
   margin: 0px;
   background-color: red;
+  font-family: sans-serif;
 }
 CANVAS {
   background-color: gray;
@@ -52,6 +53,7 @@ CANVAS {
   right: 20px;
   width: 250px;
   z-index: 2;
+  font-size: xx-small;
 }
 .fpsContainer {
   position: absolute;
@@ -59,7 +61,6 @@ CANVAS {
   left: 20px;
   z-index: 2;
   color: white;
-  font-family: sans-serif;
 }
 </style>
 <link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
@@ -92,23 +93,27 @@ var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;   // draw just one frame.
 var g_setCountElements = [];
 var g_grassConst = {};
+var g_globals = {};
 
 var g_ui = [
-  { name: 'bladeWidth',      value: 0.05, max:  1 },
-  { name: 'bladeSpacing',    value: 0.06, max:  1 },
-  { name: 'xTimeMult',       value: 1.0,  max:  5 },
-  { name: 'zTimeMult',       value: 2.01, max:  5 },
-  { name: 'swayRange',       value: 0.2,  max:  1 },
-  { name: 'elevationPeriod', value: 1.0,  max:  5 },
-  { name: 'elevationRange',  value: 0.4,  max:  3 }];
+  { type: 'uniform', name: 'bladeWidth',      value: 0.075, max:  0.5 },
+  { type: 'uniform', name: 'bladeSpacing',    value: 0.06,  max:  0.5 },
+  { type: 'uniform', name: 'xTimeMult',       value: 1.0,   max:  5 },
+  { type: 'uniform', name: 'zTimeMult',       value: 2.01,  max:  5 },
+  { type: 'uniform', name: 'swayRange',       value: 0.2,   max:  1 },
+  { type: 'uniform', name: 'elevationPeriod', value: 1.0,   max:  5 },
+  { type: 'uniform', name: 'elevationRange',  value: 0.4,   max:  3 },
+  { type: 'global',  name: 'targetHeight',    value: 1,     max:  5 },
+  { type: 'global',  name: 'targetRadius',    value: 1,     max:  5 },
+  { type: 'global',  name: 'eyeHeight',       value: 2,     max:  10 },
+  { type: 'global',  name: 'eyeRadius',       value: 3,     max:  10 },
+  { type: 'global',  name: 'eyeSpeed',        value: 0.1,   max:  1 },
+  ];
 
 //g_drawOnce = true;
 //g_debug = true;
 
 var g_numGrass          = 50;
-var g_eyeSpeed          = 0.1;
-var g_eyeHeight         = 2;
-var g_eyeRadius         = 3;
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -242,8 +247,8 @@ function setupCountButtons() {
         setCount(elem, count);
       }}(elem, g_grassAmounts[ii]);
   }
-  setCount(document.getElementById('setCount0'),
-           g_grassAmounts[0]);
+  setCount(document.getElementById('setCount2'),
+           g_grassAmounts[2]);
 }
 
 function initialize() {
@@ -326,9 +331,13 @@ function initialize() {
     fps.innerHTML = g_fpsTimer.averageFPS;
 
     clock += elapsedTime;
-    eyePosition[0] = Math.sin(clock * g_eyeSpeed) * g_eyeRadius;
-    eyePosition[1] = g_eyeHeight;
-    eyePosition[2] = Math.cos(clock * g_eyeSpeed) * g_eyeRadius;
+    var eyeClock = clock * g_globals.eyeSpeed;
+    eyePosition[0] = Math.sin(eyeClock) * g_globals.eyeRadius;
+    eyePosition[1] = g_globals.eyeHeight;
+    eyePosition[2] = Math.cos(eyeClock) * g_globals.eyeRadius;
+    target[0] = Math.sin(eyeClock + Math.PI) * g_globals.targetRadius;
+    target[1] = g_globals.targetHeight;
+    target[2] = Math.cos(eyeClock + Math.PI) * g_globals.targetRadius;
 
     gl.colorMask(true, true, true, true);
     gl.depthMask(true);
@@ -343,7 +352,7 @@ function initialize() {
 
     fast.matrix4.perspective(
         projection,
-        math.degToRad(60),
+        math.degToRad(30),
         canvas.clientWidth / canvas.clientHeight,
         1,
         5000);
@@ -406,18 +415,18 @@ function getParamId(id) {
   return id.substr(6).replace(/(\w)/, function(m) {return m.toLowerCase() });
 }
 
-function setParam(event, ui) {
+function setParam(event, ui, obj) {
   var id = event.target.id;
   var value = ui.value / 1000;
   console.log(id + ": " + value);
-  g_grassConst[id] = value;
+  obj[id] = value;
 }
 
-function getUIValue(id) {
-  return g_grassConst[id] * 1000;
+function getUIValue(obj, id) {
+  return obj[id] * 1000;
 }
 
-function setupSlider($, elem, ui) {
+function setupSlider($, elem, ui, obj) {
   var labelDiv = document.createElement('div');
   labelDiv.appendChild(document.createTextNode(ui.name));
   var sliderDiv = document.createElement('div');
@@ -428,8 +437,8 @@ function setupSlider($, elem, ui) {
     range: false,
     step: 1,
     max: ui.max * 1000,
-    value: getUIValue(ui.name),
-    slide: setParam
+    value: getUIValue(obj, ui.name),
+    slide: function(event, ui) { setParam(event, ui, obj); }
   });
 }
 
@@ -437,9 +446,15 @@ $(function(){
   var uiElem = document.getElementById('ui');
   for (var ii = 0; ii < g_ui.length; ++ii) {
     var ui = g_ui[ii];
-    g_grassConst[ui.name] = ui.value;
+    var obj;
+    if (ui.type == 'uniform') {
+      obj = g_grassConst;
+    } else {
+      obj = g_globals
+    }
+    obj[ui.name] = ui.value;
     var div = document.createElement('div');
-    setupSlider($, div, ui);
+    setupSlider($, div, ui, obj);
     uiElem.appendChild(div);
   }
 
@@ -482,7 +497,6 @@ attribute vec4 position;
 attribute vec2 bladeId;
 varying vec4 v_color;
 void main() {
-//  vec4 wp = world * position;
   float height = position.y;
   float lerp = height;
   mat4 vm = mat4(
@@ -511,13 +525,26 @@ void main() {
       pt.z + zbase * bladeSpacing + zoff * effect,
       1);
   vec4 wp = world * p;
-  float elevation = sin(wp.x * wp.z * elevationPeriod) * elevationRange;
-  gl_Position = worldViewProjection * vec4(p.x, p.y + elevation, p.z, 1);
-  v_color = vec4(
-    0.3,
-    0.7 + (hcos - 0.5) * 2.0 * 0.1,
-    0.3,
-    1);
+  float elevationBasis = sin(wp.x * wp.z * elevationPeriod);
+  float elevationBasis2 = sin((wp.x + bladeSpacing) * (wp.z + bladeSpacing) * elevationPeriod);
+  vec3 p0 = vec3(0, elevationBasis * elevationRange, 0);
+  vec3 p1 = vec3(bladeSpacing, elevationBasis2 * elevationRange, bladeSpacing);
+  vec3 dir = normalize(p0 - p1);
+  vec3 perp = cross(dir, vec3(0,1,0));
+  vec3 normal = cross(dir, perp);
+  gl_Position = worldViewProjection * vec4(
+      p.x,
+      p.y + elevationBasis * elevationRange,
+      p.z,
+      1);
+  vec3 lightDir = normalize(vec3(1, 3, 2)) * -1.0;
+  float l = dot(lightDir, normal);
+  //v_color = vec4(normal, 1);
+  vec3 color = vec3(
+      0.3 + mod(xbase * 0.24, 1.0) * 0.1,
+      0.9,
+      0.3 + mod(zbase * 0.69, 1.0) * 0.1);
+  v_color = vec4(color * l, 1);
   //v_color = vec4(
   //    0.0 + 0.0 * mod(xbase * 0.43, 1.0),
   //    0.5 + 0.5 * mod((xbase + zbase) * 0.21, 1.0),
