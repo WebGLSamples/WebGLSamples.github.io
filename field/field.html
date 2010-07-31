@@ -47,15 +47,20 @@ body {
 CANVAS {
   background-color: gray;
 }
-#ui {
+#uiContainer {
+  z-index: 2;
+  padding: 1em;
   position: absolute;
   top: 10px;
   right: 20px;
   width: 250px;
-  z-index: 2;
+  background: rgba(0,0,0,0.5);
+  color: white;
   font-size: xx-small;
 }
-.fpsContainer {
+#ui {
+}
+#fpsContainer {
   position: absolute;
   top: 10px;
   left: 20px;
@@ -97,20 +102,21 @@ var g = {
   globals: {}};
 
 var g_ui = [
-  { obj: 'grassConst', name: 'bladeSpacing',    value: 0.06,  max:  0.5 },
-  { obj: 'grassConst', name: 'bladeWidth',      value: 0.075, max:  0.5 },
-  { obj: 'grassConst', name: 'topWidth',        value: 0.007, max:  0.5 },
-  { obj: 'grassConst', name: 'heightRange',     value: 0.1,   max:  0.5 },
-  { obj: 'grassConst', name: 'xTimeMult',       value: 1.0,   max:  5 },
-  { obj: 'grassConst', name: 'zTimeMult',       value: 2.01,  max:  5 },
-  { obj: 'grassConst', name: 'swayRange',       value: 0.2,   max:  1 },
-  { obj: 'grassConst', name: 'elevationPeriod', value: 1.0,   max:  5 },
-  { obj: 'grassConst', name: 'elevationRange',  value: 0.4,   max:  3 },
-  { obj: 'globals',    name: 'targetHeight',    value: 1,     max:  5 },
-  { obj: 'globals',    name: 'targetRadius',    value: 1,     max:  5 },
-  { obj: 'globals',    name: 'eyeHeight',       value: 2,     max:  10 },
-  { obj: 'globals',    name: 'eyeRadius',       value: 3,     max:  10 },
-  { obj: 'globals',    name: 'eyeSpeed',        value: 0.1,   max:  1 },
+  { obj: 'grassConst', name: 'bladeSpacing',     value: 0.06,  max:  0.5 },
+  { obj: 'grassConst', name: 'bladeWidth',       value: 0.075, max:  0.5 },
+  { obj: 'grassConst', name: 'topWidth',         value: 0.007, max:  0.5 },
+  { obj: 'grassConst', name: 'heightRange',      value: 0.1,   max:  0.5 },
+  { obj: 'grassConst', name: 'xTimeMult',        value: 1.0,   max:  5 },
+  { obj: 'grassConst', name: 'zTimeMult',        value: 2.01,  max:  5 },
+  { obj: 'grassConst', name: 'swayRange',        value: 0.2,   max:  1 },
+  { obj: 'grassConst', name: 'elevationPeriodX', value: 1.0,   max:  5 },
+  { obj: 'grassConst', name: 'elevationPeriodZ', value: 1.0,   max:  5 },
+  { obj: 'grassConst', name: 'elevationRange',   value: 0.4,   max:  3 },
+  { obj: 'globals',    name: 'targetHeight',     value: 1,     max:  5 },
+  { obj: 'globals',    name: 'targetRadius',     value: 1,     max:  5 },
+  { obj: 'globals',    name: 'eyeHeight',        value: 2,     max:  10 },
+  { obj: 'globals',    name: 'eyeRadius',        value: 3,     max:  10 },
+  { obj: 'globals',    name: 'eyeSpeed',         value: 0.1,   max:  1 },
   ];
 
 //g_drawOnce = true;
@@ -465,7 +471,7 @@ $(function(){
 </script>
 </head>
 <body>
-<div class="fpsContainer">
+<div id="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
   <div>Grass</div>
   <div id="setCount0">1</div>
@@ -473,11 +479,8 @@ $(function(){
   <div id="setCount2">many</div>
   <div id="setCount3">lots</div>
 </div>
-<div id="ui">
-  <!--
-  <div id="sliderBladeWidth"></div>
-  <div id="sliderBladeSpacing"></div>
-  -->
+<div id="uiContainer">
+<div id="ui"></div>
 </div>
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </body>
@@ -494,7 +497,8 @@ uniform float horizontalRange;
 uniform float xTimeMult;
 uniform float zTimeMult;
 uniform float swayRange;
-uniform float elevationPeriod;
+uniform float elevationPeriodX;
+uniform float elevationPeriodZ;
 uniform float elevationRange;
 attribute vec4 position;
 attribute vec4 bladeId;
@@ -530,15 +534,15 @@ void main() {
   float xoff  = sin(time * xTimeMult + xbase * 0.0 + sin(zbase)) * swayRange;
   float yoff  = 0.0;
   float zoff  = sin(time * zTimeMult + zbase * 0.1 + cos(xbase) * 1.3) * swayRange;
-  float effect = sin(3.14159 * 0.5 * lerp) * 1.0;
+  float effect = 1.0 - cos(3.14159 * 0.5 * lerp) * 1.0;
   vec4 p = vec4(
       pt.x + xbase * bladeSpacing + xoff * effect + rand1 * bladeSpacing,
       pt.y + yoff                                 + rand1 * heightRange,
       pt.z + zbase * bladeSpacing + zoff * effect + rand1 * bladeSpacing,
       1);
   vec4 wp = world * p;
-  float elevationBasis = sin(wp.x * wp.z * elevationPeriod);
-  float elevationBasis2 = sin((wp.x + bladeSpacing) * (wp.z + bladeSpacing) * elevationPeriod);
+  float elevationBasis = sin(wp.x * elevationPeriodX * wp.z * elevationPeriodZ);
+  float elevationBasis2 = sin((wp.x + bladeSpacing) * elevationPeriodX * (wp.z + bladeSpacing) * elevationPeriodZ);
   vec3 p0 = vec3(0, elevationBasis * elevationRange, 0);
   vec3 p1 = vec3(bladeSpacing, elevationBasis2 * elevationRange, bladeSpacing);
   vec3 dir = normalize(p0 - p1);
