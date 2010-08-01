@@ -77,6 +77,7 @@ CANVAS {
 <script type="text/javascript">
 tdl.require('tdl.buffers');
 tdl.require('tdl.fast');
+tdl.require('tdl.framebuffers');
 tdl.require('tdl.fps');
 tdl.require('tdl.math');
 tdl.require('tdl.models');
@@ -97,8 +98,15 @@ var g_logGLCalls = true;  // whether or not to log webgl calls
 var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;   // draw just one frame.
 var g_setCountElements = [];
+
+//g_drawOnce = true;
+//g_debug = true;
+
+var g_numGrass          = 50;
+
 var g = {
   grassConst: {},
+  dofConst: {},
   globals: {}};
 
 var g_ui = [
@@ -106,6 +114,8 @@ var g_ui = [
   { obj: 'grassConst', name: 'bladeWidth',       value: 0.075, max:  0.5 },
   { obj: 'grassConst', name: 'topWidth',         value: 0.007, max:  0.5 },
   { obj: 'grassConst', name: 'heightRange',      value: 0.1,   max:  0.5 },
+  { obj: 'grassConst', name: 'xWorldMult',       value: 1.0,   max:  5 },
+  { obj: 'grassConst', name: 'zWorldMult',       value: 1.0,   max:  5 },
   { obj: 'grassConst', name: 'xTimeMult',        value: 1.0,   max:  5 },
   { obj: 'grassConst', name: 'zTimeMult',        value: 2.01,  max:  5 },
   { obj: 'grassConst', name: 'swayRange',        value: 0.2,   max:  1 },
@@ -117,12 +127,10 @@ var g_ui = [
   { obj: 'globals',    name: 'eyeHeight',        value: 2,     max:  10 },
   { obj: 'globals',    name: 'eyeRadius',        value: 3,     max:  10 },
   { obj: 'globals',    name: 'eyeSpeed',         value: 0.1,   max:  1 },
+  { obj: 'dofConst',   name: 'dof',              value: 0.6,   max:  1 },
+  { obj: 'dofConst',   name: 'dofInnerRange',    value: 0.1,   max:  1 },
+  { obj: 'dofConst',   name: 'dofOuterRange',    value: 0.2,   max:  1 },
   ];
-
-//g_drawOnce = true;
-//g_debug = true;
-
-var g_numGrass          = 50;
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -196,6 +204,43 @@ function setupGrass() {
     }
   }
   arrays.bladeId = bladeId;
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
+ * Sets up dofplane.
+ */
+function setupDofPlane(mainTexture, blurTexture) {
+  var textures = { mainSampler: mainTexture,
+                   blurSampler: blurTexture};
+  var program = createProgramFromTags(
+      'dofVertexShader',
+      'dofFragmentShader');
+  var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
+  tdl.primitives.reorient(arrays,
+      [[1, 0, 0, 0],
+       [0, 0,-1, 0],
+       [0, 1, 0, 0],
+       [0, 0, 0, 1]]);
+  delete arrays.normal;
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
+ * Sets up blur plane.
+ */
+function setupBlurPlane(mainTexture) {
+  var textures = {mainSampler: mainTexture};
+  var program = createProgramFromTags(
+      'blurVertexShader',
+      'blurFragmentShader');
+  var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
+  tdl.primitives.reorient(arrays,
+      [[1, 0, 0, 0],
+       [0, 0,-1, 0],
+       [0, 1, 0, 0],
+       [0, 0, 0, 1]]);
+  delete arrays.normal;
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -275,10 +320,19 @@ function initialize() {
     gl = wd.makeDebugContext(gl, undefined, LogGLCall);
   }
 
+  var mainFBO = tdl.framebuffers.createFramebuffer(canvas.width, canvas.height, true);
+  var horizontalBlurFBO = tdl.framebuffers.createFramebuffer(canvas.width / 4, canvas.height);
+  var verticalBlurFBO = tdl.framebuffers.createFramebuffer(canvas.width / 4, canvas.height / 4);
   Log("--Setup Grass---------------------------------------");
   var grass = setupGrass();
   Log("--Setup Skybox---------------------------------------");
   var skybox = setupSkybox();
+  Log("--Setup HorizontalBlurPlane---------------------------------------");
+  var horizontalBlurPlane = setupBlurPlane(mainFBO.texture);
+  Log("--Setup VerticalBlurPlane---------------------------------------");
+  var verticalBlurPlane = setupBlurPlane(horizontalBlurFBO.texture);
+  Log("--Setup DofPlane---------------------------------------");
+  var dofPlane = setupDofPlane(mainFBO.texture, verticalBlurFBO.texture);
 
   var then = 0.0;
   var clock = 0.0;
@@ -311,6 +365,16 @@ function initialize() {
   // Sky uniforms.
   var skyConst = {viewProjectionInverse: viewProjectionInverse};
   var skyPer = {};
+
+  // dofPlane uniforms.
+  var dofPer = {};
+
+  // blurPlane uniforms.
+  var horizontalBlurConst = {
+      blurSize: new Float32Array([2.0 / canvas.width, 0])};
+  var verticalBlurConst = {
+      blurSize: new Float32Array([0, 2.0 / canvas.height])};
+  var blurPer = {};
 
   // Grass uniforms.
   g.grassConst.viewInverse = viewInverse;
@@ -349,6 +413,9 @@ function initialize() {
     target[0] = Math.sin(eyeClock + Math.PI) * g.globals.targetRadius;
     target[1] = g.globals.targetHeight;
     target[2] = Math.cos(eyeClock + Math.PI) * g.globals.targetRadius;
+
+    // Draw to main fbo.
+    mainFBO.bind();
 
     gl.colorMask(true, true, true, true);
     gl.depthMask(true);
@@ -408,6 +475,37 @@ function initialize() {
         grass.draw(grassPer);
       }
     }
+
+    // Draw to horizontal blur fbo.
+    horizontalBlurFBO.bind();
+    gl.disable(gl.BLEND);
+    gl.disable(gl.DEPTH_TEST);
+
+    // Draw HorizontalBlurPlane
+    horizontalBlurPlane.drawPrep(horizontalBlurConst);
+    horizontalBlurPlane.draw(blurPer);
+
+    // Draw to vertical blur fbo.
+    verticalBlurFBO.bind();
+    gl.disable(gl.BLEND);
+    gl.disable(gl.DEPTH_TEST);
+
+    // Draw VerticalBlurPlane
+    verticalBlurPlane.drawPrep(verticalBlurConst);
+    verticalBlurPlane.draw(blurPer);
+
+    // Draw to backbuffer.
+    verticalBlurFBO.unbind();
+    gl.colorMask(true, true, true, true);
+    gl.depthMask(true);
+    gl.clearColor(0,0,1,1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.disable(gl.BLEND);
+    gl.disable(gl.DEPTH_TEST);
+
+    // Draw DofPlane
+    dofPlane.drawPrep(g.dofConst);
+    dofPlane.draw(dofPer);
 
     // Set the alpha to 255.
     gl.colorMask(false, false, false, true);
@@ -494,6 +592,8 @@ uniform float topWidth;
 uniform float bladeSpacing;
 uniform float heightRange;
 uniform float horizontalRange;
+uniform float xWorldMult;
+uniform float zWorldMult;
 uniform float xTimeMult;
 uniform float zTimeMult;
 uniform float swayRange;
@@ -531,9 +631,10 @@ void main() {
   float hbase = time * sin((xbase + zbase) * 0.1);
   float hsin  = sin(hbase);
   float hcos  = cos(hbase);
-  float xoff  = sin(time * xTimeMult + xbase * 0.0 + sin(zbase)) * swayRange;
+  float worldOff = world[3][0] * xWorldMult * world[3][2] * zWorldMult;
+  float xoff  = sin(time * xTimeMult + rand1 + worldOff + xbase * 0.3 + sin(zbase)) * swayRange;
   float yoff  = 0.0;
-  float zoff  = sin(time * zTimeMult + zbase * 0.1 + cos(xbase) * 1.3) * swayRange;
+  float zoff  = sin(time * zTimeMult + rand2 + worldOff + zbase * 0.1 + cos(xbase) * 1.3) * swayRange;
   float effect = 1.0 - cos(3.14159 * 0.5 * lerp) * 1.0;
   vec4 p = vec4(
       pt.x + xbase * bladeSpacing + xoff * effect + rand1 * bladeSpacing,
@@ -548,18 +649,22 @@ void main() {
   vec3 dir = normalize(p0 - p1);
   vec3 perp = cross(dir, vec3(0,1,0));
   vec3 normal = cross(dir, perp);
-  gl_Position = worldViewProjection * vec4(
+  vec4 clipPosition = worldViewProjection * vec4(
       p.x,
       p.y + elevationBasis * elevationRange,
       p.z,
       1);
+  gl_Position = clipPosition;
   vec3 lightDir = normalize(vec3(1, 3, 2)) * -1.0;
   float l = dot(lightDir, normal);
   vec3 color = vec3(
       0.1 + rand2 * 0.2 + lerp * 0.2,
       0.1 + (rand2 * 0.4 + 0.4) * lerp,
       0.1 + rand2 * 0.2 + lerp * 0.2);
-  v_color = vec4(color * l, 1);
+
+  // encode the depth mix amount into the alpha channel
+  float depthMix = (clipPosition.z / clipPosition.w + 1.0) * 0.5;
+  v_color = vec4(color * l, depthMix);
   //v_color = vec4(
   //    0.0 + 0.0 * mod(xbase * 0.43, 1.0),
   //    0.5 + 0.5 * mod((xbase + zbase) * 0.21, 1.0),
@@ -576,6 +681,87 @@ varying vec4 v_color;
 
 void main() {
   gl_FragColor = v_color;
+}
+</script>
+<!-- ===[ blur ]============================================== -->
+<script id="blurVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+attribute vec2 texCoord;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+void main() {
+  v_texCoord = texCoord;
+  gl_Position = position;
+}
+</script>
+<script id="blurFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+varying vec2 v_texCoord;
+uniform vec2 blurSize;
+uniform sampler2D mainSampler;
+void main() {
+   vec4 sum = vec4(0.0);
+
+   sum += texture2D(mainSampler, vec2(v_texCoord.x - 4.0 * blurSize.x, v_texCoord.y - 4.0 * blurSize.y)) * 0.05;
+   sum += texture2D(mainSampler, vec2(v_texCoord.x - 3.0 * blurSize.x, v_texCoord.y - 3.0 * blurSize.y)) * 0.09;
+   sum += texture2D(mainSampler, vec2(v_texCoord.x - 2.0 * blurSize.x, v_texCoord.y - 2.0 * blurSize.y)) * 0.12;
+   sum += texture2D(mainSampler, vec2(v_texCoord.x - 1.0 * blurSize.x, v_texCoord.y - 1.0 * blurSize.y)) * 0.15;
+   sum += texture2D(mainSampler, vec2(v_texCoord.x                   , v_texCoord.y                   )) * 0.16;
+   sum += texture2D(mainSampler, vec2(v_texCoord.x + 1.0 * blurSize.x, v_texCoord.y + 1.0 * blurSize.y)) * 0.15;
+   sum += texture2D(mainSampler, vec2(v_texCoord.x + 2.0 * blurSize.x, v_texCoord.y + 2.0 * blurSize.y)) * 0.12;
+   sum += texture2D(mainSampler, vec2(v_texCoord.x + 3.0 * blurSize.x, v_texCoord.y + 3.0 * blurSize.y)) * 0.09;
+   sum += texture2D(mainSampler, vec2(v_texCoord.x + 4.0 * blurSize.x, v_texCoord.y + 4.0 * blurSize.y)) * 0.05;
+
+   gl_FragColor = sum;
+}
+</script>
+<!-- ===[ dof ]============================================== -->
+<script id="dofVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+attribute vec2 texCoord;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+void main() {
+  v_texCoord = texCoord;
+  gl_Position = position;
+}
+</script>
+<script id="dofFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+varying vec2 v_texCoord;
+uniform sampler2D mainSampler;
+uniform sampler2D blurSampler;
+uniform float dof;
+uniform float dofInnerRange;
+uniform float dofOuterRange;
+vec4 lerp4(vec4 a, vec4 b, float l) {
+  return a + (b - a) * l;
+}
+float lerp1(float a, float b, float l) {
+  return a + (b - a) * l;
+}
+void main() {
+  vec4 mainColor = texture2D(mainSampler, v_texCoord);
+  vec4 blurColor = texture2D(blurSampler, v_texCoord);
+  float depth = mainColor.a;
+  float mix = (abs(dof - depth) - dofInnerRange);
+  float mixAmount = 0.0;
+  float blurRange = dofOuterRange - dofInnerRange;
+  if (mix > blurRange) {
+    mixAmount = 1.0;
+  } else {
+    mixAmount = mix / blurRange;
+  }
+  vec4 color = lerp4(mainColor, blurColor, mixAmount);
+  // Uncomment next line to show depth.
+  //color = color * 0.0001 + vec4(mainColor.aaa, 1) * 0.9999;
+  // Uncomment next line to show mix amount/
+  //color = color * 0.0001 + vec4(mixAmount, mixAmount, mixAmount, 1);
+  gl_FragColor = color;
 }
 </script>
 <!-- ===[ SkyBox ]============================================== -->
@@ -599,7 +785,7 @@ void main() {
   vec4 color = textureCube(
       skybox,
       normalize(t.xyz / t.w));
-  gl_FragColor = color * color * color;
+  gl_FragColor = color;
 }
 </script>
 </html>

@@ -78,7 +78,7 @@ tdl.textures.loadTexture = function(arg) {
   return texture;
 };
 
-tdl.textures.Texture = function(target, texture) {
+tdl.textures.Texture = function(target) {
   this.target = target;
   this.texture = gl.createTexture();
   this.params = { };
