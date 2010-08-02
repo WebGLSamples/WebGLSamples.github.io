@@ -604,7 +604,7 @@ attribute vec4 position;
 attribute vec4 bladeId;
 varying vec4 v_color;
 
-float lerp(float r1, float r2, float l) {
+float lerp1(float r1, float r2, float l) {
   return r1 + (r2 - r1) * l;
 }
 
@@ -617,7 +617,7 @@ void main() {
       viewInverse[1],
       viewInverse[2],
      vec4(0,0,0,1));
-  float width = lerp(bladeWidth, topWidth, lerp);
+  float width = lerp1(bladeWidth, topWidth, lerp);
   vec4 pt = vm * vec4(
       position.x * width,
       0,
