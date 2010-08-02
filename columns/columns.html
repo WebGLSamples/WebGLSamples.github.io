@@ -94,18 +94,18 @@ var g_setCountElements = [];
 //g_drawOnce = true;
 g_debug = true;
 
-var g_eyeSpeed        = 0.01;
-var g_eyeHeight       = 15;
+var g_eyeSpeed        = 0.1;
+var g_eyeHeight       = 60;
 var g_eyeRadius       = 60;
 var g_groundRadius    = 100;
-var g_numColumns      = 80;
+var g_numColumns      = 20;
 var g_columnMinHeight = 10;
 var g_columnMaxHeight = 30;
 var g_columnMinRadius = 0.4;
 var g_columnMaxRadius = 3.0;
 var g_radialSubdivisions = 10;
 var g_lightWorldDir = [-20, -45, -50];
-var g_ambientColor = [0.1, 0.1, 0.1, 1.0];
+var g_ambientColor = [0.2, 0.2, 0.2, 1.0];
 
 var g_skyBoxUrls = [
   'assets/skybox_positive_x.png',
@@ -297,6 +297,8 @@ function initialize() {
     gl = wd.makeDebugContext(gl, undefined, LogGLCall);
   }
   gl.enable(gl.DEPTH_TEST);
+  gl.disable(gl.BLEND);
+  //gl.enable(gl.CULL_FACE);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
   var shadowFrame = gl.createFramebuffer();
@@ -313,7 +315,6 @@ function initialize() {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  // TODO enne - are there any depth formats?
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, g_shadowMapWidth, g_shadowMapHeight,
       0, gl.RGBA, gl.UNSIGNED_BYTE, null);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D,
@@ -326,7 +327,7 @@ function initialize() {
   Log("--Setup Ground---------------------------------------");
   var sand = setupGround(depthTexture);
 
-  // scale is [0..1], and is a fraction of the screen height.
+  // Debug texture scale is [0..1], and is a fraction of the screen height.
   var scale = 0.5; 
   var aspectRatio = (canvas.clientWidth / canvas.clientHeight) *
     (g_shadowMapHeight / g_shadowMapWidth);
@@ -342,6 +343,7 @@ function initialize() {
   var view = new Float32Array(16);
   var world = new Float32Array(16);
   var worldViewProjection = new Float32Array(16);
+  var lightViewProjection = new Float32Array(16);
   var viewInverse = new Float32Array(16);
   var viewProjectionInverse = new Float32Array(16);
   var worldInverse = new Float32Array(16);
@@ -390,16 +392,26 @@ function initialize() {
   var shadowWriteConst = {
   };
 
-  var uniforms = {
+  var shadowReadUniforms = {
     world: world,
     worldViewProjection: worldViewProjection,
+    lightViewProjection: lightViewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose,
+  };
+  var shadowWriteUniforms = {
+    world: world,
+    worldViewProjection: lightViewProjection,
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose,
   };
 
+
   function setupShadowPass() {
     gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFrame);
     gl.viewport(0, 0, g_shadowMapWidth, g_shadowMapHeight);
+    gl.clearColor(0,0,0,1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
     // TODO enne - find the viewport bounds once.
     fast.matrix4.ortho(
@@ -412,12 +424,12 @@ function initialize() {
         lightWorldPos,
         lightWorldTarget,
         up);
-    fast.matrix4.mul(viewProjection, view, projection);
+    fast.matrix4.mul(lightViewProjection, view, projection);
     fast.matrix4.inverse(viewInverse, view);
-    fast.matrix4.inverse(viewProjectionInverse, viewProjection);
+    fast.matrix4.inverse(viewProjectionInverse, lightViewProjection);
 
     fast.matrix4.translation(world, [0, 0, 0]);
-    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+    fast.matrix4.mul(worldViewProjection, world, lightViewProjection);
     fast.matrix4.inverse(worldInverse, world);
     fast.matrix4.transpose(worldInverseTranspose, worldInverse);
   }
@@ -425,6 +437,8 @@ function initialize() {
   function setupMainPass() {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(0,0,0,0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
     fast.matrix4.perspective(
         projection,
@@ -469,15 +483,13 @@ function initialize() {
     eyePosition[2] = Math.cos(clock * g_eyeSpeed) * g_eyeRadius;
 
     gl.colorMask(true, true, true, true);
-    gl.clearColor(0,0,0,0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
     // *** Shadow Pass
     setupShadowPass();
 
     // Draw Columns
     columns.write.drawPrep(shadowWriteConst);
-    columns.write.draw(uniforms);
+    columns.write.draw(shadowWriteUniforms);
 
     // *** Main Pass
     setupMainPass();
@@ -487,9 +499,9 @@ function initialize() {
     skybox.draw(skyPer);
 
     sand.drawPrep(shadowReadConst);
-    sand.draw(uniforms);
+    sand.draw(shadowReadUniforms);
     columns.read.drawPrep(shadowReadConst);
-    columns.read.draw(uniforms);
+    columns.read.draw(shadowReadUniforms);
 
     // Debug
     if (g_debugTexture) {
@@ -525,7 +537,9 @@ precision highp float;
 #endif
 varying vec4 v_position;
 void main() {
-  gl_FragColor = vec4(1.0, 0, 0, 1.0);
+  float depth = gl_FragCoord.z / gl_FragCoord.w;
+  vec4 shift = vec4(256.0*256.0*256.0, 256.0*256.0, 256.0, 1.0);
+  gl_FragColor = fract(shift * depth);
 }
 </script>
 <!-- Shadow Read Shader -->
@@ -534,6 +548,7 @@ uniform mat4 worldViewProjection;
 uniform mat4 world;
 uniform mat4 viewInverse;
 uniform mat4 worldInverseTranspose;
+uniform mat4 lightViewProjection;
 attribute vec4 position;
 attribute vec3 normal;
 attribute vec2 texCoord;
@@ -545,6 +560,7 @@ varying vec3 v_tangent;
 varying vec3 v_binormal;
 varying vec3 v_normal;
 varying vec3 v_surfaceToView;
+varying vec4 v_lightCoord;
 void main() {
   v_texCoord = texCoord;
   v_position = (worldViewProjection * position);
@@ -552,6 +568,7 @@ void main() {
   v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
   v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;
   v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;
+  v_lightCoord = (lightViewProjection * (world * position));
   gl_Position = v_position;
 }
 </script>
@@ -567,6 +584,7 @@ varying vec3 v_tangent;
 varying vec3 v_binormal;
 varying vec3 v_normal;
 varying vec3 v_surfaceToView;
+varying vec4 v_lightCoord;
 
 uniform vec4 emissive;
 uniform vec4 ambient;
@@ -583,7 +601,22 @@ vec4 lit(float l ,float h, float m) {
               (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
               1.0);
 }
+
+float getDepth(in vec2 lightCoord)
+{
+  vec4 shadowCol = texture2D(depthSampler, lightCoord);
+  vec4 shift = vec4(1.0/1677216.0, 1.0/65536.0, 1.0/256.0, 1.0);
+  float shadowDepth = dot(shadowCol, shift);
+
+  return shadowDepth;
+}
+
 void main() {
+  vec2 lightCoord = v_lightCoord.xy / 2.0 + 0.5;
+  float objDepth = (1.0-v_lightCoord.z) / v_lightCoord.w;
+  float shadowDepth = getDepth(lightCoord);
+  float shadow = shadowDepth > objDepth ? 1.0 : 0.0;
+
   vec4 diffuse = texture2D(diffuseSampler, v_texCoord);
   mat3 tangentToWorld = mat3(v_tangent,
                              v_binormal,
@@ -596,11 +629,9 @@ void main() {
   vec3 surfaceToView = normalize(v_surfaceToView);
   vec3 halfVector = normalize(surfaceToLight + surfaceToView);
   vec4 litR = lit(dot(normal, surfaceToLight),
-                    dot(normal, halfVector), shininess);
-  gl_FragColor = vec4((emissive +
-  lightColor * (ambient * diffuse + diffuse * litR.y +
-                        + specular * litR.z * specularFactor)).rgb,
-      diffuse.a);
+                    dot(normal, halfVector), shininess) * shadow;
+  gl_FragColor = vec4((emissive + lightColor * (ambient * diffuse + diffuse *
+          litR.y + specular * litR.z * specularFactor)).rgb, diffuse.a);
 }
 </script>
 <!-- Skybox Shader -->
