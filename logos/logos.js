@@ -1,6 +1,11 @@
 var wtu;
 var gl;
 
+var g_fpsTimer = null;  // Object to measure frames per second.
+var g_prevFrameTime = 0.0;  // Time at which previous frame was rendered.
+var g_drawOnce = false;  // True if the scene should be rendered only once.
+var g_intervalId;  // Interval ID for render callback.
+
 function reportNoWebGLSupport() {
   $("#header").after(
       '<div class="ui-state-error ui-widget" style="margin: 1em auto; text-align: center"> \
@@ -30,6 +35,7 @@ function setupWebGL() {
     return false;
   };
 
+  wtu = WebGLTestUtils;
   try {
     gl = wtu.create3DContext(canvas);
   } catch(e) {
@@ -37,20 +43,37 @@ function setupWebGL() {
     return false;
   };
 
-  // Initialize GL state.
-  gl.clearColor(0.0, 0.0, 0.0, 1.0);
   return true;
 };
 
+function setupScene() {
+  gl.clearColor(0.0, 0.0, 0.0, 1.0);
+  gl.enable(gl.DEPTH_TEST);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+};
+
 function render() {
+  if (g_drawOnce) {
+    clearInterval(g_intervalId);
+  };
+
+  // Update FPS.
+  var now = (new Date()).getTime() * 0.001;
+  var elapsedSec = g_prevFrameTime == 0.0 ? 0.0 : now - g_prevFrameTime;
+  g_prevFrameTime = now;
+  g_fpsTimer.update(elapsedSec);
+  $("#fps").html(g_fpsTimer.averageFPS);
+
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 };
 
 $(document).ready(function(){
-  wtu = WebGLTestUtils;
-
   setupUI();
-  if (setupWebGL()) {
-    render();
-  }
+  if (!setupWebGL()) {
+    return;
+  };
+
+  setupScene();
+  g_fpsTimer = new tdl.fps.FPSTimer();
+  g_intervalId = setInterval(render, 1000.0 / 70.0);
 });
