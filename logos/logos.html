@@ -1,14 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
+
 <title>Flying Logos</title>
-<link rel="stylesheet" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" type="text/css"/>
-<link rel="stylesheet" href="logos.css" type="text/css"/>
+
+<link rel="stylesheet" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" type="text/css" />
+<link rel="stylesheet" href="logos.css" type="text/css" />
 
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
 <script type="text/javascript" src="../js/webgl-test-utils.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
+
 <script type="text/javascript">
   tdl.require('tdl.buffers');
   tdl.require('tdl.fast');
@@ -19,53 +22,68 @@
   tdl.require('tdl.programs');
 </script>
 <script src="logos.js" type="text/javascript"></script>
-</head>
 
+</head>
 <body>
-<div id="container">
-  <div id="header" class="ui-widget">
-    <h1 class="ui-widget-header">Flying Logos</h1>
-  </div>
-  <div id="content">
-    <div id="side-bar">
-      <div class="ui-widget fl-box">
-        <div class="ui-widget-header fl-box-header">FPS</div>
-        <div id="fps" class="ui-widget-content fl-box-content">10</div>
-      </div>
-      <div class="ui-widget fl-box">
-        <div class="ui-widget-header fl-box-header">Settings</div>
-        <div class="ui-widget-content fl-box-content">
-          <div id="settings">
-            <h4><a href="#">Count</a></h4>
-            <div>
-              <div id="count"></div>
-              <div id="count-slider"></div>
-            </div>
-            <h4><a href="#">Theme</a></h4>
-            <div id="theme">
-              <input type="radio" name="theme" value="red"/>Red<br/>
-              <input type="radio" name="theme" value="green"/>Green<br/>
-              <input type="radio" name="theme" value="blue"/>Blue<br/>
-              <input type="radio" name="theme" value="google" checked/>Google<br/>
-            </div>
-            <h4><a href="#">Finish</a></h4>
-            <div id="finish">
-              <input type="radio" name="finish" value="shiny" checked/>Shiny<br/>
-              <input type="radio" name="finish" value="brushed"/>Brushed<br/>
-              <input type="radio" name="finish" value="toon"/>Toon<br/>
+  <div id="container">
+    <div id="header" class="ui-widget">
+      <h1 class="ui-widget-header">Flying Logos</h1>
+    </div>
+    <div id="content">
+      <div id="side-bar">
+        <div class="ui-widget fl-box">
+          <div class="ui-widget-header fl-box-header">FPS</div>
+          <div id="fps" class="ui-widget-content fl-box-content"></div>
+        </div>
+        <div class="ui-widget fl-box">
+          <div class="ui-widget-header fl-box-header">Settings</div>
+          <div class="ui-widget-content fl-box-content">
+            <div id="settings">
+              <h4><a href="#">Count</a></h4>
+              <div>
+                <div id="count"></div>
+                <div id="count-slider"></div>
+              </div>
+              <h4><a href="#">Theme</a></h4>
+              <div id="theme">
+                <input type="radio" name="theme" value="red" />Red<br />
+                <input type="radio" name="theme" value="green" />Green<br />
+                <input type="radio" name="theme" value="blue" />Blue<br />
+                <input type="radio" name="theme" value="google" checked />Google<br />
+              </div>
+              <h4><a href="#">Finish</a></h4>
+              <div id="finish">
+                <input type="radio" name="finish" value="shiny" checked />Shiny<br />
+                <input type="radio" name="finish" value="brushed" />Brushed<br />
+                <input type="radio" name="finish" value="toon" />Toon<br />
+              </div>
             </div>
           </div>
         </div>
       </div>
+      <div id="main-content" class="ui-widget">
+        <canvas id="canvas" class="ui-widget-content"></canvas>
+      </div>
     </div>
-    <div id="main-content" class="ui-widget">
-      <canvas id="canvas" class="ui-widget-content"></canvas>
+    <div id="footer" class="ui-widget">
+      <div class="ui-widget-content">Footer</div>
     </div>
   </div>
-  <div id="footer" class="ui-widget">
-    <div class="ui-widget-content">Footer</div>
-  </div>
-</div>
 </body>
+
+<!-- Ground Shader -->
+<script id="groundVShader" type="text/something-not-javascript">
+attribute vec4 position;
+uniform mat4 worldViewProjection;
+void main() {
+  gl_Position = worldViewProjection * position;
+}
+</script>
+<script id="groundFShader" type="text/something-not-javascript">
+precision highp float;
+void main() {
+  gl_FragColor = vec4(1, 1, 0, 1);
+}
+</script>
 
 </html>
