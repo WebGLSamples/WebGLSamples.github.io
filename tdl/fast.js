@@ -247,8 +247,9 @@ tdl.fast.negativeMatrix = function(m) {
  * @param {!tdl.fast.Vector} v The vector.
  * @return {!tdl.fast.Vector} A copy of v.
  */
-tdl.fast.copyVector = function(v) {
-  return new Float32Array(v);
+tdl.fast.copyVector = function(dst, v) {
+  dst.set(v);
+  return dst;
 };
 
 /**
@@ -256,8 +257,9 @@ tdl.fast.copyVector = function(v) {
  * @param {!tdl.fast.Matrix} m The matrix.
  * @return {!tdl.fast.Matrix} A copy of m.
  */
-tdl.fast.copyMatrix = function(m) {
-  return new Float32Array(m);
+tdl.fast.copyMatrix = function(dst, m) {
+  dst.set(m);
+  return dst;
 };
 
 /**
@@ -884,8 +886,8 @@ tdl.fast.matrix4.mul = function(dst, a, b) {
  * @param {!tdl.fast.Matrix4} m The matrix.
  * @return {!tdl.fast.Matrix4} A copy of m.
  */
-tdl.fast.matrix4.copy = function(m) {
-  return tdl.fast.copyMatrix(m);
+tdl.fast.matrix4.copy = function(dst, m) {
+  return tdl.fast.copyMatrix(dst, m);
 };
 
 /**

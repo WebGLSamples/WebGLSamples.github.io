@@ -84,6 +84,8 @@ var g_logGLCalls = true   // whether or not to log webgl calls
 var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;
 var g_setSettingElements = [];
+var g_sharkWorldMats = [];
+var g_beamWorldMats = [];
 var g_refract = true;
 
 //g_refract = false;
@@ -362,7 +364,7 @@ function setSetting(elem, id) {
   case 1:
   case 2:
   case 3:
-    g_numFish = Math.pow(10, id + 1);
+    g_numFish = Math.pow(10, id);
     for (var ii = 0; ii < 4; ++ii) {
       g_setSettingElements[ii].style.color = "gray";
     }
@@ -650,6 +652,10 @@ function initialize() {
 
     shark.drawPrep(sharkConst);
     for (var ii = 0; ii < g_numSharks; ++ii) {
+      if (!g_sharkWorldMats[ii]) {
+        g_sharkWorldMats[ii] = new Float32Array(16);
+        g_beamWorldMats[ii] = new Float32Array(16);
+      }
       var sharkClock = clock * g_sharkSpeed + ii * g_sharkClockOffset;
       var speed = 1;
       var xRadius = g_tankRadius - 6.0;
@@ -664,9 +670,10 @@ function initialize() {
       var nextX = Math.sin(xClock + 0.01) * xRadius;
       var nextY = Math.sin(yClock + 0.01) * yRadius;
       var nextZ = Math.cos(zClock + 0.01) * zRadius;
-      fast.matrix4.mul(world,
+      fast.matrix4.mul(g_sharkWorldMats[ii],
           fast.matrix4.scaling(m4t0, [6, 6, 6]),
           fast.matrix4.cameraLookAt(m4t1, [x, y, z], [nextX, nextY, nextZ], [0, 1, 0]));
+      fast.matrix4.copy(world, g_sharkWorldMats[ii]);
       fast.matrix4.mul(worldViewProjection, world, viewProjection);
       fast.matrix4.inverse(worldInverse, world);
       fast.matrix4.transpose(worldInverseTranspose, worldInverse);
@@ -714,46 +721,44 @@ function initialize() {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
     gl.disable(gl.CULL_FACE);
+    gl.depthMask(false);
 
     laser.drawPrep(laserConst);
     var c = 0.5 + (frameCount % 2) + 0.5;
     laserConst.colorMult = [c * 1, c * 0.1, c * 0.1, c];
     for (var ii = 0; ii < g_numSharks; ++ii) {
-      var sharkClock = clock * g_sharkSpeed + ii * g_sharkClockOffset;
-      var speed = 1;
-      var xRadius = g_tankRadius - 6.0;
-      var yRadius = 4.0;
-      var zRadius = xRadius;
-      var xClock = sharkClock * speed * g_sharkXClock;
-      var yClock = sharkClock * speed * g_sharkYClock;
-      var zClock = sharkClock * speed * g_sharkZClock;
-      var x = Math.sin(xClock) * xRadius;
-      var y = Math.sin(yClock) * yRadius;
-      var z = Math.cos(zClock) * zRadius;
-      var nextX = Math.sin(xClock + 0.01) * xRadius;
-      var nextY = Math.sin(yClock + 0.01) * yRadius;
-      var nextZ = Math.cos(zClock + 0.01) * zRadius;
       var time = (clock + ii * g_sharkClockOffset) * 3;
       fast.matrix4.mul(
           m4t1,
-          fast.matrix4.scaling(m4t0, [0.3, 0.3, 100]),
+          fast.matrix4.scaling(m4t0, [0.3 / 6, 0.3 / 6, 1000]),
               fast.matrix4.mul(
                   m4t2,
-                  fast.matrix4.rotationY(m4t3, -Math.sin(time) * 0.05),
+                  fast.matrix4.rotationY(m4t3, -Math.sin(time) * 0.025),
                   fast.matrix4.translation(m4t1, [0, 0.1, 0.5])));
       fast.matrix4.mul(
-          world,
+          g_beamWorldMats[ii],
           m4t1,
-          fast.matrix4.cameraLookAt(m4t2, [x, y, z], [nextX, nextY, nextZ], [0, 1, 0]));
+          g_sharkWorldMats[ii]);
+      fast.matrix4.copy(world, g_beamWorldMats[ii]);
       fast.matrix4.mul(worldViewProjection, world, viewProjection);
       laser.draw(laserPer);
     }
+
+    // Draw light flash
+    Log("--Draw light flash---------------------------------------");
+    gl.disable(gl.DEPTH_TEST);
+//    flash.drawPrep(laserConst);
+//    for (var ii = 0; ii < g_numSharks; ++ii) {
+//      flash.draw(laserPer);
+//    }
 
     // Draw Glass
     Log("--Draw Glass---------------------------------------");
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.CULL_FACE);
+    gl.depthMask(true);
+    gl.enable(gl.DEPTH_TEST);
 
     fast.matrix4.translation(world, [0, -5, 0]);
     fast.matrix4.mul(worldViewProjection, world, viewProjection);
