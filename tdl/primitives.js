@@ -806,7 +806,7 @@ tdl.primitives.createCube = function(size) {
   var indices = new tdl.primitives.AttribBuffer(3, 6 * 2, 'Uint16Array');
 
   for (var f = 0; f < 6; ++f) {
-    var faceIndices = o3djs.primitives.CUBE_FACE_INDICES_[f];
+    var faceIndices = tdl.primitives.CUBE_FACE_INDICES_[f];
     for (var v = 0; v < 4; ++v) {
       var position = cornerVertices[faceIndices[v]];
       var normal = faceNormals[f];
@@ -818,11 +818,11 @@ tdl.primitives.createCube = function(size) {
       normals.push(normal);
       texCoords.push(uv);
 
-      // Two triangles make a square face.
-      var offset = 4 * f;
-      indices.push(offset + 0, offset + 1, offset + 2);
-      indices.push(offset + 0, offset + 2, offset + 3);
     }
+    // Two triangles make a square face.
+    var offset = 4 * f;
+    indices.push([offset + 0, offset + 1, offset + 2]);
+    indices.push([offset + 0, offset + 2, offset + 3]);
   }
 
   return {
