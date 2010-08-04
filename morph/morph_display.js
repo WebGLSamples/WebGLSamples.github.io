@@ -267,8 +267,7 @@ function MorphDisplay(id) {
     gl.useProgram(morphShaderProgram);
 
     var perspectiveMatrix = makePerspective(45, w/h, 0.1, 100.0);
-    var mvMatrix = Matrix.I(4);
-    mvMatrix = mvMatrix.x(Matrix.Translation($V([-0.0, 0.0, -3.05])).ensure4x4());
+    var mvMatrix = Matrix.Translation($V([-0.0, 0.0, -3.05])).ensure4x4();
 
     var pUniform = gl.getUniformLocation(morphShaderProgram, "uPMatrix");
     gl.uniformMatrix4fv(pUniform, false, new WebGLFloatArray(perspectiveMatrix.flatten()));
