@@ -182,7 +182,7 @@ function MorphEditor(id, json_id) {
       dragging = false
       draw()
       // Uncomment to grab code for edited face
-      $(json_id).html(formatFace(face))
+      // $(json_id).html(formatFace(face))
     }
   });
 }
