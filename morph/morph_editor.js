@@ -73,19 +73,17 @@ function formatFace(f) {
   return str
 }
 
-morphPos = 0.0
-
 w = 300
 h = 380
 
-function MorphEditor(id, json_id, start_face, img_file_name) {
+function MorphEditor(id, json_id) {
   var ctx = $(id)[0].getContext("2d")
   var leftLeft = $(id).offset().left;
   var leftTop = $(id).offset().top;
   var selected = -1
   var dragging = false
   var image = new Image()
-  var face = start_face
+  var face = null
 
   function mouseCoord(ev) {
     return {
@@ -95,6 +93,9 @@ function MorphEditor(id, json_id, start_face, img_file_name) {
   }
 
   function draw() {
+    if (!image || !face)
+      return
+
     ctx.drawImage(image, 0, 0)
 
     ctx.fillStyle = "rgba(255, 255, 255, 1.0)"
@@ -133,12 +134,14 @@ function MorphEditor(id, json_id, start_face, img_file_name) {
     }
   }
 
-  function setImage(file_name) {
+  this.draw = draw
+
+  this.setImage = function(file_name) {
     image.onload = draw
     image.src = file_name
   }
 
-  function setFace(new_face) {
+  this.setFace = function(new_face) {
     face = new_face
   }
 
@@ -176,13 +179,6 @@ function MorphEditor(id, json_id, start_face, img_file_name) {
     // Uncomment to grab code for edited face
     // $(json_id).html(formatFace(face))
   });
-
-  this.draw = draw
-  this.setImage = setImage
-  this.setFace = setFace
-
-  image.onload = draw
-  image.src = img_file_name
 }
 
 function Slider(id, notify) {

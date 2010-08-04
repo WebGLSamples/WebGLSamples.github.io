@@ -47,7 +47,7 @@ function getShader(gl, id) {
   return shader;
 }
 
-function MorphDisplay(id, left_face, right_face, left_file, right_file) {
+function MorphDisplay(id) {
   var morphPos = 0.5
   var w = $(id).width()
   var h = $(id).height()
@@ -60,8 +60,8 @@ function MorphDisplay(id, left_face, right_face, left_file, right_file) {
   var rightTexture = null
 
   var vertexCount = 0
-  var leftFace = left_face
-  var rightFace = right_face
+  var leftFace = null
+  var rightFace = null
 
   var leftPosBuffer = null
   var rightPosBuffer = null
@@ -138,6 +138,8 @@ function MorphDisplay(id, left_face, right_face, left_file, right_file) {
   }
 
   function initBuffers() {
+    if (!leftFace || !rightFace)
+      return
     var vertices1 = verticesFromFace(leftFace)
     var vertices2 = verticesFromFace(rightFace)
     var indices = [
@@ -195,6 +197,9 @@ function MorphDisplay(id, left_face, right_face, left_file, right_file) {
   }
 
   function deinitBuffers() {
+    if (!leftPosBuffer) {
+      return
+    }
     gl.bindBuffer(gl.ARRAY_BUFFER, null)
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null)
     gl.deleteBuffer(leftPosBuffer)
@@ -230,27 +235,26 @@ function MorphDisplay(id, left_face, right_face, left_file, right_file) {
 
   function initTextures() {
     leftTexture = gl.createTexture()
-    loadTexture(left_file, leftTexture)
     rightTexture = gl.createTexture()
-    loadTexture(right_file, rightTexture)
   }
 
   this.setLeftFace = function(face, tex, crop) {
     leftFace = face
     loadTexture(tex, leftTexture)
-    deinitBuffers()
-    initBuffers()
+    changed()
   }
 
   this.setRightFace = function(face, tex, crop) {
     rightFace = face
     loadTexture(tex, rightTexture)
-    deinitBuffers()
-    initBuffers()
+    changed()
   }
 
   this.draw = function() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+    if (!leftFace || !rightFace || !leftPosBuffer) {
+      return
+    }
     gl.useProgram(morphShaderProgram);
 
     var perspectiveMatrix = makePerspective(45, w/h, 0.1, 100.0);
@@ -292,7 +296,6 @@ function MorphDisplay(id, left_face, right_face, left_file, right_file) {
 
   gl = initWebGL($(id)[0])
   if (!gl) {
-    alert("WebGL fail")
     return
   }
 
