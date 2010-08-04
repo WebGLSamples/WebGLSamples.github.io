@@ -265,15 +265,15 @@ function MorphDisplay(id) {
       return
     }
     gl.useProgram(morphShaderProgram);
-
-    var perspectiveMatrix = makePerspective(45, w/h, 0.1, 100.0);
-    var mvMatrix = Matrix.Translation($V([-0.0, 0.0, -3.05])).ensure4x4();
-
+    var perspMatrix = new Float32Array(16)
+    var transMatrix = new Float32Array(16)
+    tdl.fast.matrix4.perspective(perspMatrix, 45, w/h, 0.1, 100.0)
+    tdl.fast.matrix4.translation(transMatrix, [0.0, 0.0, -2.25])
     var pUniform = gl.getUniformLocation(morphShaderProgram, "uPMatrix");
-    gl.uniformMatrix4fv(pUniform, false, new WebGLFloatArray(perspectiveMatrix.flatten()));
     var mvUniform = gl.getUniformLocation(morphShaderProgram, "uMVMatrix");
-    gl.uniformMatrix4fv(mvUniform, false, new WebGLFloatArray(mvMatrix.flatten()));
-
+    gl.uniformMatrix4fv(pUniform, false, perspMatrix)
+    gl.uniformMatrix4fv(mvUniform, false, transMatrix);
+	
     gl.bindBuffer(gl.ARRAY_BUFFER, leftPosBuffer);
     gl.vertexAttribPointer(leftPosAttr, 3, gl.FLOAT, false, 0, 0);
     gl.bindBuffer(gl.ARRAY_BUFFER, rightPosBuffer);
