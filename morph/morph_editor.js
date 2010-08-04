@@ -3,11 +3,11 @@
 nodeNames = [
   "head",     // 0
   "head L",   // 1
-  "L ear ",   // 2
+  "ear L",    // 2
   "chin L",   // 3
   "chin",     // 4
   "chin R",   // 5
-  "R ear",    // 6
+  "ear R",    // 6
   "head R",   // 7
   "nose",     // 8
   "mouth L",  // 9
@@ -83,6 +83,7 @@ function MorphEditor(id, json_id) {
   var selected = -1
   var dragging = false
   var image = new Image()
+  var crop = {}
   var face = null
 
   function mouseCoord(ev) {
@@ -95,8 +96,8 @@ function MorphEditor(id, json_id) {
   function draw() {
     if (!image || !face)
       return
-
-    ctx.drawImage(image, 0, 0)
+    ctx.drawImage(image, crop.x, crop.y, crop.w, crop.h, 0, 0, w, h)
+    //ctx.drawImage(image, 0, 0, w, h)
 
     ctx.fillStyle = "rgba(255, 255, 255, 1.0)"
     ctx.strokeStyle = "rgba(255, 255, 255, 1.0)"
@@ -136,8 +137,11 @@ function MorphEditor(id, json_id) {
 
   this.draw = draw
 
-  this.setImage = function(new_image) {
+  this.setImage = function(new_image, new_crop) {
     image = new_image
+    crop = new_crop
+    if (crop.x + crop.w > image.width) { crop.w = image.width - crop.x }
+    if (crop.y + crop.h > image.height) { crop.h = image.height - crop.y }
     draw()
   }
 

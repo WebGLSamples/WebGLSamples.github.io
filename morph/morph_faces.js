@@ -119,31 +119,32 @@ keanuFace =
 faces = {
   "Sergey Brin":  {
     face: sergeyFace,
-    crop: {},
+    crop: {x:0, y:0, w:300, h:380},
     file: "assets/sergey.jpg"
   },
   "Keanu Reeves": {
     face: keanuFace,
-    crop: {},
+    crop: {x:0, y:0, w:300, h:380},
     file: "assets/keanu.jpg"
   },
   "Bruce Willis": {
     face: bruceFace,
-    crop: {},
+    crop: {x:0, y:0, w:300, h:380},
     file: "assets/bruce.jpg"
   },
   "Salma Hayek":  {
     face: salmaFace,
-    crop: {},
-    file: "assets/salma.jpg"},
+    crop: {x:0, y:0, w:300, h:380},
+    file: "assets/salma.jpg"
+  },
   "Chuck Norris": {
     face: chuckFace,
-    crop: {},
+    crop: {x:0, y:0, w:300, h:380},
     file: "assets/chuck.jpg"
   },
   "Eric Schmidt": {
     face: ericFace,
-    crop: {},
+    crop: {x:0, y:0, w:300, h:380},
     file: "assets/eric.jpg"
   }
 }

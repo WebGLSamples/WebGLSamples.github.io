@@ -56,6 +56,9 @@ function MorphDisplay(id) {
 
   var morphShaderProgram = null
 
+  var leftImage = null
+  var rightImage = null
+
   var leftTexture = null
   var rightTexture = null
 
@@ -72,6 +75,9 @@ function MorphDisplay(id) {
   var rightPosAttr = null
   var leftTCAttr = null
   var rightTCAttr = null
+
+  var leftCrop = null
+  var rightCrop = null
 
   this.sliderValue = function(value) {
     morphPos = value
@@ -102,12 +108,17 @@ function MorphDisplay(id) {
     gl.enableVertexAttribArray(rightTCAttr);
   }
 
-  function texCoordsFromVertices(verts) {
+  function texCoordsFromVertices(verts, image, crop) {
+    var xscale = crop.w / image.width
+    var yscale = crop.h / image.height
+    var xoffset = crop.x / image.width
+    var yoffset = crop.y / image.height
+
     var count = verts.length / 3
     var tc = new Array(count * 2)
     for (var i = 0; i < count; i++) {
-      tc[i * 2] = (verts[i * 3] + 1) / 2
-      tc[i * 2 + 1] = 1.0 - ((verts[i * 3 + 1] + 1) / 2)
+      tc[i * 2] = xoffset + xscale * (verts[i * 3] + 1) / 2
+      tc[i * 2 + 1] = 1.0 - (yoffset + yscale * ((verts[i * 3 + 1] + 1) / 2))
     }
     return tc
   }
@@ -175,8 +186,8 @@ function MorphDisplay(id) {
 
     vertexCount = indices.length
 
-    var texcoords1 = texCoordsFromVertices(vertices1);
-    var texcoords2 = texCoordsFromVertices(vertices2);
+    var texcoords1 = texCoordsFromVertices(vertices1, leftImage, leftCrop);
+    var texcoords2 = texCoordsFromVertices(vertices2, rightImage, rightCrop);
 
     leftPosBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, leftPosBuffer);
@@ -233,12 +244,16 @@ function MorphDisplay(id) {
 
   this.setLeftFace = function(face, image, crop) {
     leftFace = face
+    leftCrop = crop
+    leftImage = image
     setImageToTexture(image, leftTexture)
     changed()
   }
 
   this.setRightFace = function(face, image, crop) {
     rightFace = face
+    rightCrop = crop
+    rightImage = image
     setImageToTexture(image, rightTexture)
     changed()
   }

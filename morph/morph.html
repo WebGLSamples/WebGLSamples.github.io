@@ -126,7 +126,7 @@ div.infobox p {
     // interpolation. Looks somewhat more natural than a plain lerp.
     gl_FragColor = sqrt(mix(
       leftColor * leftColor, rightColor * rightColor, fade2));
-    // Alternative plane lerp for speed:
+    // Alternative plain lerp for speed:
     // gl_FragColor = mix(leftColor, rightColor, fade2);
   }
 </script>
@@ -192,7 +192,9 @@ function handleChange(select, editor, displayFunc) {
   var image = new Image()
   image.onload = function() {
     editor.setFace(faces[value].face)
-    editor.setImage(image)
+    if (faces[value].crop.w > image.width) faces[value].crop.w = image.width
+    if (faces[value].crop.h > image.height) faces[value].crop.h = image.height
+    editor.setImage(image, faces[value].crop)
     displayFunc(faces[value].face, image, faces[value].crop)
   }
   image.src = faces[value].file
