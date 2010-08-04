@@ -223,6 +223,7 @@ function MorphDisplay(id) {
   function changed() {
     deinitBuffers()
     initBuffers()
+    draw()
   }
 
   function setImageToTexture(image, texture) {
@@ -258,7 +259,7 @@ function MorphDisplay(id) {
     changed()
   }
 
-  this.draw = function() {
+  function draw() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     if (!leftFace || !rightFace || !leftPosBuffer) {
       return
@@ -296,10 +297,11 @@ function MorphDisplay(id) {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
     gl.drawElements(gl.TRIANGLES, vertexCount, gl.UNSIGNED_SHORT, 0);
   }
+  this.draw = draw
 
-  function autoDraw(morphdisplay) {
-    morphdisplay.draw()
-    setTimeout(function(){autoDraw(morphdisplay)}, 500)
+  function autoDraw() {
+    changed()
+    setTimeout(autoDraw, 500)
   }
 
   gl = initWebGL($(id)[0])
@@ -315,6 +317,6 @@ function MorphDisplay(id) {
   gl.clearDepth(1.0)
   this.draw()
   var md = this
-  setTimeout(function(){autoDraw(md)}, 500)
+  setTimeout(autoDraw, 500)
 }
 

@@ -156,8 +156,8 @@ function MorphEditor(id, json_id) {
     for (p in face) {
       if (distance(face[p], pos) < 0.03) {
         selected = p
-        draw()
         dragging = true
+        draw()
         return
       }
     }
@@ -173,15 +173,17 @@ function MorphEditor(id, json_id) {
       pos.y /= h
       face[selected].x = pos.x
       face[selected].y = pos.y
+      draw()
     }
-    draw()
   });
 
   $(id).mouseup(function(ev) {
-    dragging = false
-    draw()
-    // Uncomment to grab code for edited face
-    $(json_id).html(formatFace(face))
+    if (dragging) {
+      dragging = false
+      draw()
+      // Uncomment to grab code for edited face
+      $(json_id).html(formatFace(face))
+    }
   });
 }
 
