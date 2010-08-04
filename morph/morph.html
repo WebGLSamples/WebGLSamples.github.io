@@ -192,8 +192,6 @@ function handleChange(select, editor, displayFunc) {
   var image = new Image()
   image.onload = function() {
     editor.setFace(faces[value].face)
-    if (faces[value].crop.w > image.width) faces[value].crop.w = image.width
-    if (faces[value].crop.h > image.height) faces[value].crop.h = image.height
     editor.setImage(image, faces[value].crop)
     displayFunc(faces[value].face, image, faces[value].crop)
   }

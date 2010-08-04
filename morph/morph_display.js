@@ -118,7 +118,7 @@ function MorphDisplay(id) {
     var tc = new Array(count * 2)
     for (var i = 0; i < count; i++) {
       tc[i * 2] = xoffset + xscale * (verts[i * 3] + 1) / 2
-      tc[i * 2 + 1] = 1.0 - (yoffset + yscale * ((verts[i * 3 + 1] + 1) / 2))
+      tc[i * 2 + 1] = yoffset + yscale * (1.0 - (((verts[i * 3 + 1] + 1) / 2)))
     }
     return tc
   }

@@ -65,11 +65,11 @@ function distance(a, b) {
 }
 
 function formatFace(f) {
-  str = "<code>[<br>"
+  str = "<code>&nbsp;&nbsp;&nbsp;&nbsp;face: [<br>"
   for (i in f) {
-    str += "&nbsp;&nbsp;{x:" + f[i].x.toFixed(3) + ", y:" + f[i].y.toFixed(3) + "},<br>"
+    str += "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{x:" + f[i].x.toFixed(3) + ", y:" + f[i].y.toFixed(3) + "},<br>"
   }
-  str += "]</code>"
+  str += "&nbsp;&nbsp;&nbsp;&nbsp;],</code>"
   return str
 }
 
@@ -181,7 +181,7 @@ function MorphEditor(id, json_id) {
     dragging = false
     draw()
     // Uncomment to grab code for edited face
-    // $(json_id).html(formatFace(face))
+    $(json_id).html(formatFace(face))
   });
 }
 
