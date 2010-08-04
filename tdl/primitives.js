@@ -577,6 +577,8 @@ tdl.primitives.createSphere = function(
  * @param {number} thickness The thickness of the cresent.
  * @param {number} subdivisionsDown number of steps around the sphere.
  * @param {number} subdivisionsThick number of vertically on the sphere.
+ * @param {number} opt_startOffset Where to start arc Default 0.
+ * @param {number} opt_endOffset Where to end arg Default 1.
  * @return {!Object.<string, !tdl.primitives.AttribBuffer>} The
  *         created plane vertices.
  */
@@ -585,14 +587,20 @@ tdl.primitives.createCresent = function(
     outerRadius,
     innerRadius,
     thickness,
-    subdivisionsDown) {
+    subdivisionsDown,
+    opt_startOffset,
+    opt_endOffset) {
   if (subdivisionsDown <= 0) {
     throw Error('subdivisionDown must be > 0');
   }
   var math = tdl.math;
 
+  opt_startOffset = opt_startOffset || 0;
+  opt_endOffset = opt_endOffset || 1;
+
   var subdivisionsThick = 2;
 
+  var offsetRange = opt_endOffset - opt_startOffset;
   var numVertices = (subdivisionsDown + 1) * 2 * (2 + subdivisionsThick);
   var positions = new tdl.primitives.AttribBuffer(3, numVertices);
   var normals = new tdl.primitives.AttribBuffer(3, numVertices);
@@ -603,7 +611,7 @@ tdl.primitives.createCresent = function(
       var uBack = x / (subdivisionsThick - 1);
       var v = z / subdivisionsDown;
       var xBack = (uBack - 0.5) * 2;
-      var angle = v * Math.PI;
+      var angle = (opt_startOffset + (v * offsetRange)) * Math.PI;
       var s = Math.sin(angle);
       var c = Math.cos(angle);
       var radius = math.lerpScalar(verticalRadius, arcRadius, s);

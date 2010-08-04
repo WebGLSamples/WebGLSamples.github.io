@@ -83,7 +83,7 @@ var g_fpsTimer;           // object to measure frames per second;
 var g_logGLCalls = true   // whether or not to log webgl calls
 var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;
-var g_setCountElements = [];
+var g_setSettingElements = [];
 var g_refract = true;
 
 //g_refract = false;
@@ -91,8 +91,7 @@ var g_refract = true;
 //g_drawOnce = true;
 
 var g_numFish          = 1;
-var g_fishSpeed        = 0.3;
-var g_fishClockOffset  = 0.3;
+var g_numSharks        = 0;
 var g_eyeSpeed         = 0.01;
 var g_eyeHeight        = 8;
 var g_eyeRadius        = 60;
@@ -103,9 +102,16 @@ var g_tankRadius       = 22;
 var g_tankHeight       = 30;
 var g_tankRefractionRatio = 1.33;
 var g_standHeight      = 25;
+var g_fishSpeed        = 0.3;
+var g_fishClockOffset  = 0.3;
 var g_fishXClock       = 1;
 var g_fishYClock       = 0.17;
 var g_fishZClock       = 1.09;
+var g_sharkSpeed       = 0.3;
+var g_sharkClockOffset = 17;
+var g_sharkXClock      = 1;
+var g_sharkYClock      = 0.17;
+var g_sharkZClock      = 1;
 
 var g_skyBoxUrls = [
   'assets/room_positive_x.png',
@@ -177,6 +183,79 @@ function setupFish() {
        [0, 0, -1, 0],
        [0, 0, 0.7, 1]]);
   var arrays = tdl.primitives.concat([sphereArrays, tailArrays, finArrays]);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
+ * Setup Shark
+ */
+function setupShark() {
+  var textures = {
+      diffuseSampler: tdl.textures.loadTexture('assets/shark.png')};
+  textures.diffuseSampler.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  var program = createProgramFromTags(
+      'sharkVertexShader',
+      'sharkFragmentShader');
+  var sphereArrays = tdl.primitives.createSphere(1, 10, 10);
+  tdl.primitives.reorient(sphereArrays,
+      [[0.2, 0, 0, 0],
+       [0, 0.2, 0, 0],
+       [0, 0, 1, 0],
+       [0, 0, 0, 1]]);
+  var tailArrays = tdl.primitives.createCresent(0.3, 0.5, 0.3, 0.01, 10);
+  tdl.primitives.reorient(tailArrays,
+      [[-1, 0, 0, 0],
+       [0, 1, 0, 0],
+       [0, 0, -1, 0],
+       [0, 0, 1.3, 1]]);
+  var topFinArrays = tdl.primitives.createCresent(0.5, 0.7, 0.2, 0.01, 10, 0, 0.5);
+  tdl.primitives.reorient(topFinArrays,
+      [[-1, 0, 0, 0],
+       [0, 1, 0, 0],
+       [0, 0, -1, 0],
+       [0, 0, 0.4, 1]]);
+  var leftFinArrays = tdl.primitives.clone(topFinArrays);
+  tdl.primitives.reorient(leftFinArrays,
+      math.matrix4.mul(
+        math.matrix4.translation([0, 0, -0.2]),
+        math.matrix4.rotationZ(math.degToRad(120))));
+  var rightFinArrays = tdl.primitives.clone(topFinArrays);
+  tdl.primitives.reorient(rightFinArrays,
+      math.matrix4.mul(
+        math.matrix4.translation([0, 0, -0.2]),
+        math.matrix4.rotationZ(math.degToRad(-120))));
+  var arrays = tdl.primitives.concat([
+      sphereArrays,
+      tailArrays,
+      topFinArrays,
+      leftFinArrays,
+      rightFinArrays]);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
+ * Setup Laser
+ */
+function setupLaser() {
+  var textures = {
+      colorMap: tdl.textures.loadTexture('assets/beam.png')};
+  var program = createProgramFromTags(
+      'laserVertexShader',
+      'laserFragmentShader');
+  var beam1Arrays = tdl.primitives.createPlane(1, 1, 1, 1);
+  delete beam1Arrays.normal;
+  tdl.primitives.reorient(beam1Arrays,
+        math.matrix4.translation([0, 0, -0.5]));
+  var beam2Arrays = tdl.primitives.clone(beam1Arrays);
+  var beam3Arrays = tdl.primitives.clone(beam1Arrays);
+  tdl.primitives.reorient(beam2Arrays,
+        math.matrix4.rotationZ(math.degToRad(120)));
+  tdl.primitives.reorient(beam3Arrays,
+        math.matrix4.rotationZ(math.degToRad(-120)));
+  var arrays = tdl.primitives.concat([
+      beam1Arrays,
+      beam2Arrays,
+      beam3Arrays]);
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -277,34 +356,46 @@ function setupStand() {
 /**
  * Sets the count
  */
-function setCount(elem, count) {
-  g_numFish = count;
-  for (var ii = 0; ii < g_setCountElements.length; ++ii) {
-    g_setCountElements[ii].style.color = "gray";
+function setSetting(elem, id) {
+  switch (id) {
+  case 0:
+  case 1:
+  case 2:
+  case 3:
+    g_numFish = Math.pow(10, id + 1);
+    for (var ii = 0; ii < 4; ++ii) {
+      g_setSettingElements[ii].style.color = "gray";
+    }
+    elem.style.color = "red";
+    break;
+  case 4:
+    if (g_numSharks) {
+      g_numSharks = 0;
+      elem.style.color = "gray";
+    } else {
+      g_numSharks = 3;
+      elem.style.color = "red";
+    }
+    break;
   }
-  elem.style.color = "red";
 }
 
 /**
  * Sets up the count buttons.
  */
 function setupCountButtons() {
-  count = 1;
   for (var ii = 0; ii < 100; ++ii) {
-    var elem = document.getElementById("setCount" + ii);
+    var elem = document.getElementById("setSetting" + ii);
     if (!elem) {
       break;
     }
-    g_setCountElements.push(elem);
-    elem.onclick = function(elem, count) {
+    g_setSettingElements.push(elem);
+    elem.onclick = function(elem, id) {
       return function () {
-        setCount(elem, count);
-      }}(elem, count);
-    if (g_numFish == count) {
-      setCount(elem, count);
-    }
-    count *= 10;
+        setSetting(elem, id);
+      }}(elem, ii);
   }
+  setSetting(document.getElementById("setSetting0"), 0);
 }
 
 /**
@@ -328,13 +419,17 @@ function initialize() {
 
   Log("--Setup Skybox---------------------------------------");
   var skybox = setupSkybox();
-  Log("--Setup Fish---------------------------------------");
+  Log("--Setup Fish-----------------------------------------");
   var fish = setupFish();
-  Log("--Setup Sand---------------------------------------");
+  Log("--Setup Shark----------------------------------------");
+  var shark = setupShark();
+  Log("--Setup Laser----------------------------------------");
+  var laser = setupLaser();
+  Log("--Setup Sand-----------------------------------------");
   var sand = setupSand();
-  Log("--Setup Glass---------------------------------------");
+  Log("--Setup Glass----------------------------------------");
   var glass = setupGlass();
-  Log("--Setup Stand---------------------------------------");
+  Log("--Setup Stand----------------------------------------");
   var stand = setupStand();
 
   var then = 0.0;
@@ -359,6 +454,8 @@ function initialize() {
   var v3t1 = new Float32Array(3);
   var m4t0 = new Float32Array(16);
   var m4t1 = new Float32Array(16);
+  var m4t2 = new Float32Array(16);
+  var m4t3 = new Float32Array(16);
   var zero4 = new Float32Array(4);
   var one4 = new Float32Array([1,1,1,1]);
   var colorMult = new Float32Array([1,1,1,1]);
@@ -410,6 +507,27 @@ function initialize() {
     colorMult: colorMult,
     time: 0};
 
+  // Shark uniforms
+  var sharkConst = {
+    viewInverse: viewInverse,
+    lightWorldPos: lightWorldPos,
+    lightColor: one4,
+    ambient: zero4,
+    specular: one4,
+    shininess: 10,
+    specularFactor: 0.3};
+  var sharkPer = {
+    world: world,
+    worldViewProjection: worldViewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose,
+    time: 0};
+
+  // Laser uniforms
+  var laserConst = {};
+  var laserPer = {
+    worldViewProjection: worldViewProjection};
+
   // Stand uniforms.
   var standConst = {
     viewInverse: viewInverse,
@@ -438,6 +556,7 @@ function initialize() {
   var glassFrontPer = {
         normMult: -1};
 
+  var frameCount = 0;
   function render() {
     if (g_drawOnce) {
       clearInterval(intervalId);
@@ -450,6 +569,8 @@ function initialize() {
       elapsedTime = now - then;
     }
     then = now;
+
+    frameCount++;
 
     g_fpsTimer.update(elapsedTime);
     fps.innerHTML = g_fpsTimer.averageFPS;
@@ -492,11 +613,19 @@ function initialize() {
     gl.disable(gl.BLEND);
     gl.enable(gl.CULL_FACE);
 
+    math.resetPseudoRandom();
+    var pseudoRandom = math.pseudoRandom;
+    //var pseudoRandom = function() {
+    //  return 0.5;
+    //};
+
     // Draw Skybox
+    Log("--Draw Sky---------------------------------------");
     skybox.drawPrep(skyConst);
     skybox.draw(skyPer);
 
     // Draw Sand
+    Log("--Draw Sand---------------------------------------");
     sand.drawPrep(sandConst);
     fast.matrix4.translation(world, [0, -5, 0]);
     fast.matrix4.mul(worldViewProjection, world, viewProjection);
@@ -505,6 +634,7 @@ function initialize() {
     sand.draw(sandPer);
 
     // Draw Stand
+    Log("--Draw Stand---------------------------------------");
     gl.disable(gl.CULL_FACE);
     stand.drawPrep(standConst);
     fast.matrix4.translation(world, [0, -5, 0]);
@@ -513,16 +643,41 @@ function initialize() {
     fast.matrix4.transpose(worldInverseTranspose, worldInverse);
     stand.draw(standPer);
 
-    // Draw Fishes.
-    Log("--Draw Fish---------------------------------------");
     gl.enable(gl.CULL_FACE);
 
+    // Draw Sharks.
+    Log("--Draw Sharks---------------------------------------");
+
+    shark.drawPrep(sharkConst);
+    for (var ii = 0; ii < g_numSharks; ++ii) {
+      var sharkClock = clock * g_sharkSpeed + ii * g_sharkClockOffset;
+      var speed = 1;
+      var xRadius = g_tankRadius - 6.0;
+      var yRadius = 4.0;
+      var zRadius = xRadius;
+      var xClock = sharkClock * speed * g_sharkXClock;
+      var yClock = sharkClock * speed * g_sharkYClock;
+      var zClock = sharkClock * speed * g_sharkZClock;
+      var x = Math.sin(xClock) * xRadius;
+      var y = Math.sin(yClock) * yRadius;
+      var z = Math.cos(zClock) * zRadius;
+      var nextX = Math.sin(xClock + 0.01) * xRadius;
+      var nextY = Math.sin(yClock + 0.01) * yRadius;
+      var nextZ = Math.cos(zClock + 0.01) * zRadius;
+      fast.matrix4.mul(world,
+          fast.matrix4.scaling(m4t0, [6, 6, 6]),
+          fast.matrix4.cameraLookAt(m4t1, [x, y, z], [nextX, nextY, nextZ], [0, 1, 0]));
+      fast.matrix4.mul(worldViewProjection, world, viewProjection);
+      fast.matrix4.inverse(worldInverse, world);
+      fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+      sharkPer.time = (clock + ii * g_sharkClockOffset) * 3;
+      shark.draw(sharkPer);
+    }
+
+    // Draw Fishes.
+    Log("--Draw Fish---------------------------------------");
+
     fish.drawPrep(fishConst);
-    math.resetPseudoRandom();
-    var pseudoRandom = math.pseudoRandom;
-    //var pseudoRandom = function() {
-    //  return 0.5;
-    //};
     var fishClock = clock * g_fishSpeed;
     for (var ii = 0; ii < g_numFish; ++ii) {
       var fishClock = clock * g_fishSpeed + ii * g_fishClockOffset;
@@ -554,8 +709,50 @@ function initialize() {
       fish.draw(fishPer);
     }
 
-    // Draw Glass
+    // Draw Laser
+    Log("--Draw Laser---------------------------------------");
     gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.disable(gl.CULL_FACE);
+
+    laser.drawPrep(laserConst);
+    var c = 0.5 + (frameCount % 2) + 0.5;
+    laserConst.colorMult = [c * 1, c * 0.1, c * 0.1, c];
+    for (var ii = 0; ii < g_numSharks; ++ii) {
+      var sharkClock = clock * g_sharkSpeed + ii * g_sharkClockOffset;
+      var speed = 1;
+      var xRadius = g_tankRadius - 6.0;
+      var yRadius = 4.0;
+      var zRadius = xRadius;
+      var xClock = sharkClock * speed * g_sharkXClock;
+      var yClock = sharkClock * speed * g_sharkYClock;
+      var zClock = sharkClock * speed * g_sharkZClock;
+      var x = Math.sin(xClock) * xRadius;
+      var y = Math.sin(yClock) * yRadius;
+      var z = Math.cos(zClock) * zRadius;
+      var nextX = Math.sin(xClock + 0.01) * xRadius;
+      var nextY = Math.sin(yClock + 0.01) * yRadius;
+      var nextZ = Math.cos(zClock + 0.01) * zRadius;
+      var time = (clock + ii * g_sharkClockOffset) * 3;
+      fast.matrix4.mul(
+          m4t1,
+          fast.matrix4.scaling(m4t0, [0.3, 0.3, 100]),
+              fast.matrix4.mul(
+                  m4t2,
+                  fast.matrix4.rotationY(m4t3, -Math.sin(time) * 0.05),
+                  fast.matrix4.translation(m4t1, [0, 0.1, 0.5])));
+      fast.matrix4.mul(
+          world,
+          m4t1,
+          fast.matrix4.cameraLookAt(m4t2, [x, y, z], [nextX, nextY, nextZ], [0, 1, 0]));
+      fast.matrix4.mul(worldViewProjection, world, viewProjection);
+      laser.draw(laserPer);
+    }
+
+    // Draw Glass
+    Log("--Draw Glass---------------------------------------");
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.CULL_FACE);
 
     fast.matrix4.translation(world, [0, -5, 0]);
@@ -589,10 +786,11 @@ function initialize() {
 <div class="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
   <div>Number of Fish</div>
-  <div id="setCount0">1</div>
-  <div id="setCount1">10</div>
-  <div id="setCount2">100</div>
-  <div id="setCount3">1000</div>
+  <div id="setSetting0">1</div>
+  <div id="setSetting1">10</div>
+  <div id="setSetting2">100</div>
+  <div id="setSetting3">1000</div>
+  <div id="setSetting4">Sharks</div>
 </div>
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </body>
@@ -622,6 +820,28 @@ void main() {
 }
 </script>
 -->
+<script id="laserVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+attribute vec2 texCoord;
+varying vec2 v_texCoord;
+uniform mat4 worldViewProjection;
+void main() {
+  v_texCoord = texCoord;
+  gl_Position = (worldViewProjection * position);
+}
+</script>
+<script id="laserFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+
+varying vec2 v_texCoord;
+uniform vec4 colorMult;
+uniform sampler2D colorMap;
+void main() {
+  gl_FragColor = texture2D(colorMap, v_texCoord) * colorMult;
+}
+</script>
 <!-- ===[ Fish Shader ]============================================== -->
 <script id="fishVertexShader" type="text/something-not-javascript">
 uniform mat4 worldViewProjection;
@@ -710,6 +930,79 @@ void main() {
                  skyColor * vec4(1.0, 1.0, 1.0, 1.0)) /* * litR.y */ +
                         + specular * litR.z * specularFactor)).rgb,
       diffuse.a);
+}
+</script>
+<!-- ===[ Shark Shader ]============================================== -->
+<script id="sharkVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+uniform float time;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+attribute vec3 tangent;
+attribute vec3 binormal;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+void main() {
+  v_texCoord = texCoord;
+  float mult = position.z > 0.0 ? (position.z / 10.0) : (-position.z / 20.0);  // 10 = radius.
+  float s = sin(time + mult * 3.0);
+  float a = sign(s);
+  float offset = pow(mult, 2.0) * s * 20.0;
+  v_position = (
+      worldViewProjection *
+      (position +
+       vec4(offset, 0, 0, 0)));
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="sharkFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform vec4 lightColor;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform vec4 specular;
+uniform float shininess;
+uniform float specularFactor;
+uniform sampler2D diffuseSampler;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec3 normal = normalize(v_normal);
+  vec4 diffuse = texture2D(
+      diffuseSampler,
+      vec2(v_texCoord.x, normal.y * 0.5 + 0.7));
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  gl_FragColor = vec4((
+                       lightColor * (diffuse * litR.y +
+                                     specular * litR.z * specularFactor)).rgb,
+                      diffuse.a) * 0.3 + diffuse * 0.7;
 }
 </script>
 <!-- ===[ Glass Shader ]============================================== -->
@@ -958,8 +1251,6 @@ void main() {
       normalize(t.xyz / t.w));
 }
 </script>
-
-
 </html>
 
 

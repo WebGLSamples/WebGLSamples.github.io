@@ -998,7 +998,7 @@ tdl.fast.matrix4.perspective = function(dst, angle, aspect, near, far) {
  * @return {!tdl.math.Matrix4} The perspective matrix.
  */
 tdl.fast.matrix4.ortho = function(dst, left, right, bottom, top, near, far) {
-  
+
 
   dst[0]  = 2 / (right - left);
   dst[1]  = 0;
@@ -1173,6 +1173,35 @@ tdl.fast.matrix4.translate = function(m, v) {
 };
 
 tdl.fast.matrix4.transpose = tdl.fast.transpose4;
+
+/**
+ * Creates a 4-by-4 matrix which rotates around the y-axis by the given angle.
+ * @param {number} angle The angle by which to rotate (in radians).
+ * @return {!tdl.math.Matrix4} The rotation matrix.
+ */
+tdl.fast.matrix4.rotationY = function(dst, angle) {
+  var c = Math.cos(angle);
+  var s = Math.sin(angle);
+
+  dst[ 0] = c;
+  dst[ 1] = 0;
+  dst[ 2] = -s;
+  dst[ 3] = 0;
+  dst[ 4] = 0;
+  dst[ 5] = 1;
+  dst[ 6] = 0;
+  dst[ 7] = 0;
+  dst[ 8] = s;
+  dst[ 9] = 0;
+  dst[10] = c;
+  dst[11] = 0;
+  dst[12] = 0;
+  dst[13] = 0;
+  dst[14] = 0;
+  dst[15] = 1;
+
+  return dst;
+};
 
 /**
  * Creates a 4-by-4 matrix which rotates around the given axis by the given
