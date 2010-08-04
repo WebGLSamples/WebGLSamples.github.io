@@ -213,6 +213,14 @@ tdl.math.resetPseudoRandom = function() {
 };
 
 /**
+ * Return a random integer between 0 and n-1
+ * @param {number} n
+ */
+tdl.math.randomInt = function(n) {
+  return Math.min(Math.floor(Math.random() * n), n - 1);
+}
+
+/**
  * Converts degrees to radians.
  * @param {number} degrees A value in degrees.
  * @return {number} the value in radians.

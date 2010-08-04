@@ -162,9 +162,9 @@ function setupSkybox() {
 }
 
 /**
- * Sets up a building
+ * Sets up a modern building
  */
-function setupBuilding() {
+function setupModernBuilding() {
   var textures = {
       diffuseSampler: tdl.textures.loadTexture([128, 128, 140, 255])};
   var program = createProgramFromTags(
@@ -197,6 +197,166 @@ function setupBuilding() {
     towers.push(tower);
   }
   var arrays = tdl.primitives.concat(towers);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
+ * Creates vertices for a truncated cone, which is like a cylinder
+ * except that it has different top and bottom radii. A truncated cone
+ * can also be used to create cylinders and regular cones. The
+ * truncated cone will be created centered about the origin, with the
+ * y axis as its vertical axis. The created cone has position, normal
+ * and uv streams.
+ *
+ * @param {number} bottomRadius Bottom radius of truncated cone.
+ * @param {number} topRadius Top radius of truncated cone.
+ * @param {number} height Height of truncated cone.
+ * @param {number} radialSubdivisions The number of subdivisions around the
+ *     truncated cone.
+ * @param {number} verticalSubdivisions The number of subdivisions down the
+ *     truncated cone.
+ * @param {boolean} opt_topCap Create top cap. Default = true.
+ * @param {boolean} opt_bottomCap Create bottom cap. Default =
+ *        true.
+ * @return {!Object.<string, !tdl.primitives.AttribBuffer>} The
+ *         created plane vertices.
+ */
+function createTruncatedConeWithSkips(
+    bottomRadius,
+    topRadius,
+    height,
+    radialSubdivisions,
+    verticalSubdivisions,
+    maxNumSkips,
+    maxNonSkipUnits,
+    maxSkipUnits,
+    opt_topCap,
+    opt_bottomCap) {
+  if (radialSubdivisions < 3) {
+    throw Error('radialSubdivisions must be 3 or greater');
+  }
+
+  if (verticalSubdivisions < 1) {
+    throw Error('verticalSubdivisions must be 1 or greater');
+  }
+
+  var topCap = (opt_topCap === undefined) ? true : opt_topCap;
+  var bottomCap = (opt_bottomCap === undefined) ? true : opt_bottomCap;
+
+  var extra = (topCap ? 2 : 0) + (bottomCap ? 2 : 0);
+
+  var numSkips = math.randomInt(maxNumSkips);
+  var arcPoints = [];
+  var arcIndex = 0;
+  var originalRadialSubdivisions = radialSubdivisions;
+  for (var ii = 0; ii < numSkips; ++ii) {
+    arcPoints.push(++arcIndex);
+    var skipStart = math.randomInt(maxNonSkipUnits);
+    for (var jj = 0; jj < skipStart; ++jj) {
+      arcPoints.push(++arcIndex);
+    }
+    skipAmount = 1 + math.randomInt(maxSkipUnits - 1);
+    arcIndex += skipAmount;
+    radialSubdivisions -= skipAmount;
+  }
+  while (arcPoints.length <= radialSubdivisions) {
+    arcPoints.push(++arcIndex);
+  }
+
+  var numVertices = (radialSubdivisions + 1) * (verticalSubdivisions + 1 + extra);
+  var positions = new tdl.primitives.AttribBuffer(3, numVertices);
+  var normals = new tdl.primitives.AttribBuffer(3, numVertices);
+  var texCoords = new tdl.primitives.AttribBuffer(2, numVertices);
+  var indices = new tdl.primitives.AttribBuffer(
+      3, radialSubdivisions * (verticalSubdivisions + extra) * 2, 'Uint16Array');
+
+  var vertsAroundEdge = radialSubdivisions + 1;
+
+  // The slant of the cone is constant across its surface
+  var slant = Math.atan2(bottomRadius - topRadius, height);
+  var cosSlant = Math.cos(slant);
+  var sinSlant = Math.sin(slant);
+
+  var start = topCap ? -2 : 0;
+  var end = verticalSubdivisions + (bottomCap ? 2 : 0);
+
+  for (var yy = start; yy <= end; ++yy) {
+    var v = yy / verticalSubdivisions
+    var y = height * v;
+    var ringRadius;
+    if (yy < 0) {
+      y = 0;
+      v = 1;
+      ringRadius = bottomRadius;
+    } else if (yy > verticalSubdivisions) {
+      y = height;
+      v = 1;
+      ringRadius = topRadius;
+    } else {
+      ringRadius = bottomRadius +
+        (topRadius - bottomRadius) * (yy / verticalSubdivisions);
+    }
+    if (yy == -2 || yy == verticalSubdivisions + 2) {
+      ringRadius = 0;
+      v = 0;
+    }
+    y -= height / 2;
+    for (var ii = 0; ii < vertsAroundEdge; ++ii) {
+      var arcIndex = arcPoints[ii];
+      var u = arcIndex / originalRadialSubdivisions
+      var angle = u * Math.PI * 2;
+      var sin = Math.sin(angle);
+      var cos = Math.cos(angle);
+      positions.push([sin * ringRadius, y, cos * ringRadius]);
+      normals.push([
+          (yy < 0 || yy > verticalSubdivisions) ? 0 : (sin * cosSlant),
+          (yy < 0) ? -1 : (yy > verticalSubdivisions ? 1 : sinSlant),
+          (yy < 0 || yy > verticalSubdivisions) ? 0 : (cos * cosSlant)]);
+      texCoords.push([u, v]);
+    }
+  }
+
+  for (var yy = 0; yy < verticalSubdivisions + extra; ++yy) {
+    for (var ii = 0; ii < radialSubdivisions; ++ii) {
+      indices.push([vertsAroundEdge * (yy + 0) + 0 + ii,
+                   vertsAroundEdge * (yy + 0) + 1 + ii,
+                   vertsAroundEdge * (yy + 1) + 1 + ii]);
+      indices.push([vertsAroundEdge * (yy + 0) + 0 + ii,
+                   vertsAroundEdge * (yy + 1) + 1 + ii,
+                   vertsAroundEdge * (yy + 1) + 0 + ii]);
+    }
+  }
+
+  return {
+    position: positions,
+    normal: normals,
+    texCoord: texCoords,
+    indices: indices};
+};
+
+/**
+ * Sets up a cylinder building
+ */
+function setupCylinderBuilding() {
+  var textures = {
+      diffuseSampler: tdl.textures.loadTexture([128, 128, 140, 255])};
+  var program = createProgramFromTags(
+      'diffusePointVertexShader',
+      'diffusePointFragmentShader');
+  var arrays = createTruncatedConeWithSkips(
+    0.5,   // bottomRadius,
+    0.5,   // topRadius,
+    10,    // height,
+    36,    // radialSubdivisions,
+    1,     // verticalSubdivisions,
+    4,     // maxNumSkips,
+    9,     // maxNonSkipUnits,
+    9);    // maxSkipUnits,
+  tdl.primitives.reorient(arrays,
+      [[1, 0, 0, 0],
+       [0, 1, 0, 0],
+       [0, 0, 1, 0],
+       [0, 5, 0, 1]]);
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -246,8 +406,10 @@ function initialize() {
   var ground = setupGround();
   Log("--Setup Skybox---------------------------------------");
   var skybox = setupSkybox();
-  Log("--Setup Building---------------------------------------");
-  var building = setupBuilding();
+  Log("--Setup Modern Building---------------------------------------");
+  var modernBuilding = setupModernBuilding();
+  Log("--Setup Cylinder Building---------------------------------------");
+  var cylinderBuilding = setupCylinderBuilding();
 
   var then = 0.0;
   var clock = 0.0;
@@ -286,12 +448,23 @@ function initialize() {
   var groundPer = {
     worldViewProjection: worldViewProjection};
 
-  // Building uniforms.
-  var buildingConst = {
+  // Modern building uniforms.
+  var modernBuildingConst = {
     viewInverse: viewInverse,
     lightWorldPos: lightWorldPos,
     };
-  var buildingPer = {
+  var modernBuildingPer = {
+    world: world,
+    worldViewProjection: worldViewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose};
+
+  // Cylinder building uniforms.
+  var cylinderBuildingConst = {
+    viewInverse: viewInverse,
+    lightWorldPos: lightWorldPos,
+    };
+  var cylinderBuildingPer = {
     world: world,
     worldViewProjection: worldViewProjection,
     worldInverse: worldInverse,
@@ -374,13 +547,21 @@ function initialize() {
     fast.matrix4.transpose(worldInverseTranspose, worldInverse);
     ground.draw(groundPer);
 
-    Log("--Draw Building---------------------------------------");
-    building.drawPrep(buildingConst);
+    Log("--Draw Modern Building---------------------------------------");
+    modernBuilding.drawPrep(modernBuildingConst);
     fast.matrix4.translation(world, [0, 0, 0]),
     fast.matrix4.mul(worldViewProjection, world, viewProjection);
     fast.matrix4.inverse(worldInverse, world);
     fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-    building.draw(buildingPer);
+    modernBuilding.draw(modernBuildingPer);
+
+    Log("--Draw Cylinder Building---------------------------------------");
+    cylinderBuilding.drawPrep(cylinderBuildingConst);
+    fast.matrix4.translation(world, [1.1, 0, 0]),
+    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+    fast.matrix4.inverse(worldInverse, world);
+    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+    cylinderBuilding.draw(cylinderBuildingPer);
 
 
     // Set the alpha to 255.
