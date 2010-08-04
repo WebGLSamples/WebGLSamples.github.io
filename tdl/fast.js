@@ -193,6 +193,17 @@ tdl.fast.cross = function(dst, a, b) {
 };
 
 /**
+ * Computes the dot product of two vectors; assumes both vectors have
+ * three entries.
+ * @param {!tdl.math.Vector} a Operand vector.
+ * @param {!tdl.math.Vector} b Operand vector.
+ * @return {number} dot product
+ */
+tdl.fast.dot = function(a, b) {
+  return (a[0] * b[0]) + (a[1] * b[1]) + (a[2] * b[2]);
+};
+
+/**
  * Divides a vector by its Euclidean length and returns the quotient.
  * @param {!tdl.fast.Vector} dst vector.
  * @param {!tdl.fast.Vector} a The vector.
@@ -1048,25 +1059,24 @@ tdl.fast.matrix4.lookAt = function(dst, eye, target, up) {
   var vx = tdl.fast.normalize(t1, tdl.fast.cross(t1, up, vz));
   var vy = tdl.fast.cross(t2, vz, vx);
 
-  var m0 = tdl.fast.temp0m4_;
-  m0[ 0] = vx[0];
-  m0[ 1] = vx[1];
-  m0[ 2] = vx[2];
-  m0[ 3] = 0;
-  m0[ 4] = vy[0];
-  m0[ 5] = vy[1];
-  m0[ 6] = vy[2];
-  m0[ 7] = 0;
-  m0[ 8] = vz[0];
-  m0[ 9] = vz[1];
-  m0[10] = vz[2];
-  m0[11] = 0;
-  m0[12] = eye[0];
-  m0[13] = eye[1];
-  m0[14] = eye[2];
-  m0[15] = 1;
+  dst[ 0] = vx[0];
+  dst[ 1] = vy[0];
+  dst[ 2] = vz[0];
+  dst[ 3] = 0;
+  dst[ 4] = vx[1];
+  dst[ 5] = vy[1];
+  dst[ 6] = vz[1];
+  dst[ 7] = 0;
+  dst[ 8] = vx[2];
+  dst[ 9] = vy[2];
+  dst[10] = vz[2];
+  dst[11] = 0;
+  dst[12] = -tdl.fast.dot(vx, eye);
+  dst[13] = -tdl.fast.dot(vy, eye);
+  dst[14] = -tdl.fast.dot(vz, eye);
+  dst[15] = 1;
 
-  return tdl.fast.inverse4(dst, m0);
+  return dst;
 };
 
 /**
