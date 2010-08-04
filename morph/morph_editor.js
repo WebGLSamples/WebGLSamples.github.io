@@ -136,9 +136,9 @@ function MorphEditor(id, json_id) {
 
   this.draw = draw
 
-  this.setImage = function(file_name) {
-    image.onload = draw
-    image.src = file_name
+  this.setImage = function(new_image) {
+    image = new_image
+    draw()
   }
 
   this.setFace = function(new_face) {

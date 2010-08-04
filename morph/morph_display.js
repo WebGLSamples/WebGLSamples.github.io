@@ -214,14 +214,7 @@ function MorphDisplay(id) {
     initBuffers()
   }
 
-  function loadTexture(image_file, texture) {
-    var img = new Image()
-    img.onload = function() { handleTextureLoaded(img, texture) }
-    img.src = image_file
-    return texture
-  }
-
-  function handleTextureLoaded(image, texture) {
+  function setImageToTexture(image, texture) {
     gl.bindTexture(gl.TEXTURE_2D, texture)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image)
     // choose a filter that doesn't require mips for NPOT
@@ -238,15 +231,15 @@ function MorphDisplay(id) {
     rightTexture = gl.createTexture()
   }
 
-  this.setLeftFace = function(face, tex, crop) {
+  this.setLeftFace = function(face, image, crop) {
     leftFace = face
-    loadTexture(tex, leftTexture)
+    setImageToTexture(image, leftTexture)
     changed()
   }
 
-  this.setRightFace = function(face, tex, crop) {
+  this.setRightFace = function(face, image, crop) {
     rightFace = face
-    loadTexture(tex, rightTexture)
+    setImageToTexture(image, rightTexture)
     changed()
   }
 
