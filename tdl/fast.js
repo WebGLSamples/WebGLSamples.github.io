@@ -258,8 +258,9 @@ tdl.fast.negativeMatrix = function(m) {
  * @param {!tdl.fast.Vector} v The vector.
  * @return {!tdl.fast.Vector} A copy of v.
  */
-tdl.fast.copyVector = function(v) {
-  return new Float32Array(v);
+tdl.fast.copyVector = function(dst, v) {
+  dst.set(v);
+  return dst;
 };
 
 /**
@@ -267,8 +268,9 @@ tdl.fast.copyVector = function(v) {
  * @param {!tdl.fast.Matrix} m The matrix.
  * @return {!tdl.fast.Matrix} A copy of m.
  */
-tdl.fast.copyMatrix = function(m) {
-  return new Float32Array(m);
+tdl.fast.copyMatrix = function(dst, m) {
+  dst.set(m);
+  return dst;
 };
 
 /**
@@ -895,8 +897,8 @@ tdl.fast.matrix4.mul = function(dst, a, b) {
  * @param {!tdl.fast.Matrix4} m The matrix.
  * @return {!tdl.fast.Matrix4} A copy of m.
  */
-tdl.fast.matrix4.copy = function(m) {
-  return tdl.fast.copyMatrix(m);
+tdl.fast.matrix4.copy = function(dst, m) {
+  return tdl.fast.copyMatrix(dst, m);
 };
 
 /**
@@ -1009,7 +1011,7 @@ tdl.fast.matrix4.perspective = function(dst, angle, aspect, near, far) {
  * @return {!tdl.math.Matrix4} The perspective matrix.
  */
 tdl.fast.matrix4.ortho = function(dst, left, right, bottom, top, near, far) {
-  
+
 
   dst[0]  = 2 / (right - left);
   dst[1]  = 0;
@@ -1183,6 +1185,35 @@ tdl.fast.matrix4.translate = function(m, v) {
 };
 
 tdl.fast.matrix4.transpose = tdl.fast.transpose4;
+
+/**
+ * Creates a 4-by-4 matrix which rotates around the y-axis by the given angle.
+ * @param {number} angle The angle by which to rotate (in radians).
+ * @return {!tdl.math.Matrix4} The rotation matrix.
+ */
+tdl.fast.matrix4.rotationY = function(dst, angle) {
+  var c = Math.cos(angle);
+  var s = Math.sin(angle);
+
+  dst[ 0] = c;
+  dst[ 1] = 0;
+  dst[ 2] = -s;
+  dst[ 3] = 0;
+  dst[ 4] = 0;
+  dst[ 5] = 1;
+  dst[ 6] = 0;
+  dst[ 7] = 0;
+  dst[ 8] = s;
+  dst[ 9] = 0;
+  dst[10] = c;
+  dst[11] = 0;
+  dst[12] = 0;
+  dst[13] = 0;
+  dst[14] = 0;
+  dst[15] = 1;
+
+  return dst;
+};
 
 /**
  * Creates a 4-by-4 matrix which rotates around the given axis by the given
