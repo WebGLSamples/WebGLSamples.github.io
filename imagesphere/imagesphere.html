@@ -105,12 +105,14 @@ var g = {
   imagePlaneConst:{}};
 
 var g_ui = [
-  { obj: 'globals',    name: 'imageSpacing',     value: 1.1,   max:  5 },
-  { obj: 'globals',    name: 'eyeTarget',        value: 0,     max:  5 },
-  { obj: 'globals',    name: 'eyeHeight',        value: 0,     max:  10 },
-  { obj: 'globals',    name: 'eyeRadius',        value: 5,     max:  10 },
-  { obj: 'globals',    name: 'eyeSpeed',         value: 0,     max:  1 },
-  { obj: 'imagePlaneConst', name: 'bendAmount',       value: 0,     max:  1 }];
+  { obj: 'globals',         name: 'imageSize',    value: 1.0, max:  5  },
+  { obj: 'globals',         name: 'imageSpacing', value: 1.1, max:  5  },
+  { obj: 'globals',         name: 'eyeTarget',    value: 0,   max:  5  },
+  { obj: 'globals',         name: 'eyeHeight',    value: 0,   max:  10 },
+  { obj: 'globals',         name: 'eyeRadius',    value: 5,   max:  10 },
+  { obj: 'globals',         name: 'eyeSpeed',     value: 0,   max:  1  },
+  { obj: 'imagePlaneConst', name: 'bendRadius',   value: 1.9, max:  10 },
+  { obj: 'imagePlaneConst', name: 'bendAmount',   value: 0.5, max:  10 }];
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -151,7 +153,7 @@ function setupImagePlane() {
       'imageSphereVertexShader',
       'imageSphereFragmentShader');
 //  var arrays = tdl.primitives.createCube(1);
-  var arrays = tdl.primitives.createPlane(1,1,1,1);
+  var arrays = tdl.primitives.createPlane(1,1,10,10);
   tdl.primitives.reorient(arrays,
       [[1, 0, 0, 0],
        [0, 0, 1, 0],
@@ -170,7 +172,7 @@ function initialize() {
   if (g_debug) {
     gl = wd.makeDebugContext(gl, undefined, LogGLCall);
   }
-//  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
 
   Log("--Setup ImagePlane---------------------------------------");
   var imagePlane = setupImagePlane();
@@ -279,9 +281,18 @@ function initialize() {
     imagePlane.drawPrep(g.imagePlaneConst);
     for (var yy = -2; yy <= 2; ++yy) {
       for (var xx = -2; xx <= 2; ++xx) {
-        fast.matrix4.translation(
+				fast.matrix4.mul(
             world,
-            [xx * g.globals.imageSpacing , yy * g.globals.imageSpacing, 0]),
+						fast.matrix4.scaling(
+                m4t0,
+                [g.globals.imageSize,
+                 g.globals.imageSize,
+                 g.globals.imageSize]),
+            fast.matrix4.translation(
+                m4t1,
+                [xx * g.globals.imageSize * g.globals.imageSpacing,
+                 yy * g.globals.imageSize * g.globals.imageSpacing,
+                 0]));
         fast.matrix4.mul(worldViewProjection, world, viewProjection);
         fast.matrix4.inverse(worldInverse, world);
         fast.matrix4.transpose(worldInverseTranspose, worldInverse);
@@ -366,6 +377,7 @@ uniform mat4 world;
 uniform mat4 viewInverse;
 uniform mat4 worldInverseTranspose;
 uniform float bendAmount;
+uniform float bendRadius;
 attribute vec4 position;
 attribute vec3 normal;
 attribute vec2 texCoord;
@@ -377,10 +389,20 @@ varying vec3 v_surfaceToView;
 void main() {
   v_texCoord = texCoord;
   vec4 wp = world * position;
-  float b = (abs(wp.x) * abs(wp.y)) * bendAmount;
-  float c = cos(b);
-  wp.x = wp.x * c;
-  wp.y = wp.y * c;
+  float longitude = wp.x * bendAmount + 3.14159 * 0.5;
+	float latitude = wp.y * bendAmount + 3.14159 * 0.5;
+	float sinTheta = sin(longitude);
+	float cosTheta = cos(longitude);
+	float sinPhi = sin(latitude);
+	float cosPhi = cos(latitude);
+	float ux = cosTheta * sinPhi;
+	float uy = cosPhi;
+	float uz = sinTheta * sinPhi;
+	wp = vec4(
+    ux * bendRadius,
+		uy * bendRadius,
+		uz * bendRadius,
+		1);
   v_position = viewProjection * wp;
   v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
   v_surfaceToLight = lightWorldPos - (world * position).xyz;
