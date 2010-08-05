@@ -65,7 +65,7 @@ tdl.models.Model = function(program, arrays, textures, opt_mode) {
   var textureUnits = { }
   var unit = 0;
   for (var texture in textures) {
-    textureUnits[texture] = unit;
+    textureUnits[texture] = unit++;
   }
 
   this.mode = (opt_mode === undefined) ? gl.TRIANGLES : opt_mode;
