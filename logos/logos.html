@@ -20,6 +20,7 @@
   tdl.require('tdl.models');
   tdl.require('tdl.primitives');
   tdl.require('tdl.programs');
+  tdl.require('tdl.textures');
 </script>
 <script src="logos.js" type="text/javascript"></script>
 
@@ -80,9 +81,36 @@ void main() {
 }
 </script>
 <script id="groundFShader" type="text/something-not-javascript">
+#ifdef GL_ES
 precision highp float;
+#endif
 void main() {
   gl_FragColor = vec4(1, 1, 0, 1);
+}
+</script>
+
+<!-- Skybox Shader -->
+<script id="skyboxVShader" type="text/something-not-javascript">
+attribute vec4 position;
+varying vec4 v_position;
+void main() {
+  v_position = position;
+  gl_Position = position;
+}
+</script>
+<script id="skyboxFShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform samplerCube skybox;
+uniform mat4 viewProjectionInverse;
+varying vec4 v_position;
+void main() {
+  vec4 t = (viewProjectionInverse * v_position);
+  vec4 color = textureCube(
+      skybox,
+      normalize(t.xyz / t.w));
+  gl_FragColor = color;
 }
 </script>
 
