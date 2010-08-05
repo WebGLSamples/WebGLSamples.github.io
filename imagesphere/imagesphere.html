@@ -119,6 +119,7 @@ var g_ui = [
   { obj: 'globals',         name: 'imageWidth',   value: 1.0,  max:  5  },
   { obj: 'globals',         name: 'imageHeight',  value: 1.0,  max:  5  },
   { obj: 'globals',         name: 'imageSpacing', value: 1.1,  max:  5  },
+  { obj: 'globals',         name: 'rowOffset',    value: 0.5,  max:  2  },
   { obj: 'globals',         name: 'eyeRadius',    value: 5,    max:  10 },
   { obj: 'imagePlaneConst', name: 'bendRadius',   value: 2.4,  max:  10 },
   { obj: 'imagePlaneConst', name: 'bendAmount',   value: 0.42, max:  2 }];
@@ -163,6 +164,7 @@ function setupImagePlane() {
       'imageSphereFragmentShader');
 //  var arrays = tdl.primitives.createCube(1);
   var arrays = tdl.primitives.createPlane(1,1,10,10);
+	delete arrays.normal;
   tdl.primitives.reorient(arrays,
       [[1, 0, 0, 0],
        [0, 0, 1, 0],
@@ -171,6 +173,27 @@ function setupImagePlane() {
   return new tdl.models.Model(program, arrays, textures);
 }
 
+/**
+ * Sets up a blank Plane
+ */
+function setupBlankPlane() {
+  var textures = {};
+  var program = createProgramFromTags(
+      'blackVertexShader',
+      'blackFragmentShader');
+  var arrays = tdl.primitives.createPlane(1,1,4,4);
+	delete arrays.normal;
+	delete arrays.texCoord;
+  tdl.primitives.reorient(arrays,
+      [[1, 0, 0, 0],
+       [0, 0, 1, 0],
+       [0, -1, 0, 0],
+       [0, 0, 0, 1]]);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+// The ImgTexture stuff has to happen inside a function because
+// tdl.textures.Texture doesn't exist when this is first executed.
 function hack() {
 
 ImgTexture = function() {
@@ -200,7 +223,15 @@ ImgTexture.prototype.uploadTexture = function() {
   var img = this.img;
   var msg = this.msg;
 	g_ctx2d.clearRect(0, 0, 256, 256);
-  g_ctx2d.drawImage(img, 0, 0, 256, img.height * 256 / img.width);
+  // stretch the image to 256 width
+  var width = 256;
+  var height = img.height * 256 / img.width;
+  // stretch until it's 216 height
+	if (height < 216) {
+		width = img.width * 216 / height;
+    height = 216;
+  }
+  g_ctx2d.drawImage(img, 0, 0, width, height);
 	g_ctx2d.clearRect(0, 192, 256, 64);
 	g_ctx2d.font = "20px sans-serif";
 	g_ctx2d.fillStyle = "rgb(255,255,255)";
@@ -215,6 +246,84 @@ ImgTexture.prototype.bindToUnit = function(unit) {
   gl.bindTexture(gl.TEXTURE_2D, this.texture);
 };
 
+}  // hack.
+
+/**
+ * Returns the absolute position of an element for certain browsers.
+ * @param {HTML Element} element The element to get a position for.
+ * @return {Object} An object containing x and y as the absolute position
+ *     of the given element.
+ */
+var getAbsolutePosition = function(element) {
+  var r = { x: element.offsetLeft, y: element.offsetTop };
+  if (element.offsetParent) {
+    var tmp = getAbsolutePosition(element.offsetParent);
+    r.x += tmp.x;
+    r.y += tmp.y;
+  }
+  return r;
+};
+
+ /**
+  * Retrieve the coordinates of the given event relative to the center
+  * of the widget.
+  *
+  * @param {eventInfo} eventInfo As returned from
+  *     CLIENT3DJS.util.getEventInfo.
+  * @param {HTML Element} opt_reference A DOM element whose position we want
+  *     to transform the mouse coordinates to. If it is not passed in the
+  *     element in the eventInfo will be used.
+  * @return {Object} An object containing keys 'x' and 'y'.
+  */
+var getRelativeCoordinates = function(eventInfo, opt_reference) {
+  var x, y;
+  var event = eventInfo.event;
+  var element = eventInfo.element;
+  var reference = opt_reference || eventInfo.element;
+  if (!window.opera && typeof event.offsetX != 'undefined') {
+    // Use offset coordinates and find common offsetParent
+    var pos = { x: event.offsetX, y: event.offsetY };
+    // Send the coordinates upwards through the offsetParent chain.
+    var e = element;
+    while (e) {
+      e.mouseX = pos.x;
+      e.mouseY = pos.y;
+      pos.x += e.offsetLeft;
+      pos.y += e.offsetTop;
+      e = e.offsetParent;
+    }
+    // Look for the coordinates starting from the reference element.
+    var e = reference;
+    var offset = { x: 0, y: 0 }
+    while (e) {
+      if (typeof e.mouseX != 'undefined') {
+        x = e.mouseX - offset.x;
+        y = e.mouseY - offset.y;
+        break;
+      }
+      offset.x += e.offsetLeft;
+      offset.y += e.offsetTop;
+      e = e.offsetParent;
+    }
+    // Reset stored coordinates
+    e = element;
+    while (e) {
+      e.mouseX = undefined;
+      e.mouseY = undefined;
+      e = e.offsetParent;
+    }
+  } else {
+    // Use absolute coordinates
+    var pos = getAbsolutePosition(reference);
+    x = event.pageX - pos.x;
+    y = event.pageY - pos.y;
+  }
+  // Subtract distance to middle
+  return { x: x, y: y };
+};
+
+function handleMouseMove(e) {
+//  var m = getRelativeCoordinatns
 }
 
 function initialize() {
@@ -224,6 +333,8 @@ function initialize() {
   g_fpsTimer = new tdl.fps.FPSTimer();
 
   hack();
+
+	canvas.addEventListener("mousemove", handleMouseMove, false);
 
   // Create a canvas 2d for making textures with text.
   g_canvas2d = document.createElement('canvas');
@@ -299,6 +410,8 @@ function initialize() {
 
   Log("--Setup ImagePlane---------------------------------------");
   var imagePlane = setupImagePlane();
+  Log("--Setup BlankPlane---------------------------------------");
+  var blankPlane = setupBlankPlane();
 
   var then = 0.0;
   var clock = 0.0;
@@ -316,7 +429,6 @@ function initialize() {
   var eyePosition = new Float32Array(3);
   var target = new Float32Array(3);
   var up = new Float32Array([0,1,0]);
-  var lightWorldPos = new Float32Array(3);
   var v3t0 = new Float32Array(3);
   var v3t1 = new Float32Array(3);
   var v3t2 = new Float32Array(3);
@@ -327,16 +439,17 @@ function initialize() {
   var m4t3 = new Float32Array(16);
   var zero4 = new Float32Array(4);
   var one4 = new Float32Array([1,1,1,1]);
+  var colorMult = new Float32Array(4);
 
   // Modern building uniforms.
-  g.imagePlaneConst.viewInverse = viewInverse;
-  g.imagePlaneConst.lightWorldPos = lightWorldPos;
   g.imagePlaneConst.viewProjection = viewProjection;
   var imagePlanePer = {
     world: world,
-    worldViewProjection: worldViewProjection,
-    worldInverse: worldInverse,
-    worldInverseTranspose: worldInverseTranspose};
+    colorMult: colorMult};
+
+  var blankPlaneConst = {
+		worldViewProjection: worldViewProjection};
+  var blankPlanePer = { };
 
   var scrollX = 0;
   var scrollY = 0;
@@ -367,7 +480,7 @@ function initialize() {
 
     gl.colorMask(true, true, true, true);
     gl.depthMask(true);
-    gl.clearColor(0,0,0,0);
+    gl.clearColor(0,0,0,1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
     gl.enable(gl.CULL_FACE);
@@ -388,24 +501,23 @@ function initialize() {
     fast.matrix4.inverse(viewInverse, view);
     fast.matrix4.inverse(viewProjectionInverse, viewProjection);
 
-    fast.matrix4.getAxis(v3t0, viewInverse, 0); // x
-    fast.matrix4.getAxis(v3t1, viewInverse, 1); // y;
-    fast.matrix4.getAxis(v3t2, viewInverse, 2); // z;
-    fast.mulScalarVector(v3t0, 0, v3t0);
-    fast.mulScalarVector(v3t1, 0, v3t1);
-    fast.mulScalarVector(v3t2, 0, v3t2);
-    fast.addVector(lightWorldPos, eyePosition, v3t0);
-    fast.addVector(lightWorldPos, lightWorldPos, v3t1);
-    fast.addVector(lightWorldPos, lightWorldPos, v3t2);
-
-//      view: view,
-//      projection: projection,
-//      viewProjection: viewProjection,
+    // Draw a blank plane in the middle to mask out the back
+    // of the sphere. Alternatively I could figure out why
+    // the back of the sphere is not culled by CULL_FACE.
+    Log("--Draw Blank---------------------------------------");
+		fast.matrix4.mul(
+        world,
+        fast.matrix4.scaling(m4t2, [100, 100, 100]),
+        fast.matrix4.translation(m4t1, [0, 0, 1]));
+    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+    blankPlane.drawPrep(blankPlaneConst);
+    blankPlane.draw(blankPlanePer);
 
     Log("--Draw Images---------------------------------------");
+    // All we do is draw a grid of image. The shader warps the grid into a sphere.
     imagePlane.drawPrep(g.imagePlaneConst);
-		scrollX = clock * -g.globals.hScrollSpeed;
-		scrollY = clock * -g.globals.vScrollSpeed;
+		scrollX += elapsedTime * g.globals.hScrollSpeed;
+		scrollY += elapsedTime * g.globals.vScrollSpeed;
     var gridXOff = Math.floor(g_imagesAcrossSphere * -0.5);
     var gridYOff = Math.floor(g_imagesDownSphere * -0.5);
     var xOff = tdl.math.modClamp(scrollX % 1, 1);
@@ -428,12 +540,16 @@ function initialize() {
                  1]),
             fast.matrix4.translation(
                 m4t1,
-                [(gridXOff + xx + xOff) * g.globals.imageWidth * g.globals.imageSpacing,
-                 (gridYOff + yy + yOff) * g.globals.imageHeight * g.globals.imageSpacing,
+                [(gridXOff + xx + xOff - (texRowIndex % 2) * g.globals.rowOffset) *
+                  g.globals.imageWidth * g.globals.imageSpacing,
+                 (gridYOff + yy + yOff) *
+                  g.globals.imageHeight * g.globals.imageSpacing,
                  0]));
         fast.matrix4.mul(worldViewProjection, world, viewProjection);
-        fast.matrix4.inverse(worldInverse, world);
-        fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+				colorMult[0] = 1;
+				colorMult[1] = 1;
+				colorMult[2] = 1;
+				colorMult[3] = 1;
         imagePlane.draw(imagePlanePer, texturesPer);
       }
     }
@@ -507,23 +623,31 @@ $(function(){
 </div>
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </body>
+<!--- black shader -->
+<script id="blackVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+attribute vec4 position;
+void main() {
+  gl_Position = worldViewProjection * position;
+}
+</script>
+<script id="blackFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+void main() {
+  gl_FragColor = vec4(0,0,0,0);
+}
+</script>
 <!--- imageSphere -->
 <script id="imageSphereVertexShader" type="text/something-not-javascript">
 uniform mat4 viewProjection;
-uniform vec3 lightWorldPos;
 uniform mat4 world;
-uniform mat4 viewInverse;
-uniform mat4 worldInverseTranspose;
 uniform float bendAmount;
 uniform float bendRadius;
 attribute vec4 position;
-attribute vec3 normal;
 attribute vec2 texCoord;
-varying vec4 v_position;
 varying vec2 v_texCoord;
-varying vec3 v_normal;
-varying vec3 v_surfaceToLight;
-varying vec3 v_surfaceToView;
 void main() {
   v_texCoord = texCoord;
   vec4 wp = world * position;
@@ -541,11 +665,7 @@ void main() {
 		uy * bendRadius,
 		uz * bendRadius,
 		1);
-  v_position = viewProjection * wp;
-  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
-  v_surfaceToLight = lightWorldPos - (world * position).xyz;
-  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
-  gl_Position = v_position;
+  gl_Position = viewProjection * wp;
 }
 
 </script>
@@ -553,29 +673,12 @@ void main() {
 #ifdef GL_ES
 precision highp float;
 #endif
-varying vec4 v_position;
 varying vec2 v_texCoord;
-varying vec3 v_normal;
-varying vec3 v_surfaceToLight;
-varying vec3 v_surfaceToView;
-
 uniform sampler2D diffuseSampler;
-
-vec4 lit(float l ,float h, float m) {
-  return vec4(1.0,
-              max(l, 0.0),
-              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
-              1.0);
-}
+uniform vec4 colorMult;
 void main() {
   vec4 diffuse = texture2D(diffuseSampler, vec2(1.0 - v_texCoord.x, v_texCoord.y));
-  vec3 normal = normalize(v_normal);
-  vec3 surfaceToLight = normalize(v_surfaceToLight);
-  vec3 surfaceToView = normalize(v_surfaceToView);
-  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
-  vec4 litR = lit(dot(normal, surfaceToLight),
-                    dot(normal, halfVector), 1.0);
-  gl_FragColor = vec4((diffuse * litR.y).rgb, diffuse.a);
+  gl_FragColor = diffuse * colorMult;
 }
 </script>
 </html>
