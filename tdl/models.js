@@ -62,10 +62,17 @@ tdl.models.Model = function(program, arrays, textures, opt_mode) {
     buffers[name] = b;
   }
 
+  var textureUnits = { }
+  var unit = 0;
+  for (var texture in textures) {
+    textureUnits[texture] = unit;
+  }
+
   this.mode = (opt_mode === undefined) ? gl.TRIANGLES : opt_mode;
   this.program = program;
   this.buffers = buffers;
   this.textures = textures;
+  this.textureUnits = textureUnits;
 }
 
 /**
@@ -93,11 +100,10 @@ tdl.models.Model.prototype.drawPrep = function(uniforms) {
     }
   }
 
-  var unit = 0;
   for (var texture in textures) {
+    var unit = this.textureUnits[texture];
     program.setUniform(texture, unit);
     textures[texture].bindToUnit(unit);
-    ++unit;
   }
 
   for (var uniform in uniforms) {
@@ -114,11 +120,20 @@ tdl.models.Model.prototype.drawPrep = function(uniforms) {
  * @param {!Object.<string, *>} uniforms An object of names to
  *     values to set on this models uniforms.
  */
-tdl.models.Model.prototype.draw = function(uniforms) {
+tdl.models.Model.prototype.draw = function(uniforms, opt_textures) {
   var program = this.program;
   for (uniform in uniforms) {
     program.setUniform(uniform, uniforms[uniform]);
   }
+
+  if (opt_textures) {
+    for (var texture in opt_textures) {
+      var unit = this.textureUnits[texture];
+      program.setUniform(texture, unit);
+      opt_textures[texture].bindToUnit(unit);
+    }
+  }
+
   var buffers = this.buffers;
   gl.drawElements(
       this.mode, buffers.indices.totalComponents(), gl.UNSIGNED_SHORT, 0);

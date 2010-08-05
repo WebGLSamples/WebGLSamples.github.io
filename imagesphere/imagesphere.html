@@ -80,7 +80,6 @@ tdl.require('tdl.fast');
 tdl.require('tdl.fps');
 tdl.require('tdl.math');
 tdl.require('tdl.models');
-tdl.require('tdl.particles');
 tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
 tdl.require('tdl.textures');
@@ -96,6 +95,16 @@ var g_fpsTimer;           // object to measure frames per second;
 var g_logGLCalls = true;  // whether or not to log webgl calls
 var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;   // draw just one frame.
+var g_canvas2d;           // A global canvas to create textures
+var g_ctx2d;              // A global canvas 2d context to create textures
+
+// We'll maintain a grid of images this size
+// and scroll across them. When one goes off the left it comes on the right.
+var g_imagesAcrossSphere = 5;
+var g_imagesDownSphere = 5;
+var g_imagesAcrossGrid = 10;
+var g_imagesDownGrid = 10;
+var g_textures = [];
 
 //g_drawOnce = true;
 //g_debug = true;
@@ -105,14 +114,14 @@ var g = {
   imagePlaneConst:{}};
 
 var g_ui = [
-  { obj: 'globals',         name: 'imageSize',    value: 1.0, max:  5  },
-  { obj: 'globals',         name: 'imageSpacing', value: 1.1, max:  5  },
-  { obj: 'globals',         name: 'eyeTarget',    value: 0,   max:  5  },
-  { obj: 'globals',         name: 'eyeHeight',    value: 0,   max:  10 },
-  { obj: 'globals',         name: 'eyeRadius',    value: 5,   max:  10 },
-  { obj: 'globals',         name: 'eyeSpeed',     value: 0,   max:  1  },
-  { obj: 'imagePlaneConst', name: 'bendRadius',   value: 1.9, max:  10 },
-  { obj: 'imagePlaneConst', name: 'bendAmount',   value: 0.5, max:  10 }];
+  { obj: 'globals',         name: 'hScrollSpeed', value: 0.3,  max:  1  },
+  { obj: 'globals',         name: 'vScrollSpeed', value: 0.1,  max:  1  },
+  { obj: 'globals',         name: 'imageWidth',   value: 1.0,  max:  5  },
+  { obj: 'globals',         name: 'imageHeight',  value: 1.0,  max:  5  },
+  { obj: 'globals',         name: 'imageSpacing', value: 1.1,  max:  5  },
+  { obj: 'globals',         name: 'eyeRadius',    value: 5,    max:  10 },
+  { obj: 'imagePlaneConst', name: 'bendRadius',   value: 2.4,  max:  10 },
+  { obj: 'imagePlaneConst', name: 'bendAmount',   value: 0.42, max:  2 }];
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -148,7 +157,7 @@ function createProgramFromTags(vertexTagId, fragmentTagId) {
  */
 function setupImagePlane() {
   var textures = {
-      diffuseSampler: tdl.textures.loadTexture('assets/test01.jpg')};
+      diffuseSampler: tdl.textures.loadTexture([128,128,128,255])};
   var program = createProgramFromTags(
       'imageSphereVertexShader',
       'imageSphereFragmentShader');
@@ -162,17 +171,131 @@ function setupImagePlane() {
   return new tdl.models.Model(program, arrays, textures);
 }
 
+function hack() {
+
+ImgTexture = function() {
+	tdl.textures.Texture.call(this, gl.TEXTURE_2D);
+  gl.bindTexture(gl.TEXTURE_2D, this.texture);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 256, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  this.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  this.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  this.setParameter(gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  this.setParameter(gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+}
+
+tdl.base.inherit(ImgTexture, tdl.textures.Texture);
+
+ImgTexture.prototype.load = function(imgUrl, msg) {
+  var img = new Image();
+  var that = this;
+	img.onload = function() {
+    that.uploadTexture();
+  }
+	this.img = img;
+	this.msg = msg;
+	img.src = imgUrl;
+};
+
+ImgTexture.prototype.uploadTexture = function() {
+  var img = this.img;
+  var msg = this.msg;
+	g_ctx2d.clearRect(0, 0, 256, 256);
+  g_ctx2d.drawImage(img, 0, 0, 256, img.height * 256 / img.width);
+	g_ctx2d.clearRect(0, 192, 256, 64);
+	g_ctx2d.font = "20px sans-serif";
+	g_ctx2d.fillStyle = "rgb(255,255,255)";
+	g_ctx2d.fillText(msg.substr(0, Math.floor(msg.length / 2)), 10, 220);
+	g_ctx2d.fillText(msg.substr(Math.floor(msg.length / 2)), 10, 240);
+	gl.bindTexture(gl.TEXTURE_2D, this.texture);
+	gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, g_canvas2d);
+};
+
+ImgTexture.prototype.bindToUnit = function(unit) {
+  gl.activeTexture(gl.TEXTURE0 + unit);
+  gl.bindTexture(gl.TEXTURE_2D, this.texture);
+};
+
+}
+
 function initialize() {
   math = tdl.math;
   fast = tdl.fast;
   canvas = document.getElementById("canvas");
   g_fpsTimer = new tdl.fps.FPSTimer();
 
+  hack();
+
+  // Create a canvas 2d for making textures with text.
+  g_canvas2d = document.createElement('canvas');
+	g_canvas2d.width = 256;
+	g_canvas2d.height = 256;
+	g_ctx2d = g_canvas2d.getContext("2d");
+
   gl = wu.create3DContext(canvas);
   if (g_debug) {
     gl = wd.makeDebugContext(gl, undefined, LogGLCall);
   }
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
+
+  var headlines = [
+    "China defends dealings with Iran after US pressure",
+    "Software fix coming for iOS vulnerabilities",
+    "Study sees linking of specific genes to coronaries",
+    "Intel agrees to marketing restrictions in FTC deal",
+    "Hefty weight gain in pregnancy causes big babies",
+    "How will Google Wave be reincarnated?",
+    "New Criteria for Diagnosing Alzheimer's Coming",
+    "Microsoft, Salesforce.com Settle Patent-Infringement Suits",
+    "Promising Results Reported for Cholesterol and Hepatitis C Drugs",
+    "BlackBerry Torch 9800 (AT&T)",
+    "Health Buzz: Dietary Supplements Often Contain Harmful Ingredients",
+    "200000 Android smartphones activated per day",
+    "Man Alerted to His Diabetes When His Terrier Eats His Infected Toe",
+    "Dell Inspiron M101z",
+    "More States Growing Obese: CDC",
+    "Solar Storm Causes Fantastic Light Show",
+    "For Hitchens brothers, rift starts with religion",
+    "FCC draws fire over talks with Internet, telecom giants on A'net neutrality'",
+    "Epilepsy Drugs Don't Raise Suicide Risk, Study Shows",
+    "Despite Death Grip, Most iPhone 4 Users 'Very Satisfied'",
+    "Why women are attracted to a man dressed in red"];
+
+  var images = [
+    "assets/test_00.jpg",
+    "assets/test_01.jpg",
+    "assets/test_02.jpg",
+    "assets/test_03.jpg",
+    "assets/test_04.jpg",
+    "assets/test_05.jpg",
+    "assets/test_06.jpg",
+    "assets/test_07.jpg",
+    "assets/test_08.jpg",
+    "assets/test_09.jpg",
+    "assets/test_10.jpg",
+    "assets/test_11.jpg",
+    "assets/test_12.jpg",
+    "assets/test_13.jpg",
+    "assets/test_14.jpg",
+    "assets/test_15.jpg",
+    "assets/test_16.jpg",
+    "assets/test_17.jpg",
+    "assets/test_18.jpg",
+    "assets/test_19.jpg",
+    "assets/test_20.jpg"]
+
+  // make a bunch of textures.
+  // What to do if we run out of memory?
+  for (var ii = 0; ii < g_imagesDownGrid; ++ii) {
+    var textures = [];
+    for (var jj = 0; jj < g_imagesAcrossGrid; ++jj) {
+      var imgTexture = new ImgTexture();
+      textures.push(imgTexture);
+			imgTexture.load(
+          images[math.randomInt(images.length)],
+          headlines[math.randomInt(headlines.length)]);
+    }
+    g_textures.push(textures);
+  }
 
   Log("--Setup ImagePlane---------------------------------------");
   var imagePlane = setupImagePlane();
@@ -215,6 +338,9 @@ function initialize() {
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose};
 
+  var scrollX = 0;
+  var scrollY = 0;
+
   var frameCount = 0;
   var intervalId = setInterval(render, 1000.0 / 70.0);
   function render() {
@@ -235,17 +361,16 @@ function initialize() {
     fps.innerHTML = g_fpsTimer.averageFPS;
 
     clock += elapsedTime;
-    eyePosition[0] = Math.sin(clock * g.globals.eyeSpeed) * g.globals.eyeRadius;
-    eyePosition[1] = g.globals.eyeHeight;
-    eyePosition[2] = Math.cos(clock * g.globals.eyeSpeed) * g.globals.eyeRadius;
-    target[1] = g.globals.eyeTarget;
+    eyePosition[0] = 0;
+    eyePosition[1] = 0;
+    eyePosition[2] = g.globals.eyeRadius;
 
     gl.colorMask(true, true, true, true);
     gl.depthMask(true);
     gl.clearColor(0,0,0,0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
-    gl.disable(gl.CULL_FACE);
+    gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
 
     fast.matrix4.perspective(
@@ -266,9 +391,9 @@ function initialize() {
     fast.matrix4.getAxis(v3t0, viewInverse, 0); // x
     fast.matrix4.getAxis(v3t1, viewInverse, 1); // y;
     fast.matrix4.getAxis(v3t2, viewInverse, 2); // z;
-    fast.mulScalarVector(v3t0, 10, v3t0);
-    fast.mulScalarVector(v3t1, 10, v3t1);
-    fast.mulScalarVector(v3t2, 10, v3t2);
+    fast.mulScalarVector(v3t0, 0, v3t0);
+    fast.mulScalarVector(v3t1, 0, v3t1);
+    fast.mulScalarVector(v3t2, 0, v3t2);
     fast.addVector(lightWorldPos, eyePosition, v3t0);
     fast.addVector(lightWorldPos, lightWorldPos, v3t1);
     fast.addVector(lightWorldPos, lightWorldPos, v3t2);
@@ -279,24 +404,37 @@ function initialize() {
 
     Log("--Draw Images---------------------------------------");
     imagePlane.drawPrep(g.imagePlaneConst);
-    for (var yy = -2; yy <= 2; ++yy) {
-      for (var xx = -2; xx <= 2; ++xx) {
+		scrollX = clock * -g.globals.hScrollSpeed;
+		scrollY = clock * -g.globals.vScrollSpeed;
+    var gridXOff = Math.floor(g_imagesAcrossSphere * -0.5);
+    var gridYOff = Math.floor(g_imagesDownSphere * -0.5);
+    var xOff = tdl.math.modClamp(scrollX % 1, 1);
+    var yOff = tdl.math.modClamp(scrollY % 1, 1);
+    var texXBase = tdl.math.modClamp(Math.floor(-scrollX), g_imagesAcrossGrid);
+    var texYBase = tdl.math.modClamp(Math.floor(-scrollY), g_imagesDownGrid);
+    var texturesPer = {};
+    for (var yy = 0; yy <= g_imagesDownSphere; ++yy) {
+      var texRowIndex = tdl.math.modClamp(texYBase + yy, g_imagesDownGrid);
+      var textures = g_textures[texRowIndex];
+      for (var xx = 0; xx <= g_imagesAcrossSphere; ++xx) {
+        var texColIndex = tdl.math.modClamp(texXBase + xx, g_imagesAcrossGrid);
+        texturesPer.diffuseSampler = textures[texColIndex];
 				fast.matrix4.mul(
             world,
 						fast.matrix4.scaling(
                 m4t0,
-                [g.globals.imageSize,
-                 g.globals.imageSize,
-                 g.globals.imageSize]),
+                [g.globals.imageWidth,
+                 g.globals.imageHeight,
+                 1]),
             fast.matrix4.translation(
                 m4t1,
-                [xx * g.globals.imageSize * g.globals.imageSpacing,
-                 yy * g.globals.imageSize * g.globals.imageSpacing,
+                [(gridXOff + xx + xOff) * g.globals.imageWidth * g.globals.imageSpacing,
+                 (gridYOff + yy + yOff) * g.globals.imageHeight * g.globals.imageSpacing,
                  0]));
         fast.matrix4.mul(worldViewProjection, world, viewProjection);
         fast.matrix4.inverse(worldInverse, world);
         fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-        imagePlane.draw(imagePlanePer);
+        imagePlane.draw(imagePlanePer, texturesPer);
       }
     }
 
@@ -430,7 +568,7 @@ vec4 lit(float l ,float h, float m) {
               1.0);
 }
 void main() {
-  vec4 diffuse = texture2D(diffuseSampler, v_texCoord);
+  vec4 diffuse = texture2D(diffuseSampler, vec2(1.0 - v_texCoord.x, v_texCoord.y));
   vec3 normal = normalize(v_normal);
   vec3 surfaceToLight = normalize(v_surfaceToLight);
   vec3 surfaceToView = normalize(v_surfaceToView);
