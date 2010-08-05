@@ -46,7 +46,20 @@ body {
 CANVAS {
   background-color: gray;
 }
-.fpsContainer {
+#uiContainer {
+  z-index: 2;
+  padding: 1em;
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  width: 250px;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  font-size: xx-small;
+}
+#ui {
+}
+#fpsContainer {
   position: absolute;
   top: 10px;
   left: 10px;
@@ -55,6 +68,9 @@ CANVAS {
   font-family: sans-serif;
 }
 </style>
+<link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
 <script type="text/javascript" src="../js/webgl-test-utils.js"></script>
 <script type="text/javascript" src="../js/webgl-debug.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
@@ -68,7 +84,6 @@ tdl.require('tdl.particles');
 tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
 tdl.require('tdl.textures');
-window.onload = initialize;
 
 // globals
 var gl;                   // the gl context.
@@ -85,10 +100,17 @@ var g_drawOnce = false;   // draw just one frame.
 //g_drawOnce = true;
 //g_debug = true;
 
-var g_eyeSpeed          = 0.1;
-var g_eyeHeight         = 0;
-var g_eyeTarget         = 0;
-var g_eyeRadius         = 3;
+var g = {
+  globals: {},
+  imagePlaneConst:{}};
+
+var g_ui = [
+  { obj: 'globals',    name: 'imageSpacing',     value: 1.1,   max:  5 },
+  { obj: 'globals',    name: 'eyeTarget',        value: 0,     max:  5 },
+  { obj: 'globals',    name: 'eyeHeight',        value: 0,     max:  10 },
+  { obj: 'globals',    name: 'eyeRadius',        value: 5,     max:  10 },
+  { obj: 'globals',    name: 'eyeSpeed',         value: 0,     max:  1 },
+  { obj: 'imagePlaneConst', name: 'bendAmount',       value: 0,     max:  1 }];
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -182,10 +204,9 @@ function initialize() {
   var one4 = new Float32Array([1,1,1,1]);
 
   // Modern building uniforms.
-  var imagePlaneConst = {
-    viewInverse: viewInverse,
-    lightWorldPos: lightWorldPos,
-    };
+  g.imagePlaneConst.viewInverse = viewInverse;
+  g.imagePlaneConst.lightWorldPos = lightWorldPos;
+  g.imagePlaneConst.viewProjection = viewProjection;
   var imagePlanePer = {
     world: world,
     worldViewProjection: worldViewProjection,
@@ -212,10 +233,10 @@ function initialize() {
     fps.innerHTML = g_fpsTimer.averageFPS;
 
     clock += elapsedTime;
-    eyePosition[0] = Math.sin(clock * g_eyeSpeed) * g_eyeRadius;
-    eyePosition[1] = g_eyeHeight;
-    eyePosition[2] = Math.cos(clock * g_eyeSpeed) * g_eyeRadius;
-    target[1] = g_eyeTarget;
+    eyePosition[0] = Math.sin(clock * g.globals.eyeSpeed) * g.globals.eyeRadius;
+    eyePosition[1] = g.globals.eyeHeight;
+    eyePosition[2] = Math.cos(clock * g.globals.eyeSpeed) * g.globals.eyeRadius;
+    target[1] = g.globals.eyeTarget;
 
     gl.colorMask(true, true, true, true);
     gl.depthMask(true);
@@ -255,12 +276,18 @@ function initialize() {
 //      viewProjection: viewProjection,
 
     Log("--Draw Images---------------------------------------");
-    imagePlane.drawPrep(imagePlaneConst);
-    fast.matrix4.translation(world, [0, 0, 0]),
-    fast.matrix4.mul(worldViewProjection, world, viewProjection);
-    fast.matrix4.inverse(worldInverse, world);
-    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-    imagePlane.draw(imagePlanePer);
+    imagePlane.drawPrep(g.imagePlaneConst);
+    for (var yy = -2; yy <= 2; ++yy) {
+      for (var xx = -2; xx <= 2; ++xx) {
+        fast.matrix4.translation(
+            world,
+            [xx * g.globals.imageSpacing , yy * g.globals.imageSpacing, 0]),
+        fast.matrix4.mul(worldViewProjection, world, viewProjection);
+        fast.matrix4.inverse(worldInverse, world);
+        fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+        imagePlane.draw(imagePlanePer);
+      }
+    }
 
     // Set the alpha to 255.
     gl.colorMask(false, false, false, true);
@@ -271,22 +298,74 @@ function initialize() {
     g_logGLCalls = false;
   }
 }
+
+var g_event;
+var g_ui;
+
+function getParamId(id) {
+  return id.substr(6).replace(/(\w)/, function(m) {return m.toLowerCase() });
+}
+
+function setParam(event, ui, obj) {
+  var id = event.target.id;
+  var value = ui.value / 1000;
+  console.log(id + ": " + value);
+  obj[id] = value;
+}
+
+function getUIValue(obj, id) {
+  return obj[id] * 1000;
+}
+
+function setupSlider($, elem, ui, obj) {
+  var labelDiv = document.createElement('div');
+  labelDiv.appendChild(document.createTextNode(ui.name));
+  var sliderDiv = document.createElement('div');
+  sliderDiv.id = ui.name;
+  elem.appendChild(labelDiv);
+  elem.appendChild(sliderDiv);
+  $(sliderDiv).slider({
+    range: false,
+    step: 1,
+    max: ui.max * 1000,
+    value: getUIValue(obj, ui.name),
+    slide: function(event, ui) { setParam(event, ui, obj); }
+  });
+}
+
+$(function(){
+  var uiElem = document.getElementById('ui');
+  for (var ii = 0; ii < g_ui.length; ++ii) {
+    var ui = g_ui[ii];
+    var obj = g[ui.obj];
+    obj[ui.name] = ui.value;
+    var div = document.createElement('div');
+    setupSlider($, div, ui, obj);
+    uiElem.appendChild(div);
+  }
+
+  initialize();
+});
 </script>
 </head>
 <body>
-<div class="fpsContainer">
+<div id="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
   <div id="status"></div>
+</div>
+<div id="uiContainer">
+<div id="ui"></div>
 </div>
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </body>
 <!--- imageSphere -->
 <script id="imageSphereVertexShader" type="text/something-not-javascript">
-uniform mat4 worldViewProjection;
+uniform mat4 viewProjection;
 uniform vec3 lightWorldPos;
 uniform mat4 world;
 uniform mat4 viewInverse;
 uniform mat4 worldInverseTranspose;
+uniform float bendAmount;
 attribute vec4 position;
 attribute vec3 normal;
 attribute vec2 texCoord;
@@ -297,7 +376,12 @@ varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
 void main() {
   v_texCoord = texCoord;
-  v_position = (worldViewProjection * position);
+  vec4 wp = world * position;
+  float b = (abs(wp.x) * abs(wp.y)) * bendAmount;
+  float c = cos(b);
+  wp.x = wp.x * c;
+  wp.y = wp.y * c;
+  v_position = viewProjection * wp;
   v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
   v_surfaceToLight = lightWorldPos - (world * position).xyz;
   v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
@@ -331,8 +415,7 @@ void main() {
   vec3 halfVector = normalize(surfaceToLight + surfaceToView);
   vec4 litR = lit(dot(normal, surfaceToLight),
                     dot(normal, halfVector), 1.0);
-  gl_FragColor = vec4((diffuse * litR.y).rgb, diffuse.a) * 0.5 +
-    vec4(0.5,0,0,1);
+  gl_FragColor = vec4((diffuse * litR.y).rgb, diffuse.a);
 }
 </script>
 </html>
