@@ -71,11 +71,6 @@ function MorphDisplay(id) {
   var leftTCBuffer = null
   var rightTCBuffer = null
 
-  var leftPosAttr = null
-  var rightPosAttr = null
-  var leftTCAttr = null
-  var rightTCAttr = null
-
   var leftCrop = null
   var rightCrop = null
 
@@ -85,27 +80,7 @@ function MorphDisplay(id) {
   }
 
   function initShaders() {
-    var fragmentShader = getShader(gl, "shader-fs");
-    var vertexShader = getShader(gl, "shader-vs");
-
-    morphShaderProgram = gl.createProgram();
-    gl.attachShader(morphShaderProgram, vertexShader);
-    gl.attachShader(morphShaderProgram, fragmentShader);
-    gl.linkProgram(morphShaderProgram);
- 
-    if (!gl.getProgramParameter(morphShaderProgram, gl.LINK_STATUS)) {
-      alert("Unable to initialize the shader program.");
-    }
-    leftPosAttr = gl.getAttribLocation(morphShaderProgram, "aVertexPosition1");
-    rightPosAttr = gl.getAttribLocation(morphShaderProgram, "aVertexPosition2");
-    leftTCAttr = gl.getAttribLocation(morphShaderProgram,
-        "aTextureCoord1");
-    rightTCAttr = gl.getAttribLocation(morphShaderProgram,
-        "aTextureCoord2");
-    gl.enableVertexAttribArray(leftPosAttr);
-    gl.enableVertexAttribArray(rightPosAttr);
-    gl.enableVertexAttribArray(leftTCAttr);
-    gl.enableVertexAttribArray(rightTCAttr);
+    morphShaderProgram = tdl.shader.loadFromScriptNodes(gl, "shader-vs", "shader-fs")
   }
 
   function texCoordsFromVertices(verts, image, crop) {
@@ -264,34 +239,37 @@ function MorphDisplay(id) {
     if (!leftFace || !rightFace || !leftPosBuffer) {
       return
     }
-    gl.useProgram(morphShaderProgram);
+    morphShaderProgram.bind()
     var perspMatrix = new Float32Array(16)
     var transMatrix = new Float32Array(16)
     tdl.fast.matrix4.perspective(perspMatrix, 45, w/h, 0.1, 100.0)
     tdl.fast.matrix4.translation(transMatrix, [0.0, 0.0, -2.25])
-    var pUniform = gl.getUniformLocation(morphShaderProgram, "uPMatrix");
-    var mvUniform = gl.getUniformLocation(morphShaderProgram, "uMVMatrix");
-    gl.uniformMatrix4fv(pUniform, false, perspMatrix)
-    gl.uniformMatrix4fv(mvUniform, false, transMatrix);
+    gl.uniformMatrix4fv(morphShaderProgram.uPMatrixLoc, false, perspMatrix)
+    gl.uniformMatrix4fv(morphShaderProgram.uMVMatrixLoc, false, transMatrix);
 	
+    gl.enableVertexAttribArray(morphShaderProgram.aVPos1Loc);
+    gl.enableVertexAttribArray(morphShaderProgram.aVPos2Loc);
+    gl.enableVertexAttribArray(morphShaderProgram.aTC1Loc);
+    gl.enableVertexAttribArray(morphShaderProgram.aTC2Loc);
+
     gl.bindBuffer(gl.ARRAY_BUFFER, leftPosBuffer);
-    gl.vertexAttribPointer(leftPosAttr, 3, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(morphShaderProgram.aVPos1Loc, 3, gl.FLOAT, false, 0, 0);
     gl.bindBuffer(gl.ARRAY_BUFFER, rightPosBuffer);
-    gl.vertexAttribPointer(rightPosAttr, 3, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(morphShaderProgram.aVPos2Loc, 3, gl.FLOAT, false, 0, 0);
     gl.bindBuffer(gl.ARRAY_BUFFER, leftTCBuffer);
-    gl.vertexAttribPointer(leftTCAttr, 2, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(morphShaderProgram.aTC1Loc, 2, gl.FLOAT, false, 0, 0);
     gl.bindBuffer(gl.ARRAY_BUFFER, rightTCBuffer);
-    gl.vertexAttribPointer(rightTCAttr, 2, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(morphShaderProgram.aTC2Loc, 2, gl.FLOAT, false, 0, 0);
 
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, leftTexture)
     gl.activeTexture(gl.TEXTURE1)
     gl.bindTexture(gl.TEXTURE_2D, rightTexture)
 
-    gl.uniform1i(gl.getUniformLocation(morphShaderProgram, "uSampler1"), 0);
-    gl.uniform1i(gl.getUniformLocation(morphShaderProgram, "uSampler2"), 1);
-    gl.uniform1f(gl.getUniformLocation(morphShaderProgram, "fade"), morphPos);
-    gl.uniform1f(gl.getUniformLocation(morphShaderProgram, "morph"), morphPos);
+    gl.uniform1i(morphShaderProgram.uSampler1Loc, 0);
+    gl.uniform1i(morphShaderProgram.uSampler2Loc, 1);
+    gl.uniform1f(morphShaderProgram.fadeLoc, morphPos);
+    gl.uniform1f(morphShaderProgram.morphLoc, morphPos);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
     gl.drawElements(gl.TRIANGLES, vertexCount, gl.UNSIGNED_SHORT, 0);

@@ -132,10 +132,10 @@ div.infobox p {
 </script>
 
 <script id="shader-vs" type="x-shader/x-vertex">
-  attribute vec3 aVertexPosition1;
-  attribute vec3 aVertexPosition2;
-  attribute vec2 aTextureCoord1;
-  attribute vec2 aTextureCoord2;
+  attribute vec3 aVPos1;
+  attribute vec3 aVPos2;
+  attribute vec2 aTC1;
+  attribute vec2 aTC2;
 
   uniform mat4 uMVMatrix;
   uniform mat4 uPMatrix;
@@ -146,11 +146,11 @@ div.infobox p {
 
   void main(void) {
     float morph2 = morph;
-    vec3 vpos = mix(aVertexPosition1, aVertexPosition2, morph2);
+    vec3 vpos = mix(aVPos1, aVPos2, morph2);
     vpos.y *= 380.0/300.0;
     gl_Position = uPMatrix * uMVMatrix * vec4(vpos, 1.0);
-    vTextureCoord1 = aTextureCoord1;
-    vTextureCoord2 = aTextureCoord2;
+    vTextureCoord1 = aTC1;
+    vTextureCoord2 = aTC2;
   }
 </script>
 <script type="text/javascript" src="../js/webgl-test-utils.js"></script>
@@ -164,6 +164,11 @@ div.infobox p {
 <script type="text/javascript" src="morph_faces.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.fast');
+tdl.require('tdl.shader');
+
+function output(x) {
+  alert(x)
+}
 left_editor   = null
 right_editor  = null
 morph_display = null
