@@ -60,48 +60,44 @@ function createProgramFromTags(vertexTagId, fragmentTagId) {
       document.getElementById(fragmentTagId).text);
 }
 
-SkyBox = function() {
-  this.positions_ = new tdl.primitives.AttribBuffer(3, 4);
-
+function setupSkybox(uniforms) {
+  var program = createProgramFromTags('skyboxVShader','skyboxFShader');
+  // Create a quad covering far plane in clip space.
+  var positions = new tdl.primitives.AttribBuffer(3, 4);
+  var zFar = 0.99;  // Small offset to avoid clipping.
+  positions.push([-1.0, -1.0, zFar]);
+  positions.push([ 1.0, -1.0, zFar]);
+  positions.push([ 1.0,  1.0, zFar]);
+  positions.push([-1.0,  1.0, zFar]);
   var indices = new tdl.primitives.AttribBuffer(3, 2, 'Uint16Array');
   indices.push([0, 1, 2]);
   indices.push([0, 2, 3]);
-  this.indices_ = indices;
+  var arrays = {
+    position: positions,
+    indices: indices
+  };
+  // Create a cubemap texture.
+  var textures = {
+    skybox: tdl.textures.loadTexture([
+        'assets/skybox_positive_x.png',
+        'assets/skybox_negative_x.png',
+        'assets/skybox_positive_y.png',
+        'assets/skybox_negative_y.png',
+        'assets/skybox_positive_z.png',
+        'assets/skybox_negative_z.png'])
+  };
+  return {
+      model: new tdl.models.Model(program, arrays, textures),
+      uniformsConst: {
+          viewProjectionInverse: uniforms.viewProjectionInverse
+      },
+      uniformsPer: {}
+  };
+}
 
-  // View vector projected on the ground plane.
-  this.projViewVec_ = new Float32Array(4);
-  // A position on the horizon in clip space.
-  this.horizonPos_ = new Float32Array(4);
-  this.horizonY_ = 0.0;
-};
-
-SkyBox.prototype.update = function(uniforms) {
-  var eyeProj = new Float32Array(4);
-  tdl.fast.mulVectorMatrix4(
-      eyeProj,
-      uniforms.eye, uniforms.view);
-
-  tdl.fast.subVector(
-      this.projViewVec_,
-      uniforms.target, uniforms.eye);
-  this.projViewVec_[2] = 0.0;
-  this.projViewVec_[3] = 0.0;
-
-  tdl.fast.mulVectorMatrix4(
-      this.horizonPos_,
-      this.projViewVec_, uniforms.viewProjection);
-  this.horizonY_ = this.horizonPos_[1] / this.horizonPos_[3];
-};
-
-SkyBox.prototype.drawSky = function(uniforms) {
-};
-
-SkyBox.prototype.drawGround = function(uniforms) {
-};
-
-function setupGround() {
+function setupGround(uniforms) {
   var program = createProgramFromTags('groundVShader', 'groundFShader');
-  var arrays = tdl.primitives.createPlane(20, 20, 1, 1);
+  var arrays = tdl.primitives.createPlane(30, 30, 1, 1);
   delete arrays['normal'];
   delete arrays['texCoord'];
 
@@ -118,19 +114,20 @@ function setupScene() {
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
   g_uniforms = {
-    eye: new Float32Array(4),
-    target: new Float32Array(4),
-    up: new Float32Array([0, 0, 1]),
+    eye: new Float32Array(3),
+    target: new Float32Array([0, 1, 0]),
+    up: new Float32Array([0, 1, 0]),
 
     world: new Float32Array(16),
     view: new Float32Array(16),
     projection: new Float32Array(16),
     viewProjection: new Float32Array(16),
+    viewProjectionInverse: new Float32Array(16),
     worldViewProjection: new Float32Array(16)
   };
   g_scene = {
-    ground: setupGround(),
-    skybox: new SkyBox()
+    ground: setupGround(g_uniforms),
+    skybox: setupSkybox(g_uniforms)
   };
 };
 
@@ -147,15 +144,15 @@ function render() {
   g_fpsTimer.update(elapsedSec);
   reportFPS(g_fpsTimer.averageFPS);
 
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.clear(gl.DEPTH_BUFFER_BIT);
 
   // Update camera.
   var eyeSpeed = 0.1;
-  var eyeHeight = 20;
+  var eyeHeight = 10;
   var eyeRadius = 60;
   g_uniforms.eye[0] = Math.sin(g_totalElapsedSec * eyeSpeed) * eyeRadius;
-  g_uniforms.eye[1] = Math.cos(g_totalElapsedSec * eyeSpeed) * eyeRadius;
-  g_uniforms.eye[2] = eyeHeight;
+  g_uniforms.eye[1] = eyeHeight;
+  g_uniforms.eye[2] = Math.cos(g_totalElapsedSec * eyeSpeed) * eyeRadius;
   var canvas = $("#canvas");
   tdl.fast.matrix4.lookAt(
       g_uniforms.view,
@@ -164,11 +161,14 @@ function render() {
       g_uniforms.projection,
       tdl.math.degToRad(30.0),
       canvas.width() / canvas.height(),
-      1,
-      5000);
+      10,
+      500);
   tdl.fast.matrix4.mul(
       g_uniforms.viewProjection,
       g_uniforms.view, g_uniforms.projection);
+  tdl.fast.matrix4.inverse(
+      g_uniforms.viewProjectionInverse,
+      g_uniforms.viewProjection);
 
   // Draw ground.
   tdl.fast.matrix4.identity(g_uniforms.world);
@@ -179,10 +179,10 @@ function render() {
   ground.model.drawPrep(ground.uniformsConst);
   ground.model.draw(ground.uniformsPer);
 
-  // Draw sky.
+  // Draw skybox.
   var skybox = g_scene.skybox;
-  skybox.update(g_uniforms);
-  skybox.drawSky(g_uniforms);
+  skybox.model.drawPrep(skybox.uniformsConst);
+  skybox.model.draw(skybox.uniformsPer);
 };
 
 $(document).ready(function(){
