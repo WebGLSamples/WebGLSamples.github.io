@@ -194,13 +194,24 @@ tdl.textures.Texture2D = function(url, opt_updateOb) {
 
 tdl.base.inherit(tdl.textures.Texture2D, tdl.textures.Texture);
 
+tdl.textures.isPowerOf2 = function(value) {
+  return (value & (value - 1)) == 0;
+};
+
 tdl.textures.Texture2D.prototype.uploadTexture = function() {
   gl.bindTexture(gl.TEXTURE_2D, this.texture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   if (this.loaded) {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.img);
-    gl.generateMipmap(gl.TEXTURE_2D);
+    if (tdl.textures.isPowerOf2(this.img.width) &&
+        tdl.textures.isPowerOf2(this.img.height)) {
+      gl.generateMipmap(gl.TEXTURE_2D);
+    } else {
+      this.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      this.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      this.setParameter(gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    }
   } else {
     var pixel = new Uint8Array([0, 0, 255, 255]);
     gl.texImage2D(
@@ -279,10 +290,9 @@ tdl.textures.CubeMap = function(urls, opt_updateOb) {
   }
   var faceTargets = tdl.textures.CubeMap.faceTargets;
   gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.texture);
-  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  this.setParameter(gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  this.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  this.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   this.updateOb = opt_updateOb;
   this.faces = [];
   var that = this;
@@ -333,7 +343,14 @@ tdl.textures.CubeMap.prototype.uploadTextures = function() {
       gl.texImage2D(target, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
     }
   }
-  gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+  var faceImg = this.faces[0].img;
+  if (tdl.textures.isPowerOf2(faceImg.width) &&
+      tdl.textures.isPowerOf2(faceImg.height)) {
+    gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+    this.setParameter(gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  } else {
+    this.setParameter(gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  }
 };
 
 /**
