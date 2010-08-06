@@ -97,6 +97,10 @@ var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;   // draw just one frame.
 var g_canvas2d;           // A global canvas to create textures
 var g_ctx2d;              // A global canvas 2d context to create textures
+var g_scrollX = 0;        // the position of the grid
+var g_scrollY = 0;        // the position of the grid
+var g_viewProjection;
+var g_viewProjectionInverse;
 
 // We'll maintain a grid of images this size
 // and scroll across them. When one goes off the left it comes on the right.
@@ -235,6 +239,7 @@ ImgTexture.prototype.uploadTexture = function() {
 	g_ctx2d.clearRect(0, 192, 256, 64);
 	g_ctx2d.font = "20px sans-serif";
 	g_ctx2d.fillStyle = "rgb(255,255,255)";
+  // TODO: Obviously this needs to be split better.
 	g_ctx2d.fillText(msg.substr(0, Math.floor(msg.length / 2)), 10, 220);
 	g_ctx2d.fillText(msg.substr(Math.floor(msg.length / 2)), 10, 240);
 	gl.bindTexture(gl.TEXTURE_2D, this.texture);
@@ -322,8 +327,87 @@ var getRelativeCoordinates = function(eventInfo, opt_reference) {
   return { x: x, y: y };
 };
 
+var getEventInfo = function(event) {
+  event = event ? event : window.event;
+  var element = event.target ? event.target : event.srcElement;
+  return {
+    event: event,
+    element: element,
+    name: (element.id ? element.id : ('->' + element.toString())),
+    wheel: (event.detail ? event.detail : -event.wheelDelta),
+    shift: (event.modifiers ? (event.modifiers & Event.SHIFT_MASK) : event.shiftKey)
+  };
+};
+
+var clientPositionToGridPosition = function(
+    clientXPosition,
+    clientYPosition,
+    clientWidth,
+    clientHeight) {
+  // normScreenX, normScreenY are in frustum coordinates.
+  var normScreenX = clientXPosition / (clientWidth * 0.5) - 1;
+  var normScreenY = -(clientYPosition / (clientHeight * 0.5) - 1);
+
+  // Compute the sphere's front clip coord.
+  var m = g_viewProjection;
+  var matrix = [
+    [m[0], m[1], m[2], m[3]],
+    [m[4], m[5], m[6], m[7]],
+    [m[8], m[9], m[10], m[11]],
+    [m[12], m[13], m[14], m[15]]];
+  var v = [0, 0, g.imagePlaneConst.bendRadius];
+  var v = tdl.math.matrix4.transformPoint(
+      matrix, v);
+  // Apply inverse view-projection matrix to get the ray in world coordinates.
+  var m = g_viewProjectionInverse;
+  var matrix = [
+    [m[0], m[1], m[2], m[3]],
+    [m[4], m[5], m[6], m[7]],
+    [m[8], m[9], m[10], m[11]],
+    [m[12], m[13], m[14], m[15]]];
+
+  var pos = tdl.math.matrix4.transformPoint(
+      matrix, [normScreenX, normScreenY, v[2]]);
+
+  return {x: pos[0], y: pos[1]};
+};
+
+var startX = 0;
+var startY = 0;
+var scrollXStart = 0;
+var scrollYStart = 0;
+var down = false;
+function handleMouseDown(e) {
+  var info = getEventInfo(e);
+  var m = getRelativeCoordinates(info);
+  var pos = clientPositionToGridPosition(
+     m.x,
+     m.y,
+     canvas.clientWidth,
+     canvas.clientHeight);
+  down = true;
+  startX = pos.x;
+  startY = pos.y;
+  scrollXStart = g_scrollX;
+  scrollYStart = g_scrollY;
+}
+
 function handleMouseMove(e) {
-//  var m = getRelativeCoordinatns
+  var info = getEventInfo(e);
+  var m = getRelativeCoordinates(info);
+  var pos = clientPositionToGridPosition(
+     m.x,
+     m.y,
+     canvas.clientWidth,
+     canvas.clientHeight);
+  if (down) {
+    g_scrollX = scrollXStart + (startX - pos.x);
+    g_scrollY = scrollYStart + (startY - pos.y);
+  }
+}
+
+function handleMouseUp(e) {
+  down = false;
 }
 
 function initialize() {
@@ -334,7 +418,9 @@ function initialize() {
 
   hack();
 
+	canvas.addEventListener("mousedown", handleMouseDown, false);
 	canvas.addEventListener("mousemove", handleMouseMove, false);
+	canvas.addEventListener("mouseup", handleMouseUp, false);
 
   // Create a canvas 2d for making textures with text.
   g_canvas2d = document.createElement('canvas');
@@ -392,7 +478,11 @@ function initialize() {
     "assets/test_17.jpg",
     "assets/test_18.jpg",
     "assets/test_19.jpg",
-    "assets/test_20.jpg"]
+    "assets/test_20.jpg"];
+
+
+  var tmpImages = [];
+  var tmpHeadlines = [];
 
   // make a bunch of textures.
   // What to do if we run out of memory?
@@ -401,9 +491,15 @@ function initialize() {
     for (var jj = 0; jj < g_imagesAcrossGrid; ++jj) {
       var imgTexture = new ImgTexture();
       textures.push(imgTexture);
-			imgTexture.load(
-          images[math.randomInt(images.length)],
-          headlines[math.randomInt(headlines.length)]);
+      if (tmpImages.length == 0) {
+        tmpImages = images.slice();
+      }
+      if (tmpHeadlines.length == 0) {
+        tmpHeadlines = headlines.slice();
+      }
+      var img = tmpImages.splice(math.randomInt(tmpImages.length), 1)[0];
+      var headline = tmpHeadlines.splice(math.randomInt(tmpHeadlines.lenght), 1)[0];
+			imgTexture.load(img, headline);
     }
     g_textures.push(textures);
   }
@@ -422,10 +518,10 @@ function initialize() {
   var world = new Float32Array(16);
   var worldInverse = new Float32Array(16);
   var worldInverseTranspose = new Float32Array(16);
-  var viewProjection = new Float32Array(16);
+  g_viewProjection = new Float32Array(16);
   var worldViewProjection = new Float32Array(16);
   var viewInverse = new Float32Array(16);
-  var viewProjectionInverse = new Float32Array(16);
+  g_viewProjectionInverse = new Float32Array(16);
   var eyePosition = new Float32Array(3);
   var target = new Float32Array(3);
   var up = new Float32Array([0,1,0]);
@@ -442,7 +538,7 @@ function initialize() {
   var colorMult = new Float32Array(4);
 
   // Modern building uniforms.
-  g.imagePlaneConst.viewProjection = viewProjection;
+  g.imagePlaneConst.viewProjection = g_viewProjection;
   var imagePlanePer = {
     world: world,
     colorMult: colorMult};
@@ -450,9 +546,6 @@ function initialize() {
   var blankPlaneConst = {
 		worldViewProjection: worldViewProjection};
   var blankPlanePer = { };
-
-  var scrollX = 0;
-  var scrollY = 0;
 
   var frameCount = 0;
   var intervalId = setInterval(render, 1000.0 / 70.0);
@@ -497,9 +590,9 @@ function initialize() {
         eyePosition,
         target,
         up);
-    fast.matrix4.mul(viewProjection, view, projection);
+    fast.matrix4.mul(g_viewProjection, view, projection);
     fast.matrix4.inverse(viewInverse, view);
-    fast.matrix4.inverse(viewProjectionInverse, viewProjection);
+    fast.matrix4.inverse(g_viewProjectionInverse, g_viewProjection);
 
     // Draw a blank plane in the middle to mask out the back
     // of the sphere. Alternatively I could figure out why
@@ -509,21 +602,21 @@ function initialize() {
         world,
         fast.matrix4.scaling(m4t2, [100, 100, 100]),
         fast.matrix4.translation(m4t1, [0, 0, 1]));
-    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+    fast.matrix4.mul(worldViewProjection, world, g_viewProjection);
     blankPlane.drawPrep(blankPlaneConst);
     blankPlane.draw(blankPlanePer);
 
     Log("--Draw Images---------------------------------------");
     // All we do is draw a grid of image. The shader warps the grid into a sphere.
     imagePlane.drawPrep(g.imagePlaneConst);
-		scrollX += elapsedTime * g.globals.hScrollSpeed;
-		scrollY += elapsedTime * g.globals.vScrollSpeed;
+//		g_scrollX += elapsedTime * g.globals.hScrollSpeed;
+//		g_scrollY += elapsedTime * g.globals.vScrollSpeed;
     var gridXOff = Math.floor(g_imagesAcrossSphere * -0.5);
     var gridYOff = Math.floor(g_imagesDownSphere * -0.5);
-    var xOff = tdl.math.modClamp(scrollX % 1, 1);
-    var yOff = tdl.math.modClamp(scrollY % 1, 1);
-    var texXBase = tdl.math.modClamp(Math.floor(-scrollX), g_imagesAcrossGrid);
-    var texYBase = tdl.math.modClamp(Math.floor(-scrollY), g_imagesDownGrid);
+    var xOff = tdl.math.modClamp(g_scrollX % 1, 1);
+    var yOff = tdl.math.modClamp(g_scrollY % 1, 1);
+    var texXBase = tdl.math.modClamp(Math.floor(-g_scrollX), g_imagesAcrossGrid);
+    var texYBase = tdl.math.modClamp(Math.floor(-g_scrollY), g_imagesDownGrid);
     var texturesPer = {};
     for (var yy = 0; yy <= g_imagesDownSphere; ++yy) {
       var texRowIndex = tdl.math.modClamp(texYBase + yy, g_imagesDownGrid);
@@ -545,7 +638,7 @@ function initialize() {
                  (gridYOff + yy + yOff) *
                   g.globals.imageHeight * g.globals.imageSpacing,
                  0]));
-        fast.matrix4.mul(worldViewProjection, world, viewProjection);
+        fast.matrix4.mul(worldViewProjection, world, g_viewProjection);
 				colorMult[0] = 1;
 				colorMult[1] = 1;
 				colorMult[2] = 1;
