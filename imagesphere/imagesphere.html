@@ -109,6 +109,7 @@ var g_viewProjectionInverse;
 var g_imagesAcrossGrid = 10;
 var g_imagesDownGrid = 10;
 var g_textures = [];
+var g_lastMousePosition = {x: 0, y: 0};
 
 //g_drawOnce = true;
 //g_debug = true;
@@ -337,6 +338,31 @@ var getEventInfo = function(event) {
   };
 };
 
+clientPositionToWorldRay = function(
+    clientXPosition,
+    clientYPosition,
+    clientWidth,
+    clientHeight) {
+  // normScreenX, normScreenY are in frustum coordinates.
+  var normScreenX = clientXPosition / (clientWidth * 0.5) - 1;
+  var normScreenY = -(clientYPosition / (clientHeight * 0.5) - 1);
+
+  var m = g_viewProjectionInverse;
+  var matrix = [
+    [m[0], m[1], m[2], m[3]],
+    [m[4], m[5], m[6], m[7]],
+    [m[8], m[9], m[10], m[11]],
+    [m[12], m[13], m[14], m[15]]];
+
+  // Apply inverse view-projection matrix to get the ray in world coordinates.
+  return {
+      near: math.matrix4.transformPoint(
+          matrix, [normScreenX, normScreenY, 0]),
+      far: math.matrix4.transformPoint(
+          matrix, [normScreenX, normScreenY, 1])
+  };
+};
+
 var clientPositionToGridPosition = function(
     clientXPosition,
     clientYPosition,
@@ -392,6 +418,7 @@ function addMoveHistory(pos) {
 function getMovePosition(e) {
   var info = getEventInfo(e);
   var m = getRelativeCoordinates(info);
+  g_lastMousePosition = m;
   return clientPositionToGridPosition(
      m.x,
      m.y,
@@ -413,8 +440,8 @@ function handleMouseDown(e) {
 }
 
 function handleMouseMove(e) {
+  var pos = getMovePosition(e);
   if (down) {
-    var pos = getMovePosition(e);
     addMoveHistory(pos);
     g_scrollX = scrollXStart + (startX - pos.x);
     g_scrollY = scrollYStart + (startY - pos.y);
@@ -433,6 +460,48 @@ function handleMouseUp(e) {
     g_moveVelocityX = (oldest.position.x - newest.position.x) / elapsedTime;
     g_moveVelocityY = (oldest.position.y - newest.position.y) / elapsedTime;
   }
+}
+
+/**
+ * Calculate the intersection of a ray and a sphere
+ *
+ * point1 + mu1 (point2 - point1)
+ * point1 + mu2 (point2 - point1)
+ *
+ * Return undefined.
+ */
+function raySphereIntersection(point1, point2, center, radius) {
+  var kEpsilon = 0.0001;
+  var dp = [
+      point2[0] - point1[0],
+      point2[1] - point1[1],
+      point2[2] - point1[2]];
+  var a = dp[0] * dp[0] +
+          dp[1] * dp[1] +
+          dp[2] * dp[2];
+  var b = 2 * (dp[0] * (point1[0] - center[0]) +
+               dp[1] * (point1[1] - center[1]) +
+               dp[2] * (point1[2] - center[2]));
+  var c = center[0] * center[0] +
+          center[1] * center[1] +
+          center[2] * center[2];
+  c += point1[0] * point1[0] +
+       point1[1] * point1[1] +
+       point1[2] * point1[2];
+  c -= 2 * (center[0] * point1[0] +
+            center[1] * point1[1] +
+            center[2] * point1[2]);
+  c -= radius * radius;
+  var bb4ac = b * b - 4 * a * c;
+  if (Math.abs(a) < kEpsilon || bb4ac < 0) {
+    return;
+  }
+
+  var sq = Math.sqrt(bb4ac);
+  mu1 = (-b + sq) / (2 * a);
+  mu2 = (-b - sq) / (2 * a);
+
+  return math.addVector(point1, math.mulScalarVector(mu1, dp));
 }
 
 function initialize() {
@@ -634,11 +703,21 @@ function initialize() {
     Log("--Draw Images---------------------------------------");
     // All we do is draw a grid of image. The shader warps the grid into a sphere.
 
+    // dampen the velocity
     g_moveVelocityX *= 0.95;
     g_moveVelocityY *= 0.95;
 
+    // scroll
     g_scrollX += g_moveVelocityX * elapsedTime;
     g_scrollY += g_moveVelocityY * elapsedTime;
+
+    // figure out which grid point to highlight.
+    var ray = clientPositionToWorldRay(
+        g_lastMousePosition.x,
+        g_lastMousePosition.y,
+        canvas.clientWidth,
+        canvas.clientHeight);
+    var intersection = raySphereIntersection(ray.near, ray.far, [0,0,0], g.imagePlaneConst.bendRadius);
 
     imagePlane.drawPrep(g.imagePlaneConst);
     var halfCircumfrence = Math.PI;
@@ -678,7 +757,7 @@ Log("down: " + imagesDownSphere);
                  (gridYOff + yy + yOff) * unitHeight,
                  0]));
         fast.matrix4.mul(worldViewProjection, world, g_viewProjection);
-				colorMult[0] = 1;
+				colorMult[0] = 1; // + (intersection ? 10 : 0);
 				colorMult[1] = 1;
 				colorMult[2] = 1;
 				colorMult[3] = 1;
