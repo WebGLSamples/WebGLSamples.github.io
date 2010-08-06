@@ -365,7 +365,9 @@ var clientPositionToGridPosition = function(
   var pos = tdl.math.matrix4.transformPoint(
       matrix, [normScreenX, normScreenY, v[2]]);
 
-  return {x: pos[0], y: pos[1]};
+  var x = pos[0] * g.imagePlaneConst.bendAmount;
+  var y = pos[1] * g.imagePlaneConst.bendAmount;
+  return {x: x, y: y};
 };
 
 var startX = 0;
