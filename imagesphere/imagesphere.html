@@ -99,6 +99,8 @@ var g_canvas2d;           // A global canvas to create textures
 var g_ctx2d;              // A global canvas 2d context to create textures
 var g_scrollX = 0;        // the position of the grid
 var g_scrollY = 0;        // the position of the grid
+var g_moveVelocityX = 0;
+var g_moveVelocityY = 0;
 var g_viewProjection;
 var g_viewProjectionInverse;
 
@@ -365,8 +367,9 @@ var clientPositionToGridPosition = function(
   var pos = tdl.math.matrix4.transformPoint(
       matrix, [normScreenX, normScreenY, v[2]]);
 
-  var x = pos[0] * g.imagePlaneConst.bendAmount;
-  var y = pos[1] * g.imagePlaneConst.bendAmount;
+  // This formula seems wrong :-(
+  var x = pos[0] / g.imagePlaneConst.bendAmount * 0.5;
+  var y = pos[1] / g.imagePlaneConst.bendAmount * 0.5;
   return {x: x, y: y};
 };
 
@@ -375,30 +378,44 @@ var startY = 0;
 var scrollXStart = 0;
 var scrollYStart = 0;
 var down = false;
-function handleMouseDown(e) {
+var numMovesToTrack = 4;
+var moveHistory = [];
+
+function addMoveHistory(pos) {
+	if (moveHistory.length == numMovesToTrack) {
+    moveHistory.shift();
+  }
+  var now = (new Date()).getTime() * 0.001;
+	moveHistory.push({ position: pos, time: now});
+}
+
+function getMovePosition(e) {
   var info = getEventInfo(e);
   var m = getRelativeCoordinates(info);
-  var pos = clientPositionToGridPosition(
+  return clientPositionToGridPosition(
      m.x,
      m.y,
      canvas.clientWidth,
      canvas.clientHeight);
+}
+
+function handleMouseDown(e) {
+  var pos = getMovePosition(e);
   down = true;
   startX = pos.x;
   startY = pos.y;
   scrollXStart = g_scrollX;
   scrollYStart = g_scrollY;
+  g_moveVelocityX = 0;
+  g_moveVelocityY = 0;
+  moveHistory = [];
+	addMoveHistory(pos);
 }
 
 function handleMouseMove(e) {
-  var info = getEventInfo(e);
-  var m = getRelativeCoordinates(info);
-  var pos = clientPositionToGridPosition(
-     m.x,
-     m.y,
-     canvas.clientWidth,
-     canvas.clientHeight);
   if (down) {
+    var pos = getMovePosition(e);
+    addMoveHistory(pos);
     g_scrollX = scrollXStart + (startX - pos.x);
     g_scrollY = scrollYStart + (startY - pos.y);
   }
@@ -406,6 +423,16 @@ function handleMouseMove(e) {
 
 function handleMouseUp(e) {
   down = false;
+  var pos = getMovePosition(e);
+  addMoveHistory(pos);
+  // Get the newest and oldest move times. If the are close then spin.
+  var oldest = moveHistory[0];
+  var newest = moveHistory[moveHistory.length - 1];
+  var elapsedTime = newest.time - oldest.time;
+  if (elapsedTime < 0.4) {
+    g_moveVelocityX = (oldest.position.x - newest.position.x) / elapsedTime;
+    g_moveVelocityY = (oldest.position.y - newest.position.y) / elapsedTime;
+  }
 }
 
 function initialize() {
@@ -606,6 +633,13 @@ function initialize() {
 
     Log("--Draw Images---------------------------------------");
     // All we do is draw a grid of image. The shader warps the grid into a sphere.
+
+    g_moveVelocityX *= 0.95;
+    g_moveVelocityY *= 0.95;
+
+    g_scrollX += g_moveVelocityX * elapsedTime;
+    g_scrollY += g_moveVelocityY * elapsedTime;
+
     imagePlane.drawPrep(g.imagePlaneConst);
     var halfCircumfrence = Math.PI;
     var unitWidth = g.globals.imageWidth * g.globals.imageSpacing;
