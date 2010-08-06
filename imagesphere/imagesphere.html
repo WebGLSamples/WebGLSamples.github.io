@@ -45,6 +45,10 @@ body {
 }
 CANVAS {
   background-color: gray;
+  cursor: pointer;
+  -webkit-user-select:none;
+  -moz-user-select:none;
+  user-select:none;
 }
 #uiContainer {
   z-index: 2;
@@ -119,13 +123,14 @@ var g = {
   imagePlaneConst:{}};
 
 var g_ui = [
+  { obj: 'globals',         name: 'imageScale',   value: 0.42, max:  1  },
   { obj: 'globals',         name: 'imageWidth',   value: 1.0,  max:  5  },
   { obj: 'globals',         name: 'imageHeight',  value: 1.0,  max:  5  },
   { obj: 'globals',         name: 'imageSpacing', value: 1.1,  max:  5  },
-  { obj: 'globals',         name: 'rowOffset',    value: 0.5,  max:  2  },
+  { obj: 'globals',         name: 'rowOffset',    value: 0 /*0.5 */,  max:  2  },
   { obj: 'globals',         name: 'eyeRadius',    value: 5,    max:  10 },
   { obj: 'imagePlaneConst', name: 'bendRadius',   value: 2.4,  max:  10 },
-  { obj: 'imagePlaneConst', name: 'bendAmount',   value: 0.42, max:  2 }];
+  { obj: 'imagePlaneConst', name: 'bendAmount',   value: 1.0,  max:  1 }];
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -148,6 +153,26 @@ function LogGLCall(functionName, args) {
     console.log("gl." + functionName + "(" +
                 wd.glFunctionArgsToString(functionName, args) + ")");
   }
+}
+
+function Dump() {
+  var lastArgWasNumber = false;
+  var numArgs = arguments.length;
+  var strs = [];
+  for (var ii = 0; ii < numArgs; ++ii) {
+    var arg = arguments[ii];
+    if (typeof arg == 'number') {
+      if (lastArgWasNumber) {
+        strs.push(", ");
+      }
+      strs.push(arg.toFixed(3));
+      lastArgWasNumber = true;
+    } else {
+      strs.push(arg.toString());
+      lastArgWasNumber = false;
+    }
+  }
+  console.log(strs.join(""));
 }
 
 function createProgramFromTags(vertexTagId, fragmentTagId) {
@@ -394,8 +419,8 @@ var clientPositionToGridPosition = function(
       matrix, [normScreenX, normScreenY, v[2]]);
 
   // This formula seems wrong :-(
-  var x = pos[0] / g.imagePlaneConst.bendAmount * 0.5;
-  var y = pos[1] / g.imagePlaneConst.bendAmount * 0.5;
+  var x = pos[0];
+  var y = pos[1];
   return {x: x, y: y};
 };
 
@@ -437,15 +462,18 @@ function handleMouseDown(e) {
   g_moveVelocityY = 0;
   moveHistory = [];
   addMoveHistory(pos);
+  return false;
 }
 
 function handleMouseMove(e) {
   var pos = getMovePosition(e);
   if (down) {
     addMoveHistory(pos);
-    g_scrollX = scrollXStart + (startX - pos.x);
-    g_scrollY = scrollYStart + (startY - pos.y);
+    Dump("sc:", g_scrollX, scrollY);
+    g_scrollX = scrollXStart + (pos.x - startX);
+    g_scrollY = scrollYStart - (pos.y - startY);
   }
+  return false;
 }
 
 function handleMouseUp(e) {
@@ -457,9 +485,10 @@ function handleMouseUp(e) {
   var newest = moveHistory[moveHistory.length - 1];
   var elapsedTime = newest.time - oldest.time;
   if (elapsedTime < 0.4) {
-    g_moveVelocityX = (oldest.position.x - newest.position.x) / elapsedTime;
-    g_moveVelocityY = (oldest.position.y - newest.position.y) / elapsedTime;
+    g_moveVelocityX =  (newest.position.x - oldest.position.x) / elapsedTime;
+    g_moveVelocityY = -(newest.position.y - oldest.position.y) / elapsedTime;
   }
+  return false;
 }
 
 /**
@@ -580,7 +609,7 @@ function initialize() {
   if (g_debug) {
     gl = wd.makeDebugContext(gl, undefined, LogGLCall);
   }
-  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
+  //gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
 
   var headlines = [
     "China defends dealings with Iran after US pressure",
@@ -647,7 +676,7 @@ function initialize() {
       }
       var img = tmpImages.splice(math.randomInt(tmpImages.length), 1)[0];
       var headline = tmpHeadlines.splice(math.randomInt(tmpHeadlines.lenght), 1)[0];
-      imgTexture.load(img, headline);
+      imgTexture.load(img, "[" + jj + "/" + ii + "]" + headline);
     }
     g_textures.push(textures);
   }
@@ -766,8 +795,10 @@ function initialize() {
     g_scrollY += g_moveVelocityY * elapsedTime;
 
     var halfCircumfrence = Math.PI;
-    var unitWidth = g.globals.imageWidth * g.globals.imageSpacing;
-    var unitHeight = g.globals.imageHeight * g.globals.imageSpacing;
+    var unitWidth =
+        g.globals.imageWidth * g.globals.imageSpacing * g.globals.imageScale;
+    var unitHeight =
+        g.globals.imageHeight * g.globals.imageSpacing * g.globals.imageScale;
 
     // figure out which grid point to highlight.
     var ray = clientPositionToWorldRay(
@@ -777,12 +808,13 @@ function initialize() {
         canvas.clientHeight);
     var intersection = raySphereIntersection(
         ray.near, ray.far, [0,0,0], g.imagePlaneConst.bendRadius);
-    if (intersection && down) {
+    var selection;
+    if (intersection/* && down */) {
         var r = g.imagePlaneConst.bendRadius;
         var x = intersection[0];
         var y = intersection[1];
         var z = intersection[2];
-        var longAngle = Math.atan2(-z, x);
+        var longAngle = Math.atan2(x, z);
         var d = Math.sqrt(x * x + z * z);
         var latAngle = Math.atan2(y, d);
 //console.log("x: " + x.toFixed(3) + " y:" + y.toFixed(3) + " z:" + z.toFixed(3));
@@ -796,14 +828,14 @@ function initialize() {
 //      var latCos2 = math.dot(
 //          math.normalize([0, intersection[1], intersection[2]]), [0, 0, -1]);
 //      console.log("int:" + intersection);
-      console.log("longAngle: " + longAngle.toFixed(3) +
-                  " , latAngle: " + latAngle.toFixed(3));
+//      console.log("longAngle: " + longAngle.toFixed(3) +
+//                  " , latAngle: " + latAngle.toFixed(3));
 //      console.log("longCos2: " + longCos2.toFixed(3) + " , latCos2: " + latCos2.toFixed(3));
-//      var selectionX = longAngle * g.imagePlaneConst.bendRadius * 2 /
-//          unitWidth;
-//      var selectionY = latAngle * g.imagePlaneConst.bendRadius * 2 /
-//          unitHeight;
-//      console.log("sel: " + selectionX + ", " + selectionY);
+      var selectionX = longAngle /
+          (unitWidth);
+      var selectionY = latAngle  /
+          (unitHeight);
+      selection = {x: selectionX, y: selectionY};
     }
 
     imagePlane.drawPrep(g.imagePlaneConst);
@@ -811,17 +843,29 @@ Log("bendRadius:" + g.imagePlaneConst.bendRadius);
 Log("bendAmount:" + g.imagePlaneConst.bendAmount);
 Log("halfC: " + halfCircumfrence);
 Log("unitWidth: " + unitWidth);
-    var imagesAcrossSphere = Math.floor(halfCircumfrence / (unitWidth * g.imagePlaneConst.bendAmount));
-    var imagesDownSphere = Math.floor(halfCircumfrence / (unitHeight * g.imagePlaneConst.bendAmount));
+     imagesAcrossSphere = Math.floor(halfCircumfrence / unitWidth);
+     imagesDownSphere = Math.floor(halfCircumfrence / unitHeight);
 Log("across: " + imagesAcrossSphere);
 Log("down: " + imagesDownSphere);
-    var gridXOff = Math.floor(imagesAcrossSphere * -0.5);
-    var gridYOff = Math.floor(imagesDownSphere * -0.5);
-    var xOff = tdl.math.modClamp(g_scrollX % 1, 1);
-    var yOff = tdl.math.modClamp(g_scrollY % 1, 1);
-    var texXBase = tdl.math.modClamp(Math.floor(-g_scrollX + gridXOff), g_imagesAcrossGrid);
-    var texYBase = tdl.math.modClamp(Math.floor(-g_scrollY + gridYOff), g_imagesDownGrid);
-    var texturesPer = {};
+     gridXOff = Math.floor(imagesAcrossSphere * -0.5);
+     gridYOff = Math.floor(imagesDownSphere * -0.5);
+     xOff = tdl.math.modClamp(g_scrollX % 1, 1);
+     yOff = tdl.math.modClamp(g_scrollY % 1, 1);
+     texXBase = -tdl.math.modClamp(Math.floor(g_scrollX - gridXOff), g_imagesAcrossGrid);
+     texYBase = -tdl.math.modClamp(Math.floor(g_scrollY - gridYOff), g_imagesDownGrid);
+     var texturesPer = {};
+
+    var sx = -1;
+    var sy = -1;
+    if (selection) {
+      sx = g_scrollX + (selection.x + 0.5);
+      sy = g_scrollY + (selection.y + 0.5);
+//      console.log(
+//        "g: " + g_scrollX.toFixed(3) + ", " + g_scrollY.toFixed(3) +
+//        " s: " + sx.toFixed(3) + ", " + sy.toFixed(3));
+    }
+
+
     for (var yy = 0; yy <= imagesDownSphere; ++yy) {
       var texRowIndex = tdl.math.modClamp(texYBase + yy, g_imagesDownGrid);
       var textures = g_textures[texRowIndex];
@@ -832,16 +876,16 @@ Log("down: " + imagesDownSphere);
             world,
             fast.matrix4.scaling(
                 m4t0,
-                [g.globals.imageWidth,
-                 g.globals.imageHeight,
+                [g.globals.imageWidth * g.globals.imageScale,
+                 g.globals.imageHeight * g.globals.imageScale,
                  1]),
             fast.matrix4.translation(
                 m4t1,
                 [(gridXOff + xx + xOff - (texRowIndex % 2) * g.globals.rowOffset) * unitWidth,
-                 (gridYOff + yy + yOff) * unitHeight,
+                 (gridYOff + yy + yOff) * -unitHeight,
                  0]));
         fast.matrix4.mul(worldViewProjection, world, g_viewProjection);
-        colorMult[0] = 1; // + (intersection ? 10 : 0);
+        colorMult[0] = 1 + ((sx == texColIndex && sy == texRowIndex) ? 10 : 0);
         colorMult[1] = 1;
         colorMult[2] = 1;
         colorMult[3] = 1;
@@ -938,16 +982,16 @@ void main() {
 <script id="imageSphereVertexShader" type="text/something-not-javascript">
 uniform mat4 viewProjection;
 uniform mat4 world;
-uniform float bendAmount;
 uniform float bendRadius;
+uniform float bendAmount;
 attribute vec4 position;
 attribute vec2 texCoord;
 varying vec2 v_texCoord;
 void main() {
   v_texCoord = texCoord;
   vec4 wp = world * position;
-  float longitude = wp.x * bendAmount + 3.14159 * 0.5;
-  float latitude = wp.y * bendAmount + 3.14159 * 0.5;
+  float longitude = 3.14159 * 0.5 - wp.x;
+  float latitude = 3.14159 * 0.5 - wp.y;
   float sinTheta = sin(longitude);
   float cosTheta = cos(longitude);
   float sinPhi = sin(latitude);
@@ -955,12 +999,13 @@ void main() {
   float ux = cosTheta * sinPhi;
   float uy = cosPhi;
   float uz = sinTheta * sinPhi;
-  wp = vec4(
+  vec4 wp1 = vec4(
     ux * bendRadius,
     uy * bendRadius,
     uz * bendRadius,
     1);
-  gl_Position = viewProjection * wp;
+  vec4 wp2 = vec4(wp.x, wp.y, wp.z + bendRadius, 1.0);
+  gl_Position = viewProjection * mix(wp2, wp1, bendAmount);
 }
 
 </script>
@@ -972,7 +1017,7 @@ varying vec2 v_texCoord;
 uniform sampler2D diffuseSampler;
 uniform vec4 colorMult;
 void main() {
-  vec4 diffuse = texture2D(diffuseSampler, vec2(1.0 - v_texCoord.x, v_texCoord.y));
+  vec4 diffuse = texture2D(diffuseSampler, vec2(v_texCoord.x, v_texCoord.y));
   gl_FragColor = diffuse * colorMult;
 }
 </script>
