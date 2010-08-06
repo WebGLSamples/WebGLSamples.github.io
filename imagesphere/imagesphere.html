@@ -622,8 +622,8 @@ Log("down: " + imagesDownSphere);
     var gridYOff = Math.floor(imagesDownSphere * -0.5);
     var xOff = tdl.math.modClamp(g_scrollX % 1, 1);
     var yOff = tdl.math.modClamp(g_scrollY % 1, 1);
-    var texXBase = tdl.math.modClamp(Math.floor(-g_scrollX), g_imagesAcrossGrid);
-    var texYBase = tdl.math.modClamp(Math.floor(-g_scrollY), g_imagesDownGrid);
+    var texXBase = tdl.math.modClamp(Math.floor(-g_scrollX + gridXOff), g_imagesAcrossGrid);
+    var texYBase = tdl.math.modClamp(Math.floor(-g_scrollY + gridYOff), g_imagesDownGrid);
     var texturesPer = {};
     for (var yy = 0; yy <= imagesDownSphere; ++yy) {
       var texRowIndex = tdl.math.modClamp(texYBase + yy, g_imagesDownGrid);
