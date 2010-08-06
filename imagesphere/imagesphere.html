@@ -167,7 +167,7 @@ function setupImagePlane() {
       'imageSphereFragmentShader');
 //  var arrays = tdl.primitives.createCube(1);
   var arrays = tdl.primitives.createPlane(1,1,10,10);
-	delete arrays.normal;
+  delete arrays.normal;
   tdl.primitives.reorient(arrays,
       [[1, 0, 0, 0],
        [0, 0, 1, 0],
@@ -185,8 +185,8 @@ function setupBlankPlane() {
       'blackVertexShader',
       'blackFragmentShader');
   var arrays = tdl.primitives.createPlane(1,1,4,4);
-	delete arrays.normal;
-	delete arrays.texCoord;
+  delete arrays.normal;
+  delete arrays.texCoord;
   tdl.primitives.reorient(arrays,
       [[1, 0, 0, 0],
        [0, 0, 1, 0],
@@ -200,9 +200,9 @@ function setupBlankPlane() {
 function hack() {
 
 ImgTexture = function() {
-	tdl.textures.Texture.call(this, gl.TEXTURE_2D);
+  tdl.textures.Texture.call(this, gl.TEXTURE_2D);
   gl.bindTexture(gl.TEXTURE_2D, this.texture);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 256, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 256, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
   this.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   this.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   this.setParameter(gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -214,35 +214,35 @@ tdl.base.inherit(ImgTexture, tdl.textures.Texture);
 ImgTexture.prototype.load = function(imgUrl, msg) {
   var img = new Image();
   var that = this;
-	img.onload = function() {
+  img.onload = function() {
     that.uploadTexture();
   }
-	this.img = img;
-	this.msg = msg;
-	img.src = imgUrl;
+  this.img = img;
+  this.msg = msg;
+  img.src = imgUrl;
 };
 
 ImgTexture.prototype.uploadTexture = function() {
   var img = this.img;
   var msg = this.msg;
-	g_ctx2d.clearRect(0, 0, 256, 256);
+  g_ctx2d.clearRect(0, 0, 256, 256);
   // stretch the image to 256 width
   var width = 256;
   var height = img.height * 256 / img.width;
   // stretch until it's 216 height
-	if (height < 216) {
-		width = img.width * 216 / height;
+  if (height < 216) {
+    width = img.width * 216 / height;
     height = 216;
   }
   g_ctx2d.drawImage(img, 0, 0, width, height);
-	g_ctx2d.clearRect(0, 192, 256, 64);
-	g_ctx2d.font = "20px sans-serif";
-	g_ctx2d.fillStyle = "rgb(255,255,255)";
+  g_ctx2d.clearRect(0, 192, 256, 64);
+  g_ctx2d.font = "20px sans-serif";
+  g_ctx2d.fillStyle = "rgb(255,255,255)";
   // TODO: Obviously this needs to be split better.
-	g_ctx2d.fillText(msg.substr(0, Math.floor(msg.length / 2)), 10, 220);
-	g_ctx2d.fillText(msg.substr(Math.floor(msg.length / 2)), 10, 240);
-	gl.bindTexture(gl.TEXTURE_2D, this.texture);
-	gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, g_canvas2d);
+  g_ctx2d.fillText(msg.substr(0, Math.floor(msg.length / 2)), 10, 220);
+  g_ctx2d.fillText(msg.substr(Math.floor(msg.length / 2)), 10, 240);
+  gl.bindTexture(gl.TEXTURE_2D, this.texture);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, g_canvas2d);
 };
 
 ImgTexture.prototype.bindToUnit = function(unit) {
@@ -408,11 +408,11 @@ var numMovesToTrack = 4;
 var moveHistory = [];
 
 function addMoveHistory(pos) {
-	if (moveHistory.length == numMovesToTrack) {
+  if (moveHistory.length == numMovesToTrack) {
     moveHistory.shift();
   }
   var now = (new Date()).getTime() * 0.001;
-	moveHistory.push({ position: pos, time: now});
+  moveHistory.push({ position: pos, time: now});
 }
 
 function getMovePosition(e) {
@@ -436,7 +436,7 @@ function handleMouseDown(e) {
   g_moveVelocityX = 0;
   g_moveVelocityY = 0;
   moveHistory = [];
-	addMoveHistory(pos);
+  addMoveHistory(pos);
 }
 
 function handleMouseMove(e) {
@@ -498,10 +498,63 @@ function raySphereIntersection(point1, point2, center, radius) {
   }
 
   var sq = Math.sqrt(bb4ac);
-  mu1 = (-b + sq) / (2 * a);
-  mu2 = (-b - sq) / (2 * a);
+  var mu1 = (-b + sq) / (2 * a);
+  var mu2 = (-b - sq) / (2 * a);
 
   return math.addVector(point1, math.mulScalarVector(mu1, dp));
+}
+
+function raySphereIntersection2(point1, point2, center, radius) {
+  var d = math.subVector(point2, point1);
+  var m = math.subVector(point1, center);
+  var b = math.dot(m, d);
+  var c = math.dot(m, m) - radius * radius;
+  if (c > 0 && b > 0) {
+    return;
+  }
+  var discr = b * b - c;
+  if (discr < 0) {
+    return;
+  }
+  var t = -b * Math.sqrt(discr);
+  if (t < 0) {
+    t = 0;
+  }
+  var q = math.addVector(point1, math.mulScalarVector(t, d));
+  return q;
+}
+
+function raySphereIntersection3(point1, point2, center, radius) {
+  var d = math.subVector(point2, point1);
+  var b = -math.dot(point1, d);
+  var det = b * b - math.dot(point1, point1) + radius * radius;
+  if (det < 0){
+    return;
+  }
+  det = Math.sqrt(det);
+  var i1 = b - det;
+  var i2 = b + det;
+  // intersecting with ray?
+  if(i2 < 0) {
+    return;
+  }
+  if(i1 < 0) {
+    i1=0;
+  }
+  return math.addVector(point1, math.mulScalarVector(i1, d));
+};
+
+function raySphereIntersection4(point1, point2, center, radius) {
+  var d = math.subVector(point2, point1);
+  var a = math.dot(d, d);
+  var b = 2 * math.dot(point1, d);
+  var c = math.dot(point1, point1) - radius * radius;
+  var discr =  Math.sqrt(b * b - 4 * a * c);
+  if (discr < 0) {
+    return;
+  }
+  var t = (-b + discr) / 2 * a;
+  return math.addVector(point1, math.mulScalarVector(t, d));
 }
 
 function initialize() {
@@ -512,15 +565,15 @@ function initialize() {
 
   hack();
 
-	canvas.addEventListener("mousedown", handleMouseDown, false);
-	canvas.addEventListener("mousemove", handleMouseMove, false);
-	canvas.addEventListener("mouseup", handleMouseUp, false);
+  canvas.addEventListener("mousedown", handleMouseDown, false);
+  canvas.addEventListener("mousemove", handleMouseMove, false);
+  canvas.addEventListener("mouseup", handleMouseUp, false);
 
   // Create a canvas 2d for making textures with text.
   g_canvas2d = document.createElement('canvas');
-	g_canvas2d.width = 256;
-	g_canvas2d.height = 256;
-	g_ctx2d = g_canvas2d.getContext("2d");
+  g_canvas2d.width = 256;
+  g_canvas2d.height = 256;
+  g_ctx2d = g_canvas2d.getContext("2d");
 
   gl = wu.create3DContext(canvas);
   if (g_debug) {
@@ -593,7 +646,7 @@ function initialize() {
       }
       var img = tmpImages.splice(math.randomInt(tmpImages.length), 1)[0];
       var headline = tmpHeadlines.splice(math.randomInt(tmpHeadlines.lenght), 1)[0];
-			imgTexture.load(img, headline);
+      imgTexture.load(img, headline);
     }
     g_textures.push(textures);
   }
@@ -638,7 +691,7 @@ function initialize() {
     colorMult: colorMult};
 
   var blankPlaneConst = {
-		worldViewProjection: worldViewProjection};
+    worldViewProjection: worldViewProjection};
   var blankPlanePer = { };
 
   var frameCount = 0;
@@ -692,7 +745,7 @@ function initialize() {
     // of the sphere. Alternatively I could figure out why
     // the back of the sphere is not culled by CULL_FACE.
     Log("--Draw Blank---------------------------------------");
-		fast.matrix4.mul(
+    fast.matrix4.mul(
         world,
         fast.matrix4.scaling(m4t2, [100, 100, 100]),
         fast.matrix4.translation(m4t1, [0, 0, 1]));
@@ -711,18 +764,49 @@ function initialize() {
     g_scrollX += g_moveVelocityX * elapsedTime;
     g_scrollY += g_moveVelocityY * elapsedTime;
 
+    var halfCircumfrence = Math.PI;
+    var unitWidth = g.globals.imageWidth * g.globals.imageSpacing;
+    var unitHeight = g.globals.imageHeight * g.globals.imageSpacing;
+
     // figure out which grid point to highlight.
     var ray = clientPositionToWorldRay(
         g_lastMousePosition.x,
         g_lastMousePosition.y,
         canvas.clientWidth,
         canvas.clientHeight);
-    var intersection = raySphereIntersection(ray.near, ray.far, [0,0,0], g.imagePlaneConst.bendRadius);
+    var intersection = raySphereIntersection4(
+        ray.near, ray.far, [0,0,0], g.imagePlaneConst.bendRadius);
+    if (intersection && down) {
+        var r = g.imagePlaneConst.bendRadius;
+        var x = intersection[0];
+        var y = intersection[1];
+        var z = intersection[2];
+        var v = 1 / Math.PI * Math.acos(y / r);
+        var u = 1 / (Math.PI * 2) * Math.asin(z / y);
+console.log("x: " + x.toFixed(3) + " y:" + y.toFixed(3) + " z:" + z.toFixed(3));
+console.log("z/y: " + z / y);
+console.log("u: " + u.toFixed(3) + " v:" + v.toFixed(3));
+//      var longAngle = Math.atan2(intersection[0], intersection[2]);
+//      var latAngle = Math.atan2(intersection[1], intersection[2]);
+//      console.log("int: " + intersection[0].toFixed(3) + ", "
+//                          + intersection[1].toFixed(3) + ", "
+//                          + intersection[2].toFixed(3))
+//      var longCos2 = math.dot(
+//          math.normalize([intersection[0], 0, intersection[2]]), [0, 0, -1]);
+//      var latCos2 = math.dot(
+//          math.normalize([0, intersection[1], intersection[2]]), [0, 0, -1]);
+//      console.log("int:" + intersection);
+//      console.log("longAngle: " + longAngle.toFixed(3) +
+//                  " , latCos: " + latAngle.toFixed(3));
+//      console.log("longCos2: " + longCos2.toFixed(3) + " , latCos2: " + latCos2.toFixed(3));
+//      var selectionX = longAngle * g.imagePlaneConst.bendRadius * 2 /
+//          unitWidth;
+//      var selectionY = latAngle * g.imagePlaneConst.bendRadius * 2 /
+//          unitHeight;
+//      console.log("sel: " + selectionX + ", " + selectionY);
+    }
 
     imagePlane.drawPrep(g.imagePlaneConst);
-    var halfCircumfrence = Math.PI;
-    var unitWidth = g.globals.imageWidth * g.globals.imageSpacing;
-    var unitHeight = g.globals.imageHeight * g.globals.imageSpacing;
 Log("bendRadius:" + g.imagePlaneConst.bendRadius);
 Log("bendAmount:" + g.imagePlaneConst.bendAmount);
 Log("halfC: " + halfCircumfrence);
@@ -744,9 +828,9 @@ Log("down: " + imagesDownSphere);
       for (var xx = 0; xx <= imagesAcrossSphere; ++xx) {
         var texColIndex = tdl.math.modClamp(texXBase + xx, g_imagesAcrossGrid);
         texturesPer.diffuseSampler = textures[texColIndex];
-				fast.matrix4.mul(
+        fast.matrix4.mul(
             world,
-						fast.matrix4.scaling(
+            fast.matrix4.scaling(
                 m4t0,
                 [g.globals.imageWidth,
                  g.globals.imageHeight,
@@ -757,10 +841,10 @@ Log("down: " + imagesDownSphere);
                  (gridYOff + yy + yOff) * unitHeight,
                  0]));
         fast.matrix4.mul(worldViewProjection, world, g_viewProjection);
-				colorMult[0] = 1; // + (intersection ? 10 : 0);
-				colorMult[1] = 1;
-				colorMult[2] = 1;
-				colorMult[3] = 1;
+        colorMult[0] = 1; // + (intersection ? 10 : 0);
+        colorMult[1] = 1;
+        colorMult[2] = 1;
+        colorMult[3] = 1;
         imagePlane.draw(imagePlanePer, texturesPer);
       }
     }
@@ -863,19 +947,19 @@ void main() {
   v_texCoord = texCoord;
   vec4 wp = world * position;
   float longitude = wp.x * bendAmount + 3.14159 * 0.5;
-	float latitude = wp.y * bendAmount + 3.14159 * 0.5;
-	float sinTheta = sin(longitude);
-	float cosTheta = cos(longitude);
-	float sinPhi = sin(latitude);
-	float cosPhi = cos(latitude);
-	float ux = cosTheta * sinPhi;
-	float uy = cosPhi;
-	float uz = sinTheta * sinPhi;
-	wp = vec4(
+  float latitude = wp.y * bendAmount + 3.14159 * 0.5;
+  float sinTheta = sin(longitude);
+  float cosTheta = cos(longitude);
+  float sinPhi = sin(latitude);
+  float cosPhi = cos(latitude);
+  float ux = cosTheta * sinPhi;
+  float uy = cosPhi;
+  float uz = sinTheta * sinPhi;
+  wp = vec4(
     ux * bendRadius,
-		uy * bendRadius,
-		uz * bendRadius,
-		1);
+    uy * bendRadius,
+    uz * bendRadius,
+    1);
   gl_Position = viewProjection * wp;
 }
 
