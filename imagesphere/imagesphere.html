@@ -104,8 +104,6 @@ var g_viewProjectionInverse;
 
 // We'll maintain a grid of images this size
 // and scroll across them. When one goes off the left it comes on the right.
-var g_imagesAcrossSphere = 5;
-var g_imagesDownSphere = 5;
 var g_imagesAcrossGrid = 10;
 var g_imagesDownGrid = 10;
 var g_textures = [];
@@ -118,8 +116,6 @@ var g = {
   imagePlaneConst:{}};
 
 var g_ui = [
-  { obj: 'globals',         name: 'hScrollSpeed', value: 0.3,  max:  1  },
-  { obj: 'globals',         name: 'vScrollSpeed', value: 0.1,  max:  1  },
   { obj: 'globals',         name: 'imageWidth',   value: 1.0,  max:  5  },
   { obj: 'globals',         name: 'imageHeight',  value: 1.0,  max:  5  },
   { obj: 'globals',         name: 'imageSpacing', value: 1.1,  max:  5  },
@@ -609,19 +605,28 @@ function initialize() {
     Log("--Draw Images---------------------------------------");
     // All we do is draw a grid of image. The shader warps the grid into a sphere.
     imagePlane.drawPrep(g.imagePlaneConst);
-//		g_scrollX += elapsedTime * g.globals.hScrollSpeed;
-//		g_scrollY += elapsedTime * g.globals.vScrollSpeed;
-    var gridXOff = Math.floor(g_imagesAcrossSphere * -0.5);
-    var gridYOff = Math.floor(g_imagesDownSphere * -0.5);
+    var halfCircumfrence = Math.PI;
+    var unitWidth = g.globals.imageWidth * g.globals.imageSpacing;
+    var unitHeight = g.globals.imageHeight * g.globals.imageSpacing;
+Log("bendRadius:" + g.imagePlaneConst.bendRadius);
+Log("bendAmount:" + g.imagePlaneConst.bendAmount);
+Log("halfC: " + halfCircumfrence);
+Log("unitWidth: " + unitWidth);
+    var imagesAcrossSphere = Math.floor(halfCircumfrence / (unitWidth * g.imagePlaneConst.bendAmount));
+    var imagesDownSphere = Math.floor(halfCircumfrence / (unitHeight * g.imagePlaneConst.bendAmount));
+Log("across: " + imagesAcrossSphere);
+Log("down: " + imagesDownSphere);
+    var gridXOff = Math.floor(imagesAcrossSphere * -0.5);
+    var gridYOff = Math.floor(imagesDownSphere * -0.5);
     var xOff = tdl.math.modClamp(g_scrollX % 1, 1);
     var yOff = tdl.math.modClamp(g_scrollY % 1, 1);
     var texXBase = tdl.math.modClamp(Math.floor(-g_scrollX), g_imagesAcrossGrid);
     var texYBase = tdl.math.modClamp(Math.floor(-g_scrollY), g_imagesDownGrid);
     var texturesPer = {};
-    for (var yy = 0; yy <= g_imagesDownSphere; ++yy) {
+    for (var yy = 0; yy <= imagesDownSphere; ++yy) {
       var texRowIndex = tdl.math.modClamp(texYBase + yy, g_imagesDownGrid);
       var textures = g_textures[texRowIndex];
-      for (var xx = 0; xx <= g_imagesAcrossSphere; ++xx) {
+      for (var xx = 0; xx <= imagesAcrossSphere; ++xx) {
         var texColIndex = tdl.math.modClamp(texXBase + xx, g_imagesAcrossGrid);
         texturesPer.diffuseSampler = textures[texColIndex];
 				fast.matrix4.mul(
@@ -633,10 +638,8 @@ function initialize() {
                  1]),
             fast.matrix4.translation(
                 m4t1,
-                [(gridXOff + xx + xOff - (texRowIndex % 2) * g.globals.rowOffset) *
-                  g.globals.imageWidth * g.globals.imageSpacing,
-                 (gridYOff + yy + yOff) *
-                  g.globals.imageHeight * g.globals.imageSpacing,
+                [(gridXOff + xx + xOff - (texRowIndex % 2) * g.globals.rowOffset) * unitWidth,
+                 (gridYOff + yy + yOff) * unitHeight,
                  0]));
         fast.matrix4.mul(worldViewProjection, world, g_viewProjection);
 				colorMult[0] = 1;
