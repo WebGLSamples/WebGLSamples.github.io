@@ -501,7 +501,8 @@ function raySphereIntersection(point1, point2, center, radius) {
   var mu1 = (-b + sq) / (2 * a);
   var mu2 = (-b - sq) / (2 * a);
 
-  return math.addVector(point1, math.mulScalarVector(mu1, dp));
+  var m = Math.min(mu1, mu2);
+  return math.addVector(point1, math.mulScalarVector(m, dp));
 }
 
 function raySphereIntersection2(point1, point2, center, radius) {
@@ -774,18 +775,17 @@ function initialize() {
         g_lastMousePosition.y,
         canvas.clientWidth,
         canvas.clientHeight);
-    var intersection = raySphereIntersection4(
+    var intersection = raySphereIntersection(
         ray.near, ray.far, [0,0,0], g.imagePlaneConst.bendRadius);
     if (intersection && down) {
         var r = g.imagePlaneConst.bendRadius;
         var x = intersection[0];
         var y = intersection[1];
         var z = intersection[2];
-        var v = 1 / Math.PI * Math.acos(y / r);
-        var u = 1 / (Math.PI * 2) * Math.asin(z / y);
-console.log("x: " + x.toFixed(3) + " y:" + y.toFixed(3) + " z:" + z.toFixed(3));
-console.log("z/y: " + z / y);
-console.log("u: " + u.toFixed(3) + " v:" + v.toFixed(3));
+        var longAngle = Math.atan2(-z, x);
+        var d = Math.sqrt(x * x + z * z);
+        var latAngle = Math.atan2(y, d);
+//console.log("x: " + x.toFixed(3) + " y:" + y.toFixed(3) + " z:" + z.toFixed(3));
 //      var longAngle = Math.atan2(intersection[0], intersection[2]);
 //      var latAngle = Math.atan2(intersection[1], intersection[2]);
 //      console.log("int: " + intersection[0].toFixed(3) + ", "
@@ -796,8 +796,8 @@ console.log("u: " + u.toFixed(3) + " v:" + v.toFixed(3));
 //      var latCos2 = math.dot(
 //          math.normalize([0, intersection[1], intersection[2]]), [0, 0, -1]);
 //      console.log("int:" + intersection);
-//      console.log("longAngle: " + longAngle.toFixed(3) +
-//                  " , latCos: " + latAngle.toFixed(3));
+      console.log("longAngle: " + longAngle.toFixed(3) +
+                  " , latAngle: " + latAngle.toFixed(3));
 //      console.log("longCos2: " + longCos2.toFixed(3) + " , latCos2: " + latCos2.toFixed(3));
 //      var selectionX = longAngle * g.imagePlaneConst.bendRadius * 2 /
 //          unitWidth;
