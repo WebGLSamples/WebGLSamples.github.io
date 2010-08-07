@@ -114,6 +114,7 @@ var g_imagesAcrossGrid = 10;
 var g_imagesDownGrid = 10;
 var g_textures = [];
 var g_lastMousePosition = {x: 0, y: 0};
+var g_lastMouseGridPosition = {x: 0, y: 0};
 
 //g_drawOnce = true;
 //g_debug = true;
@@ -444,11 +445,12 @@ function getMovePosition(e) {
   var info = getEventInfo(e);
   var m = getRelativeCoordinates(info);
   g_lastMousePosition = m;
-  return clientPositionToGridPosition(
+  g_lastMouseGridPosition = clientPositionToGridPosition(
      m.x,
      m.y,
      canvas.clientWidth,
      canvas.clientHeight);
+  return {x: g_lastMouseGridPosition.x, y: g_lastMouseGridPosition.y};
 }
 
 function handleMouseDown(e) {
@@ -808,7 +810,7 @@ function initialize() {
         canvas.clientHeight);
     var intersection = raySphereIntersection(
         ray.near, ray.far, [0,0,0], g.imagePlaneConst.bendRadius);
-    var selection;
+    var sphereSelection = undefined;
     if (intersection/* && down */) {
         var r = g.imagePlaneConst.bendRadius;
         var x = intersection[0];
@@ -835,8 +837,21 @@ function initialize() {
           (unitWidth);
       var selectionY = latAngle  /
           (unitHeight);
-      selection = {x: selectionX, y: selectionY};
+      sphereSelection = {x: selectionX, y: selectionY};
     }
+
+    var selection = {
+      x: g_lastMouseGridPosition.x / unitWidth,
+      y: g_lastMouseGridPosition.y / unitHeight,
+    };
+
+    if (sphereSelection) {
+      selection.x = math.lerpScalar(
+            selection.x, sphereSelection.x, 1);//g.imagePlaneConst.blendAmount);
+      selection.y = math.lerpScalar(
+            selection.y, sphereSelection.y, 1);//g.imagePlaneConst.blendAmount);
+    }
+
 
     imagePlane.drawPrep(g.imagePlaneConst);
 Log("bendRadius:" + g.imagePlaneConst.bendRadius);
@@ -858,11 +873,10 @@ Log("down: " + imagesDownSphere);
     var sx = -1;
     var sy = -1;
     if (selection) {
-      sx = g_scrollX + (selection.x + 0.5);
-      sy = g_scrollY + (selection.y + 0.5);
-//      console.log(
-//        "g: " + g_scrollX.toFixed(3) + ", " + g_scrollY.toFixed(3) +
-//        " s: " + sx.toFixed(3) + ", " + sy.toFixed(3));
+      sy = -selection.y + 0.5 - g_scrollY;
+      sy = tdl.math.modClamp(Math.floor(sy), g_imagesDownGrid);
+      sx = +selection.x + 0.5 - g_scrollX + (sy % 2) * g.globals.rowOffset;
+      sx = tdl.math.modClamp(Math.floor(sx), g_imagesAcrossGrid);
     }
 
 
