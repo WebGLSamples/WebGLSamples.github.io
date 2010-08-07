@@ -124,14 +124,15 @@ var g = {
   imagePlaneConst:{}};
 
 var g_ui = [
-  { obj: 'globals',         name: 'imageScale',   value: 0.42, max:  1  },
-  { obj: 'globals',         name: 'imageWidth',   value: 1.0,  max:  5  },
-  { obj: 'globals',         name: 'imageHeight',  value: 1.0,  max:  5  },
-  { obj: 'globals',         name: 'imageSpacing', value: 1.1,  max:  5  },
-  { obj: 'globals',         name: 'rowOffset',    value: 0 /*0.5 */,  max:  2  },
-  { obj: 'globals',         name: 'eyeRadius',    value: 5,    max:  10 },
-  { obj: 'imagePlaneConst', name: 'bendRadius',   value: 2.4,  max:  10 },
-  { obj: 'imagePlaneConst', name: 'bendAmount',   value: 1.0,  max:  1 }];
+  { obj: 'globals',         name: 'imageScale',         value: 0.42, max:   1 },
+  { obj: 'globals',         name: 'imageWidth',         value: 1.0,  max:   5 },
+  { obj: 'globals',         name: 'imageHeight',        value: 1.0,  max:   5 },
+  { obj: 'globals',         name: 'imageSpacing',       value: 1.1,  max:   5 },
+  { obj: 'globals',         name: 'rowOffset',          value: 0.5,  max:   2 },
+  { obj: 'globals',         name: 'eyeRadius',          value: 5,    max:  10 },
+  { obj: 'globals',         name: 'selectionIntensity', value: 0,    max:  10 },
+  { obj: 'imagePlaneConst', name: 'bendRadius',         value: 2.4,  max:  10 },
+  { obj: 'imagePlaneConst', name: 'bendAmount',         value: 1.0,  max:   1 }];
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -453,6 +454,80 @@ function getMovePosition(e) {
   return {x: g_lastMouseGridPosition.x, y: g_lastMouseGridPosition.y};
 }
 
+function computeSphereGridInfo() {
+  var halfCircumfrence = Math.PI;
+  var unitWidth = g.globals.imageWidth * g.globals.imageSpacing * g.globals.imageScale;
+  var unitHeight = g.globals.imageHeight * g.globals.imageSpacing * g.globals.imageScale;
+  var imagesAcrossSphere = Math.floor(halfCircumfrence / unitWidth);
+  var imagesDownSphere = Math.floor(halfCircumfrence / unitHeight);
+  var gridXOff = Math.floor(imagesAcrossSphere * -0.5);
+  var gridYOff = Math.floor(imagesDownSphere * -0.5);
+  var xOff = tdl.math.modClamp(g_scrollX % 1, 1);
+  var yOff = tdl.math.modClamp(g_scrollY % 1, 1);
+  var texXBase = -tdl.math.modClamp(Math.floor(g_scrollX - gridXOff), g_imagesAcrossGrid);
+  var texYBase = -tdl.math.modClamp(Math.floor(g_scrollY - gridYOff), g_imagesDownGrid);
+
+  return {
+    unitWidth: unitWidth,
+    unitHeight: unitHeight,
+    imagesAcrossSphere: imagesAcrossSphere,
+    imagesDownSphere: imagesDownSphere,
+    gridXOff: gridXOff,
+    gridYOff: gridYOff,
+    xOff: xOff,
+    yOff: yOff,
+    texXBase: texXBase,
+    texYBase: texYBase,
+  };
+}
+
+function computeSelection(si, mousePosition, mouseGridPosition) {
+  // figure out which grid point to highlight.
+  var ray = clientPositionToWorldRay(
+      mousePosition.x,
+      mousePosition.y,
+      canvas.clientWidth,
+      canvas.clientHeight);
+  var intersection = raySphereIntersection(
+      ray.near, ray.far, [0,0,0], g.imagePlaneConst.bendRadius);
+  var sphereSelection = undefined;
+  if (intersection) {
+    var r = g.imagePlaneConst.bendRadius;
+    var x = intersection[0];
+    var y = intersection[1];
+    var z = intersection[2];
+    var longAngle = Math.atan2(x, z);
+    var d = Math.sqrt(x * x + z * z);
+    var latAngle = Math.atan2(y, d);
+    var selectionX = longAngle / si.unitWidth;
+    var selectionY = latAngle  / si.unitHeight;
+    sphereSelection = {x: selectionX, y: selectionY};
+  }
+
+  var selection = {
+    x: mouseGridPosition.x / si.unitWidth,
+    y: mouseGridPosition.y / si.unitHeight,
+  };
+
+  if (sphereSelection) {
+    selection.x = math.lerpScalar(
+          selection.x, sphereSelection.x, g.imagePlaneConst.bendAmount);
+    selection.y = math.lerpScalar(
+          selection.y, sphereSelection.y, g.imagePlaneConst.bendAmount);
+  }
+
+  var sx = -1;
+  var sy = -1;
+  if (selection) {
+    sy = -selection.y + 0.5 - g_scrollY;
+    sy = tdl.math.modClamp(Math.floor(sy), g_imagesDownGrid);
+    sx = +selection.x + 0.5 - g_scrollX + (sy % 2) * g.globals.rowOffset;
+    sx = tdl.math.modClamp(Math.floor(sx), g_imagesAcrossGrid);
+  }
+
+  return {x: sx, y: sy};
+}
+
 function handleMouseDown(e) {
   var pos = getMovePosition(e);
   down = true;
@@ -464,6 +539,12 @@ function handleMouseDown(e) {
   g_moveVelocityY = 0;
   moveHistory = [];
   addMoveHistory(pos);
+
+  var si = computeSphereGridInfo();
+  var sel = computeSelection(si, g_lastMousePosition, g_lastMouseGridPosition);
+  var status = document.getElementById("status");
+  status.innerHTML = g_textures[sel.y][sel.x].msg;
+
   return false;
 }
 
@@ -796,95 +877,17 @@ function initialize() {
     g_scrollX += g_moveVelocityX * elapsedTime;
     g_scrollY += g_moveVelocityY * elapsedTime;
 
-    var halfCircumfrence = Math.PI;
-    var unitWidth =
-        g.globals.imageWidth * g.globals.imageSpacing * g.globals.imageScale;
-    var unitHeight =
-        g.globals.imageHeight * g.globals.imageSpacing * g.globals.imageScale;
-
-    // figure out which grid point to highlight.
-    var ray = clientPositionToWorldRay(
-        g_lastMousePosition.x,
-        g_lastMousePosition.y,
-        canvas.clientWidth,
-        canvas.clientHeight);
-    var intersection = raySphereIntersection(
-        ray.near, ray.far, [0,0,0], g.imagePlaneConst.bendRadius);
-    var sphereSelection = undefined;
-    if (intersection/* && down */) {
-        var r = g.imagePlaneConst.bendRadius;
-        var x = intersection[0];
-        var y = intersection[1];
-        var z = intersection[2];
-        var longAngle = Math.atan2(x, z);
-        var d = Math.sqrt(x * x + z * z);
-        var latAngle = Math.atan2(y, d);
-//console.log("x: " + x.toFixed(3) + " y:" + y.toFixed(3) + " z:" + z.toFixed(3));
-//      var longAngle = Math.atan2(intersection[0], intersection[2]);
-//      var latAngle = Math.atan2(intersection[1], intersection[2]);
-//      console.log("int: " + intersection[0].toFixed(3) + ", "
-//                          + intersection[1].toFixed(3) + ", "
-//                          + intersection[2].toFixed(3))
-//      var longCos2 = math.dot(
-//          math.normalize([intersection[0], 0, intersection[2]]), [0, 0, -1]);
-//      var latCos2 = math.dot(
-//          math.normalize([0, intersection[1], intersection[2]]), [0, 0, -1]);
-//      console.log("int:" + intersection);
-//      console.log("longAngle: " + longAngle.toFixed(3) +
-//                  " , latAngle: " + latAngle.toFixed(3));
-//      console.log("longCos2: " + longCos2.toFixed(3) + " , latCos2: " + latCos2.toFixed(3));
-      var selectionX = longAngle /
-          (unitWidth);
-      var selectionY = latAngle  /
-          (unitHeight);
-      sphereSelection = {x: selectionX, y: selectionY};
-    }
-
-    var selection = {
-      x: g_lastMouseGridPosition.x / unitWidth,
-      y: g_lastMouseGridPosition.y / unitHeight,
-    };
-
-    if (sphereSelection) {
-      selection.x = math.lerpScalar(
-            selection.x, sphereSelection.x, 1);//g.imagePlaneConst.blendAmount);
-      selection.y = math.lerpScalar(
-            selection.y, sphereSelection.y, 1);//g.imagePlaneConst.blendAmount);
-    }
-
+    var si = computeSphereGridInfo();
+    var sel = computeSelection(si, g_lastMousePosition, g_lastMouseGridPosition);
 
     imagePlane.drawPrep(g.imagePlaneConst);
-Log("bendRadius:" + g.imagePlaneConst.bendRadius);
-Log("bendAmount:" + g.imagePlaneConst.bendAmount);
-Log("halfC: " + halfCircumfrence);
-Log("unitWidth: " + unitWidth);
-     imagesAcrossSphere = Math.floor(halfCircumfrence / unitWidth);
-     imagesDownSphere = Math.floor(halfCircumfrence / unitHeight);
-Log("across: " + imagesAcrossSphere);
-Log("down: " + imagesDownSphere);
-     gridXOff = Math.floor(imagesAcrossSphere * -0.5);
-     gridYOff = Math.floor(imagesDownSphere * -0.5);
-     xOff = tdl.math.modClamp(g_scrollX % 1, 1);
-     yOff = tdl.math.modClamp(g_scrollY % 1, 1);
-     texXBase = -tdl.math.modClamp(Math.floor(g_scrollX - gridXOff), g_imagesAcrossGrid);
-     texYBase = -tdl.math.modClamp(Math.floor(g_scrollY - gridYOff), g_imagesDownGrid);
-     var texturesPer = {};
+    var texturesPer = {};
 
-    var sx = -1;
-    var sy = -1;
-    if (selection) {
-      sy = -selection.y + 0.5 - g_scrollY;
-      sy = tdl.math.modClamp(Math.floor(sy), g_imagesDownGrid);
-      sx = +selection.x + 0.5 - g_scrollX + (sy % 2) * g.globals.rowOffset;
-      sx = tdl.math.modClamp(Math.floor(sx), g_imagesAcrossGrid);
-    }
-
-
-    for (var yy = 0; yy <= imagesDownSphere; ++yy) {
-      var texRowIndex = tdl.math.modClamp(texYBase + yy, g_imagesDownGrid);
+    for (var yy = 0; yy <= si.imagesDownSphere; ++yy) {
+      var texRowIndex = tdl.math.modClamp(si.texYBase + yy, g_imagesDownGrid);
       var textures = g_textures[texRowIndex];
-      for (var xx = 0; xx <= imagesAcrossSphere; ++xx) {
-        var texColIndex = tdl.math.modClamp(texXBase + xx, g_imagesAcrossGrid);
+      for (var xx = 0; xx <= si.imagesAcrossSphere; ++xx) {
+        var texColIndex = tdl.math.modClamp(si.texXBase + xx, g_imagesAcrossGrid);
         texturesPer.diffuseSampler = textures[texColIndex];
         fast.matrix4.mul(
             world,
@@ -895,11 +898,11 @@ Log("down: " + imagesDownSphere);
                  1]),
             fast.matrix4.translation(
                 m4t1,
-                [(gridXOff + xx + xOff - (texRowIndex % 2) * g.globals.rowOffset) * unitWidth,
-                 (gridYOff + yy + yOff) * -unitHeight,
+                [(si.gridXOff + xx + si.xOff - (texRowIndex % 2) * g.globals.rowOffset) * si.unitWidth,
+                 (si.gridYOff + yy + si.yOff) * -si.unitHeight,
                  0]));
         fast.matrix4.mul(worldViewProjection, world, g_viewProjection);
-        colorMult[0] = 1 + ((sx == texColIndex && sy == texRowIndex) ? 10 : 0);
+        colorMult[0] = 1 + ((sel.x == texColIndex && sel.y == texRowIndex) ? g.globals.selectionIntensity : 0);
         colorMult[1] = 1;
         colorMult[2] = 1;
         colorMult[3] = 1;
