@@ -422,8 +422,12 @@ var clientPositionToGridPosition = function(
       matrix, [normScreenX, normScreenY, v[2]]);
 
   // This formula seems wrong :-(
-  var x = pos[0];
-  var y = pos[1];
+
+  var unitWidth = g.globals.imageWidth * g.globals.imageSpacing * g.globals.imageScale;
+  var unitHeight = g.globals.imageHeight * g.globals.imageSpacing * g.globals.imageScale;
+
+  var x = pos[0] * unitWidth;
+  var y = pos[1] * unitHeight;
   return {x: x, y: y};
 };
 
@@ -561,16 +565,18 @@ function handleMouseMove(e) {
 }
 
 function handleMouseUp(e) {
-  down = false;
-  var pos = getMovePosition(e);
-  addMoveHistory(pos);
-  // Get the newest and oldest move times. If the are close then spin.
-  var oldest = moveHistory[0];
-  var newest = moveHistory[moveHistory.length - 1];
-  var elapsedTime = newest.time - oldest.time;
-  if (elapsedTime < 0.4) {
-    g_moveVelocityX =  (newest.position.x - oldest.position.x) / elapsedTime;
-    g_moveVelocityY = -(newest.position.y - oldest.position.y) / elapsedTime;
+  if (down) {
+    down = false;
+    var pos = getMovePosition(e);
+    addMoveHistory(pos);
+    // Get the newest and oldest move times. If the are close then spin.
+    var oldest = moveHistory[0];
+    var newest = moveHistory[moveHistory.length - 1];
+    var elapsedTime = newest.time - oldest.time;
+    if (elapsedTime < 0.4) {
+      g_moveVelocityX =  (newest.position.x - oldest.position.x) / elapsedTime;
+      g_moveVelocityY = -(newest.position.y - oldest.position.y) / elapsedTime;
+    }
   }
   return false;
 }
