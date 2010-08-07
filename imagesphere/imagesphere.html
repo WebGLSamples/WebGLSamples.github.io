@@ -422,12 +422,10 @@ var clientPositionToGridPosition = function(
       matrix, [normScreenX, normScreenY, v[2]]);
 
   // This formula seems wrong :-(
+  var unit = computeUnitSize();
 
-  var unitWidth = g.globals.imageWidth * g.globals.imageSpacing * g.globals.imageScale;
-  var unitHeight = g.globals.imageHeight * g.globals.imageSpacing * g.globals.imageScale;
-
-  var x = pos[0] * unitWidth;
-  var y = pos[1] * unitHeight;
+  var x = pos[0] / unit.width;
+  var y = pos[1] / unit.height;
   return {x: x, y: y};
 };
 
@@ -459,12 +457,18 @@ function getMovePosition(e) {
   return {x: g_lastMouseGridPosition.x, y: g_lastMouseGridPosition.y};
 }
 
+function computeUnitSize() {
+  return {
+    width: g.globals.imageWidth * g.globals.imageSpacing * g.globals.imageScale,
+    height: g.globals.imageHeight * g.globals.imageSpacing * g.globals.imageScale
+  };
+}
+
 function computeSphereGridInfo() {
+  var unit = computeUnitSize();
   var halfCircumfrence = Math.PI;
-  var unitWidth = g.globals.imageWidth * g.globals.imageSpacing * g.globals.imageScale;
-  var unitHeight = g.globals.imageHeight * g.globals.imageSpacing * g.globals.imageScale;
-  var imagesAcrossSphere = Math.floor(halfCircumfrence / unitWidth);
-  var imagesDownSphere = Math.floor(halfCircumfrence / unitHeight);
+  var imagesAcrossSphere = Math.floor(halfCircumfrence / unit.width);
+  var imagesDownSphere = Math.floor(halfCircumfrence / unit.height);
   var gridXOff = Math.floor(imagesAcrossSphere * -0.5);
   var gridYOff = Math.floor(imagesDownSphere * -0.5);
   var xOff = tdl.math.modClamp(g_scrollX % 1, 1);
@@ -473,8 +477,7 @@ function computeSphereGridInfo() {
   var texYBase = -tdl.math.modClamp(Math.floor(g_scrollY - gridYOff), g_imagesDownGrid);
 
   return {
-    unitWidth: unitWidth,
-    unitHeight: unitHeight,
+    unit: unit,
     imagesAcrossSphere: imagesAcrossSphere,
     imagesDownSphere: imagesDownSphere,
     gridXOff: gridXOff,
@@ -504,14 +507,14 @@ function computeSelection(si, mousePosition, mouseGridPosition) {
     var longAngle = Math.atan2(x, z);
     var d = Math.sqrt(x * x + z * z);
     var latAngle = Math.atan2(y, d);
-    var selectionX = longAngle / si.unitWidth;
-    var selectionY = latAngle  / si.unitHeight;
+    var selectionX = longAngle / si.unit.width;
+    var selectionY = latAngle  / si.unit.height;
     sphereSelection = {x: selectionX, y: selectionY};
   }
 
   var selection = {
-    x: mouseGridPosition.x / si.unitWidth,
-    y: mouseGridPosition.y / si.unitHeight,
+    x: mouseGridPosition.x / si.unit.width,
+    y: mouseGridPosition.y / si.unit.height,
   };
 
   if (sphereSelection) {
@@ -557,7 +560,7 @@ function handleMouseMove(e) {
   var pos = getMovePosition(e);
   if (down) {
     addMoveHistory(pos);
-    Dump("sc:", g_scrollX, scrollY);
+    //Dump("sc:", g_scrollX, scrollY);
     g_scrollX = scrollXStart + (pos.x - startX);
     g_scrollY = scrollYStart - (pos.y - startY);
   }
@@ -905,8 +908,8 @@ function initialize() {
                  1]),
             fast.matrix4.translation(
                 m4t1,
-                [(si.gridXOff + xx + si.xOff - (texRowIndex % 2) * g.globals.rowOffset) * si.unitWidth,
-                 (si.gridYOff + yy + si.yOff) * -si.unitHeight,
+                [(si.gridXOff + xx + si.xOff - (texRowIndex % 2) * g.globals.rowOffset) * si.unit.width,
+                 (si.gridYOff + yy + si.yOff) * -si.unit.height,
                  0]));
         fast.matrix4.mul(worldViewProjection, world, g_viewProjection);
         colorMult[0] = 1 + ((sel.x == texColIndex && sel.y == texRowIndex) ? g.globals.selectionIntensity : 0);
