@@ -232,7 +232,7 @@ ImgTexture = function() {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 256, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
   this.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   this.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  this.setParameter(gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  this.setParameter(gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
   this.setParameter(gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 }
 
@@ -270,6 +270,7 @@ ImgTexture.prototype.uploadTexture = function() {
   g_ctx2d.fillText(msg.substr(Math.floor(msg.length / 2)), 10, 240);
   gl.bindTexture(gl.TEXTURE_2D, this.texture);
   gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, g_canvas2d);
+  gl.generateMipmap(gl.TEXTURE_2D);
 };
 
 ImgTexture.prototype.bindToUnit = function(unit) {
