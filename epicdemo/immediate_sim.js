@@ -106,6 +106,17 @@ function ImmSim() {
     uvArray[count * 2 + 1] = vec[1]
     hasUV = true
   }
+  
+  // You must have started the batch with begin(gl.TRIANGLES) to use this.
+  // The quad spans X and Y, Z is constant.
+  this.quad2d = function(x, y, w, h, z) {
+    this.pos(x, y, z);         this.uv(0, 0); this.next();
+    this.pos(x + w, y, z);     this.uv(1, 0); this.next();
+    this.pos(x + w, y + h, z); this.uv(1, 1); this.next();
+    this.pos(x, y, z);         this.uv(0, 0); this.next();
+    this.pos(x + w, y + h, z); this.uv(1, 1); this.next();
+    this.pos(x, y + h, z);     this.uv(0, 1); this.next();
+  }
 
   this.next = function() {
     count++;

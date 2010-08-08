@@ -12,7 +12,7 @@ function FlowerEffect() {
 
   var model = new tdl.models.Model(program, arrays, textures);
 
-  var eyePosition = new Float32Array([0, 0, 4])
+  var eyePosition = new Float32Array([0, 0, 3])
   var target = new Float32Array([-1, 0, 0])
 
   var m4 = tdl.fast.matrix4
@@ -21,9 +21,10 @@ function FlowerEffect() {
   m4.lookAt(view, eyePosition, target, up);
 
   this.render = function(framebuffer, time, global_time) {
-    var t = (time - 0.1)
-    var boom = 1-(t % 1)
+    var boom = 1-(time % 1)
     boom *= boom * boom
+    var boom4 = (4-(time % 4)) / 4
+    boom4 *= boom4 * boom4 * boom4 * boom4 * boom4
     
     m4.rotationY(world, time)
     m4.mul(viewproj, view, proj)
@@ -38,8 +39,8 @@ function FlowerEffect() {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
     var uniformsConst = {
-      u_time: time - boom * 0.2,
-      u_color: (Math.floor(curBeat) % 4 == 0) ?
+      u_time: time,
+      u_color: (Math.floor(time % 4) == 0) ?
           [0.1 + boom*0.3, 0.2 + boom*0.3, 0.3 + boom*0.2, 0] : 
           [0.3 + boom*0.3, 0.1 + boom*0.3, 0.05 + boom*0.2, 0]
     }
@@ -51,6 +52,6 @@ function FlowerEffect() {
     gl.disable(gl.BLEND);
     
     // post.end(framebuffer, post.focusBlur, {x: 3, y: 3})
-    post.end(framebuffer, post.radialBlur, {strength: boom})
+    post.end(framebuffer, post.radialBlur, {strength: boom4})
   }
 }
