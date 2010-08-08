@@ -1,0 +1,391 @@
+<!--
+ * Copyright 2010, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+
+<!--
+
+Simple realtime demo system with a few basic effects, showing off
+synchronization to music. Written to be easy to understand and still
+efficient enough.
+
+100% coder art.
+100% coder music.
+coder code? if JS counts.
+
+-->
+
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+  "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>WebGL Demo FX</title>
+<style>
+body {
+  width: 100%;
+  height: 100%;
+  border: 0px;
+  padding: 0px;
+  margin: 0px;
+  background-color: white;
+}
+canvas {
+  background-color: gray;
+}
+canvas.invisible {
+  display: none;
+}
+#beat {
+  font-family: sans-serif;
+  margin: 4px;
+  padding: 4px;
+  background-color: #FFEE99;
+  border-width: 1px;
+}
+</style>
+<script type="text/javascript"
+  src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js">
+</script>
+<script type="text/javascript" src="../js/webgl-test-utils.js"></script>
+<script type="text/javascript" src="../js/webgl-debug.js"></script>
+<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript" src="flower.js"></script>
+
+<script type="text/javascript">
+
+tdl.require('tdl.fast');
+tdl.require('tdl.math');
+tdl.require('tdl.primitives');
+tdl.require('tdl.shader');
+tdl.require('tdl.programs');
+tdl.require('tdl.models');
+tdl.require('tdl.buffers');
+
+var gl;
+var canvas;
+var music;
+var aspect;
+
+var wu = WebGLTestUtils;  // some webgl utils
+var wd = WebGLDebugUtils; // more webgl utils
+
+// Useful global math constants
+var up = new Float32Array([0, 1, 0])
+
+var output = alert
+var curBeat = 0
+
+// A couple of simple effects here. The rest are spread out into
+// .js files.
+
+// Example really stupid effect. The time parameter is the time since
+// the effect was scheduled to start.
+function BeatClearEffect(color) {
+  this.render = function(framebuffer, time, global_time) {
+    var t = (time - 0.1)
+    var s = 1-(t % 1)
+    s *= s * s
+    gl.clearColor(color[0] * s, color[1] * s, color[2] * s, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+  }
+}
+
+// Used to make sure we don't leave spaces in the timeline
+function BlankEffect(color) {
+  this.render = function(framebuffer, time, global_time) {
+    gl.clearColor(color[0], color[1], color[2], 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+  }
+}
+
+function createProgramFromTags(vertexTagId, fragmentTagId) {
+  return tdl.programs.loadProgram(
+      document.getElementById(vertexTagId).text,
+      document.getElementById(fragmentTagId).text);
+}
+
+function SpinningCubeEffect() {
+  var arrays = tdl.primitives.createCube(1.0)
+  
+  var program = createProgramFromTags("spinning_cube_vs", "spinning_cube_fs")
+  var textures = []
+
+  var proj = new Float32Array(16)
+  var view = new Float32Array(16)
+  var world = new Float32Array(16)
+
+  var viewproj = new Float32Array(16)
+  var worldviewproj = new Float32Array(16)
+
+  var model = new tdl.models.Model(program, arrays, textures);
+
+  var eyePosition = new Float32Array([0, 0, 4])
+  var target = new Float32Array([0, 0, 0])
+
+  var m4 = tdl.fast.matrix4
+
+  m4.perspective(proj, tdl.math.degToRad(60), aspect, 0.1, 500);
+  m4.lookAt(view, eyePosition, target, up);
+
+  this.render = function(framebuffer, time, global_time) {
+    m4.rotationY(world, time)
+    m4.translate(world, [0, Math.sin(time * Math.PI), 0])
+    m4.mul(viewproj, view, proj)
+    m4.mul(worldviewproj, world, viewproj)
+
+    gl.clearColor(0.5,0.5,0.5,1)
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+    var uniformsConst = { }
+    var uniformsPer = {
+      u_worldviewproj: worldviewproj
+    }
+
+    model.drawPrep(uniformsConst)
+    model.draw(uniformsPer)
+  }
+}
+
+// Dead simple part scheduler and render initiator.
+// Takes a music <audio> tag as input, used for timing.
+function mainloop(music) {
+  // Repeatedly run render(), attempt to hold 60 but the demo is
+  // framerate independent so we will still keep sync even if we
+  // lose frames.
+  var intervalId = setInterval(render, 1000.0 / 60.0);
+
+  // Fit these to your song.
+  var BPM = 109.0
+  var timeStart = 0.0  // at what time does the beat start?
+
+  var timeScale = BPM / 60.0
+  var frameCount = 0
+  var lastTime = 0
+
+  // For debugging. If set, only show a single effect.
+  var singleEffect = null
+  // singleEffect = new FlowerEffect()
+  // This is where the demo is sequenced.
+  // Times are in timeScale units.
+  var parts = [
+    {start: 0,  end: 16,  fx: new FlowerEffect()},
+    {start: 16, end: 32,  fx: new SpinningCubeEffect()},
+    {start: 32, end: 64,  fx: new BeatClearEffect([0,1,0])},
+    {start: 64, end: 700, fx: new BeatClearEffect([0,1,0])}
+  ]
+
+  // Part that's shown when nothing else is scheduled. Pink is good for debugging.
+  var no_part = new BlankEffect([1,0,1])
+
+  function render() {
+    var music_time = (music.currentTime - timeStart) * timeScale
+
+    // Don't render if time is stopped.
+    if (music_time == lastTime) {
+      return;
+    } else {
+      lastTime = music_time
+    }
+
+    var beat = Math.floor(music_time)
+    if (beat != curBeat) {
+      curBeat = beat
+      var FPS = Math.round(frameCount * timeScale)
+      frameCount = 0
+      $('#beat').html('<b>' + (curBeat + 0) + ' (' + ((curBeat % 4) + 1) + ":" + (Math.floor(curBeat / 4) + 1) + ')</b> ' + FPS + " fps")
+    }
+    var any_rendered = false
+
+    // Always pass default framebuffer. might do transitions later and then it's
+    // important to have this hook so we can have the effect render to some other fb,
+    // and they can still do post process and then restore to the passed fb.
+    var framebuffer = null
+
+    if (singleEffect) {
+      singleEffect.render(framebuffer, music_time, music_time)
+    } else {
+      for (var i in parts) {
+        if (music_time >= parts[i].start && music_time < parts[i].end) {
+          parts[i].fx.render(framebuffer, music_time - parts[i].start, music_time)
+          any_rendered = true
+        }
+      }
+      if (!any_rendered) {
+        no_part.render(framebuffer, music_time)
+      }
+    }
+
+    frameCount++
+  }
+}
+
+function initializeGraphics() {
+  canvas = document.getElementById('render_area');
+  gl = wu.create3DContext(canvas)
+  aspect = canvas.clientWidth / canvas.clientHeight
+
+  // Set some sane defaults.
+  gl.disable(gl.BLEND);
+  gl.depthFunc(gl.LEQUAL);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+}
+
+$(document).ready(function() {
+  initializeGraphics()
+  music = document.getElementById('soundtrack');
+  music.volume = 0.13;
+  music.play();
+
+  // Kick it off!
+  mainloop(music)
+})
+
+</script>
+
+</head>
+
+<body>
+<canvas id="render_area" width="640" height="480"></canvas>
+<canvas class='invisible' id="texture_area" width="512" height="64"></canvas>
+<div>
+<audio id="soundtrack" src="music.ogg" controls>
+No support for the audio tag in this browser.
+Get <a href="http://www.google.com/chrome">Google Chrome</a>.
+</audio>
+<span id="beat">(beat)</span>
+</div>
+</body>
+
+<script id="spinning_cube_fs" type="x-shader/x-fragment">
+  #ifdef GL_ES
+  precision highp float;
+  #endif
+  varying vec4 v_color;
+  void main(void) {
+    gl_FragColor = v_color;
+  }
+</script>
+
+<script id="spinning_cube_vs" type="x-shader/x-vertex">
+  attribute vec3 position;
+  attribute vec3 normal;
+  attribute vec2 texCoord;
+
+  uniform mat4 u_worldviewproj;
+
+  varying vec4 v_color;
+
+  void main(void) {
+    v_color = vec4(1.0, 1.0, 1.0, 1.0);
+    gl_Position = u_worldviewproj * vec4(position, 1.0);
+  }
+</script>
+
+<script id="flower_fs" type="x-shader/x-fragment">
+  #ifdef GL_ES
+  precision highp float;
+  #endif
+  varying vec4 v_color;
+  // varying vec2 v_texCoord;
+  void main(void) {
+    gl_FragColor = v_color;
+  }
+</script>
+
+<script id="flower_vs" type="x-shader/x-vertex">
+  attribute vec3 position;
+  attribute vec3 normal;
+  attribute vec2 texCoord;
+
+  uniform vec4 u_color;
+  uniform mat4 u_worldviewproj;
+  uniform float u_time;
+  varying vec4 v_color;
+  varying vec2 v_texCoord;
+
+  vec3 rotateX(vec3 v, float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return vec3(v.x, c * v.y + s * v.z, -s * v.y + c * v.z);
+  }
+  vec3 rotateY(vec3 v, float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return vec3(c * v.x + s * v.z, v.y, -s * v.x + c * v.z);
+  }
+  vec3 rotateZ(vec3 v, float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return vec3(c * v.x + s * v.y, -s * v.x + c * v.y, v.z);
+  }
+
+  void main(void) {
+    vec2 tc = texCoord;
+    v_texCoord = tc;
+    v_color = u_color * (1.0 - tc.x);
+    gl_Position = u_worldviewproj * vec4(
+       rotateZ(rotateX(rotateY(position,
+           -u_time + tc.x*3.0), -u_time * 0.6 + tc.x*4.1), -u_time * 0.7 + tc.x*2.1), 1.0);
+  }
+</script>
+
+<script id="blur_fs" type="x-shader/x-fragment">
+  #ifdef GL_ES
+  precision highp float;
+  #endif
+  varying vec2 uv0;
+  varying vec2 uv1;
+  uniform sampler2D samp0;
+  uniform sampler2D samp1;
+
+  void main(void) {
+    vec4 color0 = texture2D(samp0, uv0);
+    vec4 color1 = texture2D(samp1, uv1);
+    gl_FragColor = color0 + color1
+  }
+</script>
+<script id="blur_vs" type="x-shader/x-vertex">
+  attribute vec3 vpos;
+  attribute vec2 a_uv0;
+  attribute vec2 a_uv1;
+  uniform mat4 uMatrix;
+  varying vec2 uv0;
+  varying vec2 uv1;
+
+  void main(void) {
+    float morph2 = morph;
+    gl_Position = uPMatrix * vec4(vpos, 1.0);
+    uv0 = a_uv0;
+    uv1 = a_uv1;
+  }
+</script>
+
+</html>
