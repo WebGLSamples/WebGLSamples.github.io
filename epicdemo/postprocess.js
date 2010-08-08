@@ -13,8 +13,8 @@ function QuadDrawer() {
   gl.bufferData(gl.ARRAY_BUFFER, quadVerts, gl.STATIC_DRAW)
   this.draw = function(program) {
     gl.bindBuffer(gl.ARRAY_BUFFER, quadPosBuf);
-    gl.enableVertexAttribArray(program.positionLoc)
-    gl.vertexAttribPointer(program.positionLoc, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(program.attribLoc["position"])
+    gl.vertexAttribPointer(program.attribLoc["position"], 3, gl.FLOAT, false, 0, 0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   } 
 }
@@ -88,6 +88,8 @@ function PostProcessor(w, h) {
     quad.draw(copyQuadProgram)
   }
 
+  // You can not call begin "recursively" unless your two effects use completely
+  // independent buffers.
   this.begin = function() {
     render_fb.bind()
   }

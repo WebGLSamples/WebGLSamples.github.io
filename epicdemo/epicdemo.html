@@ -79,6 +79,7 @@ canvas.invisible {
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript" src="flower.js"></script>
 <script type="text/javascript" src="postprocess.js"></script>
+<script type="text/javascript" src="immediate_sim.js"></script>
 <script type="text/javascript">
 
 tdl.require('tdl.fast');
@@ -107,6 +108,8 @@ var aspect;
 var backbuffer;
 var post;
 var quad;
+var imm;
+var log = window.console.log
 
 var wu = WebGLTestUtils;  // some webgl utils
 var wd = WebGLDebugUtils; // more webgl utils
@@ -176,6 +179,8 @@ function SpinningCubeEffect() {
     m4.mul(viewproj, view, proj)
     m4.mul(worldviewproj, world, viewproj)
 
+    post.begin()
+    
     gl.clearColor(0.5,0.5,0.5,1)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
@@ -186,6 +191,15 @@ function SpinningCubeEffect() {
 
     model.drawPrep(uniformsConst)
     model.draw(uniformsPer)
+    
+    // Draw a simple triangle sticking out of the cube, to show off the immediate mode simulator.
+    imm.begin(gl.TRIANGLES)
+    imm.pos(0, 0, 0); imm.next()
+    imm.pos(2, 2, 0); imm.next()
+    imm.pos(2, 0, 0); imm.next()
+    imm.end(program)
+    
+    post.end(framebuffer, post.focusBlur, {x: 2, y: 2})
   }
 }
 
@@ -207,6 +221,7 @@ function mainloop(music) {
 
   // For debugging. If set, only show a single effect.
   // var singleEffect = null
+  // singleEffect = new SpinningCubeEffect()
   singleEffect = new FlowerEffect()
 
   // This is where the demo is sequenced.
@@ -219,7 +234,7 @@ function mainloop(music) {
   ]
   
   // Part that's shown when nothing else is scheduled. Pink is good for debugging.
-  var no_part = new BlankEffect([1,0,1])
+  var no_part = new BlankEffect([1, 0, 1])
 
   function render() {
     var music_time = (music.currentTime - timeStart) * timeScale
@@ -270,6 +285,7 @@ function initializeGraphics() {
   quad = new QuadDrawer()
   backbuffer = tdl.framebuffers.getBackBuffer(canvas)
   post = new PostProcessor(canvas.clientWidth, canvas.clientHeight)
+  imm = new ImmSim()
 
   // Set some sane defaults.
   gl.disable(gl.BLEND);
@@ -379,12 +395,10 @@ Get <a href="http://www.google.com/chrome">Google Chrome</a>.
 
 <script id="quad_vs" type="text/something-not-javascript">
   attribute vec4 position;
-  attribute vec2 texCoord;
   varying vec4 v_position;
   varying vec2 v_texCoord;
   void main() {
     vec2 tc = (position.xy + vec2(1.0, 1.0)) / 2.0;
-    tc.y = 1.0 - tc.y;
     v_texCoord = tc;
     gl_Position = position;
   }

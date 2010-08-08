@@ -86,6 +86,9 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
   // Look up attribs.
   var attribs = {
   };
+  // Also make a plain table of the locs.
+  var attribLocs = {
+  };
 
   function createAttribSetter(info) {
     var index = gl.getAttribLocation(program, info.name);
@@ -108,6 +111,8 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
       name = name.substr(0, name.length - 3);
     }
     attribs[name] = createAttribSetter(info);
+    var index = gl.getAttribLocation(program, info.name);
+    attribLocs[name] = index
   }
 
   // Look up uniforms
@@ -205,6 +210,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
 
   this.program = program;
   this.attrib = attribs;
+  this.attribLoc = attribLocs;
   this.uniform = uniforms;
 };
 
