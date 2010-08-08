@@ -58,7 +58,7 @@ body {
   background-color: white;
 }
 canvas {
-  background-color: gray;
+  background-color: red;
 }
 canvas.invisible {
   display: none;
@@ -78,7 +78,7 @@ canvas.invisible {
 <script type="text/javascript" src="../js/webgl-debug.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript" src="flower.js"></script>
-
+<script type="text/javascript" src="postprocess.js"></script>
 <script type="text/javascript">
 
 tdl.require('tdl.fast');
@@ -88,11 +88,25 @@ tdl.require('tdl.shader');
 tdl.require('tdl.programs');
 tdl.require('tdl.models');
 tdl.require('tdl.buffers');
+tdl.require('tdl.framebuffers');
+tdl.require('tdl.textures');
+
+// Util functions
+function createProgramFromTags(vertexTagId, fragmentTagId) {
+  return tdl.programs.loadProgram(
+      document.getElementById(vertexTagId).text,
+      document.getElementById(fragmentTagId).text);
+}
 
 var gl;
 var canvas;
 var music;
 var aspect;
+
+// Use this to refer to the backbuffer as if it were another framebuffer
+var backbuffer;
+var post;
+var quad;
 
 var wu = WebGLTestUtils;  // some webgl utils
 var wd = WebGLDebugUtils; // more webgl utils
@@ -105,6 +119,12 @@ var curBeat = 0
 
 // A couple of simple effects here. The rest are spread out into
 // .js files.
+
+// Effect are defined as simple constructor functions that add a 
+// .render method to themselves. render() takes three arguments:
+//   framebuffer:   the currently bound framebuffer, so that it can be restored if necessary
+//   time:          time since the effect started running.
+//   global_time:   time since the demo started running.
 
 // Example really stupid effect. The time parameter is the time since
 // the effect was scheduled to start.
@@ -126,15 +146,10 @@ function BlankEffect(color) {
   }
 }
 
-function createProgramFromTags(vertexTagId, fragmentTagId) {
-  return tdl.programs.loadProgram(
-      document.getElementById(vertexTagId).text,
-      document.getElementById(fragmentTagId).text);
-}
-
+// Basic sample effect that actually draws something.
+// Good starting point for new effects.
 function SpinningCubeEffect() {
   var arrays = tdl.primitives.createCube(1.0)
-  
   var program = createProgramFromTags("spinning_cube_vs", "spinning_cube_fs")
   var textures = []
 
@@ -191,8 +206,9 @@ function mainloop(music) {
   var lastTime = 0
 
   // For debugging. If set, only show a single effect.
-  var singleEffect = null
-  // singleEffect = new FlowerEffect()
+  // var singleEffect = null
+  singleEffect = new FlowerEffect()
+
   // This is where the demo is sequenced.
   // Times are in timeScale units.
   var parts = [
@@ -201,7 +217,7 @@ function mainloop(music) {
     {start: 32, end: 64,  fx: new BeatClearEffect([0,1,0])},
     {start: 64, end: 700, fx: new BeatClearEffect([0,1,0])}
   ]
-
+  
   // Part that's shown when nothing else is scheduled. Pink is good for debugging.
   var no_part = new BlankEffect([1,0,1])
 
@@ -227,7 +243,7 @@ function mainloop(music) {
     // Always pass default framebuffer. might do transitions later and then it's
     // important to have this hook so we can have the effect render to some other fb,
     // and they can still do post process and then restore to the passed fb.
-    var framebuffer = null
+    var framebuffer = backbuffer
 
     if (singleEffect) {
       singleEffect.render(framebuffer, music_time, music_time)
@@ -249,8 +265,11 @@ function mainloop(music) {
 
 function initializeGraphics() {
   canvas = document.getElementById('render_area');
-  gl = wu.create3DContext(canvas)
+  gl = WebGLDebugUtils.makeDebugContext(wu.create3DContext(canvas))
   aspect = canvas.clientWidth / canvas.clientHeight
+  quad = new QuadDrawer()
+  backbuffer = tdl.framebuffers.getBackBuffer(canvas)
+  post = new PostProcessor(canvas.clientWidth, canvas.clientHeight)
 
   // Set some sane defaults.
   gl.disable(gl.BLEND);
@@ -358,34 +377,69 @@ Get <a href="http://www.google.com/chrome">Google Chrome</a>.
   }
 </script>
 
-<script id="blur_fs" type="x-shader/x-fragment">
+<script id="quad_vs" type="text/something-not-javascript">
+  attribute vec4 position;
+  attribute vec2 texCoord;
+  varying vec4 v_position;
+  varying vec2 v_texCoord;
+  void main() {
+    vec2 tc = (position.xy + vec2(1.0, 1.0)) / 2.0;
+    tc.y = 1.0 - tc.y;
+    v_texCoord = tc;
+    gl_Position = position;
+  }
+</script>
+
+<script id="blur_fs" type="text/something-not-javascript">
   #ifdef GL_ES
   precision highp float;
   #endif
-  varying vec2 uv0;
-  varying vec2 uv1;
-  uniform sampler2D samp0;
-  uniform sampler2D samp1;
-
-  void main(void) {
-    vec4 color0 = texture2D(samp0, uv0);
-    vec4 color1 = texture2D(samp1, uv1);
-    gl_FragColor = color0 + color1
+  varying vec2 v_texCoord;
+  uniform vec2 blurSize;
+  uniform sampler2D mainSampler;
+  void main() {
+     vec4 sum = vec4(0.0);
+  
+     sum += texture2D(mainSampler, v_texCoord - 4.0 * blurSize) * 0.05;
+     sum += texture2D(mainSampler, v_texCoord - 3.0 * blurSize) * 0.09;
+     sum += texture2D(mainSampler, v_texCoord - 2.0 * blurSize) * 0.12;
+     sum += texture2D(mainSampler, v_texCoord - 1.0 * blurSize) * 0.15;
+     sum += texture2D(mainSampler, v_texCoord                 ) * 0.16;
+     sum += texture2D(mainSampler, v_texCoord + 1.0 * blurSize) * 0.15;
+     sum += texture2D(mainSampler, v_texCoord + 2.0 * blurSize) * 0.12;
+     sum += texture2D(mainSampler, v_texCoord + 3.0 * blurSize) * 0.09;
+     sum += texture2D(mainSampler, v_texCoord + 4.0 * blurSize) * 0.05;
+  
+     gl_FragColor = sum * 1.0;
   }
 </script>
-<script id="blur_vs" type="x-shader/x-vertex">
-  attribute vec3 vpos;
-  attribute vec2 a_uv0;
-  attribute vec2 a_uv1;
-  uniform mat4 uMatrix;
-  varying vec2 uv0;
-  varying vec2 uv1;
 
-  void main(void) {
-    float morph2 = morph;
-    gl_Position = uPMatrix * vec4(vpos, 1.0);
-    uv0 = a_uv0;
-    uv1 = a_uv1;
+<script id="radial_fs" type="text/something-not-javascript">
+  #ifdef GL_ES
+  precision highp float;
+  #endif
+  varying vec2 v_texCoord;
+  uniform sampler2D mainSampler;
+  uniform float amount;
+  // TODO: Most of the math could be moved into the vertex shader, for massive
+  // fill boost.
+  void main() {
+    vec4 c1 = texture2D(mainSampler, v_texCoord);
+    vec4 c2 = texture2D(mainSampler, 0.5 + (v_texCoord-0.5) * (1.0 / (1.0 + amount)));
+    vec4 c3 = texture2D(mainSampler, 0.5 + (v_texCoord-0.5) * (1.0 / (1.0 + amount * 0.5)));
+    vec4 c4 = texture2D(mainSampler, 0.5 + (v_texCoord-0.5) * (1.0 / (1.0 + amount * 1.5)));
+    gl_FragColor = (c1 + c2 + c3 + c4) / 4.0;
+  }
+</script>
+
+<script id="copy_fs" type="text/something-not-javascript">
+  #ifdef GL_ES
+  precision highp float;
+  #endif
+  varying vec2 v_texCoord;
+  uniform sampler2D mainSampler;
+  void main() {
+     gl_FragColor = texture2D(mainSampler, v_texCoord);
   }
 </script>
 

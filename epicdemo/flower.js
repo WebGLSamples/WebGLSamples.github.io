@@ -29,7 +29,9 @@ function FlowerEffect() {
     m4.mul(viewproj, view, proj)
     m4.mul(worldviewproj, world, viewproj)
 
-    gl.clearColor(0.1,0.2,0.3,1)
+    post.begin()
+    
+    gl.clearColor(0.1, 0.2, 0.3, 1)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     gl.disable(gl.CULL_FACE);
     gl.disable(gl.DEPTH_TEST);
@@ -47,5 +49,8 @@ function FlowerEffect() {
     model.drawPrep(uniformsConst)
     model.draw(uniformsPer)
     gl.disable(gl.BLEND);
+    
+    // post.end(framebuffer, post.focusBlur, {x: 3, y: 3})
+    post.end(framebuffer, post.radialBlur, {strength: boom})
   }
 }

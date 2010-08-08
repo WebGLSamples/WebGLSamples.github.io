@@ -49,6 +49,23 @@ tdl.framebuffers.createFramebuffer = function(width, height, opt_depth) {
   return new tdl.framebuffers.Framebuffer(width, height, opt_depth);
 }
 
+tdl.framebuffers.BackBuffer = function(canvas) {
+  this.width = canvas.clientWidth
+  this.height = canvas.clientHeight
+  this.depth = true
+  this.buffer = null
+  this.bind = function() {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null) 
+    gl.viewport(0, 0, this.width, this.height);
+  }
+}
+
+// Use this where you need to pass in a framebuffer, but you really
+// mean the backbuffer, so that binding it works as expected.
+tdl.framebuffers.getBackBuffer = function(canvas) {
+  return new tdl.framebuffers.BackBuffer(canvas)
+}
+
 tdl.framebuffers.Framebuffer = function(width, height, opt_depth) {
   this.width = width;
   this.height = height;
