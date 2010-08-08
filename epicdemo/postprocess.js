@@ -33,7 +33,7 @@ function PostProcessor(w, h) {
   
   var blurQuadProgram = createProgramFromTags("quad_vs", "blur_fs")
   var copyQuadProgram = createProgramFromTags("quad_vs", "copy_fs")
-  var radialQuadProgram = createProgramFromTags("quad_vs", "radial_fs")
+  var radialQuadProgram = createProgramFromTags("radial_vs", "radial_fs")
   
   this.focusBlur = function(framebuffer, params) {
     blurQuadProgram.use()

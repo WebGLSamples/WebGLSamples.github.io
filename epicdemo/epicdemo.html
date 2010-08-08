@@ -414,20 +414,41 @@ Get <a href="http://www.google.com/chrome">Google Chrome</a>.
   }
 </script>
 
+<script id="radial_vs" type="text/something-not-javascript">
+  attribute vec4 position;
+  attribute vec2 texCoord;
+  varying vec4 v_position;
+  varying vec2 v_texCoord0;
+  varying vec2 v_texCoord1;
+  varying vec2 v_texCoord2;
+  varying vec2 v_texCoord3;
+  uniform float amount;
+  void main() {
+    vec2 tc = (position.xy + vec2(1.0, 1.0)) / 2.0;
+    tc.y = 1.0 - tc.y;
+    v_texCoord0 = tc;
+    v_texCoord1 = 0.5 + (tc-0.5) * (1.0 / (1.0 + amount));
+    v_texCoord2 = 0.5 + (tc-0.5) * (1.0 / (1.0 + amount * 0.5));
+    v_texCoord3 = 0.5 + (tc-0.5) * (1.0 / (1.0 + amount * 1.5));
+    gl_Position = position;
+  }
+</script>
+
 <script id="radial_fs" type="text/something-not-javascript">
   #ifdef GL_ES
   precision highp float;
   #endif
-  varying vec2 v_texCoord;
+  varying vec2 v_texCoord0;
+  varying vec2 v_texCoord1;
+  varying vec2 v_texCoord2;
+  varying vec2 v_texCoord3;
   uniform sampler2D mainSampler;
   uniform float amount;
-  // TODO: Most of the math could be moved into the vertex shader, for massive
-  // fill boost.
   void main() {
-    vec4 c1 = texture2D(mainSampler, v_texCoord);
-    vec4 c2 = texture2D(mainSampler, 0.5 + (v_texCoord-0.5) * (1.0 / (1.0 + amount)));
-    vec4 c3 = texture2D(mainSampler, 0.5 + (v_texCoord-0.5) * (1.0 / (1.0 + amount * 0.5)));
-    vec4 c4 = texture2D(mainSampler, 0.5 + (v_texCoord-0.5) * (1.0 / (1.0 + amount * 1.5)));
+    vec4 c1 = texture2D(mainSampler, v_texCoord0);
+    vec4 c2 = texture2D(mainSampler, v_texCoord1);
+    vec4 c3 = texture2D(mainSampler, v_texCoord2);
+    vec4 c4 = texture2D(mainSampler, v_texCoord3);
     gl_FragColor = (c1 + c2 + c3 + c4) / 4.0;
   }
 </script>
