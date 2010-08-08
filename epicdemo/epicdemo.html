@@ -80,6 +80,8 @@ canvas.invisible {
 <script type="text/javascript" src="flower.js"></script>
 <script type="text/javascript" src="postprocess.js"></script>
 <script type="text/javascript" src="immediate_sim.js"></script>
+<script type="text/javascript" src="marching_cubes_tables.js"></script>
+<script type="text/javascript" src="marching_cubes.js"></script>
 <script type="text/javascript">
 
 tdl.require('tdl.fast');
@@ -109,7 +111,7 @@ var backbuffer;
 var post;
 var quad;
 var imm;
-var log = window.console.log
+// var log = window.console.log
 
 var wu = WebGLTestUtils;  // some webgl utils
 var wd = WebGLDebugUtils; // more webgl utils
@@ -220,16 +222,17 @@ function mainloop(music) {
   var lastTime = 0
 
   // For debugging. If set, only show a single effect.
-  // var singleEffect = null
+  var singleEffect = null
   // singleEffect = new SpinningCubeEffect()
-  singleEffect = new FlowerEffect()
-
+  // singleEffect = new FlowerEffect()
+  // singleEffect = new MarchingCubesEffect()
+  
   // This is where the demo is sequenced.
   // Times are in timeScale units.
   var parts = [
-    {start: 0,  end: 16,  fx: new FlowerEffect()},
-    {start: 16, end: 32,  fx: new SpinningCubeEffect()},
-    {start: 32, end: 64,  fx: new BeatClearEffect([0,1,0])},
+    {start: 0,  end: 32,  fx: new FlowerEffect()},
+    {start: 32, end: 64,  fx: new MarchingCubesEffect()},
+    {start: 64, end: 128, fx: new BeatClearEffect([0,1,0])},
     {start: 64, end: 700, fx: new BeatClearEffect([0,1,0])}
   ]
   
@@ -339,7 +342,7 @@ Get <a href="http://www.google.com/chrome">Google Chrome</a>.
   varying vec4 v_color;
 
   void main(void) {
-    v_color = vec4(1.0, 1.0, 1.0, 1.0);
+    v_color = vec4(position.x + 0.5, position.y + 0.5, position.z + 0.5, 1.0);
     gl_Position = u_worldviewproj * vec4(position, 1.0);
   }
 </script>
