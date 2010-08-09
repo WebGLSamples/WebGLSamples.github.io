@@ -95,11 +95,11 @@ function MarchingCubesEffect() {
 
   var model = new tdl.models.Model(program, arrays, textures);
 
-  var eyePosition = new Float32Array([0, 0, 4])
-  var target = new Float32Array([0, 0, 0])
+  var eyePosition = new Float32Array([0, 0, 2])
+  var target = new Float32Array([0.3, 0, 0])
 
   // Marching cubes data
-  var size = 20
+  var size = 32
   var field = new Float32Array(size * size * size)
 
   var m4 = tdl.fast.matrix4
@@ -132,26 +132,27 @@ function MarchingCubesEffect() {
     }
 
     // Fill the field
-    for (var i = 0; i < 2; i++) {
+    for (var i = 0; i < 5; i++) {
+      var ballx = Math.sin(i + time * (1 + 0.1 * i)) * 0.5;
+      var bally = Math.cos(i + time * (1.2 + 0.14 * i)) * 0.5;
+      var ballz = Math.cos(i + time * (0.9 + 0.23 * i)) * 0.5;
+
       for (var z = 0; z < size; z++) {
         var z_offset = size * size * z;
-        var fz = (z - (size/2)) / (size/2)
+        var fz = (z - (size/2)) / (size/2) - ballz
         for (var y = 0; y < size; y++) {
           var y_offset = z_offset + size * y;
-          var fy = (y - (size/2)) / (size/2)
+          var fy = (y - (size/2)) / (size/2) - bally
           for (var x = 0; x < size; x++) {
-            var fx = (x - (size/2)) / (size/2)
-            if (i == 1) fx -= Math.sin(time) * 2;
-            var ffy = fy
-
-            var val = 1.0/(0.15 + fx * fx + ffy * ffy + fz * fz) * 0.07
+            var fx = (x - (size/2)) / (size/2) - ballx
+            var val = 1.0/(0.01 + fx * fx + fy * fy + fz * fz) * 0.01
             field[y_offset + x] += val
           }
         }
       }
     }
 
-    var isolevel = 0.3// + Math.sin(time) * 0.04
+    var isolevel = 0.2
 
     imm.begin(gl.TRIANGLES, program)
     var d = 1.0 / (size / 2);
