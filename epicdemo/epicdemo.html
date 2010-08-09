@@ -360,11 +360,19 @@ Get <a href="http://www.google.com/chrome">Google Chrome</a>.
   uniform vec4 u_ambientDown;
   uniform vec3 u_lightDir;
   uniform vec4 u_lightColor;
+  varying vec3 v_eyeDir;
   void main(void) {
     float light = max(0.0, dot(normalize(u_lightDir), v_normal));
+    float glare = max(0.0, dot(v_normal, normalize(v_eyeDir + u_lightDir)));
+    glare = glare*glare;
+    glare = glare*glare;
+    glare = glare*glare;
+    glare = glare*glare;
+    glare = glare*glare;
+    glare = glare*glare;
     vec4 ambient = mix(u_ambientDown, u_ambientUp, (v_normal.y + 1.0)/2.0);
     // Gamma correction approximation (sqrt)
-    gl_FragColor = sqrt(ambient + light * u_lightColor);
+    gl_FragColor = sqrt(ambient + light * u_lightColor + glare);
   }
 </script>
 
@@ -374,13 +382,17 @@ Get <a href="http://www.google.com/chrome">Google Chrome</a>.
   attribute vec2 texCoord;
 
   uniform mat4 u_worldviewproj;
+  uniform mat4 u_worldview;
+  uniform mat4 u_world;
 
   varying vec4 v_color;
   varying vec3 v_normal;
+  varying vec3 v_eyeDir;
 
   void main(void) {
     v_color = vec4(position.x + 0.5, position.y + 0.5, position.z + 0.5, 1.0);
-    v_normal = normalize(normal);
+    v_normal = (u_world * vec4(normalize(normal), 0.0)).xyz;
+    v_eyeDir = -normalize((u_worldview * vec4(position, 1.0)).xyz);
     gl_Position = u_worldviewproj * vec4(position, 1.0);
   }
 </script>

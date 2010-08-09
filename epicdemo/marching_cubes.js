@@ -16,6 +16,8 @@ function MarchingCubesEffect() {
   var view = new Float32Array(16)
   var world = new Float32Array(16)
 
+
+  var worldview = new Float32Array(16)
   var viewproj = new Float32Array(16)
   var worldviewproj = new Float32Array(16)
 
@@ -198,6 +200,7 @@ function MarchingCubesEffect() {
     m4.rotationY(world, time * 0.2)
     m4.translate(world, [0, 0*Math.sin(time)*0.5, 0])
     m4.mul(viewproj, view, proj)
+    m4.mul(worldview, world, view)
     m4.mul(worldviewproj, world, viewproj)
 
     gl.clearColor(0.2,0.15,0.12,1)
@@ -207,7 +210,9 @@ function MarchingCubesEffect() {
 
     var uniformsConst = {
       u_worldviewproj: worldviewproj,
-      u_lightDir: [1.0, 1.0, 1.0],
+      u_worldview: worldview,
+      u_world: world,
+      u_lightDir: [-1.0, 1.0, 1.0],
       u_lightColor: [0.8, 0.7, 0.6, 1.0],
       u_ambientUp: [0.05, 0.1, 0.2, 1.0],
       u_ambientDown: [0.15, 0.075, 0.01, 1.0],
