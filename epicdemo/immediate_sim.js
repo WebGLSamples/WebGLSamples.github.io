@@ -19,10 +19,11 @@ function ImmSim() {
   var normalBuf = gl.createBuffer()
   var uvBuf     = gl.createBuffer()
 
-  var count = 0, prim = 0
+  var count = 0, prim = 0, primsize = 0
   var hasPos, hasNormal, hasUV
 
-  var maxCount = 1024
+  // TODO: Find the fastest size for this buffer.
+  var maxCount = 4096
   var program = null
   
   var posArray    = new Float32Array(maxCount * 3)
@@ -31,6 +32,15 @@ function ImmSim() {
 
   this.begin = function(primitive, p_program) {
     prim      = primitive
+    switch (prim) {
+      case gl.TRIANGLES:
+        primsize = 3
+        break;
+      case gl.LINES:
+        primsize = 2
+        break;
+      // TODO: Add more.
+    }
     program   = p_program
     count     = 0
     hasPos    = false
@@ -127,7 +137,10 @@ function ImmSim() {
     count++;
     // keep some safety margin before we flush.
     if (count >= maxCount - 3) {
-      this.draw()
+      // TODO: Fix for other things than triangles and lines
+      if ((count % primsize) == 0) {
+        this.draw()
+      }
     }
   }
 }

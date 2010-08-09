@@ -99,7 +99,7 @@ function MarchingCubesEffect() {
   var target = new Float32Array([0, 0, 0])
 
   // Marching cubes data
-  var size = 8
+  var size = 20
   var field = new Float32Array(size * size * size)
 
   var m4 = tdl.fast.matrix4
