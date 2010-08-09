@@ -194,12 +194,12 @@ function MarchingCubesEffect() {
         var subtract = 12
         var strength = 1.2
         var radius = size * Math.sqrt(strength / subtract)
-        var min_z = 1 //ballz * size - radius; if (min_z < 1) min_z = 1
-        var max_z = size - 1 //ballz * size + radius; if (max_z > size - 1) max_z = size - 1
-        var min_y = 1 // bally * size - radius; if (min_y < 1) min_y = 1
-        var max_y = size - 1 // bally * size + radius; if (max_y > size - 1) max_y = size - 1
-        var min_x = 1 // ballx * size - radius; if (min_x < 1) min_x = 1
-        var max_x = size - 1 //ballx * size + radius; if (max_x > size - 1) max_x = size - 1
+        var min_z = Math.floor(ballz * size - radius); if (min_z < 1) {min_z = 1;}
+        var max_z = Math.floor(ballz * size + radius); if (max_z > size - 1) max_z = size - 1
+        var min_y = Math.floor(bally * size - radius); if (min_y < 1) min_y = 1
+        var max_y = Math.floor(bally * size + radius); if (max_y > size - 1) max_y = size - 1
+        var min_x = Math.floor(ballx * size - radius); if (min_x < 1) min_x = 1
+        var max_x = Math.floor(ballx * size + radius); if (max_x > size - 1) max_x = size - 1
         // Don't polygonize in the outer layer because normals aren't
         // well-defined there.
         for (var z = min_z; z < max_z; z++) {
