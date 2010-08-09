@@ -40,11 +40,16 @@ body {
   height: 100%;
   border: 0px;
   padding: 0px;
-  margin: 0px;
+  margin: 5px;
   background-color: white;
 }
 canvas {
   background-color: red;
+}
+#instructions {
+  background-color: #FFEEBB;
+  font-family: sans-serif;
+  padding: 4px;
 }
 </style>
 <script type="text/javascript"
@@ -101,9 +106,11 @@ $(document).ready(function() {
 
 <body>
 <canvas id="render_area" width="640" height="480"></canvas>
-<div>
-The white bars above should move perfectly smoothly.
-Follow them with your eye. Any jank is unacceptable.
-</div>
+<br>
+<br>
+<span id="instructions">
+The white bars should move perfectly smoothly.
+<b>Follow them with your eye.</b> Any jank/jitter = FAIL
+</span>
 </body>
 </html>
