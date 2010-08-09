@@ -96,6 +96,14 @@ function ImmSim() {
     hasPos = true
   }
 
+  this.posvoff = function(vec, offset) {
+    posArray[count * 3 + 0] = vec[0 + offset]
+    posArray[count * 3 + 1] = vec[1 + offset]
+    posArray[count * 3 + 2] = vec[2 + offset]
+    hasPos = true
+  }
+
+
   this.normal = function(x, y, z) {
     normalArray[count * 3]     = x
     normalArray[count * 3 + 1] = y
