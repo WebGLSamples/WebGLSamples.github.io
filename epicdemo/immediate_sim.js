@@ -39,6 +39,9 @@ function ImmSim() {
       case gl.LINES:
         primsize = 2
         break;
+      case gl.POINTS:
+        primsize = 1
+        break;
       // TODO: Add more.
     }
     program   = p_program
@@ -106,7 +109,7 @@ function ImmSim() {
     posArray[count * 3 + 0] = pos[0 + offset]
     posArray[count * 3 + 1] = pos[1 + offset]
     posArray[count * 3 + 2] = pos[2 + offset]
-    normalArray[count * 3 + 0] = norm[0 + offset]
+    normalArray[count * 3 + 0] = norm[0 + offset] 
     normalArray[count * 3 + 1] = norm[1 + offset]
     normalArray[count * 3 + 2] = norm[2 + offset]
     hasPos = true

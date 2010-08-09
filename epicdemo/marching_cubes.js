@@ -1,8 +1,8 @@
 // Marching cubes in Javascript
 //
-// Extremely badly and suboptimally implemented.
-//
 // Yes, this is madness. But this should test those JS engines!
+// Does not do simple optimizations like vertex sharing. Nevertheless,
+// performance is quite acceptable on Chrome.
 //
 // Converted from the standard C implementation that's all over the web.
 
@@ -76,9 +76,9 @@ function MarchingCubesEffect() {
 
   function compNorm(q) {
     if (normal_cache[q*3] == 0.0) {
-      normal_cache[q*3    ] = field[q+1]  - field[q-1]
-      normal_cache[q*3 + 1] = field[q+yd] - field[q-yd]
-      normal_cache[q*3 + 2] = field[q+zd] - field[q-zd]
+      normal_cache[q*3    ] = field[q-1]  - field[q+1]
+      normal_cache[q*3 + 1] = field[q-yd] - field[q+yd]
+      normal_cache[q*3 + 2] = field[q-zd] - field[q+zd]
     }
   }
 
@@ -155,7 +155,7 @@ function MarchingCubesEffect() {
 
     var uniformsConst = {
       u_worldviewproj: worldviewproj,
-      u_lightDir: [1.0, -1.0, 1.0],
+      u_lightDir: [1.0, 1.0, 1.0],
       u_lightColor: [0.8, 0.7, 0.6, 0.0],
       u_ambientUp: [0.05, 0.1, 0.2, 0.0],
       u_ambientDown: [0.15, 0.075, 0.01, 0.0],
@@ -176,9 +176,10 @@ function MarchingCubesEffect() {
       for (var i = 0; i < size * size * size; i++) {
         field[i] = 0.0
       }
-      // Fill the field with some metaballs. This is actually fairly fast but
-      // can be optimized using balls that fade out to zero, and bounding boxes.
-      // TODO: fix this stuff, it doesn't work yet
+      // Fill the field with some metaballs. Could be optimized using balls
+      // that fade out to zero, and bounding boxes.
+      //
+      // TODO: fix this optimization stuff, it doesn't work yet
       //
       // Let's solve the equation to find the radius:
       // 1.0 / (0.000001 + radius^2) * strength - subtract = 0
@@ -221,9 +222,7 @@ function MarchingCubesEffect() {
 
     imm.begin(gl.TRIANGLES, program)
 
-    // Triangulate. This is the really slow part and it's done in a
-    // hopelessly suboptimal way currently.
-    // polygonize(0, 0, 0, size * size + size + 3, isol)
+    // Triangulate. Yeah, this is slow.
     var size2 = size / 2.0
     for (var z = 0; z < size - 1; z++) {
       var z_offset = size * size * z;
@@ -238,11 +237,6 @@ function MarchingCubesEffect() {
         }
       }
     }
-    var corners = new Float32Array([0,0,0,0,4,0,4,4,0])
-    var corners_norm = new Float32Array([0,1,0,0,1,0,0,1,0])
-    //imm.posnormvoff(corners, corners_norm, 0);imm.next()
-    //imm.posnormvoff(corners, corners_norm, 3);imm.next()
-    //imm.posnormvoff(corners, corners_norm, 6);imm.next()
     imm.end()
   }
 }
