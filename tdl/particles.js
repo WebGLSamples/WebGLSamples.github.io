@@ -1081,7 +1081,10 @@ tdl.particles.ParticleEmitter.prototype.draw = function(world, viewProjection, t
 
   var shader = this.particleSystem.shaders[this.billboard_ ? 1 : 0];
   shader.bind();
-  var tmpWorld = tdl.fast.matrix4.copy(world);
+
+
+  var tmpWorld = new Float32Array(16);
+  tdl.fast.matrix4.copy(tmpWorld, world);
 
   tdl.fast.matrix4.translate(tmpWorld, this.translation_);
   gl.uniformMatrix4fv(shader.worldLoc,

@@ -152,8 +152,8 @@ function Log(msg) {
 function LogGLCall(functionName, args) {
   if (g_logGLCalls) {
     ValidateNoneOfTheArgsAreUndefined(functionName, args)
-    console.log("gl." + functionName + "(" +
-                wd.glFunctionArgsToString(functionName, args) + ")");
+    wu.log("gl." + functionName + "(" +
+           wd.glFunctionArgsToString(functionName, args) + ")");
   }
 }
 
@@ -174,7 +174,7 @@ function Dump() {
       lastArgWasNumber = false;
     }
   }
-  console.log(strs.join(""));
+  wu.log(strs.join(""));
 }
 
 function createProgramFromTags(vertexTagId, fragmentTagId) {
@@ -940,7 +940,7 @@ function getParamId(id) {
 function setParam(event, ui, obj) {
   var id = event.target.id;
   var value = ui.value / 1000;
-  console.log(id + ": " + value);
+  wu.log(id + ": " + value);
   obj[id] = value;
 }
 
