@@ -21,10 +21,10 @@ function MarchingCubesEffect() {
 
   var model = new tdl.models.Model(program, arrays, textures);
 
-  var eyePosition = new Float32Array([0, 0, 2])
+  var eyePosition = new Float32Array([0, 0, 1.7])
   var target = new Float32Array([0.3, 0, 0])
 
-  // Marching cubes data
+  // Size of field. 32 is pushing it in Javascript :)
   var size = 32
   // Deltas
   var delta = 2.0 / size
@@ -126,7 +126,7 @@ function MarchingCubesEffect() {
     if (bits & 256)  {compNorm(q);       compNorm(q+zd);      VIntZ(q*3,        vlist, nlist, 24, isol, fx,  fy,  fz, field0, field4); }
     if (bits & 512)  {compNorm(q+1);     compNorm(q+1+zd);    VIntZ((q+1)*3,    vlist, nlist, 27, isol, fx2, fy,  fz, field1, field5); }
     if (bits & 1024) {compNorm(q+1+yd);  compNorm(q+1+yd+zd); VIntZ((q+1+yd)*3, vlist, nlist, 30, isol, fx2, fy2, fz, field3, field7); }
-    if (bits & 2048) {compNorm(q+yd);    compNorm(q+yd+zd);   VIntZ(q*3,        vlist, nlist, 33, isol, fx,  fy2, fz, field2, field6); }
+    if (bits & 2048) {compNorm(q+yd);    compNorm(q+yd+zd);   VIntZ((q+yd)*3,   vlist, nlist, 33, isol, fx,  fy2, fz, field2, field6); }
 
     cubeindex <<= 4  // Re-purpose cubeindex into an offset into triTable.
     var numtris = 0, i = 0;
@@ -148,13 +148,17 @@ function MarchingCubesEffect() {
     m4.mul(viewproj, view, proj)
     m4.mul(worldviewproj, world, viewproj)
 
-    gl.clearColor(0.2,0.2,0.2,1)
+    gl.clearColor(0.2,0.15,0.12,1)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     gl.enable(gl.DEPTH_TEST)
     gl.enable(gl.CULL_FACE)
 
     var uniformsConst = {
-      u_worldviewproj: worldviewproj
+      u_worldviewproj: worldviewproj,
+      u_lightDir: [1.0, -1.0, 1.0],
+      u_lightColor: [0.8, 0.7, 0.6, 0.0],
+      u_ambientUp: [0.05, 0.1, 0.2, 0.0],
+      u_ambientDown: [0.15, 0.075, 0.01, 0.0],
     }
     var uniformsPer = {
       u_worldviewproj: worldviewproj
@@ -165,8 +169,6 @@ function MarchingCubesEffect() {
     // Wipe the normal cache.
     for (var i = 0; i < size * size * size; i++) {
       normal_cache[i * 3] = 0.0
-      normal_cache[i * 3+1] = 0.0
-      normal_cache[i * 3+2] = 0.0
     }
     if (firstDraw) {
       // Uncomment to check the speed impact of the field filling.
