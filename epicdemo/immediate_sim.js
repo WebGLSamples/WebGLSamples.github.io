@@ -75,13 +75,13 @@ function ImmSim() {
     // First, copy our logged data into stream buffers.
     if (hasPos) {
       gl.bindBuffer(gl.ARRAY_BUFFER, posBuf)
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(posArray, 0, count * 3), gl.DYNAMIC_DRAW)
+      gl.bufferData(gl.ARRAY_BUFFER, posArray, gl.DYNAMIC_DRAW)
       gl.enableVertexAttribArray(program.attribLoc["position"])
       gl.vertexAttribPointer(program.attribLoc["position"], 3, gl.FLOAT, false, 0, 0);
     }
     if (hasNormal) {
       gl.bindBuffer(gl.ARRAY_BUFFER, normalBuf)
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normalArray, 0, count * 3), gl.DYNAMIC_DRAW)
+      gl.bufferData(gl.ARRAY_BUFFER, normalArray, gl.DYNAMIC_DRAW)
       gl.enableVertexAttribArray(program.attribLoc["normal"])
       gl.vertexAttribPointer(program.attribLoc["normal"], 3, gl.FLOAT, false, 0, 0);
     }
@@ -133,6 +133,35 @@ function ImmSim() {
     hasNormal = true
   }
 
+  this.posnormtriv = function(pos, norm, o1, o2, o3) {
+    var c = count * 3
+    posArray[c + 0] = pos[o1 + 0]
+    posArray[c + 1] = pos[o1 + 1]
+    posArray[c + 2] = pos[o1 + 2]
+    posArray[c + 3] = pos[o2 + 0]
+    posArray[c + 4] = pos[o2 + 1]
+    posArray[c + 5] = pos[o2 + 2]
+    posArray[c + 6] = pos[o3 + 0]
+    posArray[c + 7] = pos[o3 + 1]
+    posArray[c + 8] = pos[o3 + 2]
+    normalArray[c + 0] = norm[o1 + 0] 
+    normalArray[c + 1] = norm[o1 + 1]
+    normalArray[c + 2] = norm[o1 + 2]
+    normalArray[c + 3] = norm[o2 + 0] 
+    normalArray[c + 4] = norm[o2 + 1]
+    normalArray[c + 5] = norm[o2 + 2]
+    normalArray[c + 6] = norm[o3 + 0] 
+    normalArray[c + 7] = norm[o3 + 1]
+    normalArray[c + 8] = norm[o3 + 2]
+    hasPos = true
+    hasNormal = true
+    count += 3
+    if (count >= maxCount - 3) {
+      // TODO: Fix for other things than triangles and lines
+      this.draw()
+    }
+  }
+  
   this.normal = function(x, y, z) {
     normalArray[count * 3]     = x
     normalArray[count * 3 + 1] = y

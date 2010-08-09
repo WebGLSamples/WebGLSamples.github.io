@@ -228,7 +228,7 @@ function mainloop(music) {
   // singleEffect = new SpinningCubeEffect()
   // singleEffect = new FlowerEffect()
   // singleEffect = new MarchingCubesEffect()
-  
+  // singleEffect = new BeatClearEffect([0,1,0])
   // This is where the demo is sequenced.
   // Times are in timeScale units.
   var parts = [
@@ -285,7 +285,8 @@ function mainloop(music) {
 
 function initializeGraphics() {
   canvas = document.getElementById('render_area');
-  gl = WebGLDebugUtils.makeDebugContext(wu.create3DContext(canvas))
+  gl = wu.create3DContext(canvas)
+//  gl = WebGLDebugUtils.makeDebugContext(wu.create3DContext(canvas))
   aspect = canvas.clientWidth / canvas.clientHeight
   quad = new QuadDrawer()
   backbuffer = tdl.framebuffers.getBackBuffer(canvas)

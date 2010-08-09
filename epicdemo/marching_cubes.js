@@ -25,18 +25,19 @@ function MarchingCubesEffect() {
   var target = new Float32Array([0.3, 0, 0])
 
   // Size of field. 32 is pushing it in Javascript :)
-  var size = 32
+  var size = 36
   // Deltas
   var delta = 2.0 / size
   var yd = size
   var zd = size * size
+  var size3 = size * size * size
 
-  var field = new Float32Array(size * size * size)
-  var normal_cache = new Float32Array(size * size * size * 3)
+  var field = new Float32Array(size3)
+  var normal_cache = new Float32Array(size3 * 3)
 
   var m4 = tdl.fast.matrix4
 
-  // Temp buffer used in polygonize
+  // Temp buffers used in polygonize.
   var vlist = new Float32Array(12 * 3)
   var nlist = new Float32Array(12 * 3)
 
@@ -96,6 +97,7 @@ function MarchingCubesEffect() {
     var field5 = field[q+1+zd]
     var field6 = field[q+yd+zd]
     var field7 = field[q+1+yd+zd]
+    
     if (field0 < isol) cubeindex |= 1;
     if (field1 < isol) cubeindex |= 2;
     if (field2 < isol) cubeindex |= 8;
@@ -109,7 +111,7 @@ function MarchingCubesEffect() {
     var bits = edgeTable[cubeindex]
     if (bits == 0) return 0;
 
-    var d = 2.0 / size;
+    var d = delta
     var fx2 = fx + d, fy2 = fy + d, fz2 = fz + d
 
     // Top of the cube
@@ -131,13 +133,63 @@ function MarchingCubesEffect() {
     cubeindex <<= 4  // Re-purpose cubeindex into an offset into triTable.
     var numtris = 0, i = 0;
     while (triTable[cubeindex + i] != -1) {
-      imm.posnormvoff(vlist, nlist, 3 * triTable[cubeindex + i + 0]); imm.next()
-      imm.posnormvoff(vlist, nlist, 3 * triTable[cubeindex + i + 1]); imm.next()
-      imm.posnormvoff(vlist, nlist, 3 * triTable[cubeindex + i + 2]); imm.next()
+      imm.posnormtriv(vlist, nlist,
+                      3 * triTable[cubeindex + i + 0],
+                      3 * triTable[cubeindex + i + 1],
+                      3 * triTable[cubeindex + i + 2])
       i += 3;
       numtris++;
     }
     return numtris;
+  }
+
+  // Adds a reciprocal ball (nice and blobby) that, to be fast, fades to zero after
+  // a fixed distance, determined by strength and subtract.
+  function addBall(ballx, bally, ballz, strength, subtract) {       
+    // Let's solve the equation to find the radius:
+    // 1.0 / (0.000001 + radius^2) * strength - subtract = 0
+    // strength / (radius^2) = subtract
+    // strength = subtract * radius^2
+    // radius^2 = strength / subtract
+    // radius = sqrt(strength / subtract)
+    var radius = size * Math.sqrt(strength / subtract)
+    var min_z = Math.floor(ballz * size - radius); if (min_z < 1) {min_z = 1;}
+    var max_z = Math.floor(ballz * size + radius); if (max_z > size - 1) max_z = size - 1
+    var min_y = Math.floor(bally * size - radius); if (min_y < 1) min_y = 1
+    var max_y = Math.floor(bally * size + radius); if (max_y > size - 1) max_y = size - 1
+    var min_x = Math.floor(ballx * size - radius); if (min_x < 1) min_x = 1
+    var max_x = Math.floor(ballx * size + radius); if (max_x > size - 1) max_x = size - 1
+    // Don't polygonize in the outer layer because normals aren't
+    // well-defined there.
+    for (var z = min_z; z < max_z; z++) {
+      var z_offset = size * size * z;
+      var fz = z / size - ballz
+      var fz2 = fz * fz
+      for (var y = min_y; y < max_y; y++) {
+        var y_offset = z_offset + size * y;
+        var fy = y / size - bally
+        var fy2 = fy * fy
+        for (var x = min_x; x < max_x; x++) {
+          var fx = x / size - ballx
+          var val = strength / (0.000001 + fx*fx + fy2 + fz2) - subtract
+          if (val > 0.0) field[y_offset + x] += val
+        }
+      }
+    }
+  }
+  
+  function addFloor(strength, subtract) {
+    var dist = size * Math.sqrt(strength / subtract)
+    if (dist > size) dist = size
+    for (var y = 0; y < dist; y++) {
+      var yy = (y / size) * (y / size)
+      var val = strength / (0.0001 + yy) - subtract
+      if (val > 0.0) {
+        for (var x = 0; x < size; x++) 
+          for (var z = 0; z < size; z++)
+            field[zd * z + y * yd + x] += val
+      }
+    }
   }
   
   var firstDraw = true
@@ -167,7 +219,7 @@ function MarchingCubesEffect() {
     model.drawPrep(uniformsConst)
 
     // Wipe the normal cache.
-    for (var i = 0; i < size * size * size; i++) {
+    for (var i = 0; i < size3; i++) {
       normal_cache[i * 3] = 0.0
     }
     if (firstDraw) {
@@ -176,46 +228,16 @@ function MarchingCubesEffect() {
       for (var i = 0; i < size * size * size; i++) {
         field[i] = 0.0
       }
-      // Fill the field with some metaballs. Could be optimized using balls
-      // that fade out to zero, and bounding boxes.
-      //
-      // TODO: fix this optimization stuff, it doesn't work yet
-      //
-      // Let's solve the equation to find the radius:
-      // 1.0 / (0.000001 + radius^2) * strength - subtract = 0
-      // strength / (radius^2) = subtract
-      // strength = subtract * radius^2
-      // radius^2 = strength / subtract
-      // radius = sqrt(strength / subtract)
-      for (var i = 0; i < 5; i++) {
-        var ballx = Math.sin(i + time * (1 + 0.1 * i)) * 0.25 + 0.5;
-        var bally = Math.cos(i + time * (1.2 + 0.14 * i)) * 0.25 + 0.5;
-        var ballz = Math.cos(i + time * (0.9 + 0.23 * i)) * 0.25 + 0.5;
+      // Fill the field with some metaballs. 
+      for (var i = 0; i < 7; i++) {
+        var ballx = Math.sin(i + 0.3 * time * (1.03 + 0.21 * i)) * 0.27 + 0.5;
+        var bally = Math.abs(Math.cos(i + 0.3 * time * (1.22 + 0.1424 * i))) * 0.77; // dip into the floor
+        var ballz = Math.cos(i + 0.3 * time * (0.92 + 0.53 * i)) * 0.27 + 0.5;
         var subtract = 12
         var strength = 1.2
-        var radius = size * Math.sqrt(strength / subtract)
-        var min_z = Math.floor(ballz * size - radius); if (min_z < 1) {min_z = 1;}
-        var max_z = Math.floor(ballz * size + radius); if (max_z > size - 1) max_z = size - 1
-        var min_y = Math.floor(bally * size - radius); if (min_y < 1) min_y = 1
-        var max_y = Math.floor(bally * size + radius); if (max_y > size - 1) max_y = size - 1
-        var min_x = Math.floor(ballx * size - radius); if (min_x < 1) min_x = 1
-        var max_x = Math.floor(ballx * size + radius); if (max_x > size - 1) max_x = size - 1
-        // Don't polygonize in the outer layer because normals aren't
-        // well-defined there.
-        for (var z = min_z; z < max_z; z++) {
-          var z_offset = size * size * z;
-          var fz = z / size - ballz
-          for (var y = min_y; y < max_y; y++) {
-            var y_offset = z_offset + size * y;
-            var fy = y / size - bally
-            for (var x = min_x; x < max_x; x++) {
-              var fx = x / size - ballx
-              var val = 1.0 / (0.000001 + fx*fx + fy*fy + fz*fz) * strength - subtract
-              if (val > 0.0) field[y_offset + x] += val
-            }
-          }
-        }
+        addBall(ballx, bally, ballz, strength, subtract)
       }
+      addFloor(2, 12)
     }
 
     var isol = 80.0
@@ -224,13 +246,13 @@ function MarchingCubesEffect() {
 
     // Triangulate. Yeah, this is slow.
     var size2 = size / 2.0
-    for (var z = 0; z < size - 1; z++) {
+    for (var z = 1; z < size - 2; z++) {
       var z_offset = size * size * z;
       var fz = (z - size2) / size2 //+ 1
-      for (var y = 0; y < size - 1; y++) {
+      for (var y = 1; y < size - 2; y++) {
         var y_offset = z_offset + size * y;
         var fy = (y - size2) / size2 //+ 1
-        for (var x = 0; x < size - 1; x++) {
+        for (var x = 1; x < size - 2; x++) {
           var fx = (x - size2) / size2 //+ 1
           var q = y_offset + x
           polygonize(fx, fy, fz, q, isol)
