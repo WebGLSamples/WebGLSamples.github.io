@@ -156,9 +156,9 @@ function MarchingCubesEffect() {
     var uniformsConst = {
       u_worldviewproj: worldviewproj,
       u_lightDir: [1.0, 1.0, 1.0],
-      u_lightColor: [0.8, 0.7, 0.6, 0.0],
-      u_ambientUp: [0.05, 0.1, 0.2, 0.0],
-      u_ambientDown: [0.15, 0.075, 0.01, 0.0],
+      u_lightColor: [0.8, 0.7, 0.6, 1.0],
+      u_ambientUp: [0.05, 0.1, 0.2, 1.0],
+      u_ambientDown: [0.15, 0.075, 0.01, 1.0],
     }
     var uniformsPer = {
       u_worldviewproj: worldviewproj

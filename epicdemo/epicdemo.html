@@ -361,7 +361,7 @@ Get <a href="http://www.google.com/chrome">Google Chrome</a>.
   uniform vec4 u_lightColor;
   void main(void) {
     float light = max(0.0, dot(normalize(u_lightDir), v_normal));
-    vec4 ambient = mix(u_ambientUp, u_ambientDown, v_normal.y);
+    vec4 ambient = mix(u_ambientDown, u_ambientUp, (v_normal.y + 1.0)/2.0);
     // Gamma correction approximation (sqrt)
     gl_FragColor = sqrt(ambient + light * u_lightColor);
   }
