@@ -62,7 +62,6 @@ function ImmSim() {
     if (hasPos) {
       gl.bindBuffer(gl.ARRAY_BUFFER, posBuf)
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(posArray, 0, count * 3), gl.DYNAMIC_DRAW)
-      // gl.bufferData(gl.ARRAY_BUFFER, posArray, gl.DYNAMIC_DRAW)
       gl.enableVertexAttribArray(program.attribLoc["position"])
       gl.vertexAttribPointer(program.attribLoc["position"], 3, gl.FLOAT, false, 0, 0);
     }
@@ -103,6 +102,16 @@ function ImmSim() {
     hasPos = true
   }
 
+  this.posnormvoff = function(pos, norm, offset) {
+    posArray[count * 3 + 0] = pos[0 + offset]
+    posArray[count * 3 + 1] = pos[1 + offset]
+    posArray[count * 3 + 2] = pos[2 + offset]
+    normalArray[count * 3 + 0] = norm[0 + offset]
+    normalArray[count * 3 + 1] = norm[1 + offset]
+    normalArray[count * 3 + 2] = norm[2 + offset]
+    hasPos = true
+    hasNormal = true
+  }
 
   this.normal = function(x, y, z) {
     normalArray[count * 3]     = x
