@@ -738,6 +738,8 @@ tdl.particles.ParticleEmitter = function(particleSystem,
 
   this.createdParticles_ = false;
 
+  this.tmpWorld_ = new Float32Array(16);
+
   // This Float32Array is used to store a single particle's data
   // in the VBO. As of this writing there wasn't a way to store less
   // than a full WebGLArray's data in a bufferSubData call.
@@ -1082,8 +1084,7 @@ tdl.particles.ParticleEmitter.prototype.draw = function(world, viewProjection, t
   var shader = this.particleSystem.shaders[this.billboard_ ? 1 : 0];
   shader.bind();
 
-
-  var tmpWorld = new Float32Array(16);
+  var tmpWorld = this.tmpWorld_;
   tdl.fast.matrix4.copy(tmpWorld, world);
 
   tdl.fast.matrix4.translate(tmpWorld, this.translation_);
