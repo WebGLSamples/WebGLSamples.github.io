@@ -35,7 +35,7 @@
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <title>WebGL ImageSphere</title>
 <style>
-body {
+html, body {
   width: 100%;
   height: 100%;
   border: 0px;
@@ -152,8 +152,8 @@ function Log(msg) {
 function LogGLCall(functionName, args) {
   if (g_logGLCalls) {
     ValidateNoneOfTheArgsAreUndefined(functionName, args)
-    console.log("gl." + functionName + "(" +
-                wd.glFunctionArgsToString(functionName, args) + ")");
+    wu.log("gl." + functionName + "(" +
+           wd.glFunctionArgsToString(functionName, args) + ")");
   }
 }
 
@@ -174,7 +174,7 @@ function Dump() {
       lastArgWasNumber = false;
     }
   }
-  console.log(strs.join(""));
+  wu.log(strs.join(""));
 }
 
 function createProgramFromTags(vertexTagId, fragmentTagId) {
@@ -229,7 +229,8 @@ function hack() {
 ImgTexture = function() {
   tdl.textures.Texture.call(this, gl.TEXTURE_2D);
   gl.bindTexture(gl.TEXTURE_2D, this.texture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 256, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texImage2D(
+      gl.TEXTURE_2D, 0, gl.RGBA, 256, 256, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
   this.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   this.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   this.setParameter(gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
@@ -627,65 +628,11 @@ function raySphereIntersection(point1, point2, center, radius) {
   return math.addVector(point1, math.mulScalarVector(m, dp));
 }
 
-function raySphereIntersection2(point1, point2, center, radius) {
-  var d = math.subVector(point2, point1);
-  var m = math.subVector(point1, center);
-  var b = math.dot(m, d);
-  var c = math.dot(m, m) - radius * radius;
-  if (c > 0 && b > 0) {
-    return;
-  }
-  var discr = b * b - c;
-  if (discr < 0) {
-    return;
-  }
-  var t = -b * Math.sqrt(discr);
-  if (t < 0) {
-    t = 0;
-  }
-  var q = math.addVector(point1, math.mulScalarVector(t, d));
-  return q;
-}
-
-function raySphereIntersection3(point1, point2, center, radius) {
-  var d = math.subVector(point2, point1);
-  var b = -math.dot(point1, d);
-  var det = b * b - math.dot(point1, point1) + radius * radius;
-  if (det < 0){
-    return;
-  }
-  det = Math.sqrt(det);
-  var i1 = b - det;
-  var i2 = b + det;
-  // intersecting with ray?
-  if(i2 < 0) {
-    return;
-  }
-  if(i1 < 0) {
-    i1=0;
-  }
-  return math.addVector(point1, math.mulScalarVector(i1, d));
-};
-
-function raySphereIntersection4(point1, point2, center, radius) {
-  var d = math.subVector(point2, point1);
-  var a = math.dot(d, d);
-  var b = 2 * math.dot(point1, d);
-  var c = math.dot(point1, point1) - radius * radius;
-  var discr =  Math.sqrt(b * b - 4 * a * c);
-  if (discr < 0) {
-    return;
-  }
-  var t = (-b + discr) / 2 * a;
-  return math.addVector(point1, math.mulScalarVector(t, d));
-}
-
 function initialize() {
   math = tdl.math;
   fast = tdl.fast;
   canvas = document.getElementById("canvas");
   g_fpsTimer = new tdl.fps.FPSTimer();
-
   hack();
 
   canvas.addEventListener("mousedown", handleMouseDown, false);
@@ -834,7 +781,7 @@ function initialize() {
     then = now;
 
     g_fpsTimer.update(elapsedTime);
-    fps.innerHTML = g_fpsTimer.averageFPS;
+    fpsElem.innerHTML = g_fpsTimer.averageFPS;
 
     clock += elapsedTime;
     eyePosition[0] = 0;
@@ -843,6 +790,7 @@ function initialize() {
 
     gl.colorMask(true, true, true, true);
     gl.depthMask(true);
+    gl.clearDepth(1);
     gl.clearColor(0,0,0,1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
@@ -924,6 +872,7 @@ function initialize() {
     gl.colorMask(false, false, false, true);
     gl.clearColor(0,0,0,1);
     gl.clear(gl.COLOR_BUFFER_BIT);
+//    gl.finish();
 
     // turn off logging after 1 frame.
     g_logGLCalls = false;
@@ -940,7 +889,7 @@ function getParamId(id) {
 function setParam(event, ui, obj) {
   var id = event.target.id;
   var value = ui.value / 1000;
-  console.log(id + ": " + value);
+  wu.log(id + ": " + value);
   obj[id] = value;
 }
 

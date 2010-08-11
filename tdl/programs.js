@@ -90,8 +90,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
   var attribLocs = {
   };
 
-  function createAttribSetter(info) {
-    var index = gl.getAttribLocation(program, info.name);
+  function createAttribSetter(info, index) {
     if (info.size != 1) {
       throw("arrays of attribs not handled");
     }
@@ -110,8 +109,8 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
     if (wu.endsWith(name, "[0]")) {
       name = name.substr(0, name.length - 3);
     }
-    attribs[name] = createAttribSetter(info);
     var index = gl.getAttribLocation(program, info.name);
+    attribs[name] = createAttribSetter(info, index);
     attribLocs[name] = index
   }
 

@@ -49,7 +49,7 @@ coder code? if JS counts.
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <title>WebGL Demo FX</title>
 <style>
-body {
+html, body {
   width: 100%;
   height: 100%;
   border: 0px;
@@ -125,7 +125,7 @@ var curBeat = 0
 // A couple of simple effects here. The rest are spread out into
 // .js files.
 
-// Effect are defined as simple constructor functions that add a 
+// Effect are defined as simple constructor functions that add a
 // .render method to themselves. render() takes three arguments:
 //   framebuffer:   the currently bound framebuffer, so that it can be restored if necessary
 //   time:          time since the effect started running.
@@ -182,7 +182,7 @@ function SpinningCubeEffect() {
     m4.mul(worldviewproj, world, viewproj)
 
     post.begin()
-    
+
     gl.clearColor(0.5,0.5,0.5,1)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
@@ -193,14 +193,14 @@ function SpinningCubeEffect() {
 
     model.drawPrep(uniformsConst)
     model.draw(uniformsPer)
-    
+
     // Draw a simple triangle sticking out of the cube, to show off the immediate mode simulator.
     imm.begin(gl.TRIANGLES)
     imm.pos(0, 0, 0); imm.next()
     imm.pos(2, 2, 0); imm.next()
     imm.pos(2, 0, 0); imm.next()
     imm.end(program)
-    
+
     post.end(framebuffer, post.focusBlur, {x: 2, y: 2})
   }
 }
@@ -237,7 +237,7 @@ function mainloop(music) {
     {start: 64, end: 128, fx: new BeatClearEffect([0,1,0])},
     {start: 64, end: 700, fx: new BeatClearEffect([0,1,0])}
   ]
-  
+
   // Part that's shown when nothing else is scheduled. Pink is good for debugging.
   var no_part = new BlankEffect([1, 0, 1])
 
@@ -465,7 +465,7 @@ Get <a href="http://www.google.com/chrome">Google Chrome</a>.
   uniform sampler2D mainSampler;
   void main() {
      vec4 sum = vec4(0.0);
-  
+
      sum += texture2D(mainSampler, v_texCoord - 4.0 * blurSize) * 0.05;
      sum += texture2D(mainSampler, v_texCoord - 3.0 * blurSize) * 0.09;
      sum += texture2D(mainSampler, v_texCoord - 2.0 * blurSize) * 0.12;
@@ -475,7 +475,7 @@ Get <a href="http://www.google.com/chrome">Google Chrome</a>.
      sum += texture2D(mainSampler, v_texCoord + 2.0 * blurSize) * 0.12;
      sum += texture2D(mainSampler, v_texCoord + 3.0 * blurSize) * 0.09;
      sum += texture2D(mainSampler, v_texCoord + 4.0 * blurSize) * 0.05;
-  
+
      gl_FragColor = sum * 1.0;
   }
 </script>
