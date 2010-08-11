@@ -259,7 +259,10 @@ tdl.fast.negativeMatrix = function(m) {
  * @return {!tdl.fast.Vector} A copy of v.
  */
 tdl.fast.copyVector = function(dst, v) {
-  dst.set(v);
+  //dst.set(v);
+  for (var ii = 0; ii < v.length; ++ii) {
+    dst[ii] = v[ii];
+  }
   return dst;
 };
 
@@ -282,9 +285,6 @@ tdl.fast.copyMatrix = function(dst, m) {
  */
 tdl.fast.mulScalarVector = function(dst, k, v) {
   var vLength = v.length;
-  for (var i = 0; i < vLength; ++i) {
-    dst[i] = k * v[i];
-  }
   return dst;
 };
 

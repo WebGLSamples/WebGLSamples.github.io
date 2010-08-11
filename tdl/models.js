@@ -138,5 +138,3 @@ tdl.models.Model.prototype.draw = function(uniforms, opt_textures) {
   gl.drawElements(
       this.mode, buffers.indices.totalComponents(), gl.UNSIGNED_SHORT, 0);
 };
-
-

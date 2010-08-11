@@ -832,6 +832,72 @@ tdl.primitives.createCube = function(size) {
     indices: indices};
 };
 
+
+/**
+ * Creates the vertices and indices for a flared cube (extrude the edges).
+ * The U texture coordinate will be a gradient 0-1 from inside out. Use
+ * the vertex shader to distort using U as an angle for fun effects.
+ *
+ * @param {number} size Width, height and depth of the cube.
+ * @return {!Object.<string, !tdl.primitives.AttribBuffer>} The
+ *         created plane vertices.
+ */
+tdl.primitives.createFlaredCube = function(inner_size, outer_size, layercount) {
+  var numVertices = 8 * layercount;
+  var numIndices = 2 * 12 * 3 * (layercount - 1);
+  
+  var positions = new tdl.primitives.AttribBuffer(3, numVertices);
+  var normals = new tdl.primitives.AttribBuffer(3, numVertices);
+  var texCoords = new tdl.primitives.AttribBuffer(2, numVertices);
+  var indices = new tdl.primitives.AttribBuffer(3, numIndices, 'Uint16Array');
+
+  var sizeDelta = (outer_size - inner_size) / layercount
+  var size = inner_size;
+  for (var i = 0; i < layercount; i++, size += sizeDelta) {
+    var k = size / 2;
+    var cornerVertices = [
+      [-k, -k, -k], [+k, -k, -k], [+k, +k, -k], [-k, +k, -k], 
+      [-k, -k, +k], [+k, -k, +k], [+k, +k, +k], [-k, +k, +k]
+    ];
+    var vs = [0, 1, 0, 1, 1, 0, 1, 0]
+    var u = i / (layercount - 1)
+    for (var v = 0; v < 8; ++v) {
+      var position = cornerVertices[v];
+      var uv = [u, vs[v]]
+      positions.push(position);
+      texCoords.push(uv);
+    }
+  }
+
+  function extrudeLine(offset, i1, i2) {
+    indices.push([offset + i1, offset + i2, offset + 8 + i1]);
+    indices.push([offset + i2, offset + 8 + i1, offset + 8 + i2]);
+  }
+  for (var i = 0; i < layercount - 1; i++) {
+    extrudeLine(i*8, 0, 1)
+    extrudeLine(i*8, 1, 2)
+    extrudeLine(i*8, 2, 3)
+    extrudeLine(i*8, 3, 0)
+    
+    extrudeLine(i*8, 4, 5)
+    extrudeLine(i*8, 5, 6)
+    extrudeLine(i*8, 6, 7)
+    extrudeLine(i*8, 7, 4)
+
+    extrudeLine(i*8, 0, 4)
+    extrudeLine(i*8, 1, 5)
+    extrudeLine(i*8, 2, 6)
+    extrudeLine(i*8, 3, 7)
+  }
+
+  return {
+    position: positions,
+    texCoord: texCoords,
+    indices: indices};
+};
+
+
+
 /**
  * Creates vertices for a truncated cone, which is like a cylinder
  * except that it has different top and bottom radii. A truncated cone

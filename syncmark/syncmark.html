@@ -1,0 +1,124 @@
+<!--
+ * Copyright 2010, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+  "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>SyncMark - Are you synced?</title>
+<style>
+html, body {
+  width: 100%;
+  height: 100%;
+  border: 0px;
+  padding: 0px;
+  margin: 5px;
+  background-color: white;
+}
+canvas {
+  background-color: red;
+}
+#instructions {
+  background-color: #FFEEBB;
+  font-family: sans-serif;
+  padding: 4px;
+}
+</style>
+<script type="text/javascript"
+  src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js">
+</script>
+<script type="text/javascript" src="../js/webgl-test-utils.js"></script>
+<script type="text/javascript" src="../js/webgl-debug.js"></script>
+<script type="text/javascript">
+
+var gl;
+var canvas;
+var aspect;
+
+var wu = WebGLTestUtils;  // some webgl utils
+var wd = WebGLDebugUtils; // more webgl utils
+
+var output = alert
+var music = null
+
+function mainloop() {
+  // Repeatedly run render(), attempt to hold 60 but the demo is
+  // framerate independent so we will still keep sync even if we
+  // lose frames.
+  var intervalId = setInterval(render, 1000.0 / 60.0);
+  function render() {
+    var time = music.currentTime
+    gl.disable(gl.SCISSOR_TEST)
+    gl.clearColor(0, 0, 0, 1.0)
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+    gl.clearColor(0, (time % 2.0) < 0.5 ? 1 : 0.1, 0, 1.0)
+    gl.enable(gl.SCISSOR_TEST)
+    gl.scissor(50, 50, 100, 100)
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+  }
+}
+
+function initializeGraphics() {
+  canvas = document.getElementById('render_area');
+  gl = wu.create3DContext(canvas)
+  // Set some sane defaults.
+  gl.disable(gl.BLEND);
+  gl.depthFunc(gl.LEQUAL);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+}
+
+$(document).ready(function() {
+  initializeGraphics()
+  mainloop()
+  music = document.getElementById('soundtrack');
+  music.volume = 0.13;
+  music.play();
+})
+
+</script>
+</head>
+
+<body>
+<audio id="soundtrack" src="beep.ogg" controls>
+No support for the audio tag in this browser.
+Get <a href="http://www.google.com/chrome">Google Chrome</a>.
+</audio>
+<br>
+<canvas id="render_area" width="200" height="200"></canvas>
+<br>
+<br>
+<span id="instructions">
+The green square should be visible exactly when a beep is heard.
+<br>
+Losing sync, either after a while or after seeking = <b>FAIL</b>
+</span>
+</body>
+</html>
