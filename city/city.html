@@ -46,11 +46,18 @@ html, body {
 CANVAS {
   background-color: gray;
 }
+#canvas2d {
+  display: none;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 3;
+}
 .fpsContainer {
   position: absolute;
   top: 10px;
   left: 10px;
-  z-index: 2;
+  z-index: 3;
   color: white;
   font-family: sans-serif;
 }
@@ -82,14 +89,17 @@ var g_logGLCalls = true;  // whether or not to log webgl calls
 var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;   // draw just one frame.
 var g_setCountElements = [];
+var ctx;                  // 2d context
+var canvas2d;             // 2d canvas
+var g_windowTextures = [];// ..
 
 //g_drawOnce = true;
 //g_debug = true;
 
 var g_eyeSpeed          = 0.1;
-var g_eyeHeight         = 12;
-var g_eyeTarget         = 8;
-var g_eyeRadius         = 3;
+var g_eyeHeight         = 80;
+var g_eyeTarget         = 50;
+var g_eyeRadius         = 120;
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -109,8 +119,8 @@ function Log(msg) {
 function LogGLCall(functionName, args) {
   if (g_logGLCalls) {
     ValidateNoneOfTheArgsAreUndefined(functionName, args)
-    console.log("gl." + functionName + "(" +
-                wd.glFunctionArgsToString(functionName, args) + ")");
+    wu.log("gl." + functionName + "(" +
+           wd.glFunctionArgsToString(functionName, args) + ")");
   }
 }
 
@@ -164,13 +174,14 @@ function setupSkybox() {
 /**
  * Sets up a modern building
  */
-function setupModernBuilding() {
+function setupModernBuilding(windowTexture) {
   var textures = {
-      diffuseSampler: tdl.textures.loadTexture([128, 128, 140, 255])};
+      diffuseSampler: windowTexture};
   var program = createProgramFromTags(
-      'diffusePointVertexShader',
-      'diffusePointFragmentShader');
+      'buildingVertexShader',
+      'buildingFragmentShader');
   var arrays = tdl.primitives.createCube(1);
+  delete arrays.normal;
   tdl.primitives.reorient(arrays,
       [[1, 0, 0, 0],
        [0, 1, 0, 0],
@@ -178,11 +189,11 @@ function setupModernBuilding() {
        [0, 0.5, 0, 1]]);
   var towers = [];
   var numTowers = 4;
-  var maxHeight = 10;
+  var maxHeight = 100;
   for (var ii = 0; ii < numTowers; ++ii) {
-    var start = ii == 0 ? 0.5 : 0.2;
-    var range = ii == 0 ? 0.3 : 0.4;
-    var height = ii == 0 ? maxHeight : Math.random() * maxHeight;
+    var start = ii == 0 ? 5 : 2;
+    var range = ii == 0 ? 3 : 4;
+    var height = ii == 0 ? maxHeight : math.randomInt(maxHeight);
     var width = start + Math.random() * range;
     var depth = start + Math.random() * range;
     var x = (Math.random() - 0.5) * (1 - width);
@@ -337,26 +348,27 @@ function createTruncatedConeWithSkips(
 /**
  * Sets up a cylinder building
  */
-function setupCylinderBuilding() {
+function setupCylinderBuilding(windowTexture) {
   var textures = {
-      diffuseSampler: tdl.textures.loadTexture([128, 128, 140, 255])};
+      diffuseSampler: windowTexture};
   var program = createProgramFromTags(
-      'diffusePointVertexShader',
-      'diffusePointFragmentShader');
+      'buildingVertexShader',
+      'buildingFragmentShader');
   var arrays = createTruncatedConeWithSkips(
-    0.5,   // bottomRadius,
-    0.5,   // topRadius,
-    10,    // height,
+    5,     // bottomRadius,
+    5,     // topRadius,
+    100,   // height,
     36,    // radialSubdivisions,
     1,     // verticalSubdivisions,
     4,     // maxNumSkips,
     9,     // maxNonSkipUnits,
     9);    // maxSkipUnits,
+  delete arrays.normal;
   tdl.primitives.reorient(arrays,
       [[1, 0, 0, 0],
        [0, 1, 0, 0],
        [0, 0, 1, 0],
-       [0, 5, 0, 1]]);
+       [0, 50, 0, 1]]);
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -388,9 +400,69 @@ function setupCountButtons() {
   setCount(document.getElementById('setCount0'), ii);
 }
 
+function createWindowTexture(ctx) {
+  ctx.fillStyle = "rgb(0,0,0)";
+  ctx.fillRect(0, 0, 512, 512);
+  var windowHSpacing = 8;
+  var windowVSpacing = 8;
+  var windowsDown    = 512 / windowHSpacing;
+  var windowsAcross  = 512 / windowVSpacing;
+  var windowHBorder  = 2;
+  var windowVBorder  = 2;
+  var windowWidth    = windowHSpacing - windowHBorder;
+  var windowHeight   = windowVSpacing - windowVBorder;
+  for (var yy = 0; yy < windowsDown; ++yy) {
+    for (var xx = 0; xx < windowsDown; ++xx) {
+      var xOff = xx * windowHSpacing + Math.floor(windowHBorder * 0.5);
+      var yOff = yy * windowVSpacing + Math.floor(windowVBorder * 0.5);
+      ctx.fillStyle = "rgb(255,255,255)";
+			ctx.fillRect(xOff, yOff, windowWidth, windowHeight);
+
+      // Put something in bottom.
+      if (Math.random() < 0.6) {
+				ctx.fillStyle = "rgb(0,0,0)";
+        var width = math.randomInt(windowWidth / 4) + windowWidth / 4 * 3;
+        var x = math.randomInt(windowWidth - width);
+				ctx.fillRect(xOff + x, yOff + windowHeight / 2, width, windowHeight / 2);
+      }
+
+      var bright = math.randomInt(10);
+
+      // Put random colors in
+			if (Math.random() < 0.6 || bright < 2) {
+        var numPixels = math.randomInt(10) + 10;
+				for (var ii = 0; ii < numPixels; ++ii) {
+          ctx.fillStyle = "rgb(" +
+              (math.randomInt(192) + 64) + "," +
+              (math.randomInt(192) + 64) + "," +
+              (math.randomInt(192) + 64) + ")";
+					ctx.fillRect(
+              xOff + math.randomInt(windowWidth),
+              yOff + math.randomInt(windowHeight),
+              1, 1);
+        }
+      }
+
+			// darken
+      if (bright < 2) {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+      } else if (bright < 4) {
+        ctx.fillStyle = "rgba(0, 0, 0, 1)";
+      } else if (bright < 8){
+        ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+      } else {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
+      }
+			ctx.fillRect(xOff, yOff, windowWidth, windowHeight);
+    }
+  }
+}
+
 function initialize() {
   math = tdl.math;
   fast = tdl.fast;
+	canvas2d = document.getElementById("canvas2d");
+  ctx = canvas2d.getContext("2d");
   canvas = document.getElementById("canvas");
   g_fpsTimer = new tdl.fps.FPSTimer();
 
@@ -402,14 +474,18 @@ function initialize() {
   }
 //  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
 
+  createWindowTexture(ctx);
+
+  g_windowTextures[0] = tdl.textures.loadTexture(canvas2d);
+
   Log("--Setup Ground---------------------------------------");
   var ground = setupGround();
   Log("--Setup Skybox---------------------------------------");
   var skybox = setupSkybox();
   Log("--Setup Modern Building---------------------------------------");
-  var modernBuilding = setupModernBuilding();
+  var modernBuilding = setupModernBuilding(g_windowTextures[0]);
   Log("--Setup Cylinder Building---------------------------------------");
-  var cylinderBuilding = setupCylinderBuilding();
+  var cylinderBuilding = setupCylinderBuilding(g_windowTextures[0]);
 
   var then = 0.0;
   var clock = 0.0;
@@ -557,7 +633,7 @@ function initialize() {
 
     Log("--Draw Cylinder Building---------------------------------------");
     cylinderBuilding.drawPrep(cylinderBuildingConst);
-    fast.matrix4.translation(world, [1.1, 0, 0]),
+    fast.matrix4.translation(world, [11, 0, 0]),
     fast.matrix4.mul(worldViewProjection, world, viewProjection);
     fast.matrix4.inverse(worldInverse, world);
     fast.matrix4.transpose(worldInverseTranspose, worldInverse);
@@ -578,13 +654,14 @@ function initialize() {
 <body>
 <div class="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
-  <div>Meteors</div>
+  <div>Buildings</div>
   <div id="setCount0">1</div>
   <div id="setCount1">a few</div>
   <div id="setCount2">many</div>
   <div id="setCount3">lots</div>
 </div>
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
+<canvas id="canvas2d" width="512" height="512"></canvas>
 </body>
 <script id="constVertexShader" type="text/something-not-javascript">
 attribute vec4 position;
@@ -653,6 +730,35 @@ void main() {
   vec4 litR = lit(dot(normal, surfaceToLight),
                     dot(normal, halfVector), 1.0);
   gl_FragColor = vec4((diffuse * litR.y).rgb, diffuse.a);
+}
+</script>
+<!--- building -->
+<script id="buildingVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform mat4 world;
+attribute vec4 position;
+attribute vec2 texCoord;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+void main() {
+  v_texCoord = vec2(texCoord.x / (64.0 * 0.25), position.y / 64.0);
+  v_position = (worldViewProjection * position);
+  gl_Position = v_position;
+}
+
+</script>
+<script id="buildingFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+varying vec4 v_position;
+varying vec2 v_texCoord;
+
+uniform sampler2D diffuseSampler;
+
+void main() {
+  vec4 diffuse = texture2D(diffuseSampler, v_texCoord);
+  gl_FragColor = diffuse;
 }
 </script>
 <!-- ===[ SkyBox ]============================================== -->
