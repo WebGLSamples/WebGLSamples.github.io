@@ -285,6 +285,9 @@ tdl.fast.copyMatrix = function(dst, m) {
  */
 tdl.fast.mulScalarVector = function(dst, k, v) {
   var vLength = v.length;
+  for (var i = 0; i < vLength; ++i) {
+    dst[i] = k * v[i];
+  }
   return dst;
 };
 
@@ -307,9 +310,9 @@ tdl.fast.mulVectorScalar = function(dst, v, k) {
  * @return {!tdl.fast.Matrix} The product of m and k.
  */
 tdl.fast.mulScalarMatrix = function(dst, k, m) {
-  var vLength = v.length;
-  for (var i = 0; i < vLength; ++i) {
-    dst[i] = k * v[i];
+  var mLength = m.length;
+  for (var i = 0; i < mLength; ++i) {
+    dst[i] = k * m[i];
   }
   return dst;
 };
