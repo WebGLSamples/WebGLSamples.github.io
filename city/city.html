@@ -98,8 +98,8 @@ var g_windowTextures = [];// ..
 
 var g_eyeSpeed          = 0.1;
 var g_eyeHeight         = 80;
-var g_eyeTarget         = 50;
-var g_eyeRadius         = 120;
+var g_eyeTarget         = 80;
+var g_eyeRadius         = 20;
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -171,6 +171,86 @@ function setupSkybox() {
   return new tdl.models.Model(program, arrays, textures);
 }
 
+var createBuildingCube = function(size) {
+  var k = size / 2;
+
+  var cubeFaceIndices = [
+    [4, 5, 7, 6],
+    [5, 1, 3, 7],
+    [1, 0, 2, 3],
+    [0, 4, 6, 2],
+    [6, 7, 3, 2],
+    [1, 0, 4, 5],
+
+    [6, 7, 4, 5],
+    [7, 3, 5, 1],
+    [3, 2, 1, 0],
+    [2, 6, 0, 4],
+    [2, 3, 6, 7],
+    [4, 5, 0, 1]
+  ];
+
+  var cornerVertices = [
+    [-k, -k, -k], // 0 left  back  bottom
+    [+k, -k, -k], // 1 right back  bottom
+    [-k, +k, -k], // 2 left  back  top
+    [+k, +k, -k], // 3 right back  top
+    [-k, -k, +k], // 4 left  front bottom
+    [+k, -k, +k], // 5 right front bottom
+    [-k, +k, +k], // 6 left  front top
+    [+k, +k, +k]  // 7 right front top
+  ];
+
+  var faceNormals = [
+    [+1, +0, +0],
+    [-1, +0, +0],
+    [+0, +1, +0],
+    [+0, -1, +0],
+    [+0, +0, +1],
+    [+0, +0, -1]
+  ];
+
+  var uvCoords = [
+    [0, 0],
+    [1, 0],
+    [1, 1],
+    [0, 1]
+  ];
+
+  var numVertices = 6 * 4;
+  var positions = new tdl.primitives.AttribBuffer(3, numVertices);
+  var normals = new tdl.primitives.AttribBuffer(3, numVertices);
+  var texCoords = new tdl.primitives.AttribBuffer(2, numVertices);
+  var indices = new tdl.primitives.AttribBuffer(3, 6 * 2, 'Uint16Array');
+
+  for (var f = 0; f < 6; ++f) {
+    var faceIndices = cubeFaceIndices[f];
+    for (var v = 0; v < 4; ++v) {
+      var position = cornerVertices[faceIndices[v]];
+      var normal = faceNormals[f];
+      var uv = uvCoords[v];
+
+      // Each face needs all four vertices because the normals and texture
+      // coordinates are not all the same.
+      positions.push(position);
+      normals.push(normal);
+      texCoords.push(uv);
+
+    }
+
+    // Two triangles make a square face.
+    var offset = 4 * f;
+    indices.push([offset + 0, offset + 1, offset + 2]);
+    indices.push([offset + 0, offset + 2, offset + 3]);
+  }
+
+  return {
+    position: positions,
+    normal: normals,
+    texCoord: texCoords,
+    indices: indices};
+};
+
 /**
  * Sets up a modern building
  */
@@ -180,7 +260,7 @@ function setupModernBuilding(windowTexture) {
   var program = createProgramFromTags(
       'buildingVertexShader',
       'buildingFragmentShader');
-  var arrays = tdl.primitives.createCube(1);
+  var arrays = createBuildingCube(1);
   delete arrays.normal;
   tdl.primitives.reorient(arrays,
       [[1, 0, 0, 0],
@@ -315,6 +395,9 @@ function createTruncatedConeWithSkips(
     for (var ii = 0; ii < vertsAroundEdge; ++ii) {
       var arcIndex = arcPoints[ii];
       var u = arcIndex / originalRadialSubdivisions
+if (yy == start) {
+	console.log(u);
+}
       var angle = u * Math.PI * 2;
       var sin = Math.sin(angle);
       var cos = Math.cos(angle);
@@ -458,6 +541,7 @@ function createWindowTexture(ctx) {
   }
 }
 
+var g;
 function initialize() {
   math = tdl.math;
   fast = tdl.fast;
@@ -472,7 +556,7 @@ function initialize() {
   if (g_debug) {
     gl = wd.makeDebugContext(gl, undefined, LogGLCall);
   }
-//  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
 
   createWindowTexture(ctx);
 
@@ -526,25 +610,19 @@ function initialize() {
 
   // Modern building uniforms.
   var modernBuildingConst = {
-    viewInverse: viewInverse,
-    lightWorldPos: lightWorldPos,
     };
   var modernBuildingPer = {
     world: world,
     worldViewProjection: worldViewProjection,
-    worldInverse: worldInverse,
-    worldInverseTranspose: worldInverseTranspose};
-
+    texCoordMult: new Float32Array([0.25, 4])};
+g = modernBuildingPer.texCoordMult;
   // Cylinder building uniforms.
   var cylinderBuildingConst = {
-    viewInverse: viewInverse,
-    lightWorldPos: lightWorldPos,
     };
   var cylinderBuildingPer = {
     world: world,
     worldViewProjection: worldViewProjection,
-    worldInverse: worldInverse,
-    worldInverseTranspose: worldInverseTranspose};
+    texCoordMult: new Float32Array(2)};
 
   var frameCount = 0;
   var intervalId = setInterval(render, 1000.0 / 70.0);
@@ -629,6 +707,8 @@ function initialize() {
     fast.matrix4.mul(worldViewProjection, world, viewProjection);
     fast.matrix4.inverse(worldInverse, world);
     fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+//    modernBuildingPer.texCoordMult[0] = 16;
+//    modernBuildingPer.texCoordMult[1] = 16;
     modernBuilding.draw(modernBuildingPer);
 
     Log("--Draw Cylinder Building---------------------------------------");
@@ -637,6 +717,8 @@ function initialize() {
     fast.matrix4.mul(worldViewProjection, world, viewProjection);
     fast.matrix4.inverse(worldInverse, world);
     fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+		cylinderBuildingPer.texCoordMult[0] = 2;
+		cylinderBuildingPer.texCoordMult[1] = 4;
     cylinderBuilding.draw(cylinderBuildingPer);
 
 
@@ -736,12 +818,13 @@ void main() {
 <script id="buildingVertexShader" type="text/something-not-javascript">
 uniform mat4 worldViewProjection;
 uniform mat4 world;
+uniform vec2 texCoordMult;
 attribute vec4 position;
 attribute vec2 texCoord;
 varying vec4 v_position;
 varying vec2 v_texCoord;
 void main() {
-  v_texCoord = vec2(texCoord.x / (64.0 * 0.25), position.y / 64.0);
+  v_texCoord = texCoord * texCoordMult;
   v_position = (worldViewProjection * position);
   gl_Position = v_position;
 }
