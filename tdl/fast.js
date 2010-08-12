@@ -259,10 +259,7 @@ tdl.fast.negativeMatrix = function(m) {
  * @return {!tdl.fast.Vector} A copy of v.
  */
 tdl.fast.copyVector = function(dst, v) {
-  //dst.set(v);
-  for (var ii = 0; ii < v.length; ++ii) {
-    dst[ii] = v[ii];
-  }
+  dst.set(v);
   return dst;
 };
 
