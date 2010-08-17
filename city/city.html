@@ -61,6 +61,10 @@ CANVAS {
   color: white;
   font-family: sans-serif;
 }
+.fpsContainer a:visited, .fpsContainer a:hover, .fpsContainer a {
+  color: white;
+  font-size: xx-small;
+}
 </style>
 <script type="text/javascript" src="../js/webgl-test-utils.js"></script>
 <script type="text/javascript" src="../js/webgl-debug.js"></script>
@@ -97,9 +101,9 @@ var g_windowTextures = [];// ..
 //g_debug = true;
 
 var g_eyeSpeed          = 0.1;
-var g_eyeHeight         = 80;
-var g_eyeTarget         = 80;
-var g_eyeRadius         = 20;
+var g_eyeHeight         = 100;
+var g_eyeTarget         = 90;
+var g_eyeRadius         = 30;
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -181,13 +185,6 @@ var createBuildingCube = function(size) {
     [0, 4, 6, 2],
     [6, 7, 3, 2],
     [1, 0, 4, 5],
-
-    [6, 7, 4, 5],
-    [7, 3, 5, 1],
-    [3, 2, 1, 0],
-    [2, 6, 0, 4],
-    [2, 3, 6, 7],
-    [4, 5, 0, 1]
   ];
 
   var cornerVertices = [
@@ -251,6 +248,55 @@ var createBuildingCube = function(size) {
     indices: indices};
 };
 
+function createBuildingPyramid(size) {
+  var k = size / 2;
+
+  var pyramidFaceIndices = [
+    [0, 4, 1],
+    [1, 4, 2],
+    [2, 4, 3],
+    [3, 4, 0]
+  ];
+
+  var cornerVertices = [
+    [-k,  0, -k],
+    [+k,  0, -k],
+    [+k,  0, +k],
+    [-k,  0, +k],
+    [0,   k,  0],
+  ];
+
+  var uvCoords = [
+    [0, 0],
+    [1, 0],
+    [1, 1],
+    [0, 1]
+  ];
+
+  var numVertices = 5;
+  var positions = new tdl.primitives.AttribBuffer(3, numVertices);
+  var normals = new tdl.primitives.AttribBuffer(3, numVertices);
+  var texCoords = new tdl.primitives.AttribBuffer(2, numVertices);
+  var indices = new tdl.primitives.AttribBuffer(3, 6 * 2, 'Uint16Array');
+
+	for (var v = 0; v < cornerVertices.length; ++v) {
+		positions.push(cornerVertices[v]);
+		normals.push([0, 1, 0]);  // don't care. Going to remove anyway
+    texCoords.push([0, 0]);  // don't care. Going to remove anyway
+  }
+
+  for (var f = 0; f < pyramidFaceIndices.length; ++f) {
+    var faceIndices = pyramidFaceIndices[f];
+    indices.push(faceIndices);
+  }
+
+  return {
+    position: positions,
+    normal: normals,
+    texCoord: texCoords,
+    indices: indices};
+}
+
 /**
  * Sets up a modern building
  */
@@ -287,6 +333,52 @@ function setupModernBuilding(windowTexture) {
          [x, 0, z, 1]]);
     towers.push(tower);
   }
+  var arrays = tdl.primitives.concat(towers);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
+ * Sets up a classic building
+ */
+function setupClassicBuilding(windowTexture) {
+  var textures = {
+      diffuseSampler: windowTexture};
+  var program = createProgramFromTags(
+      'buildingVertexShader',
+      'buildingFragmentShader');
+  var arrays = createBuildingCube(1);
+  delete arrays.normal;
+  tdl.primitives.reorient(arrays,
+      [[1, 0, 0, 0],
+       [0, 1, 0, 0],
+       [0, 0, 1, 0],
+       [0, 0.5, 0, 1]]);
+  var towers = [];
+  var numTowers = 2 + math.randomInt(3);
+  var maxHeight = 100;
+  for (var ii = 0; ii < numTowers; ++ii) {
+    var width = (1 - ii * 0.1) * 10;
+    var height = (1 - (0.5 / (ii + 1))) * maxHeight;
+    var tower = tdl.primitives.clone(arrays);
+    tdl.primitives.reorient(
+        tower,
+        [[width, 0, 0, 0],
+         [0, height, 0, 0],
+         [0, 0, width, 0, 0],
+         [0, 0, 0, 1]]);
+    towers.push(tower);
+  }
+  var width = (1 - numTowers * 0.1) * 10;
+  var height = 10;
+  var bottom = (1 - (0.5 / (numTowers))) * maxHeight;
+  var pyramid = createBuildingPyramid(1);
+	delete pyramid.normal;
+	tdl.primitives.reorient(
+      pyramid,
+			math.matrix4.mul(
+				math.matrix4.scaling([width, height, width]),
+        math.matrix4.translation([0, bottom, 0])));
+  towers.push(pyramid);
   var arrays = tdl.primitives.concat(towers);
   return new tdl.models.Model(program, arrays, textures);
 }
@@ -395,9 +487,6 @@ function createTruncatedConeWithSkips(
     for (var ii = 0; ii < vertsAroundEdge; ++ii) {
       var arcIndex = arcPoints[ii];
       var u = arcIndex / originalRadialSubdivisions
-if (yy == start) {
-	console.log(u);
-}
       var angle = u * Math.PI * 2;
       var sin = Math.sin(angle);
       var cos = Math.cos(angle);
@@ -570,6 +659,8 @@ function initialize() {
   var modernBuilding = setupModernBuilding(g_windowTextures[0]);
   Log("--Setup Cylinder Building---------------------------------------");
   var cylinderBuilding = setupCylinderBuilding(g_windowTextures[0]);
+  Log("--Setup Classic Building---------------------------------------");
+  var classicBuilding = setupClassicBuilding(g_windowTextures[0]);
 
   var then = 0.0;
   var clock = 0.0;
@@ -615,14 +706,20 @@ function initialize() {
     world: world,
     worldViewProjection: worldViewProjection,
     texCoordMult: new Float32Array([0.25, 4])};
-g = modernBuildingPer.texCoordMult;
   // Cylinder building uniforms.
   var cylinderBuildingConst = {
     };
   var cylinderBuildingPer = {
     world: world,
     worldViewProjection: worldViewProjection,
-    texCoordMult: new Float32Array(2)};
+    texCoordMult: new Float32Array([2, 4])};
+  // Classic building uniforms.
+  var classicBuildingConst = {
+  	};
+  var classicBuildingPer = {
+  	world: world,
+  	worldViewProjection: worldViewProjection,
+  	texCoordMult: new Float32Array([0.25, 2])};
 
   var frameCount = 0;
   var intervalId = setInterval(render, 1000.0 / 70.0);
@@ -707,8 +804,6 @@ g = modernBuildingPer.texCoordMult;
     fast.matrix4.mul(worldViewProjection, world, viewProjection);
     fast.matrix4.inverse(worldInverse, world);
     fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-//    modernBuildingPer.texCoordMult[0] = 16;
-//    modernBuildingPer.texCoordMult[1] = 16;
     modernBuilding.draw(modernBuildingPer);
 
     Log("--Draw Cylinder Building---------------------------------------");
@@ -717,9 +812,15 @@ g = modernBuildingPer.texCoordMult;
     fast.matrix4.mul(worldViewProjection, world, viewProjection);
     fast.matrix4.inverse(worldInverse, world);
     fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-		cylinderBuildingPer.texCoordMult[0] = 2;
-		cylinderBuildingPer.texCoordMult[1] = 4;
     cylinderBuilding.draw(cylinderBuildingPer);
+
+    Log("--Draw Classic Building---------------------------------------");
+    classicBuilding.drawPrep(classicBuildingConst);
+    fast.matrix4.translation(world, [-11, 0, 0]),
+    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+    fast.matrix4.inverse(worldInverse, world);
+    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+    classicBuilding.draw(classicBuildingPer);
 
 
     // Set the alpha to 255.
@@ -741,6 +842,7 @@ g = modernBuildingPer.texCoordMult;
   <div id="setCount1">a few</div>
   <div id="setCount2">many</div>
   <div id="setCount3">lots</div>
+  <div><a href="http://www.shamusyoung.com/twentysidedtale/?p=2940">Inspired By<br/>PixelCity</a></div>
 </div>
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 <canvas id="canvas2d" width="512" height="512"></canvas>
