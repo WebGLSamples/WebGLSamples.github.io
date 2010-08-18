@@ -58,24 +58,22 @@ CANVAS {
   color: white;
 }
 </style>
-<script type="text/javascript" src="../js/webgl-test-utils.js"></script>
-<script type="text/javascript" src="../js/webgl-debug.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
 tdl.require('tdl.fast');
 tdl.require('tdl.fps');
+tdl.require('tdl.log');
 tdl.require('tdl.math');
 tdl.require('tdl.models');
 tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
 tdl.require('tdl.textures');
+tdl.require('tdl.webgl');
 window.onload = initialize;
 
 // globals
 var gl;                   // the gl context.
-var wu = WebGLTestUtils;  // some webgl utils
-var wd = WebGLDebugUtils; // more webgl utils
 var canvas;               // the canvas
 var math;                 // the math lib.
 var fast;                 // the fast math lib.
@@ -118,23 +116,23 @@ var g_skyBoxUrls = [
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
     if (args[ii] === undefined) {
-      wu.error("undefined passed to gl." + functionName + "(" +
-               wd.glFunctionArgsToString(functionName, args) + ")");
+      tdl.error("undefined passed to gl." + functionName + "(" +
+                tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
     }
   }
 }
 
 function Log(msg) {
   if (g_logGLCalls) {
-    wu.log(msg);
+    tdl.log(msg);
   }
 }
 
 function LogGLCall(functionName, args) {
   if (g_logGLCalls) {
     ValidateNoneOfTheArgsAreUndefined(functionName, args)
-    wu.log("gl." + functionName + "(" +
-           wd.glFunctionArgsToString(functionName, args) + ")");
+    tdl.log("gl." + functionName + "(" +
+            tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
   }
 }
 
@@ -142,10 +140,10 @@ function createProgramFromTags(vertexTagId, fragmentTagId) {
   var vertElem = document.getElementById(vertexTagId);
   var fragElem = document.getElementById(fragmentTagId);
   if (vertElem === null) {
-    wu.error("Can't find vertex program tag: " + vertexTagId);
+    tdl.error("Can't find vertex program tag: " + vertexTagId);
   }
   if (fragElem === null) {
-    wu.error("Can't find fragment program tag: " + fragmentTagId);
+    tdl.error("Can't find fragment program tag: " + fragmentTagId);
   }
   return tdl.programs.loadProgram(vertElem.text, fragElem.text);
 }
@@ -292,9 +290,9 @@ function initialize() {
   canvas = document.getElementById("canvas");
 
   g_fpsTimer = new tdl.fps.FPSTimer();
-  gl = wu.create3DContext(canvas);
+  gl = tdl.webgl.create3DContext(canvas);
   if (g_debug) {
-    gl = wd.makeDebugContext(gl, undefined, LogGLCall);
+    gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
   }
   gl.enable(gl.DEPTH_TEST);
   gl.disable(gl.BLEND);

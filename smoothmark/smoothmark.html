@@ -55,16 +55,13 @@ canvas {
 <script type="text/javascript"
   src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js">
 </script>
-<script type="text/javascript" src="../js/webgl-test-utils.js"></script>
-<script type="text/javascript" src="../js/webgl-debug.js"></script>
+<script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
+tdl.require('tdl.webgl');
 
 var gl;
 var canvas;
 var aspect;
-
-var wu = WebGLTestUtils;  // some webgl utils
-var wd = WebGLDebugUtils; // more webgl utils
 
 var output = alert
 
@@ -101,7 +98,7 @@ function mainloop() {
 
 function initializeGraphics() {
   canvas = document.getElementById('render_area');
-  gl = wu.create3DContext(canvas)
+  gl = tdl.webgl.create3DContext(canvas)
   // Set some sane defaults.
   gl.disable(gl.BLEND);
   gl.depthFunc(gl.LEQUAL);

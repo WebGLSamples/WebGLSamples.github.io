@@ -1,4 +1,3 @@
-var wu;
 var gl;
 
 var g_fpsTimer = null;  // Object to measure frames per second.
@@ -43,9 +42,8 @@ function setupWebGL() {
     return false;
   };
 
-  wu = WebGLTestUtils;
   try {
-    gl = wu.create3DContext(canvas);
+    gl = tdl.webgl.create3DContext(canvas);
   } catch(e) {
     reportNoWebGLSupport();
     return false;

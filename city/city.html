@@ -66,25 +66,23 @@ CANVAS {
   font-size: xx-small;
 }
 </style>
-<script type="text/javascript" src="../js/webgl-test-utils.js"></script>
-<script type="text/javascript" src="../js/webgl-debug.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
 tdl.require('tdl.fast');
 tdl.require('tdl.fps');
+tdl.require('tdl.log');
 tdl.require('tdl.math');
 tdl.require('tdl.models');
 tdl.require('tdl.particles');
 tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
 tdl.require('tdl.textures');
+tdl.require('tdl.webgl');
 window.onload = initialize;
 
 // globals
 var gl;                   // the gl context.
-var wu = WebGLTestUtils;  // some webgl utils
-var wd = WebGLDebugUtils; // more webgl utils
 var canvas;               // the canvas
 var math;                 // the math lib.
 var fast;                 // the fast math lib.
@@ -116,15 +114,15 @@ function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
 
 function Log(msg) {
   if (g_logGLCalls) {
-    wu.log(msg);
+    tdl.log(msg);
   }
 }
 
 function LogGLCall(functionName, args) {
   if (g_logGLCalls) {
     ValidateNoneOfTheArgsAreUndefined(functionName, args)
-    wu.log("gl." + functionName + "(" +
-           wd.glFunctionArgsToString(functionName, args) + ")");
+    tdl.log("gl." + functionName + "(" +
+            wd.glFunctionArgsToString(functionName, args) + ")");
   }
 }
 
@@ -588,34 +586,34 @@ function createWindowTexture(ctx) {
       var xOff = xx * windowHSpacing + Math.floor(windowHBorder * 0.5);
       var yOff = yy * windowVSpacing + Math.floor(windowVBorder * 0.5);
       ctx.fillStyle = "rgb(255,255,255)";
-			ctx.fillRect(xOff, yOff, windowWidth, windowHeight);
+      ctx.fillRect(xOff, yOff, windowWidth, windowHeight);
 
       // Put something in bottom.
       if (Math.random() < 0.6) {
-				ctx.fillStyle = "rgb(0,0,0)";
+        ctx.fillStyle = "rgb(0,0,0)";
         var width = math.randomInt(windowWidth / 4) + windowWidth / 4 * 3;
         var x = math.randomInt(windowWidth - width);
-				ctx.fillRect(xOff + x, yOff + windowHeight / 2, width, windowHeight / 2);
+        ctx.fillRect(xOff + x, yOff + windowHeight / 2, width, windowHeight / 2);
       }
 
       var bright = math.randomInt(10);
 
       // Put random colors in
-			if (Math.random() < 0.6 || bright < 2) {
+      if (Math.random() < 0.6 || bright < 2) {
         var numPixels = math.randomInt(10) + 10;
-				for (var ii = 0; ii < numPixels; ++ii) {
+        for (var ii = 0; ii < numPixels; ++ii) {
           ctx.fillStyle = "rgb(" +
               (math.randomInt(192) + 64) + "," +
               (math.randomInt(192) + 64) + "," +
               (math.randomInt(192) + 64) + ")";
-					ctx.fillRect(
+          ctx.fillRect(
               xOff + math.randomInt(windowWidth),
               yOff + math.randomInt(windowHeight),
               1, 1);
         }
       }
 
-			// darken
+      // darken
       if (bright < 2) {
         ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
       } else if (bright < 4) {
@@ -625,7 +623,7 @@ function createWindowTexture(ctx) {
       } else {
         ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
       }
-			ctx.fillRect(xOff, yOff, windowWidth, windowHeight);
+      ctx.fillRect(xOff, yOff, windowWidth, windowHeight);
     }
   }
 }
@@ -634,16 +632,16 @@ var g;
 function initialize() {
   math = tdl.math;
   fast = tdl.fast;
-	canvas2d = document.getElementById("canvas2d");
+  canvas2d = document.getElementById("canvas2d");
   ctx = canvas2d.getContext("2d");
   canvas = document.getElementById("canvas");
   g_fpsTimer = new tdl.fps.FPSTimer();
 
   setupCountButtons();
 
-  gl = wu.create3DContext(canvas);
+  gl = tdl.webgl.create3DContext(canvas);
   if (g_debug) {
-    gl = wd.makeDebugContext(gl, undefined, LogGLCall);
+    gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
   }
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
 

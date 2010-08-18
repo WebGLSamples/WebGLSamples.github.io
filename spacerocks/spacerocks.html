@@ -55,25 +55,23 @@ CANVAS {
   font-family: sans-serif;
 }
 </style>
-<script type="text/javascript" src="../js/webgl-test-utils.js"></script>
-<script type="text/javascript" src="../js/webgl-debug.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
 tdl.require('tdl.fast');
 tdl.require('tdl.fps');
+tdl.require('tdl.log');
 tdl.require('tdl.math');
 tdl.require('tdl.models');
 tdl.require('tdl.particles');
 tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
 tdl.require('tdl.textures');
+tdl.require('tdl.webgl');
 window.onload = initialize;
 
 // globals
 var gl;                   // the gl context.
-var wu = WebGLTestUtils;  // some webgl utils
-var wd = WebGLDebugUtils; // more webgl utils
 var canvas;               // the canvas
 var math;                 // the math lib.
 var fast;                 // the fast math lib.
@@ -114,7 +112,7 @@ function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
 
 function Log(msg) {
   if (g_logGLCalls) {
-    wu.log(msg);
+    tdl.log(msg);
   }
 }
 
@@ -389,9 +387,9 @@ function initialize() {
 
   setupCountButtons();
 
-  gl = wu.create3DContext(canvas);
+  gl = tdl.webgl.create3DContext(canvas);
   if (g_debug) {
-    gl = wd.makeDebugContext(gl, undefined, LogGLCall);
+    gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
   }
 //  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
 

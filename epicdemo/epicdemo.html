@@ -74,8 +74,6 @@ canvas.invisible {
 <script type="text/javascript"
   src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js">
 </script>
-<script type="text/javascript" src="../js/webgl-test-utils.js"></script>
-<script type="text/javascript" src="../js/webgl-debug.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript" src="flower.js"></script>
 <script type="text/javascript" src="postprocess.js"></script>
@@ -89,10 +87,12 @@ tdl.require('tdl.math');
 tdl.require('tdl.primitives');
 tdl.require('tdl.shader');
 tdl.require('tdl.programs');
+tdl.require('tdl.log');
 tdl.require('tdl.models');
 tdl.require('tdl.buffers');
 tdl.require('tdl.framebuffers');
 tdl.require('tdl.textures');
+tdl.require('tdl.webgl');
 
 // Util functions
 function createProgramFromTags(vertexTagId, fragmentTagId) {
@@ -112,9 +112,6 @@ var post;
 var quad;
 var imm;
 // var log = window.console.log
-
-var wu = WebGLTestUtils;  // some webgl utils
-var wd = WebGLDebugUtils; // more webgl utils
 
 // Useful global math constants
 var up = new Float32Array([0, 1, 0])
@@ -285,8 +282,8 @@ function mainloop(music) {
 
 function initializeGraphics() {
   canvas = document.getElementById('render_area');
-  gl = wu.create3DContext(canvas)
-//  gl = WebGLDebugUtils.makeDebugContext(wu.create3DContext(canvas))
+  gl = tdl.webgl.create3DContext(canvas)
+//  gl = tdl.webgl.makeDebugContext(wu.create3DContext(canvas))
   aspect = canvas.clientWidth / canvas.clientHeight
   quad = new QuadDrawer()
   backbuffer = tdl.framebuffers.getBackBuffer(canvas)

@@ -71,25 +71,23 @@ CANVAS {
 <link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
-<script type="text/javascript" src="../js/webgl-test-utils.js"></script>
-<script type="text/javascript" src="../js/webgl-debug.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
 tdl.require('tdl.fast');
 tdl.require('tdl.framebuffers');
 tdl.require('tdl.fps');
+tdl.require('tdl.log');
 tdl.require('tdl.math');
 tdl.require('tdl.models');
 tdl.require('tdl.particles');
 tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
 tdl.require('tdl.textures');
+tdl.require('tdl.webgl');
 
 // globals
 var gl;                   // the gl context.
-var wu = WebGLTestUtils;  // some webgl utils
-var wd = WebGLDebugUtils; // more webgl utils
 var canvas;               // the canvas
 var math;                 // the math lib.
 var fast;                 // the fast math lib.
@@ -143,7 +141,7 @@ function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
 
 function Log(msg) {
   if (g_logGLCalls) {
-    wu.log(msg);
+    tdl.log(msg);
   }
 }
 
@@ -315,9 +313,9 @@ function initialize() {
 
   setupCountButtons();
 
-  gl = wu.create3DContext(canvas);
+  gl = tdl.webgl.create3DContext(canvas);
   if (g_debug) {
-    gl = wd.makeDebugContext(gl, undefined, LogGLCall);
+    gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
   }
 
   var mainFBO = tdl.framebuffers.createFramebuffer(canvas.width, canvas.height, true);

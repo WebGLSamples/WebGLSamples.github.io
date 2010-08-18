@@ -37,6 +37,9 @@
 
 tdl.provide('tdl.programs');
 
+tdl.require('tdl.log');
+tdl.require('tdl.string');
+
 /**
  * A module for programs.
  * @namespace
@@ -67,8 +70,85 @@ tdl.programs.loadProgram = function(vertexShader, fragmentShader) {
 };
 
 tdl.programs.Program = function(vertexShader, fragmentShader) {
+
+  /**
+   * Loads a shader.
+   * @param {!WebGLContext} gl The WebGLContext to use.
+   * @param {string} shaderSource The shader source.
+   * @param {number} shaderType The type of shader.
+   * @return {!WebGLShader} The created shader.
+   */
+  var loadShader = function(gl, shaderSource, shaderType) {
+    // Create the shader object
+    var shader = gl.createShader(shaderType);
+    if (shader == null) {
+      tdl.error("*** Error: unable to create shader '"+shaderSource+"'");
+      return null;
+    }
+
+    // Load the shader source
+    gl.shaderSource(shader, shaderSource);
+
+    // Compile the shader
+    gl.compileShader(shader);
+
+    // Check the compile status
+    var compiled = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+    if (!compiled) {
+      // Something went wrong during compilation; get the error
+      lastError = gl.getShaderInfoLog(shader);
+      tdl.error("*** Error compiling shader '" + shader + "':" + lastError);
+      gl.deleteShader(shader);
+      return null;
+    }
+
+    return shader;
+  }
+
+  /**
+   * Loads shaders from script tags, creates a program, attaches the shaders and
+   * links.
+   * @param {!WebGLContext} gl The WebGLContext to use.
+   * @param {string} vertexShader The vertex shader.
+   * @param {string} fragmentShader The fragment shader.
+   * @return {!WebGLProgram} The created program.
+   */
+  var loadProgram = function(gl, vertexShader, fragmentShader) {
+    var program = gl.createProgram();
+    gl.attachShader(
+        program,
+        loadShader(gl, vertexShader, gl.VERTEX_SHADER));
+    gl.attachShader(
+        program,
+        loadShader(gl, fragmentShader,  gl.FRAGMENT_SHADER));
+    linkProgram(gl, program);
+    return program;
+  };
+
+
+  /**
+   * Links a WebGL program, throws if there are errors.
+   * @param {!WebGLContext} gl The WebGLContext to use.
+   * @param {!WebGLProgram} program The WebGLProgram to link.
+   * @return {boolean} True if link was successful.
+   */
+  var linkProgram = function(gl, program) {
+    // Link the program
+    gl.linkProgram(program);
+
+    // Check the link status
+    var linked = gl.getProgramParameter(program, gl.LINK_STATUS);
+    if (!linked) {
+      // something went wrong with the link
+      var error = gl.getProgramInfoLog (program);
+      testFailed("Error in program linking:" + error);
+      return false;
+    }
+    return true;
+  };
+
   // Compile shaders
-  var program = wu.loadProgram(gl, vertexShader, fragmentShader);
+  var program = loadProgram(gl, vertexShader, fragmentShader);
   if (!program) {
     throw ("could not compile program");
   }
@@ -106,7 +186,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
   for (var ii = 0; ii < numAttribs; ++ii) {
     var info = gl.getActiveAttrib(program, ii);
     name = info.name;
-    if (wu.endsWith(name, "[0]")) {
+    if (tdl.string.endsWith(name, "[0]")) {
       name = name.substr(0, name.length - 3);
     }
     var index = gl.getAttribLocation(program, info.name);
@@ -122,7 +202,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
   function createUniformSetter(info) {
     var loc = gl.getUniformLocation(program, info.name);
     var type = info.type;
-    if (info.size > 1 && wu.endsWith(info.name, "[0]")) {
+    if (info.size > 1 && tdl.string.endsWith(info.name, "[0]")) {
       // It's an array.
       if (type == gl.FLOAT)
         return function(v) { gl.uniform1fv(loc, v); };
@@ -201,7 +281,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
   for (var ii = 0; ii < numUniforms; ++ii) {
     var info = gl.getActiveUniform(program, ii);
     name = info.name;
-    if (wu.endsWith(name, "[0]")) {
+    if (tdl.string.endsWith(name, "[0]")) {
       name = name.substr(0, name.length - 3);
     }
     uniforms[name] = createUniformSetter(info);
