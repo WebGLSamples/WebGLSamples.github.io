@@ -70,7 +70,7 @@ tdl.error = function() {
     } else if (window.console.log) {
       window.console.log(str);
     } else if (window.dump) {
-      window.dump(msg + "\n");
+      window.dump(str + "\n");
     }
   }
 };
