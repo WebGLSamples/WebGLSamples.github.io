@@ -194,10 +194,10 @@ function setupImagePlane() {
   var arrays = tdl.primitives.createPlane(1,1,10,10);
   delete arrays.normal;
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 0, 1, 0],
-       [0, -1, 0, 0],
-       [0, 0, 0, 1]]);
+      [1, 0, 0, 0,
+       0, 0, 1, 0,
+       0, -1, 0, 0,
+       0, 0, 0, 1]);
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -213,10 +213,10 @@ function setupBlankPlane() {
   delete arrays.normal;
   delete arrays.texCoord;
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 0, 1, 0],
-       [0, -1, 0, 0],
-       [0, 0, 0, 1]]);
+      [1, 0, 0, 0,
+       0, 0, 1, 0,
+       0, -1, 0, 0,
+       0, 0, 0, 1]);
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -374,12 +374,7 @@ clientPositionToWorldRay = function(
   var normScreenX = clientXPosition / (clientWidth * 0.5) - 1;
   var normScreenY = -(clientYPosition / (clientHeight * 0.5) - 1);
 
-  var m = g_viewProjectionInverse;
-  var matrix = [
-    [m[0], m[1], m[2], m[3]],
-    [m[4], m[5], m[6], m[7]],
-    [m[8], m[9], m[10], m[11]],
-    [m[12], m[13], m[14], m[15]]];
+  var matrix = g_viewProjectionInverse;
 
   // Apply inverse view-projection matrix to get the ray in world coordinates.
   return {
@@ -400,23 +395,12 @@ var clientPositionToGridPosition = function(
   var normScreenY = -(clientYPosition / (clientHeight * 0.5) - 1);
 
   // Compute the sphere's front clip coord.
-  var m = g_viewProjection;
-  var matrix = [
-    [m[0], m[1], m[2], m[3]],
-    [m[4], m[5], m[6], m[7]],
-    [m[8], m[9], m[10], m[11]],
-    [m[12], m[13], m[14], m[15]]];
+  var matrix = g_viewProjection;
   var v = [0, 0, g.imagePlaneConst.bendRadius];
   var v = tdl.math.matrix4.transformPoint(
       matrix, v);
   // Apply inverse view-projection matrix to get the ray in world coordinates.
-  var m = g_viewProjectionInverse;
-  var matrix = [
-    [m[0], m[1], m[2], m[3]],
-    [m[4], m[5], m[6], m[7]],
-    [m[8], m[9], m[10], m[11]],
-    [m[12], m[13], m[14], m[15]]];
-
+  var matrix = g_viewProjectionInverse;
   var pos = tdl.math.matrix4.transformPoint(
       matrix, [normScreenX, normScreenY, v[2]]);
 

@@ -529,14 +529,8 @@ tdl.math.subMatrix = function(a, b) {
 tdl.math.lerpMatrix = function(a, b, t) {
   var r = [];
   var aLength = a.length;
-  var a0Length = a[0].length;
   for (var i = 0; i < aLength; ++i) {
-    var row = [];
-    var ai = a[i];
-    var bi = b[i];
-    for (var j = 0; j < a0Length; ++j)
-      row[j] = (1 - t) * ai[j] + t * bi[j];
-    r[i] = row;
+    r[i] = (1 - t) * a[i] + t * b[i];
   }
   return r;
 };
@@ -550,11 +544,8 @@ tdl.math.lerpMatrix = function(a, b, t) {
 tdl.math.divMatrixScalar = function(m, k) {
   var r = [];
   var mLength = m.length;
-  var m0Length = m[0].length;
   for (var i = 0; i < mLength; ++i) {
-    r[i] = [];
-    for (var j = 0; j < m0Length; ++j)
-      r[i][j] = m[i][j] / k;
+    r[i] = m[i] / k;
   }
   return r;
 };
@@ -590,11 +581,8 @@ tdl.math.negativeVector = function(v) {
 tdl.math.negativeMatrix = function(m) {
  var r = [];
  var mLength = m.length;
- var m0Length = m[0].length;
  for (var i = 0; i < mLength; ++i) {
-   r[i] = [];
-   for (var j = 0; j < m0Length; ++j)
-     r[i][j] = -m[i][j];
+   r[i] = -m[i];
  }
  return r;
 };
@@ -629,29 +617,7 @@ tdl.math.copyMatrix = function(m) {
   var r = [];
   var mLength = m.length;
   for (var i = 0; i < mLength; ++i) {
-    r[i] = [];
-    for (var j = 0; j < m[i].length; j++) {
-      r[i][j] = m[i][j];
-    }
-  }
-  return r;
-};
-
-/**
- * Returns the elements of a matrix as a one-dimensional array. The
- * rows or columns (depending on whether the matrix is row-major or
- * column-major) are concatenated.
- * @param {!tdl.math.Matrix} m The matrix.
- * @return {!Array.<number>} The matrix's elements as a one-dimensional array.
- */
-tdl.math.getMatrixElements = function(m) {
-  var r = [];
-  var mLength = m.length;
-  var k = 0;
-  for (var i = 0; i < mLength; i++) {
-    for (var j = 0; j < m[i].length; j++) {
-      r[k++] = m[i][j];
-    }
+    r[i] = m[i];
   }
   return r;
 };
@@ -700,11 +666,8 @@ tdl.math.mulVectorScalar = function(v, k) {
 tdl.math.mulScalarMatrix = function(k, m) {
   var r = [];
   var mLength = m.length;
-  var m0Length = m[0].length;
   for (var i = 0; i < mLength; ++i) {
-    r[i] = [];
-    for (var j = 0; j < m0Length; ++j)
-      r[i][j] = k * m[i][j];
+    r[i] = k * m[i];
   }
   return r;
 };
@@ -758,14 +721,12 @@ tdl.math.divVectorVector = function(a, b) {
  * @param {!tdl.math.Matrix} m The matrix.
  * @return {!tdl.math.Vector} The product of v and m as a row vector.
  */
-tdl.math.rowMajor.mulVectorMatrix = function(v, m) {
+tdl.math.rowMajor.mulVectorMatrix4 = function(v, m) {
   var r = [];
-  var m0Length = m[0].length;
-  var vLength = v.length;
-  for (var i = 0; i < m0Length; ++i) {
+  for (var i = 0; i < 4; ++i) {
     r[i] = 0.0;
-    for (var j = 0; j < vLength; ++j)
-      r[i] += v[j] * m[j][i];
+    for (var j = 0; j < 4; ++j)
+      r[i] += v[j] * m[j * 4 + i];
   }
   return r;
 };
@@ -779,13 +740,10 @@ tdl.math.rowMajor.mulVectorMatrix = function(v, m) {
  */
 tdl.math.columnMajor.mulVectorMatrix = function(v, m) {
   var r = [];
-  var mLength = m.length;
-  var vLength = v.length;
-  for (var i = 0; i < mLength; ++i) {
+  for (var i = 0; i < 4; ++i) {
     r[i] = 0.0;
-    var column = m[i];
-    for (var j = 0; j < vLength; ++j)
-      r[i] += v[j] * column[j];
+    for (var j = 0; j < 4; ++j)
+      r[i] += v[j] * r[i * 4 +  j];
   }
   return r;
 };
@@ -807,13 +765,10 @@ tdl.math.mulVectorMatrix = null;
  */
 tdl.math.rowMajor.mulMatrixVector = function(m, v) {
   var r = [];
-  var mLength = m.length;
-  var m0Length = m[0].length;
-  for (var i = 0; i < mLength; ++i) {
+  for (var i = 0; i < 4; ++i) {
     r[i] = 0.0;
-    var row = m[i];
-    for (var j = 0; j < m0Length; ++j)
-      r[i] += row[j] * v[j];
+    for (var j = 0; j < 4; ++j)
+      r[i] += row[i * 4 + j] * v[j];
   }
   return r;
 };
@@ -827,12 +782,10 @@ tdl.math.rowMajor.mulMatrixVector = function(m, v) {
  */
 tdl.math.columnMajor.mulMatrixVector = function(m, v) {
   var r = [];
-  var m0Length = m[0].length;
-  var vLength = v.length;
-  for (var i = 0; i < m0Length; ++i) {
+  for (var i = 0; i < 4; ++i) {
     r[i] = 0.0;
-    for (var j = 0; j < vLength; ++j)
-      r[i] += v[j] * m[j][i];
+    for (var j = 0; j < 4; ++j)
+      r[i] += v[j] * m[j * 4 + i];
   }
   return r;
 };
@@ -853,20 +806,16 @@ tdl.math.mulMatrixVector = null;
  * @return {!tdl.math.Matrix2} The matrix product of a and b.
  */
 tdl.math.rowMajor.mulMatrixMatrix2 = function(a, b) {
-  var a0 = a[0];
-  var a1 = a[1];
-  var b0 = b[0];
-  var b1 = b[1];
-  var a00 = a0[0];
-  var a01 = a0[1];
-  var a10 = a1[0];
-  var a11 = a1[1];
-  var b00 = b0[0];
-  var b01 = b0[1];
-  var b10 = b1[0];
-  var b11 = b1[1];
-  return [[a00 * b00 + a01 * b10, a00 * b01 + a01 * b11],
-          [a10 * b00 + a11 * b10, a10 * b01 + a11 * b11]];
+  var a00 = a[0*2+0];
+  var a01 = a[0*2+1];
+  var a10 = a[1*2+0];
+  var a11 = a[1*2+1];
+  var b00 = b[0*2+0];
+  var b01 = b[0*2+1];
+  var b10 = b[1*2+0];
+  var b11 = b[1*2+1];
+  return [a00 * b00 + a01 * b10, a00 * b01 + a01 * b11,
+          a10 * b00 + a11 * b10, a10 * b01 + a11 * b11];
 };
 
 /**
@@ -877,20 +826,16 @@ tdl.math.rowMajor.mulMatrixMatrix2 = function(a, b) {
  * @return {!tdl.math.Matrix2} The matrix product of a and b.
  */
 tdl.math.columnMajor.mulMatrixMatrix2 = function(a, b) {
-  var a0 = a[0];
-  var a1 = a[1];
-  var b0 = b[0];
-  var b1 = b[1];
-  var a00 = a0[0];
-  var a01 = a0[1];
-  var a10 = a1[0];
-  var a11 = a1[1];
-  var b00 = b0[0];
-  var b01 = b0[1];
-  var b10 = b1[0];
-  var b11 = b1[1];
-  return [[a00 * b00 + a10 * b01, a01 * b00 + a11 * b01],
-          [a00 * b10 + a10 * b11, a01 * b10 + a11 * b11]];
+  var a00 = a[0*2+0];
+  var a01 = a[0*2+1];
+  var a10 = a[1*2+0];
+  var a11 = a[1*2+1];
+  var b00 = b[0*2+0];
+  var b01 = b[0*2+1];
+  var b10 = b[1*2+0];
+  var b11 = b[1*2+1];
+  return [a00 * b00 + a10 * b01, a01 * b00 + a11 * b01,
+          a00 * b10 + a10 * b11, a01 * b10 + a11 * b11];
 };
 
 /**
@@ -910,39 +855,33 @@ tdl.math.mulMatrixMatrix2 = null;
  * @return {!tdl.math.Matrix3} The matrix product of a and b.
  */
 tdl.math.rowMajor.mulMatrixMatrix3 = function(a, b) {
-  var a0 = a[0];
-  var a1 = a[1];
-  var a2 = a[2];
-  var b0 = b[0];
-  var b1 = b[1];
-  var b2 = b[2];
-  var a00 = a0[0];
-  var a01 = a0[1];
-  var a02 = a0[2];
-  var a10 = a1[0];
-  var a11 = a1[1];
-  var a12 = a1[2];
-  var a20 = a2[0];
-  var a21 = a2[1];
-  var a22 = a2[2];
-  var b00 = b0[0];
-  var b01 = b0[1];
-  var b02 = b0[2];
-  var b10 = b1[0];
-  var b11 = b1[1];
-  var b12 = b1[2];
-  var b20 = b2[0];
-  var b21 = b2[1];
-  var b22 = b2[2];
-  return [[a00 * b00 + a01 * b10 + a02 * b20,
-           a00 * b01 + a01 * b11 + a02 * b21,
-           a00 * b02 + a01 * b12 + a02 * b22],
-          [a10 * b00 + a11 * b10 + a12 * b20,
-           a10 * b01 + a11 * b11 + a12 * b21,
-           a10 * b02 + a11 * b12 + a12 * b22],
-          [a20 * b00 + a21 * b10 + a22 * b20,
-           a20 * b01 + a21 * b11 + a22 * b21,
-           a20 * b02 + a21 * b12 + a22 * b22]];
+  var a00 = a[0*3+0];
+  var a01 = a[0*3+1];
+  var a02 = a[0*3+2];
+  var a10 = a[1*3+0];
+  var a11 = a[1*3+1];
+  var a12 = a[1*3+2];
+  var a20 = a[2*3+0];
+  var a21 = a[2*3+1];
+  var a22 = a[2*3+2];
+  var b00 = b[0*3+0];
+  var b01 = b[0*3+1];
+  var b02 = b[0*3+2];
+  var b10 = b[1*3+0];
+  var b11 = b[1*3+1];
+  var b12 = b[1*3+2];
+  var b20 = b[2*3+0];
+  var b21 = b[2*3+1];
+  var b22 = b[2*3+2];
+  return [a00 * b00 + a01 * b10 + a02 * b20,
+          a00 * b01 + a01 * b11 + a02 * b21,
+          a00 * b02 + a01 * b12 + a02 * b22,
+          a10 * b00 + a11 * b10 + a12 * b20,
+          a10 * b01 + a11 * b11 + a12 * b21,
+          a10 * b02 + a11 * b12 + a12 * b22,
+          a20 * b00 + a21 * b10 + a22 * b20,
+          a20 * b01 + a21 * b11 + a22 * b21,
+          a20 * b02 + a21 * b12 + a22 * b22];
 };
 
 /**
@@ -953,39 +892,33 @@ tdl.math.rowMajor.mulMatrixMatrix3 = function(a, b) {
  * @return {!tdl.math.Matrix3} The matrix product of a and b.
  */
 tdl.math.columnMajor.mulMatrixMatrix3 = function(a, b) {
-  var a0 = a[0];
-  var a1 = a[1];
-  var a2 = a[2];
-  var b0 = b[0];
-  var b1 = b[1];
-  var b2 = b[2];
-  var a00 = a0[0];
-  var a01 = a0[1];
-  var a02 = a0[2];
-  var a10 = a1[0];
-  var a11 = a1[1];
-  var a12 = a1[2];
-  var a20 = a2[0];
-  var a21 = a2[1];
-  var a22 = a2[2];
-  var b00 = b0[0];
-  var b01 = b0[1];
-  var b02 = b0[2];
-  var b10 = b1[0];
-  var b11 = b1[1];
-  var b12 = b1[2];
-  var b20 = b2[0];
-  var b21 = b2[1];
-  var b22 = b2[2];
-  return [[a00 * b00 + a10 * b01 + a20 * b02,
-           a01 * b00 + a11 * b01 + a21 * b02,
-           a02 * b00 + a12 * b01 + a22 * b02],
-          [a00 * b10 + a10 * b11 + a20 * b12,
-           a01 * b10 + a11 * b11 + a21 * b12,
-           a02 * b10 + a12 * b11 + a22 * b12],
-          [a00 * b20 + a10 * b21 + a20 * b22,
-           a01 * b20 + a11 * b21 + a21 * b22,
-           a02 * b20 + a12 * b21 + a22 * b22]];
+  var a00 = a[0*3+0];
+  var a01 = a[0*3+1];
+  var a02 = a[0*3+2];
+  var a10 = a[1*3+0];
+  var a11 = a[1*3+1];
+  var a12 = a[1*3+2];
+  var a20 = a[2*3+0];
+  var a21 = a[2*3+1];
+  var a22 = a[2*3+2];
+  var b00 = b[0*3+0];
+  var b01 = b[0*3+1];
+  var b02 = b[0*3+2];
+  var b10 = b[1*3+0];
+  var b11 = b[1*3+1];
+  var b12 = b[1*3+2];
+  var b20 = b[2*3+0];
+  var b21 = b[2*3+1];
+  var b22 = b[2*3+2];
+  return [a00 * b00 + a10 * b01 + a20 * b02,
+          a01 * b00 + a11 * b01 + a21 * b02,
+          a02 * b00 + a12 * b01 + a22 * b02,
+          a00 * b10 + a10 * b11 + a20 * b12,
+          a01 * b10 + a11 * b11 + a21 * b12,
+          a02 * b10 + a12 * b11 + a22 * b12,
+          a00 * b20 + a10 * b21 + a20 * b22,
+          a01 * b20 + a11 * b21 + a21 * b22,
+          a02 * b20 + a12 * b21 + a22 * b22];
 };
 
 /**
@@ -1004,62 +937,54 @@ tdl.math.mulMatrixMatrix3 = null;
  * @return {!tdl.math.Matrix4} The matrix product of a and b.
  */
 tdl.math.rowMajor.mulMatrixMatrix4 = function(a, b) {
-  var a0 = a[0];
-  var a1 = a[1];
-  var a2 = a[2];
-  var a3 = a[3];
-  var b0 = b[0];
-  var b1 = b[1];
-  var b2 = b[2];
-  var b3 = b[3];
-  var a00 = a0[0];
-  var a01 = a0[1];
-  var a02 = a0[2];
-  var a03 = a0[3];
-  var a10 = a1[0];
-  var a11 = a1[1];
-  var a12 = a1[2];
-  var a13 = a1[3];
-  var a20 = a2[0];
-  var a21 = a2[1];
-  var a22 = a2[2];
-  var a23 = a2[3];
-  var a30 = a3[0];
-  var a31 = a3[1];
-  var a32 = a3[2];
-  var a33 = a3[3];
-  var b00 = b0[0];
-  var b01 = b0[1];
-  var b02 = b0[2];
-  var b03 = b0[3];
-  var b10 = b1[0];
-  var b11 = b1[1];
-  var b12 = b1[2];
-  var b13 = b1[3];
-  var b20 = b2[0];
-  var b21 = b2[1];
-  var b22 = b2[2];
-  var b23 = b2[3];
-  var b30 = b3[0];
-  var b31 = b3[1];
-  var b32 = b3[2];
-  var b33 = b3[3];
-  return [[a00 * b00 + a01 * b10 + a02 * b20 + a03 * b30,
-           a00 * b01 + a01 * b11 + a02 * b21 + a03 * b31,
-           a00 * b02 + a01 * b12 + a02 * b22 + a03 * b32,
-           a00 * b03 + a01 * b13 + a02 * b23 + a03 * b33],
-          [a10 * b00 + a11 * b10 + a12 * b20 + a13 * b30,
-           a10 * b01 + a11 * b11 + a12 * b21 + a13 * b31,
-           a10 * b02 + a11 * b12 + a12 * b22 + a13 * b32,
-           a10 * b03 + a11 * b13 + a12 * b23 + a13 * b33],
-          [a20 * b00 + a21 * b10 + a22 * b20 + a23 * b30,
-           a20 * b01 + a21 * b11 + a22 * b21 + a23 * b31,
-           a20 * b02 + a21 * b12 + a22 * b22 + a23 * b32,
-           a20 * b03 + a21 * b13 + a22 * b23 + a23 * b33],
-          [a30 * b00 + a31 * b10 + a32 * b20 + a33 * b30,
-           a30 * b01 + a31 * b11 + a32 * b21 + a33 * b31,
-           a30 * b02 + a31 * b12 + a32 * b22 + a33 * b32,
-           a30 * b03 + a31 * b13 + a32 * b23 + a33 * b33]];
+  var a00 = a[0*4+0];
+  var a01 = a[0*4+1];
+  var a02 = a[0*4+2];
+  var a03 = a[0*4+3];
+  var a10 = a[1*4+0];
+  var a11 = a[1*4+1];
+  var a12 = a[1*4+2];
+  var a13 = a[1*4+3];
+  var a20 = a[2*4+0];
+  var a21 = a[2*4+1];
+  var a22 = a[2*4+2];
+  var a23 = a[2*4+3];
+  var a30 = a[3*4+0];
+  var a31 = a[3*4+1];
+  var a32 = a[3*4+2];
+  var a33 = a[3*4+3];
+  var b00 = b[0*4+0];
+  var b01 = b[0*4+1];
+  var b02 = b[0*4+2];
+  var b03 = b[0*4+3];
+  var b10 = b[1*4+0];
+  var b11 = b[1*4+1];
+  var b12 = b[1*4+2];
+  var b13 = b[1*4+3];
+  var b20 = b[2*4+0];
+  var b21 = b[2*4+1];
+  var b22 = b[2*4+2];
+  var b23 = b[2*4+3];
+  var b30 = b[3*4+0];
+  var b31 = b[3*4+1];
+  var b32 = b[3*4+2];
+  var b33 = b[3*4+3];
+  return [a00 * b00 + a01 * b10 + a02 * b20 + a03 * b30,
+          a00 * b01 + a01 * b11 + a02 * b21 + a03 * b31,
+          a00 * b02 + a01 * b12 + a02 * b22 + a03 * b32,
+          a00 * b03 + a01 * b13 + a02 * b23 + a03 * b33,
+          a10 * b00 + a11 * b10 + a12 * b20 + a13 * b30,
+          a10 * b01 + a11 * b11 + a12 * b21 + a13 * b31,
+          a10 * b02 + a11 * b12 + a12 * b22 + a13 * b32,
+          a10 * b03 + a11 * b13 + a12 * b23 + a13 * b33,
+          a20 * b00 + a21 * b10 + a22 * b20 + a23 * b30,
+          a20 * b01 + a21 * b11 + a22 * b21 + a23 * b31,
+          a20 * b02 + a21 * b12 + a22 * b22 + a23 * b32,
+          a20 * b03 + a21 * b13 + a22 * b23 + a23 * b33,
+          a30 * b00 + a31 * b10 + a32 * b20 + a33 * b30,
+          a30 * b01 + a31 * b11 + a32 * b21 + a33 * b31,
+          a30 * b02 + a31 * b12 + a32 * b22 + a33 * b32,
+          a30 * b03 + a31 * b13 + a32 * b23 + a33 * b33];
 };
 
 /**
@@ -1070,62 +995,54 @@ tdl.math.rowMajor.mulMatrixMatrix4 = function(a, b) {
  * @return {!tdl.math.Matrix4} The matrix product of a and b.
  */
 tdl.math.columnMajor.mulMatrixMatrix4 = function(a, b) {
-  var a0 = a[0];
-  var a1 = a[1];
-  var a2 = a[2];
-  var a3 = a[3];
-  var b0 = b[0];
-  var b1 = b[1];
-  var b2 = b[2];
-  var b3 = b[3];
-  var a00 = a0[0];
-  var a01 = a0[1];
-  var a02 = a0[2];
-  var a03 = a0[3];
-  var a10 = a1[0];
-  var a11 = a1[1];
-  var a12 = a1[2];
-  var a13 = a1[3];
-  var a20 = a2[0];
-  var a21 = a2[1];
-  var a22 = a2[2];
-  var a23 = a2[3];
-  var a30 = a3[0];
-  var a31 = a3[1];
-  var a32 = a3[2];
-  var a33 = a3[3];
-  var b00 = b0[0];
-  var b01 = b0[1];
-  var b02 = b0[2];
-  var b03 = b0[3];
-  var b10 = b1[0];
-  var b11 = b1[1];
-  var b12 = b1[2];
-  var b13 = b1[3];
-  var b20 = b2[0];
-  var b21 = b2[1];
-  var b22 = b2[2];
-  var b23 = b2[3];
-  var b30 = b3[0];
-  var b31 = b3[1];
-  var b32 = b3[2];
-  var b33 = b3[3];
-  return [[a00 * b00 + a10 * b01 + a20 * b02 + a30 * b03,
-           a01 * b00 + a11 * b01 + a21 * b02 + a31 * b03,
-           a02 * b00 + a12 * b01 + a22 * b02 + a32 * b03,
-           a03 * b00 + a13 * b01 + a23 * b02 + a33 * b03],
-          [a00 * b10 + a10 * b11 + a20 * b12 + a30 * b13,
-           a01 * b10 + a11 * b11 + a21 * b12 + a31 * b13,
-           a02 * b10 + a12 * b11 + a22 * b12 + a32 * b13,
-           a03 * b10 + a13 * b11 + a23 * b12 + a33 * b13],
-          [a00 * b20 + a10 * b21 + a20 * b22 + a30 * b23,
-           a01 * b20 + a11 * b21 + a21 * b22 + a31 * b23,
-           a02 * b20 + a12 * b21 + a22 * b22 + a32 * b23,
-           a03 * b20 + a13 * b21 + a23 * b22 + a33 * b23],
-          [a00 * b30 + a10 * b31 + a20 * b32 + a30 * b33,
-           a01 * b30 + a11 * b31 + a21 * b32 + a31 * b33,
-           a02 * b30 + a12 * b31 + a22 * b32 + a32 * b33,
-           a03 * b30 + a13 * b31 + a23 * b32 + a33 * b33]];
+  var a00 = a[0*4+0];
+  var a01 = a[0*4+1];
+  var a02 = a[0*4+2];
+  var a03 = a[0*4+3];
+  var a10 = a[1*4+0];
+  var a11 = a[1*4+1];
+  var a12 = a[1*4+2];
+  var a13 = a[1*4+3];
+  var a20 = a[2*4+0];
+  var a21 = a[2*4+1];
+  var a22 = a[2*4+2];
+  var a23 = a[2*4+3];
+  var a30 = a[3*4+0];
+  var a31 = a[3*4+1];
+  var a32 = a[3*4+2];
+  var a33 = a[3*4+3];
+  var b00 = b[0*4+0];
+  var b01 = b[0*4+1];
+  var b02 = b[0*4+2];
+  var b03 = b[0*4+3];
+  var b10 = b[1*4+0];
+  var b11 = b[1*4+1];
+  var b12 = b[1*4+2];
+  var b13 = b[1*4+3];
+  var b20 = b[2*4+0];
+  var b21 = b[2*4+1];
+  var b22 = b[2*4+2];
+  var b23 = b[2*4+3];
+  var b30 = b[3*4+0];
+  var b31 = b[3*4+1];
+  var b32 = b[3*4+2];
+  var b33 = b[3*4+3];
+  return [a00 * b00 + a10 * b01 + a20 * b02 + a30 * b03,
+          a01 * b00 + a11 * b01 + a21 * b02 + a31 * b03,
+          a02 * b00 + a12 * b01 + a22 * b02 + a32 * b03,
+          a03 * b00 + a13 * b01 + a23 * b02 + a33 * b03,
+          a00 * b10 + a10 * b11 + a20 * b12 + a30 * b13,
+          a01 * b10 + a11 * b11 + a21 * b12 + a31 * b13,
+          a02 * b10 + a12 * b11 + a22 * b12 + a32 * b13,
+          a03 * b10 + a13 * b11 + a23 * b12 + a33 * b13,
+          a00 * b20 + a10 * b21 + a20 * b22 + a30 * b23,
+          a01 * b20 + a11 * b21 + a21 * b22 + a31 * b23,
+          a02 * b20 + a12 * b21 + a22 * b22 + a32 * b23,
+          a03 * b20 + a13 * b21 + a23 * b22 + a33 * b23,
+          a00 * b30 + a10 * b31 + a20 * b32 + a30 * b33,
+          a01 * b30 + a11 * b31 + a21 * b32 + a31 * b33,
+          a02 * b30 + a12 * b31 + a22 * b32 + a32 * b33,
+          a03 * b30 + a13 * b31 + a23 * b32 + a33 * b33];
 };
 
 /**
@@ -1146,18 +1063,12 @@ tdl.math.mulMatrixMatrix4 = null;
  */
 tdl.math.rowMajor.mulMatrixMatrix = function(a, b) {
   var r = [];
-  var aRows = a.length;
-  var bColumns = b[0].length;
-  var bRows = b.length;
-  for (var i = 0; i < aRows; ++i) {
-    var v = [];    // v becomes a row of the answer.
-    var ai = a[i]; // ith row of a.
-    for (var j = 0; j < bColumns; ++j) {
-      v[j] = 0.0;
-      for (var k = 0; k < bRows; ++k)
-        v[j] += ai[k] * b[k][j]; // kth row, jth column.
+  for (var i = 0; i < 4; ++i) {
+    for (var j = 0; j < 4; ++j) {
+      v[i*4+j] = 0.0;
+      for (var k = 0; k < 4; ++k)
+        v[i*4+j] += a[i*4+k] * b[k*4+j]; // kth row, jth column.
     }
-    r[i] = v;
   }
   return r;
 };
@@ -1172,18 +1083,12 @@ tdl.math.rowMajor.mulMatrixMatrix = function(a, b) {
  */
 tdl.math.columnMajor.mulMatrixMatrix = function(a, b) {
   var r = [];
-  var bColumns = b.length;
-  var aRows = a[0].length;
-  var aColumns = a.length;
-  for (var i = 0; i < bColumns; ++i) {
-    var v = [];    // v becomes a column of the answer.
-    var bi = b[i]; // ith column of b.
-    for (var j = 0; j < aRows; ++j) {
-      v[j] = 0.0;
-      for (var k = 0; k < aColumns; ++k)
-        v[j] += bi[k] * a[k][j]; // kth column, jth row.
+  for (var i = 0; i < 4; ++i) {
+    for (var j = 0; j < 4; ++j) {
+      v[i*4+j] = 0.0;
+      for (var k = 0; k < 4; ++k)
+        v[i*4+j] += b[i*4+k] * a[k*4+j]; // kth column, jth row.
     }
-    r[i] = v;
   }
   return r;
 };
@@ -1206,9 +1111,8 @@ tdl.math.mulMatrixMatrix = null;
  */
 tdl.math.rowMajor.column = function(m, j) {
   var r = [];
-  var mLength = m.length;
-  for (var i = 0; i < mLength; ++i) {
-    r[i] = m[i][j];
+  for (var i = 0; i < 4; ++i) {
+    r[i] = m[i*4+j];
   }
   return r;
 };
@@ -1221,7 +1125,11 @@ tdl.math.rowMajor.column = function(m, j) {
  * @return {!tdl.math.Vector} The jth column of m as a vector.
  */
 tdl.math.columnMajor.column = function(m, j) {
-  return m[j].slice();
+  var r = [];
+  for (var i = 0; i < 4; ++i) {
+    r[i] = m[j*4+i];
+  }
+  return r;
 };
 
 /**
@@ -1240,7 +1148,11 @@ tdl.math.column = null;
  * @return {!tdl.math.Vector} The ith row of m.
  */
 tdl.math.rowMajor.row = function(m, i) {
-  return m[i].slice();
+  var r = [];
+  for (var j = 0; j < 4; ++j) {
+    r[i] = m[i*4+j];
+  }
+  return r;
 };
 
 /**
@@ -1251,10 +1163,10 @@ tdl.math.rowMajor.row = function(m, i) {
  * @return {!tdl.math.Vector} The ith row of m.
  */
 tdl.math.columnMajor.row = function(m, i) {
+  opt_size = opt_size || 4;
   var r = [];
-  var mLength = m.length;
-  for (var j = 0; j < mLength; ++j) {
-    r[j] = m[j][i];
+  for (var j = 0; j < opt_size; ++j) {
+    r[j] = m[j*opt_size+i];
   }
   return r;
 };
@@ -1268,33 +1180,15 @@ tdl.math.columnMajor.row = function(m, i) {
 tdl.math.row = null;
 
 /**
- * Creates an n-by-n identity matrix.
- * @param {number} n The dimension of the identity matrix required.
- * @return {!tdl.math.Matrix} An n-by-n identity matrix.
- */
-tdl.math.identity = function(n) {
-  var r = [];
-  for (var j = 0; j < n; ++j) {
-    r[j] = [];
-    for (var i = 0; i < n; ++i)
-      r[j][i] = (i == j) ? 1 : 0;
-  }
-  return r;
-};
-
-/**
  * Takes the transpose of a matrix.
  * @param {!tdl.math.Matrix} m The matrix.
  * @return {!tdl.math.Matrix} The transpose of m.
  */
 tdl.math.transpose = function(m) {
   var r = [];
-  var m0Length = m[0].length;
-  var mLength = m.length;
-  for (var j = 0; j < m0Length; ++j) {
-    r[j] = [];
-    for (var i = 0; i < mLength; ++i)
-      r[j][i] = m[i][j];
+  for (var j = 0; j < 4; ++j) {
+    for (var i = 0; i < 4; ++i)
+      r[j*4+i] = m[i*4+j];
   }
   return r;
 };
@@ -1307,9 +1201,8 @@ tdl.math.transpose = function(m) {
  */
 tdl.math.trace = function(m) {
   var r = 0.0;
-  var mLength = m.length;
-  for (var i = 0; i < mLength; ++i)
-    r += m[i][i];
+  for (var i = 0; i < 4; ++i)
+    r += m[i*4+i];
   return r;
 };
 
@@ -1319,7 +1212,7 @@ tdl.math.trace = function(m) {
  * @return {number} The determinant of m.
  */
 tdl.math.det1 = function(m) {
-  return m[0][0];
+  return m[0];
 };
 
 /**
@@ -1328,7 +1221,7 @@ tdl.math.det1 = function(m) {
  * @return {number} The determinant of m.
  */
 tdl.math.det2 = function(m) {
-  return m[0][0] * m[1][1] - m[0][1] * m[1][0];
+  return m[0*2+0] * m[1*2+1] - m[0*2+1] * m[1*2+0];
 };
 
 /**
@@ -1337,9 +1230,9 @@ tdl.math.det2 = function(m) {
  * @return {number} The determinant of m.
  */
 tdl.math.det3 = function(m) {
-  return m[2][2] * (m[0][0] * m[1][1] - m[0][1] * m[1][0]) -
-         m[2][1] * (m[0][0] * m[1][2] - m[0][2] * m[1][0]) +
-         m[2][0] * (m[0][1] * m[1][2] - m[0][2] * m[1][1]);
+  return m[2*3+2] * (m[0*3+0] * m[1*3+1] - m[0*3+1] * m[1*3+0]) -
+         m[2*3+1] * (m[0*3+0] * m[1*3+2] - m[0*3+2] * m[1*3+0]) +
+         m[2*3+0] * (m[0*3+1] * m[1*3+2] - m[0*3+2] * m[1*3+1]);
 };
 
 /**
@@ -1348,16 +1241,16 @@ tdl.math.det3 = function(m) {
  * @return {number} The determinant of m.
  */
 tdl.math.det4 = function(m) {
-  var t01 = m[0][0] * m[1][1] - m[0][1] * m[1][0];
-  var t02 = m[0][0] * m[1][2] - m[0][2] * m[1][0];
-  var t03 = m[0][0] * m[1][3] - m[0][3] * m[1][0];
-  var t12 = m[0][1] * m[1][2] - m[0][2] * m[1][1];
-  var t13 = m[0][1] * m[1][3] - m[0][3] * m[1][1];
-  var t23 = m[0][2] * m[1][3] - m[0][3] * m[1][2];
-  return m[3][3] * (m[2][2] * t01 - m[2][1] * t02 + m[2][0] * t12) -
-         m[3][2] * (m[2][3] * t01 - m[2][1] * t03 + m[2][0] * t13) +
-         m[3][1] * (m[2][3] * t02 - m[2][2] * t03 + m[2][0] * t23) -
-         m[3][0] * (m[2][3] * t12 - m[2][2] * t13 + m[2][1] * t23);
+  var t01 = m[0*4+0] * m[1*4+1] - m[0*4+1] * m[1*4+0];
+  var t02 = m[0*4+0] * m[1*4+2] - m[0*4+2] * m[1*4+0];
+  var t03 = m[0*4+0] * m[1*4+3] - m[0*4+3] * m[1*4+0];
+  var t12 = m[0*4+1] * m[1*4+2] - m[0*4+2] * m[1*4+1];
+  var t13 = m[0*4+1] * m[1*4+3] - m[0*4+3] * m[1*4+1];
+  var t23 = m[0*4+2] * m[1*4+3] - m[0*4+3] * m[1*4+2];
+  return m[3*4+3] * (m[2*4+2] * t01 - m[2*4+1] * t02 + m[2*4+0] * t12) -
+         m[3*4+2] * (m[2*4+3] * t01 - m[2*4+1] * t03 + m[2*4+0] * t13) +
+         m[3*4+1] * (m[2*4+3] * t02 - m[2*4+2] * t03 + m[2*4+0] * t23) -
+         m[3*4+0] * (m[2*4+3] * t12 - m[2*4+2] * t13 + m[2*4+1] * t23);
 };
 
 /**
@@ -1366,7 +1259,7 @@ tdl.math.det4 = function(m) {
  * @return {!tdl.math.Matrix1} The inverse of m.
  */
 tdl.math.inverse1 = function(m) {
-  return [[1.0 / m[0][0]]];
+  return [[1.0 / m[0]]];
 };
 
 /**
@@ -1375,8 +1268,8 @@ tdl.math.inverse1 = function(m) {
  * @return {!tdl.math.Matrix2} The inverse of m.
  */
 tdl.math.inverse2 = function(m) {
-  var d = 1.0 / (m[0][0] * m[1][1] - m[0][1] * m[1][0]);
-  return [[d * m[1][1], -d * m[0][1]], [-d * m[1][0], d * m[0][0]]];
+  var d = 1.0 / (m[0*2+0] * m[1*2+1] - m[0*2+1] * m[1*2+0]);
+  return [d * m[1*2+1], -d * m[0*2+1], -d * m[1*2+0], d * m[0*2+0]];
 };
 
 /**
@@ -1385,17 +1278,17 @@ tdl.math.inverse2 = function(m) {
  * @return {!tdl.math.Matrix3} The inverse of m.
  */
 tdl.math.inverse3 = function(m) {
-  var t00 = m[1][1] * m[2][2] - m[1][2] * m[2][1];
-  var t10 = m[0][1] * m[2][2] - m[0][2] * m[2][1];
-  var t20 = m[0][1] * m[1][2] - m[0][2] * m[1][1];
-  var d = 1.0 / (m[0][0] * t00 - m[1][0] * t10 + m[2][0] * t20);
-  return [[d * t00, -d * t10, d * t20],
-          [-d * (m[1][0] * m[2][2] - m[1][2] * m[2][0]),
-            d * (m[0][0] * m[2][2] - m[0][2] * m[2][0]),
-           -d * (m[0][0] * m[1][2] - m[0][2] * m[1][0])],
-          [d * (m[1][0] * m[2][1] - m[1][1] * m[2][0]),
-          -d * (m[0][0] * m[2][1] - m[0][1] * m[2][0]),
-           d * (m[0][0] * m[1][1] - m[0][1] * m[1][0])]];
+  var t00 = m[1*3+1] * m[2*3+2] - m[1*3+2] * m[2*3+1];
+  var t10 = m[0*3+1] * m[2*3+2] - m[0*3+2] * m[2*3+1];
+  var t20 = m[0*3+1] * m[1*3+2] - m[0*3+2] * m[1*3+1];
+  var d = 1.0 / (m[0*3+0] * t00 - m[1*3+0] * t10 + m[2*3+0] * t20);
+  return [ d * t00, -d * t10, d * t20,
+          -d * (m[1*3+0] * m[2*3+2] - m[1*3+2] * m[2*3+0]),
+           d * (m[0*3+0] * m[2*3+2] - m[0*3+2] * m[2*3+0]),
+          -d * (m[0*3+0] * m[1*3+2] - m[0*3+2] * m[1*3+0]),
+           d * (m[1*3+0] * m[2*3+1] - m[1*3+1] * m[2*3+0]),
+          -d * (m[0*3+0] * m[2*3+1] - m[0*3+1] * m[2*3+0]),
+           d * (m[0*3+0] * m[1*3+1] - m[0*3+1] * m[1*3+0])];
 };
 
 /**
@@ -1404,68 +1297,67 @@ tdl.math.inverse3 = function(m) {
  * @return {!tdl.math.Matrix4} The inverse of m.
  */
 tdl.math.inverse4 = function(m) {
-  var tmp_0 = m[2][2] * m[3][3];
-  var tmp_1 = m[3][2] * m[2][3];
-  var tmp_2 = m[1][2] * m[3][3];
-  var tmp_3 = m[3][2] * m[1][3];
-  var tmp_4 = m[1][2] * m[2][3];
-  var tmp_5 = m[2][2] * m[1][3];
-  var tmp_6 = m[0][2] * m[3][3];
-  var tmp_7 = m[3][2] * m[0][3];
-  var tmp_8 = m[0][2] * m[2][3];
-  var tmp_9 = m[2][2] * m[0][3];
-  var tmp_10 = m[0][2] * m[1][3];
-  var tmp_11 = m[1][2] * m[0][3];
-  var tmp_12 = m[2][0] * m[3][1];
-  var tmp_13 = m[3][0] * m[2][1];
-  var tmp_14 = m[1][0] * m[3][1];
-  var tmp_15 = m[3][0] * m[1][1];
-  var tmp_16 = m[1][0] * m[2][1];
-  var tmp_17 = m[2][0] * m[1][1];
-  var tmp_18 = m[0][0] * m[3][1];
-  var tmp_19 = m[3][0] * m[0][1];
-  var tmp_20 = m[0][0] * m[2][1];
-  var tmp_21 = m[2][0] * m[0][1];
-  var tmp_22 = m[0][0] * m[1][1];
-  var tmp_23 = m[1][0] * m[0][1];
+  var tmp_0 = m[2*4+2] * m[3*4+3];
+  var tmp_1 = m[3*4+2] * m[2*4+3];
+  var tmp_2 = m[1*4+2] * m[3*4+3];
+  var tmp_3 = m[3*4+2] * m[1*4+3];
+  var tmp_4 = m[1*4+2] * m[2*4+3];
+  var tmp_5 = m[2*4+2] * m[1*4+3];
+  var tmp_6 = m[0*4+2] * m[3*4+3];
+  var tmp_7 = m[3*4+2] * m[0*4+3];
+  var tmp_8 = m[0*4+2] * m[2*4+3];
+  var tmp_9 = m[2*4+2] * m[0*4+3];
+  var tmp_10 = m[0*4+2] * m[1*4+3];
+  var tmp_11 = m[1*4+2] * m[0*4+3];
+  var tmp_12 = m[2*4+0] * m[3*4+1];
+  var tmp_13 = m[3*4+0] * m[2*4+1];
+  var tmp_14 = m[1*4+0] * m[3*4+1];
+  var tmp_15 = m[3*4+0] * m[1*4+1];
+  var tmp_16 = m[1*4+0] * m[2*4+1];
+  var tmp_17 = m[2*4+0] * m[1*4+1];
+  var tmp_18 = m[0*4+0] * m[3*4+1];
+  var tmp_19 = m[3*4+0] * m[0*4+1];
+  var tmp_20 = m[0*4+0] * m[2*4+1];
+  var tmp_21 = m[2*4+0] * m[0*4+1];
+  var tmp_22 = m[0*4+0] * m[1*4+1];
+  var tmp_23 = m[1*4+0] * m[0*4+1];
 
-  var t0 = (tmp_0 * m[1][1] + tmp_3 * m[2][1] + tmp_4 * m[3][1]) -
-      (tmp_1 * m[1][1] + tmp_2 * m[2][1] + tmp_5 * m[3][1]);
-  var t1 = (tmp_1 * m[0][1] + tmp_6 * m[2][1] + tmp_9 * m[3][1]) -
-      (tmp_0 * m[0][1] + tmp_7 * m[2][1] + tmp_8 * m[3][1]);
-  var t2 = (tmp_2 * m[0][1] + tmp_7 * m[1][1] + tmp_10 * m[3][1]) -
-      (tmp_3 * m[0][1] + tmp_6 * m[1][1] + tmp_11 * m[3][1]);
-  var t3 = (tmp_5 * m[0][1] + tmp_8 * m[1][1] + tmp_11 * m[2][1]) -
-      (tmp_4 * m[0][1] + tmp_9 * m[1][1] + tmp_10 * m[2][1]);
+  var t0 = (tmp_0 * m[1*4+1] + tmp_3 * m[2*4+1] + tmp_4 * m[3*4+1]) -
+      (tmp_1 * m[1*4+1] + tmp_2 * m[2*4+1] + tmp_5 * m[3*4+1]);
+  var t1 = (tmp_1 * m[0*4+1] + tmp_6 * m[2*4+1] + tmp_9 * m[3*4+1]) -
+      (tmp_0 * m[0*4+1] + tmp_7 * m[2*4+1] + tmp_8 * m[3*4+1]);
+  var t2 = (tmp_2 * m[0*4+1] + tmp_7 * m[1*4+1] + tmp_10 * m[3*4+1]) -
+      (tmp_3 * m[0*4+1] + tmp_6 * m[1*4+1] + tmp_11 * m[3*4+1]);
+  var t3 = (tmp_5 * m[0*4+1] + tmp_8 * m[1*4+1] + tmp_11 * m[2*4+1]) -
+      (tmp_4 * m[0*4+1] + tmp_9 * m[1*4+1] + tmp_10 * m[2*4+1]);
 
-  var d = 1.0 / (m[0][0] * t0 + m[1][0] * t1 + m[2][0] * t2 + m[3][0] * t3);
+  var d = 1.0 / (m[0*4+0] * t0 + m[1*4+0] * t1 + m[2*4+0] * t2 + m[3*4+0] * t3);
 
-  var row0 = [d * t0, d * t1, d * t2, d * t3];
-  var row1 = [d * ((tmp_1 * m[1][0] + tmp_2 * m[2][0] + tmp_5 * m[3][0]) -
-          (tmp_0 * m[1][0] + tmp_3 * m[2][0] + tmp_4 * m[3][0])),
-       d * ((tmp_0 * m[0][0] + tmp_7 * m[2][0] + tmp_8 * m[3][0]) -
-          (tmp_1 * m[0][0] + tmp_6 * m[2][0] + tmp_9 * m[3][0])),
-       d * ((tmp_3 * m[0][0] + tmp_6 * m[1][0] + tmp_11 * m[3][0]) -
-          (tmp_2 * m[0][0] + tmp_7 * m[1][0] + tmp_10 * m[3][0])),
-       d * ((tmp_4 * m[0][0] + tmp_9 * m[1][0] + tmp_10 * m[2][0]) -
-          (tmp_5 * m[0][0] + tmp_8 * m[1][0] + tmp_11 * m[2][0]))];
-  var row2 =[d * ((tmp_12 * m[1][3] + tmp_15 * m[2][3] + tmp_16 * m[3][3]) -
-          (tmp_13 * m[1][3] + tmp_14 * m[2][3] + tmp_17 * m[3][3])),
-       d * ((tmp_13 * m[0][3] + tmp_18 * m[2][3] + tmp_21 * m[3][3]) -
-          (tmp_12 * m[0][3] + tmp_19 * m[2][3] + tmp_20 * m[3][3])),
-       d * ((tmp_14 * m[0][3] + tmp_19 * m[1][3] + tmp_22 * m[3][3]) -
-          (tmp_15 * m[0][3] + tmp_18 * m[1][3] + tmp_23 * m[3][3])),
-       d * ((tmp_17 * m[0][3] + tmp_20 * m[1][3] + tmp_23 * m[2][3]) -
-          (tmp_16 * m[0][3] + tmp_21 * m[1][3] + tmp_22 * m[2][3]))];
-  var row3 = [d * ((tmp_14 * m[2][2] + tmp_17 * m[3][2] + tmp_13 * m[1][2]) -
-          (tmp_16 * m[3][2] + tmp_12 * m[1][2] + tmp_15 * m[2][2])),
-       d * ((tmp_20 * m[3][2] + tmp_12 * m[0][2] + tmp_19 * m[2][2]) -
-          (tmp_18 * m[2][2] + tmp_21 * m[3][2] + tmp_13 * m[0][2])),
-       d * ((tmp_18 * m[1][2] + tmp_23 * m[3][2] + tmp_15 * m[0][2]) -
-          (tmp_22 * m[3][2] + tmp_14 * m[0][2] + tmp_19 * m[1][2])),
-       d * ((tmp_22 * m[2][2] + tmp_16 * m[0][2] + tmp_21 * m[1][2]) -
-          (tmp_20 * m[1][2] + tmp_23 * m[2][2] + tmp_17 * m[0][2]))];
-  return [row0, row1, row2, row3];
+  return [d * t0, d * t1, d * t2, d * t3,
+       d * ((tmp_1 * m[1*4+0] + tmp_2 * m[2*4+0] + tmp_5 * m[3*4+0]) -
+          (tmp_0 * m[1*4+0] + tmp_3 * m[2*4+0] + tmp_4 * m[3*4+0])),
+       d * ((tmp_0 * m[0*4+0] + tmp_7 * m[2*4+0] + tmp_8 * m[3*4+0]) -
+          (tmp_1 * m[0*4+0] + tmp_6 * m[2*4+0] + tmp_9 * m[3*4+0])),
+       d * ((tmp_3 * m[0*4+0] + tmp_6 * m[1*4+0] + tmp_11 * m[3*4+0]) -
+          (tmp_2 * m[0*4+0] + tmp_7 * m[1*4+0] + tmp_10 * m[3*4+0])),
+       d * ((tmp_4 * m[0*4+0] + tmp_9 * m[1*4+0] + tmp_10 * m[2*4+0]) -
+          (tmp_5 * m[0*4+0] + tmp_8 * m[1*4+0] + tmp_11 * m[2*4+0])),
+       d * ((tmp_12 * m[1*4+3] + tmp_15 * m[2*4+3] + tmp_16 * m[3*4+3]) -
+          (tmp_13 * m[1*4+3] + tmp_14 * m[2*4+3] + tmp_17 * m[3*4+3])),
+       d * ((tmp_13 * m[0*4+3] + tmp_18 * m[2*4+3] + tmp_21 * m[3*4+3]) -
+          (tmp_12 * m[0*4+3] + tmp_19 * m[2*4+3] + tmp_20 * m[3*4+3])),
+       d * ((tmp_14 * m[0*4+3] + tmp_19 * m[1*4+3] + tmp_22 * m[3*4+3]) -
+          (tmp_15 * m[0*4+3] + tmp_18 * m[1*4+3] + tmp_23 * m[3*4+3])),
+       d * ((tmp_17 * m[0*4+3] + tmp_20 * m[1*4+3] + tmp_23 * m[2*4+3]) -
+          (tmp_16 * m[0*4+3] + tmp_21 * m[1*4+3] + tmp_22 * m[2*4+3])),
+       d * ((tmp_14 * m[2*4+2] + tmp_17 * m[3*4+2] + tmp_13 * m[1*4+2]) -
+          (tmp_16 * m[3*4+2] + tmp_12 * m[1*4+2] + tmp_15 * m[2*4+2])),
+       d * ((tmp_20 * m[3*4+2] + tmp_12 * m[0*4+2] + tmp_19 * m[2*4+2]) -
+          (tmp_18 * m[2*4+2] + tmp_21 * m[3*4+2] + tmp_13 * m[0*4+2])),
+       d * ((tmp_18 * m[1*4+2] + tmp_23 * m[3*4+2] + tmp_15 * m[0*4+2]) -
+          (tmp_22 * m[3*4+2] + tmp_14 * m[0*4+2] + tmp_19 * m[1*4+2])),
+       d * ((tmp_22 * m[2*4+2] + tmp_16 * m[0*4+2] + tmp_21 * m[1*4+2]) -
+          (tmp_20 * m[1*4+2] + tmp_23 * m[2*4+2] + tmp_17 * m[0*4+2]))];
 };
 
 /**
@@ -1479,18 +1371,17 @@ tdl.math.inverse4 = function(m) {
  *     row x and column y from a.
  */
 tdl.math.codet = function(a, x, y) {
-  var size = a.length;
+  var size = 4;
   var b = [];
   var ai = 0;
   for (var bi = 0; bi < size - 1; ++bi) {
     if (ai == x)
       ai++;
-    b[bi] = [];
     var aj = 0;
     for (var bj = 0; bj < size - 1; ++bj) {
       if (aj == y)
         aj++;
-      b[bi][bj] = a[ai][aj];
+      b[bi*4+bj] = a[ai*4+aj];
       aj++;
     }
     ai++;
@@ -1504,7 +1395,7 @@ tdl.math.codet = function(a, x, y) {
  * @return {number} the determinant of m.
  */
 tdl.math.det = function(m) {
-  var d = m.length;
+  var d = 4;
   if (d <= 4) {
     return tdl.math['det' + d](m);
   }
@@ -1525,7 +1416,7 @@ tdl.math.det = function(m) {
  * @return {!tdl.math.Matrix} The inverse of m.
  */
 tdl.math.inverse = function(m) {
-  var d = m.length;
+  var d = 4;
   if (d <= 4) {
     return tdl.math['inverse' + d](m);
   }
@@ -1550,17 +1441,16 @@ tdl.math.inverse = function(m) {
  *     rows of m by the Graham-Schmidt process.
  */
 tdl.math.orthonormalize = function(m) {
-  var r = [];
-  var mLength = m.length;
-  for (var i = 0; i < mLength; ++i) {
-    var v = m[i];
-    for (var j = 0; j < i; ++j) {
-      v = tdl.math.subVector(v, tdl.math.mulScalarVector(
-          tdl.math.dot(r[j], m[i]), r[j]));
-    }
-    r[i] = tdl.math.normalize(v);
-  }
-  return r;
+//  var r = [];
+//  for (var i = 0; i < 4; ++i) {
+//    var v = m[i];
+//    for (var j = 0; j < i; ++j) {
+//      v = tdl.math.subVector(v, tdl.math.mulScalarVector(
+//          tdl.math.dot(r[j], m[i]), r[j]));
+//    }
+//    r[i] = tdl.math.normalize(v);
+//  }
+//  return r;
 };
 
 /**
@@ -1612,13 +1502,15 @@ tdl.math.matrix4.copy = function(m) {
  * @return {!tdl.math.Matrix4} a once modified.
  */
 tdl.math.matrix4.setUpper3x3 = function(a, b) {
-  var b0 = b[0];
-  var b1 = b[1];
-  var b2 = b[2];
-
-  a[0].splice(0, 3, b0[0], b0[1], b0[2]);
-  a[1].splice(0, 3, b1[0], b1[1], b1[2]);
-  a[2].splice(0, 3, b2[0], b2[1], b2[2]);
+  a[0*4+0] = b[0*3+0];
+  a[0*4+1] = b[0*3+1];
+  a[0*4+2] = b[0*3+2];
+  a[1*4+0] = b[1*3+0];
+  a[1*4+1] = b[1*3+1];
+  a[1*4+2] = b[1*3+2];
+  a[2*4+0] = b[2*3+0];
+  a[2*4+1] = b[2*3+1];
+  a[2*4+2] = b[2*3+2];
 
   return a;
 };
@@ -1630,7 +1522,17 @@ tdl.math.matrix4.setUpper3x3 = function(a, b) {
  * @return {!tdl.math.Matrix3} The upper 3-by-3 block of m.
  */
 tdl.math.matrix4.getUpper3x3 = function(m) {
-  return [m[0].slice(0, 3), m[1].slice(0, 3), m[2].slice(0, 3)];
+  return [
+    m[0*4+0],
+    m[0*4+1],
+    m[0*4+2],
+    m[1*4+0],
+    m[1*4+1],
+    m[1*4+2],
+    m[2*4+0],
+    m[2*4+1],
+    m[2*4+2]
+  ];
 };
 
 /**
@@ -1641,7 +1543,10 @@ tdl.math.matrix4.getUpper3x3 = function(m) {
  * @return {!tdl.math.Matrix4} a once modified.
  */
 tdl.math.matrix4.setTranslation = function(a, v) {
-  a[3].splice(0, 4, v[0], v[1], v[2], 1);
+  a[12] = v[0];
+  a[13] = v[1];
+  a[14] = v[2];
+  a[15] = 1;
   return a;
 };
 
@@ -1652,7 +1557,7 @@ tdl.math.matrix4.setTranslation = function(a, v) {
  * @return {!tdl.math.Vector3} The translation component of m.
  */
 tdl.math.matrix4.getTranslation = function(m) {
-  return m[3].slice(0, 3);
+  return [m[12], m[13], m[14], m[15]];
 };
 
 /**
@@ -1667,15 +1572,10 @@ tdl.math.matrix4.transformPoint = function(m, v) {
   var v0 = v[0];
   var v1 = v[1];
   var v2 = v[2];
-  var m0 = m[0];
-  var m1 = m[1];
-  var m2 = m[2];
-  var m3 = m[3];
-
-  var d = v0 * m0[3] + v1 * m1[3] + v2 * m2[3] + m3[3];
-  return [(v0 * m0[0] + v1 * m1[0] + v2 * m2[0] + m3[0]) / d,
-          (v0 * m0[1] + v1 * m1[1] + v2 * m2[1] + m3[1]) / d,
-          (v0 * m0[2] + v1 * m1[2] + v2 * m2[2] + m3[2]) / d];
+  var d = v0 * m[0*4+3] + v1 * m[1*4+3] + v2 * m[2*4+3] + m[3*4+3];
+  return [(v0 * m[0*4+0] + v1 * m[1*4+0] + v2 * m[2*4+0] + m[3*4+0]) / d,
+          (v0 * m[0*4+1] + v1 * m[1*4+1] + v2 * m[2*4+1] + m[3*4+1]) / d,
+          (v0 * m[0*4+2] + v1 * m[1*4+2] + v2 * m[2*4+2] + m[3*4+2]) / d];
 };
 
 /**
@@ -1691,15 +1591,11 @@ tdl.math.matrix4.transformVector4 = function(m, v) {
   var v1 = v[1];
   var v2 = v[2];
   var v3 = v[3];
-  var m0 = m[0];
-  var m1 = m[1];
-  var m2 = m[2];
-  var m3 = m[3];
 
-  return [v0 * m0[0] + v1 * m1[0] + v2 * m2[0] + v3 * m3[0],
-          v0 * m0[1] + v1 * m1[1] + v2 * m2[1] + v3 * m3[1],
-          v0 * m0[2] + v1 * m1[2] + v2 * m2[2] + v3 * m3[2],
-          v0 * m0[3] + v1 * m1[3] + v2 * m2[3] + v3 * m3[3]];
+  return [v0 * m[0*4+0] + v1 * m[1*4+0] + v2 * m[2*4+0] + v3 * m[3*4+0],
+          v0 * m[0*4+1] + v1 * m[1*4+1] + v2 * m[2*4+1] + v3 * m[3*4+1],
+          v0 * m[0*4+2] + v1 * m[1*4+2] + v2 * m[2*4+2] + v3 * m[3*4+2],
+          v0 * m[0*4+3] + v1 * m[1*4+3] + v2 * m[2*4+3] + v3 * m[3*4+3]];
 };
 
 /**
@@ -1717,14 +1613,10 @@ tdl.math.matrix4.transformDirection = function(m, v) {
   var v0 = v[0];
   var v1 = v[1];
   var v2 = v[2];
-  var m0 = m[0];
-  var m1 = m[1];
-  var m2 = m[2];
-  var m3 = m[3];
 
-  return [v0 * m0[0] + v1 * m1[0] + v2 * m2[0],
-          v0 * m0[1] + v1 * m1[1] + v2 * m2[1],
-          v0 * m0[2] + v1 * m1[2] + v2 * m2[2]];
+  return [v0 * m[0*4+0] + v1 * m[1*4+0] + v2 * m[2*4+0],
+          v0 * m[0*4+1] + v1 * m[1*4+1] + v2 * m[2*4+1],
+          v0 * m[0*4+2] + v1 * m[1*4+2] + v2 * m[2*4+2]];
 };
 
 /**
@@ -1741,18 +1633,14 @@ tdl.math.matrix4.transformDirection = function(m, v) {
  * @return {!tdl.math.Vector3} The transformed normal.
  */
 tdl.math.matrix4.transformNormal = function(m, v) {
-  var mInverse = tdl.math.inverse4(m);
+  var mi = tdl.math.inverse4(m);
   var v0 = v[0];
   var v1 = v[1];
   var v2 = v[2];
-  var mi0 = mInverse[0];
-  var mi1 = mInverse[1];
-  var mi2 = mInverse[2];
-  var mi3 = mInverse[3];
 
-  return [v0 * mi0[0] + v1 * mi0[1] + v2 * mi0[2],
-          v0 * mi1[0] + v1 * mi1[1] + v2 * mi1[2],
-          v0 * mi2[0] + v1 * mi2[1] + v2 * mi2[2]];
+  return [v0 * mi[0*4+0] + v1 * mi[0*4+1] + v2 * mi[0*4+2],
+          v0 * mi[1*4+0] + v1 * mi[1*4+1] + v2 * mi[1*4+2],
+          v0 * mi[2*4+0] + v1 * mi[2*4+1] + v2 * mi[2*4+2]];
 };
 
 /**
@@ -1761,10 +1649,10 @@ tdl.math.matrix4.transformNormal = function(m, v) {
  */
 tdl.math.matrix4.identity = function() {
   return [
-    [1, 0, 0, 0],
-    [0, 1, 0, 0],
-    [0, 0, 1, 0],
-    [0, 0, 0, 1]
+    1, 0, 0, 0,
+    0, 1, 0, 0,
+    0, 0, 1, 0,
+    0, 0, 0, 1
   ];
 };
 
@@ -1777,9 +1665,9 @@ tdl.math.matrix4.setIdentity = function(m) {
   for (var i = 0; i < 4; i++) {
     for (var j = 0; j < 4; j++) {
       if (i == j) {
-        m[i][j] = 1;
+        m[i*4+j] = 1;
       } else {
-        m[i][j] = 0;
+        m[i*4+j] = 0;
       }
     }
   }
@@ -1810,10 +1698,10 @@ tdl.math.matrix4.perspective = function(angle, aspect, near, far) {
   var range = near - far;
 
   return [
-    [f / aspect, 0, 0, 0],
-    [0, f, 0, 0],
-    [0, 0, far / range, -1],
-    [0, 0, near * far / range, 0]
+    f / aspect, 0, 0, 0,
+    0, f, 0, 0,
+    0, 0, far / range, -1,
+    0, 0, near * far / range, 0
   ];
 };
 
@@ -1836,12 +1724,12 @@ tdl.math.matrix4.perspective = function(angle, aspect, near, far) {
 tdl.math.matrix4.orthographic =
     function(left, right, bottom, top, near, far) {
   return [
-    [2 / (right - left), 0, 0, 0],
-    [0, 2 / (top - bottom), 0, 0],
-    [0, 0, 1 / (near - far), 0],
-    [(left + right) / (left - right),
-     (bottom + top) / (bottom - top),
-     near / (near - far), 1]
+    2 / (right - left), 0, 0, 0,
+    0, 2 / (top - bottom), 0, 0,
+    0, 0, 1 / (near - far), 0,
+    (left + right) / (left - right),
+    (bottom + top) / (bottom - top),
+    near / (near - far), 1
   ];
 };
 
@@ -1867,10 +1755,10 @@ tdl.math.matrix4.frustum = function(left, right, bottom, top, near, far) {
   var dy = (top - bottom);
   var dz = (near - far);
   return [
-    [2 * near / dx, 0, 0, 0],
-    [0, 2 * near / dy, 0, 0],
-    [(left + right) / dx, (top + bottom) / dy, far / dz, -1],
-    [0, 0, near * far / dz, 0]];
+    2 * near / dx, 0, 0, 0,
+    0, 2 * near / dy, 0, 0,
+    (left + right) / dx, (top + bottom) / dy, far / dz, -1,
+    0, 0, near * far / dz, 0];
 };
 
 /**
@@ -1889,13 +1777,8 @@ tdl.math.matrix4.frustum = function(left, right, bottom, top, near, far) {
  * @return {!tdl.math.Matrix4} The look-at matrix.
  */
 tdl.math.matrix4.lookAt = function(eye, target, up) {
-  var vz = tdl.math.normalize(
-      tdl.math.subVector(eye, target).slice(0, 3)).concat(0);
-  var vx = tdl.math.normalize(
-      tdl.math.cross(up, vz)).concat(0);
-  var vy = tdl.math.cross(vz, vx).concat(0);
-
-  return tdl.math.inverse([vx, vy, vz, eye.concat(1)]);
+  return tdl.math.inverse(tdl.math.matrix4.cameraLookAt(
+      eye, target, up));
 };
 
 /**
@@ -1912,12 +1795,16 @@ tdl.math.matrix4.lookAt = function(eye, target, up) {
  */
 tdl.math.matrix4.cameraLookAt = function(eye, target, up) {
   var vz = tdl.math.normalize(
-      tdl.math.subVector(eye, target).slice(0, 3)).concat(0);
+      tdl.math.subVector(eye, target));
   var vx = tdl.math.normalize(
-      tdl.math.cross(up, vz)).concat(0);
-  var vy = tdl.math.cross(vz, vx).concat(0);
+      tdl.math.cross(up, vz));
+  var vy = tdl.math.cross(vz, vx);
 
-  return [vx, vy, vz, eye.concat(1)];
+  return tdl.math.inverse([
+     vx[0], vx[1], vx[2], 0,
+     vy[0], vy[1], vy[2], 0,
+     vz[0], vz[1], vz[2], 0,
+     eye[0], eye[1], eye[2], 1]);
 };
 
 /**
@@ -1931,62 +1818,54 @@ tdl.math.matrix4.cameraLookAt = function(eye, target, up) {
  * @return {!tdl.math.Matrix4} the composition of a and b, b first then a.
  */
 tdl.math.matrix4.composition = function(a, b) {
-  var a0 = a[0];
-  var a1 = a[1];
-  var a2 = a[2];
-  var a3 = a[3];
-  var b0 = b[0];
-  var b1 = b[1];
-  var b2 = b[2];
-  var b3 = b[3];
-  var a00 = a0[0];
-  var a01 = a0[1];
-  var a02 = a0[2];
-  var a03 = a0[3];
-  var a10 = a1[0];
-  var a11 = a1[1];
-  var a12 = a1[2];
-  var a13 = a1[3];
-  var a20 = a2[0];
-  var a21 = a2[1];
-  var a22 = a2[2];
-  var a23 = a2[3];
-  var a30 = a3[0];
-  var a31 = a3[1];
-  var a32 = a3[2];
-  var a33 = a3[3];
-  var b00 = b0[0];
-  var b01 = b0[1];
-  var b02 = b0[2];
-  var b03 = b0[3];
-  var b10 = b1[0];
-  var b11 = b1[1];
-  var b12 = b1[2];
-  var b13 = b1[3];
-  var b20 = b2[0];
-  var b21 = b2[1];
-  var b22 = b2[2];
-  var b23 = b2[3];
-  var b30 = b3[0];
-  var b31 = b3[1];
-  var b32 = b3[2];
-  var b33 = b3[3];
-  return [[a00 * b00 + a10 * b01 + a20 * b02 + a30 * b03,
-           a01 * b00 + a11 * b01 + a21 * b02 + a31 * b03,
-           a02 * b00 + a12 * b01 + a22 * b02 + a32 * b03,
-           a03 * b00 + a13 * b01 + a23 * b02 + a33 * b03],
-          [a00 * b10 + a10 * b11 + a20 * b12 + a30 * b13,
-           a01 * b10 + a11 * b11 + a21 * b12 + a31 * b13,
-           a02 * b10 + a12 * b11 + a22 * b12 + a32 * b13,
-           a03 * b10 + a13 * b11 + a23 * b12 + a33 * b13],
-          [a00 * b20 + a10 * b21 + a20 * b22 + a30 * b23,
-           a01 * b20 + a11 * b21 + a21 * b22 + a31 * b23,
-           a02 * b20 + a12 * b21 + a22 * b22 + a32 * b23,
-           a03 * b20 + a13 * b21 + a23 * b22 + a33 * b23],
-          [a00 * b30 + a10 * b31 + a20 * b32 + a30 * b33,
-           a01 * b30 + a11 * b31 + a21 * b32 + a31 * b33,
-           a02 * b30 + a12 * b31 + a22 * b32 + a32 * b33,
-           a03 * b30 + a13 * b31 + a23 * b32 + a33 * b33]];
+  var a00 = a[0*4+0];
+  var a01 = a[0*4+1];
+  var a02 = a[0*4+2];
+  var a03 = a[0*4+3];
+  var a10 = a[1*4+0];
+  var a11 = a[1*4+1];
+  var a12 = a[1*4+2];
+  var a13 = a[1*4+3];
+  var a20 = a[2*4+0];
+  var a21 = a[2*4+1];
+  var a22 = a[2*4+2];
+  var a23 = a[2*4+3];
+  var a30 = a[3*4+0];
+  var a31 = a[3*4+1];
+  var a32 = a[3*4+2];
+  var a33 = a[3*4+3];
+  var b00 = b[0*4+0];
+  var b01 = b[0*4+1];
+  var b02 = b[0*4+2];
+  var b03 = b[0*4+3];
+  var b10 = b[1*4+0];
+  var b11 = b[1*4+1];
+  var b12 = b[1*4+2];
+  var b13 = b[1*4+3];
+  var b20 = b[2*4+0];
+  var b21 = b[2*4+1];
+  var b22 = b[2*4+2];
+  var b23 = b[2*4+3];
+  var b30 = b[3*4+0];
+  var b31 = b[3*4+1];
+  var b32 = b[3*4+2];
+  var b33 = b[3*4+3];
+  return [a00 * b00 + a10 * b01 + a20 * b02 + a30 * b03,
+          a01 * b00 + a11 * b01 + a21 * b02 + a31 * b03,
+          a02 * b00 + a12 * b01 + a22 * b02 + a32 * b03,
+          a03 * b00 + a13 * b01 + a23 * b02 + a33 * b03,
+          a00 * b10 + a10 * b11 + a20 * b12 + a30 * b13,
+          a01 * b10 + a11 * b11 + a21 * b12 + a31 * b13,
+          a02 * b10 + a12 * b11 + a22 * b12 + a32 * b13,
+          a03 * b10 + a13 * b11 + a23 * b12 + a33 * b13,
+          a00 * b20 + a10 * b21 + a20 * b22 + a30 * b23,
+          a01 * b20 + a11 * b21 + a21 * b22 + a31 * b23,
+          a02 * b20 + a12 * b21 + a22 * b22 + a32 * b23,
+          a03 * b20 + a13 * b21 + a23 * b22 + a33 * b23,
+          a00 * b30 + a10 * b31 + a20 * b32 + a30 * b33,
+          a01 * b30 + a11 * b31 + a21 * b32 + a31 * b33,
+          a02 * b30 + a12 * b31 + a22 * b32 + a32 * b33,
+          a03 * b30 + a13 * b31 + a23 * b32 + a33 * b33];
 };
 
 /**
@@ -2000,62 +1879,54 @@ tdl.math.matrix4.composition = function(a, b) {
  * @return {!tdl.math.Matrix4} a once modified.
  */
 tdl.math.matrix4.compose = function(a, b) {
-  var a0 = a[0];
-  var a1 = a[1];
-  var a2 = a[2];
-  var a3 = a[3];
-  var b0 = b[0];
-  var b1 = b[1];
-  var b2 = b[2];
-  var b3 = b[3];
-  var a00 = a0[0];
-  var a01 = a0[1];
-  var a02 = a0[2];
-  var a03 = a0[3];
-  var a10 = a1[0];
-  var a11 = a1[1];
-  var a12 = a1[2];
-  var a13 = a1[3];
-  var a20 = a2[0];
-  var a21 = a2[1];
-  var a22 = a2[2];
-  var a23 = a2[3];
-  var a30 = a3[0];
-  var a31 = a3[1];
-  var a32 = a3[2];
-  var a33 = a3[3];
-  var b00 = b0[0];
-  var b01 = b0[1];
-  var b02 = b0[2];
-  var b03 = b0[3];
-  var b10 = b1[0];
-  var b11 = b1[1];
-  var b12 = b1[2];
-  var b13 = b1[3];
-  var b20 = b2[0];
-  var b21 = b2[1];
-  var b22 = b2[2];
-  var b23 = b2[3];
-  var b30 = b3[0];
-  var b31 = b3[1];
-  var b32 = b3[2];
-  var b33 = b3[3];
-  a[0].splice(0, 4, a00 * b00 + a10 * b01 + a20 * b02 + a30 * b03,
-                    a01 * b00 + a11 * b01 + a21 * b02 + a31 * b03,
-                    a02 * b00 + a12 * b01 + a22 * b02 + a32 * b03,
-                    a03 * b00 + a13 * b01 + a23 * b02 + a33 * b03);
-  a[1].splice(0, 4, a00 * b10 + a10 * b11 + a20 * b12 + a30 * b13,
-                    a01 * b10 + a11 * b11 + a21 * b12 + a31 * b13,
-                    a02 * b10 + a12 * b11 + a22 * b12 + a32 * b13,
-                    a03 * b10 + a13 * b11 + a23 * b12 + a33 * b13);
-  a[2].splice(0, 4, a00 * b20 + a10 * b21 + a20 * b22 + a30 * b23,
-                    a01 * b20 + a11 * b21 + a21 * b22 + a31 * b23,
-                    a02 * b20 + a12 * b21 + a22 * b22 + a32 * b23,
-                    a03 * b20 + a13 * b21 + a23 * b22 + a33 * b23),
-  a[3].splice(0, 4, a00 * b30 + a10 * b31 + a20 * b32 + a30 * b33,
-                    a01 * b30 + a11 * b31 + a21 * b32 + a31 * b33,
-                    a02 * b30 + a12 * b31 + a22 * b32 + a32 * b33,
-                    a03 * b30 + a13 * b31 + a23 * b32 + a33 * b33);
+  var a00 = a[0*4+0];
+  var a01 = a[0*4+1];
+  var a02 = a[0*4+2];
+  var a03 = a[0*4+3];
+  var a10 = a[1*4+0];
+  var a11 = a[1*4+1];
+  var a12 = a[1*4+2];
+  var a13 = a[1*4+3];
+  var a20 = a[2*4+0];
+  var a21 = a[2*4+1];
+  var a22 = a[2*4+2];
+  var a23 = a[2*4+3];
+  var a30 = a[3*4+0];
+  var a31 = a[3*4+1];
+  var a32 = a[3*4+2];
+  var a33 = a[3*4+3];
+  var b00 = b[0*4+0];
+  var b01 = b[0*4+1];
+  var b02 = b[0*4+2];
+  var b03 = b[0*4+3];
+  var b10 = b[1*4+0];
+  var b11 = b[1*4+1];
+  var b12 = b[1*4+2];
+  var b13 = b[1*4+3];
+  var b20 = b[2*4+0];
+  var b21 = b[2*4+1];
+  var b22 = b[2*4+2];
+  var b23 = b[2*4+3];
+  var b30 = b[3*4+0];
+  var b31 = b[3*4+1];
+  var b32 = b[3*4+2];
+  var b33 = b[3*4+3];
+  a[ 0] = a00 * b00 + a10 * b01 + a20 * b02 + a30 * b03;
+  a[ 1] = a01 * b00 + a11 * b01 + a21 * b02 + a31 * b03;
+  a[ 2] = a02 * b00 + a12 * b01 + a22 * b02 + a32 * b03;
+  a[ 3] = a03 * b00 + a13 * b01 + a23 * b02 + a33 * b03;
+  a[ 4] = a00 * b10 + a10 * b11 + a20 * b12 + a30 * b13;
+  a[ 5] = a01 * b10 + a11 * b11 + a21 * b12 + a31 * b13;
+  a[ 6] = a02 * b10 + a12 * b11 + a22 * b12 + a32 * b13;
+  a[ 7] = a03 * b10 + a13 * b11 + a23 * b12 + a33 * b13;
+  a[ 8] = a00 * b20 + a10 * b21 + a20 * b22 + a30 * b23;
+  a[ 9] = a01 * b20 + a11 * b21 + a21 * b22 + a31 * b23;
+  a[10] = a02 * b20 + a12 * b21 + a22 * b22 + a32 * b23;
+  a[11] = a03 * b20 + a13 * b21 + a23 * b22 + a33 * b23;
+  a[12] = a00 * b30 + a10 * b31 + a20 * b32 + a30 * b33;
+  a[13] = a01 * b30 + a11 * b31 + a21 * b32 + a31 * b33;
+  a[14] = a02 * b30 + a12 * b31 + a22 * b32 + a32 * b33;
+  a[15] = a03 * b30 + a13 * b31 + a23 * b32 + a33 * b33;
   return a;
 };
 
@@ -2067,10 +1938,10 @@ tdl.math.matrix4.compose = function(a, b) {
  */
 tdl.math.matrix4.translation = function(v) {
   return [
-    [1, 0, 0, 0],
-    [0, 1, 0, 0],
-    [0, 0, 1, 0],
-    [v[0], v[1], v[2], 1]
+    1, 0, 0, 0,
+    0, 1, 0, 0,
+    0, 0, 1, 0,
+    v[0], v[1], v[2], 1
   ];
 };
 
@@ -2082,34 +1953,27 @@ tdl.math.matrix4.translation = function(v) {
  * @return {!tdl.math.Matrix4} m once modified.
  */
 tdl.math.matrix4.translate = function(m, v) {
-  var v0 = v[0];
-  var v1 = v[1];
-  var v2 = v[2];
-  var m0 = m[0];
-  var m1 = m[1];
-  var m2 = m[2];
-  var m3 = m[3];
-  var m00 = m0[0];
-  var m01 = m0[1];
-  var m02 = m0[2];
-  var m03 = m0[3];
-  var m10 = m1[0];
-  var m11 = m1[1];
-  var m12 = m1[2];
-  var m13 = m1[3];
-  var m20 = m2[0];
-  var m21 = m2[1];
-  var m22 = m2[2];
-  var m23 = m2[3];
-  var m30 = m3[0];
-  var m31 = m3[1];
-  var m32 = m3[2];
-  var m33 = m3[3];
+  var m00 = m[0*4+0];
+  var m01 = m[0*4+1];
+  var m02 = m[0*4+2];
+  var m03 = m[0*4+3];
+  var m10 = m[1*4+0];
+  var m11 = m[1*4+1];
+  var m12 = m[1*4+2];
+  var m13 = m[1*4+3];
+  var m20 = m[2*4+0];
+  var m21 = m[2*4+1];
+  var m22 = m[2*4+2];
+  var m23 = m[2*4+3];
+  var m30 = m[3*4+0];
+  var m31 = m[3*4+1];
+  var m32 = m[3*4+2];
+  var m33 = m[3*4+3];
 
-  m3.splice(0, 4, m00 * v0 + m10 * v1 + m20 * v2 + m30,
-                  m01 * v0 + m11 * v1 + m21 * v2 + m31,
-                  m02 * v0 + m12 * v1 + m22 * v2 + m32,
-                  m03 * v0 + m13 * v1 + m23 * v2 + m33);
+  m[12] = m00 * v0 + m10 * v1 + m20 * v2 + m30;
+  m[13] = m01 * v0 + m11 * v1 + m21 * v2 + m31;
+  m[14] = m02 * v0 + m12 * v1 + m22 * v2 + m32;
+  m[15] = m03 * v0 + m13 * v1 + m23 * v2 + m33;
 
   return m;
 };
@@ -2124,10 +1988,10 @@ tdl.math.matrix4.translate = function(m, v) {
  */
 tdl.math.matrix4.scaling = function(v) {
   return [
-    [v[0], 0, 0, 0],
-    [0, v[1], 0, 0],
-    [0, 0, v[2], 0],
-    [0, 0, 0, 1]
+    v[0], 0, 0, 0,
+    0, v[1], 0, 0,
+    0, 0, v[2], 0,
+    0, 0, 0, 1
   ];
 };
 
@@ -2145,14 +2009,18 @@ tdl.math.matrix4.scale = function(m, v) {
   var v1 = v[1];
   var v2 = v[2];
 
-  var m0 = m[0];
-  var m1 = m[1];
-  var m2 = m[2];
-  var m3 = m[3];
-
-  m0.splice(0, 4, v0 * m0[0], v0 * m0[1], v0 * m0[2], v0 * m0[3]);
-  m1.splice(0, 4, v1 * m1[0], v1 * m1[1], v1 * m1[2], v1 * m1[3]);
-  m2.splice(0, 4, v2 * m2[0], v2 * m2[1], v2 * m2[2], v2 * m2[3]);
+  m[0] = v0 * m[0*4+0];
+  m[1] = v0 * m[0*4+1];
+  m[2] = v0 * m[0*4+2];
+  m[3] = v0 * m[0*4+3];
+  m[4] = v1 * m[1*4+0];
+  m[5] = v1 * m[1*4+1];
+  m[6] = v1 * m[1*4+2];
+  m[7] = v1 * m[1*4+3];
+  m[8] = v2 * m[2*4+0];
+  m[9] = v2 * m[2*4+1];
+  m[10] = v2 * m[2*4+2];
+  m[11] = v2 * m[2*4+3];
 
   return m;
 };
@@ -2167,10 +2035,10 @@ tdl.math.matrix4.rotationX = function(angle) {
   var s = Math.sin(angle);
 
   return [
-    [1, 0, 0, 0],
-    [0, c, s, 0],
-    [0, -s, c, 0],
-    [0, 0, 0, 1]
+    1, 0, 0, 0,
+    0, c, s, 0,
+    0, -s, c, 0,
+    0, 0, 0, 1
   ];
 };
 
@@ -2182,29 +2050,25 @@ tdl.math.matrix4.rotationX = function(angle) {
  * @return {!tdl.math.Matrix4} m once modified.
  */
 tdl.math.matrix4.rotateX = function(m, angle) {
-  var m0 = m[0];
-  var m1 = m[1];
-  var m2 = m[2];
-  var m3 = m[3];
-  var m10 = m1[0];
-  var m11 = m1[1];
-  var m12 = m1[2];
-  var m13 = m1[3];
-  var m20 = m2[0];
-  var m21 = m2[1];
-  var m22 = m2[2];
-  var m23 = m2[3];
+  var m10 = m[1*4+0];
+  var m11 = m[1*4+1];
+  var m12 = m[1*4+2];
+  var m13 = m[1*4+3];
+  var m20 = m[2*4+0];
+  var m21 = m[2*4+1];
+  var m22 = m[2*4+2];
+  var m23 = m[2*4+3];
   var c = Math.cos(angle);
   var s = Math.sin(angle);
 
-  m1.splice(0, 4, c * m10 + s * m20,
-                  c * m11 + s * m21,
-                  c * m12 + s * m22,
-                  c * m13 + s * m23);
-  m2.splice(0, 4, c * m20 - s * m10,
-                  c * m21 - s * m11,
-                  c * m22 - s * m12,
-                  c * m23 - s * m13);
+  m[4]  = c * m10 + s * m20;
+  m[5]  = c * m11 + s * m21;
+  m[6]  = c * m12 + s * m22;
+  m[7]  = c * m13 + s * m23;
+  m[8]  = c * m20 - s * m10;
+  m[9]  = c * m21 - s * m11;
+  m[10] = c * m22 - s * m12;
+  m[11] = c * m23 - s * m13;
 
   return m;
 };
@@ -2219,10 +2083,10 @@ tdl.math.matrix4.rotationY = function(angle) {
   var s = Math.sin(angle);
 
   return [
-    [c, 0, -s, 0],
-    [0, 1, 0, 0],
-    [s, 0, c, 0],
-    [0, 0, 0, 1]
+    c, 0, -s, 0,
+    0, 1, 0, 0,
+    s, 0, c, 0,
+    0, 0, 0, 1
   ];
 };
 
@@ -2234,29 +2098,25 @@ tdl.math.matrix4.rotationY = function(angle) {
  * @return {!tdl.math.Matrix4} m once modified.
  */
 tdl.math.matrix4.rotateY = function(m, angle) {
-  var m0 = m[0];
-  var m1 = m[1];
-  var m2 = m[2];
-  var m3 = m[3];
-  var m00 = m0[0];
-  var m01 = m0[1];
-  var m02 = m0[2];
-  var m03 = m0[3];
-  var m20 = m2[0];
-  var m21 = m2[1];
-  var m22 = m2[2];
-  var m23 = m2[3];
+  var m00 = m[0*4+0];
+  var m01 = m[0*4+1];
+  var m02 = m[0*4+2];
+  var m03 = m[0*4+3];
+  var m20 = m[2*4+0];
+  var m21 = m[2*4+1];
+  var m22 = m[2*4+2];
+  var m23 = m[2*4+3];
   var c = Math.cos(angle);
   var s = Math.sin(angle);
 
-  m0.splice(0, 4, c * m00 - s * m20,
-                  c * m01 - s * m21,
-                  c * m02 - s * m22,
-                  c * m03 - s * m23);
-  m2.splice(0, 4, c * m20 + s * m00,
-                  c * m21 + s * m01,
-                  c * m22 + s * m02,
-                  c * m23 + s * m03);
+  m[ 0] = c * m00 - s * m20;
+  m[ 1] = c * m01 - s * m21;
+  m[ 2] = c * m02 - s * m22;
+  m[ 3] = c * m03 - s * m23;
+  m[ 8] = c * m20 + s * m00;
+  m[ 9] = c * m21 + s * m01;
+  m[10] = c * m22 + s * m02;
+  m[11] = c * m23 + s * m03;
 
   return m;
 };
@@ -2271,10 +2131,10 @@ tdl.math.matrix4.rotationZ = function(angle) {
   var s = Math.sin(angle);
 
   return [
-    [c, s, 0, 0],
-    [-s, c, 0, 0],
-    [0, 0, 1, 0],
-    [0, 0, 0, 1]
+    c, s, 0, 0,
+    -s, c, 0, 0,
+    0, 0, 1, 0,
+    0, 0, 0, 1
   ];
 };
 
@@ -2286,29 +2146,25 @@ tdl.math.matrix4.rotationZ = function(angle) {
  * @return {!tdl.math.Matrix4} m once modified.
  */
 tdl.math.matrix4.rotateZ = function(m, angle) {
-  var m0 = m[0];
-  var m1 = m[1];
-  var m2 = m[2];
-  var m3 = m[3];
-  var m00 = m0[0];
-  var m01 = m0[1];
-  var m02 = m0[2];
-  var m03 = m0[3];
-  var m10 = m1[0];
-  var m11 = m1[1];
-  var m12 = m1[2];
-  var m13 = m1[3];
+  var m00 = m[0*4+0];
+  var m01 = m[0*4+1];
+  var m02 = m[0*4+2];
+  var m03 = m[0*4+3];
+  var m10 = m[1*4+0];
+  var m11 = m[1*4+1];
+  var m12 = m[1*4+2];
+  var m13 = m[1*4+3];
   var c = Math.cos(angle);
   var s = Math.sin(angle);
 
-  m0.splice(0, 4, c * m00 + s * m10,
-                  c * m01 + s * m11,
-                  c * m02 + s * m12,
-                  c * m03 + s * m13);
-  m1.splice(0, 4, c * m10 - s * m00,
-                  c * m11 - s * m01,
-                  c * m12 - s * m02,
-                  c * m13 - s * m03);
+  m[ 0] = c * m00 + s * m10;
+  m[ 1] = c * m01 + s * m11;
+  m[ 2] = c * m02 + s * m12;
+  m[ 3] = c * m03 + s * m13;
+  m[ 4] = c * m10 - s * m00;
+  m[ 5] = c * m11 - s * m01;
+  m[ 6] = c * m12 - s * m02;
+  m[ 7] = c * m13 - s * m03;
 
   return m;
 };
@@ -2333,16 +2189,16 @@ tdl.math.matrix4.rotationZYX = function(v) {
   var sinzsiny = sinz * siny;
 
   return [
-    [cosz * cosy, sinz * cosy, -siny, 0],
-    [coszsiny * sinx - sinz * cosx,
-     sinzsiny * sinx + cosz * cosx,
-     cosy * sinx,
-     0],
-    [coszsiny * cosx + sinz * sinx,
-     sinzsiny * cosx - cosz * sinx,
-     cosy * cosx,
-     0],
-    [0, 0, 0, 1]
+    cosz * cosy, sinz * cosy, -siny, 0,
+    coszsiny * sinx - sinz * cosx,
+    sinzsiny * sinx + cosz * cosx,
+    cosy * sinx,
+    0,
+    coszsiny * cosx + sinz * sinx,
+    sinzsiny * cosx - cosz * sinx,
+    cosy * cosx,
+    0,
+    0, 0, 0, 1
   ];
 };
 
@@ -2375,45 +2231,35 @@ tdl.math.matrix4.rotateZYX = function(m, v) {
   var r21 = sinZSinY * cosX - cosZ * sinX;
   var r22 = cosY * cosX;
 
-  var m0 = m[0];
-  var m1 = m[1];
-  var m2 = m[2];
-  var m3 = m[3];
+  var m00 = m[0*4+0];
+  var m01 = m[0*4+1];
+  var m02 = m[0*4+2];
+  var m03 = m[0*4+3];
+  var m10 = m[1*4+0];
+  var m11 = m[1*4+1];
+  var m12 = m[1*4+2];
+  var m13 = m[1*4+3];
+  var m20 = m[2*4+0];
+  var m21 = m[2*4+1];
+  var m22 = m[2*4+2];
+  var m23 = m[2*4+3];
+  var m30 = m[3*4+0];
+  var m31 = m[3*4+1];
+  var m32 = m[3*4+2];
+  var m33 = m[3*4+3];
 
-  var m00 = m0[0];
-  var m01 = m0[1];
-  var m02 = m0[2];
-  var m03 = m0[3];
-  var m10 = m1[0];
-  var m11 = m1[1];
-  var m12 = m1[2];
-  var m13 = m1[3];
-  var m20 = m2[0];
-  var m21 = m2[1];
-  var m22 = m2[2];
-  var m23 = m2[3];
-  var m30 = m3[0];
-  var m31 = m3[1];
-  var m32 = m3[2];
-  var m33 = m3[3];
-
-  m0.splice(0, 4,
-      r00 * m00 + r01 * m10 + r02 * m20,
-      r00 * m01 + r01 * m11 + r02 * m21,
-      r00 * m02 + r01 * m12 + r02 * m22,
-      r00 * m03 + r01 * m13 + r02 * m23);
-
-  m1.splice(0, 4,
-      r10 * m00 + r11 * m10 + r12 * m20,
-      r10 * m01 + r11 * m11 + r12 * m21,
-      r10 * m02 + r11 * m12 + r12 * m22,
-      r10 * m03 + r11 * m13 + r12 * m23);
-
-  m2.splice(0, 4,
-      r20 * m00 + r21 * m10 + r22 * m20,
-      r20 * m01 + r21 * m11 + r22 * m21,
-      r20 * m02 + r21 * m12 + r22 * m22,
-      r20 * m03 + r21 * m13 + r22 * m23);
+  m[ 0] = r00 * m00 + r01 * m10 + r02 * m20;
+  m[ 1] = r00 * m01 + r01 * m11 + r02 * m21;
+  m[ 2] = r00 * m02 + r01 * m12 + r02 * m22;
+  m[ 3] = r00 * m03 + r01 * m13 + r02 * m23;
+  m[ 4] = r10 * m00 + r11 * m10 + r12 * m20;
+  m[ 5] = r10 * m01 + r11 * m11 + r12 * m21;
+  m[ 6] = r10 * m02 + r11 * m12 + r12 * m22;
+  m[ 7] = r10 * m03 + r11 * m13 + r12 * m23;
+  m[ 8] = r20 * m00 + r21 * m10 + r22 * m20;
+  m[ 9] = r20 * m01 + r21 * m11 + r22 * m21;
+  m[10] = r20 * m02 + r21 * m12 + r22 * m22;
+  m[11] = r20 * m03 + r21 * m13 + r22 * m23;
 
   return m;
 };
@@ -2443,19 +2289,19 @@ tdl.math.matrix4.axisRotation = function(axis, angle) {
   var oneMinusCosine = 1 - c;
 
   return [
-    [xx + (1 - xx) * c,
-     x * y * oneMinusCosine + z * s,
-     x * z * oneMinusCosine - y * s,
-     0],
-    [x * y * oneMinusCosine - z * s,
-     yy + (1 - yy) * c,
-     y * z * oneMinusCosine + x * s,
-     0],
-    [x * z * oneMinusCosine + y * s,
-     y * z * oneMinusCosine - x * s,
-     zz + (1 - zz) * c,
-     0],
-    [0, 0, 0, 1]
+    xx + (1 - xx) * c,
+    x * y * oneMinusCosine + z * s,
+    x * z * oneMinusCosine - y * s,
+    0,
+    x * y * oneMinusCosine - z * s,
+    yy + (1 - yy) * c,
+    y * z * oneMinusCosine + x * s,
+    0,
+    x * z * oneMinusCosine + y * s,
+    y * z * oneMinusCosine - x * s,
+    zz + (1 - zz) * c,
+    0,
+    0, 0, 0, 1
   ];
 };
 
@@ -2493,45 +2339,35 @@ tdl.math.matrix4.axisRotate = function(m, axis, angle) {
   var r21 = y * z * oneMinusCosine - x * s;
   var r22 = zz + (1 - zz) * c;
 
-  var m0 = m[0];
-  var m1 = m[1];
-  var m2 = m[2];
-  var m3 = m[3];
+  var m00 = m[0*4+0];
+  var m01 = m[0*4+1];
+  var m02 = m[0*4+2];
+  var m03 = m[0*4+3];
+  var m10 = m[1*4+0];
+  var m11 = m[1*4+1];
+  var m12 = m[1*4+2];
+  var m13 = m[1*4+3];
+  var m20 = m[2*4+0];
+  var m21 = m[2*4+1];
+  var m22 = m[2*4+2];
+  var m23 = m[2*4+3];
+  var m30 = m[3*4+0];
+  var m31 = m[3*4+1];
+  var m32 = m[3*4+2];
+  var m33 = m[3*4+3];
 
-  var m00 = m0[0];
-  var m01 = m0[1];
-  var m02 = m0[2];
-  var m03 = m0[3];
-  var m10 = m1[0];
-  var m11 = m1[1];
-  var m12 = m1[2];
-  var m13 = m1[3];
-  var m20 = m2[0];
-  var m21 = m2[1];
-  var m22 = m2[2];
-  var m23 = m2[3];
-  var m30 = m3[0];
-  var m31 = m3[1];
-  var m32 = m3[2];
-  var m33 = m3[3];
-
-  m0.splice(0, 4,
-      r00 * m00 + r01 * m10 + r02 * m20,
-      r00 * m01 + r01 * m11 + r02 * m21,
-      r00 * m02 + r01 * m12 + r02 * m22,
-      r00 * m03 + r01 * m13 + r02 * m23);
-
-  m1.splice(0, 4,
-      r10 * m00 + r11 * m10 + r12 * m20,
-      r10 * m01 + r11 * m11 + r12 * m21,
-      r10 * m02 + r11 * m12 + r12 * m22,
-      r10 * m03 + r11 * m13 + r12 * m23);
-
-  m2.splice(0, 4,
-      r20 * m00 + r21 * m10 + r22 * m20,
-      r20 * m01 + r21 * m11 + r22 * m21,
-      r20 * m02 + r21 * m12 + r22 * m22,
-      r20 * m03 + r21 * m13 + r22 * m23);
+  m[ 0] = r00 * m00 + r01 * m10 + r02 * m20;
+  m[ 1] = r00 * m01 + r01 * m11 + r02 * m21;
+  m[ 2] = r00 * m02 + r01 * m12 + r02 * m22;
+  m[ 3] = r00 * m03 + r01 * m13 + r02 * m23;
+  m[ 4] = r10 * m00 + r11 * m10 + r12 * m20;
+  m[ 5] = r10 * m01 + r11 * m11 + r12 * m21;
+  m[ 6] = r10 * m02 + r11 * m12 + r12 * m22;
+  m[ 7] = r10 * m03 + r11 * m13 + r12 * m23;
+  m[ 8] = r20 * m00 + r21 * m10 + r22 * m20;
+  m[ 9] = r20 * m01 + r21 * m11 + r22 * m21;
+  m[10] = r20 * m02 + r21 * m12 + r22 * m22;
+  m[11] = r20 * m03 + r21 * m13 + r22 * m23;
 
   return m;
 };

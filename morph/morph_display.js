@@ -166,20 +166,20 @@ function MorphDisplay(id) {
 
     leftPosBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, leftPosBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new WebGLFloatArray(vertices1), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices1), gl.STATIC_DRAW);
     rightPosBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, rightPosBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new WebGLFloatArray(vertices2), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices2), gl.STATIC_DRAW);
     leftTCBuffer = gl.createBuffer()
     gl.bindBuffer(gl.ARRAY_BUFFER, leftTCBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, new WebGLFloatArray(texcoords1), gl.STATIC_DRAW)
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texcoords1), gl.STATIC_DRAW)
     rightTCBuffer = gl.createBuffer()
     gl.bindBuffer(gl.ARRAY_BUFFER, rightTCBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, new WebGLFloatArray(texcoords2), gl.STATIC_DRAW)
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texcoords2), gl.STATIC_DRAW)
     indexBuffer = gl.createBuffer()
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new
-        WebGLUnsignedShortArray(indices), gl.STATIC_DRAW)
+        Uint16Array(indices), gl.STATIC_DRAW)
   }
 
   function deinitBuffers() {
@@ -246,7 +246,7 @@ function MorphDisplay(id) {
     tdl.fast.matrix4.translation(transMatrix, [0.0, 0.0, -2.25])
     gl.uniformMatrix4fv(morphShaderProgram.uPMatrixLoc, false, perspMatrix)
     gl.uniformMatrix4fv(morphShaderProgram.uMVMatrixLoc, false, transMatrix);
-	
+
     gl.enableVertexAttribArray(morphShaderProgram.aVPos1Loc);
     gl.enableVertexAttribArray(morphShaderProgram.aVPos2Loc);
     gl.enableVertexAttribArray(morphShaderProgram.aTC1Loc);

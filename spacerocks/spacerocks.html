@@ -175,10 +175,10 @@ function setupMeteor() {
   var arrays = tdl.primitives.createSphere(1, 8, 8);
   tdl.primitives.addTangentsAndBinormals(arrays);
 //  tdl.primitives.reorient(arrays,
-//      [[0.6, 0, 0, 0],
-//       [0, 1, 0, 0],
-//       [0, 0, 0.8, 0],
-//       [0, 0, 0, 1]]);
+//      [0.6, 0, 0, 0,
+//       0, 1, 0, 0,
+//       0, 0, 0.8, 0,
+//       0, 0, 0, 1]);
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -211,10 +211,10 @@ function setupShockwave() {
   var arrays = tdl.primitives.createSphere(1.1, 20, 20);
   delete arrays.normal;
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 0, 1, 0],
-       [0, -1, 0, 0],
-       [0, 0, 0, 1]]);
+      [1, 0, 0, 0,
+       0, 0, 1, 0,
+       0, -1, 0, 0,
+       0, 0, 0, 1]);
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -238,10 +238,10 @@ function setupSkybox() {
   delete arrays['normal'];
   delete arrays['texCoord'];
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 0, 1, 0],
-       [0,-1, 0, 0],
-       [0, 0, 0.99, 1]]);
+      [1, 0, 0, 0,
+       0, 0, 1, 0,
+       0,-1, 0, 0,
+       0, 0, 0.99, 1]);
   return new tdl.models.Model(program, arrays, textures);
 }
 

@@ -169,10 +169,10 @@ function setupGrass() {
       'grassFragmentShader');
   var arrays = tdl.primitives.createPlane(1, 1, 1, 10);
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 0, -1, 0],
-       [0, 1, 0, 0],
-       [0, 0.5, 0, 1]]);
+      [1, 0, 0, 0,
+       0, 0, -1, 0,
+       0, 1, 0, 0,
+       0, 0.5, 0, 1]);
   delete arrays.normal;
   delete arrays.texCoord;
   var numElements = arrays.position.numElements;
@@ -216,10 +216,10 @@ function setupDofPlane(mainTexture, blurTexture) {
       'dofFragmentShader');
   var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 0,-1, 0],
-       [0, 1, 0, 0],
-       [0, 0, 0, 1]]);
+      [1, 0, 0, 0,
+       0, 0,-1, 0,
+       0, 1, 0, 0,
+       0, 0, 0, 1]);
   delete arrays.normal;
   return new tdl.models.Model(program, arrays, textures);
 }
@@ -234,10 +234,10 @@ function setupBlurPlane(mainTexture) {
       'blurFragmentShader');
   var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 0,-1, 0],
-       [0, 1, 0, 0],
-       [0, 0, 0, 1]]);
+      [1, 0, 0, 0,
+       0, 0,-1, 0,
+       0, 1, 0, 0,
+       0, 0, 0, 1]);
   delete arrays.normal;
   return new tdl.models.Model(program, arrays, textures);
 }
@@ -262,10 +262,10 @@ function setupSkybox() {
   delete arrays['normal'];
   delete arrays['texCoord'];
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 0, 1, 0],
-       [0,-1, 0, 0],
-       [0, 0, 0.99, 1]]);
+      [1, 0, 0, 0,
+       0, 0, 1, 0,
+       0,-1, 0, 0,
+       0, 0, 0.99, 1]);
   return new tdl.models.Model(program, arrays, textures);
 }
 

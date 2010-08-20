@@ -37,6 +37,7 @@
 tdl.provide('tdl.primitives');
 
 tdl.require('tdl.math');
+tdl.require('tdl.log');
 
 /**
  * A module for primitives.
@@ -168,8 +169,6 @@ tdl.primitives.mulComponents = function(array, multiplier) {
  */
 tdl.primitives.reorientPositions = function(array, matrix) {
   var math = tdl.math;
-  var matrixInverse = math.inverse(math.matrix4.getUpper3x3(matrix));
-
   var numElements = array.numElements;
   for (var ii = 0; ii < numElements; ++ii) {
     array.setElement(ii,
@@ -188,8 +187,6 @@ tdl.primitives.reorientPositions = function(array, matrix) {
  */
 tdl.primitives.reorientNormals = function(array, matrix) {
   var math = tdl.math;
-  var matrixInverse = math.inverse(math.matrix4.getUpper3x3(matrix));
-
   var numElements = array.numElements;
   for (var ii = 0; ii < numElements; ++ii) {
     array.setElement(ii,
@@ -273,7 +270,8 @@ tdl.primitives.createTangentsAndBinormals = function(
     if (!frame) {
       frame = [[0, 0, 0], [0, 0, 0]];
     }
-    frame = math.addMatrix(frame, [tangent, binormal]);
+    frame[0] = math.addVector(frame[0], tangent);
+    frame[1] = math.addVector(frame[1], binormal);
     tangentFrames[key] = frame;
   }
 
@@ -845,7 +843,7 @@ tdl.primitives.createCube = function(size) {
 tdl.primitives.createFlaredCube = function(inner_size, outer_size, layercount) {
   var numVertices = 8 * layercount;
   var numIndices = 2 * 12 * 3 * (layercount - 1);
-  
+
   var positions = new tdl.primitives.AttribBuffer(3, numVertices);
   var normals = new tdl.primitives.AttribBuffer(3, numVertices);
   var texCoords = new tdl.primitives.AttribBuffer(2, numVertices);
@@ -856,7 +854,7 @@ tdl.primitives.createFlaredCube = function(inner_size, outer_size, layercount) {
   for (var i = 0; i < layercount; i++, size += sizeDelta) {
     var k = size / 2;
     var cornerVertices = [
-      [-k, -k, -k], [+k, -k, -k], [+k, +k, -k], [-k, +k, -k], 
+      [-k, -k, -k], [+k, -k, -k], [+k, +k, -k], [-k, +k, -k],
       [-k, -k, +k], [+k, -k, +k], [+k, +k, +k], [-k, +k, +k]
     ];
     var vs = [0, 1, 0, 1, 1, 0, 1, 0]
@@ -878,7 +876,7 @@ tdl.primitives.createFlaredCube = function(inner_size, outer_size, layercount) {
     extrudeLine(i*8, 1, 2)
     extrudeLine(i*8, 2, 3)
     extrudeLine(i*8, 3, 0)
-    
+
     extrudeLine(i*8, 4, 5)
     extrudeLine(i*8, 5, 6)
     extrudeLine(i*8, 6, 7)

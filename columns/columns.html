@@ -182,10 +182,10 @@ function setupColumns(depthTexture) {
         true);
     tdl.primitives.addTangentsAndBinormals(columnArrays);
     tdl.primitives.reorient(columnArrays,
-        [[1, 0, 0, 0],
-         [0, 1, 0, 0],
-         [0, 0, 1, 0],
-         [x, height/2, y, 1]]);
+        [1, 0, 0, 0,
+         0, 1, 0, 0,
+         0, 0, 1, 0,
+         x, height/2, y, 1]);
     if (ii === 0) {
       arrays = columnArrays;
     } else {
@@ -212,10 +212,10 @@ function setupSkybox() {
   delete arrays['normal'];
   delete arrays['texCoord'];
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 0, 1, 0],
-       [0,-1, 0, 0],
-       [0, 0, 0.99, 1]]);
+      [1, 0, 0, 0,
+       0, 0, 1, 0,
+       0,-1, 0, 0,
+       0, 0, 0.99, 1]);
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -236,10 +236,10 @@ function setupGround(depthTexture) {
   tdl.primitives.applyPlanarUVMapping(arrays.position, arrays.texCoord);
   tdl.primitives.addTangentsAndBinormals(arrays);
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 1, 0, 0],
-       [0, 0, 1, 0],
-       [0, 0, 0, 1]]);
+      [1, 0, 0, 0,
+       0, 1, 0, 0,
+       0, 0, 1, 0,
+       0, 0, 0, 1]);
   return new tdl.models.Model(readProgram, arrays, textures);
 }
 

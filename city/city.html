@@ -166,10 +166,10 @@ function setupSkybox() {
   delete arrays['normal'];
   delete arrays['texCoord'];
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 0, 1, 0],
-       [0,-1, 0, 0],
-       [0, 0, 0.99, 1]]);
+      [1, 0, 0, 0,
+       0, 0, 1, 0,
+       0,-1, 0, 0,
+       0, 0, 0.99, 1]);
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -230,7 +230,6 @@ var createBuildingCube = function(size) {
       positions.push(position);
       normals.push(normal);
       texCoords.push(uv);
-
     }
 
     // Two triangles make a square face.
@@ -307,10 +306,10 @@ function setupModernBuilding(windowTexture) {
   var arrays = createBuildingCube(1);
   delete arrays.normal;
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 1, 0, 0],
-       [0, 0, 1, 0],
-       [0, 0.5, 0, 1]]);
+      [1, 0, 0, 0,
+       0, 1, 0, 0,
+       0, 0, 1, 0,
+       0, 0.5, 0, 1]);
   var towers = [];
   var numTowers = 4;
   var maxHeight = 100;
@@ -325,10 +324,10 @@ function setupModernBuilding(windowTexture) {
     var tower = tdl.primitives.clone(arrays);
     tdl.primitives.reorient(
         tower,
-        [[width, 0, 0, 0],
-         [0, height, 0, 0],
-         [0, 0, depth, 0, 0],
-         [x, 0, z, 1]]);
+        [width, 0, 0, 0,
+         0, height, 0, 0,
+         0, 0, depth, 0,
+         x, 0, z, 1]);
     towers.push(tower);
   }
   var arrays = tdl.primitives.concat(towers);
@@ -347,10 +346,10 @@ function setupClassicBuilding(windowTexture) {
   var arrays = createBuildingCube(1);
   delete arrays.normal;
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 1, 0, 0],
-       [0, 0, 1, 0],
-       [0, 0.5, 0, 1]]);
+      [1, 0, 0, 0,
+       0, 1, 0, 0,
+       0, 0, 1, 0,
+       0, 0.5, 0, 1]);
   var towers = [];
   var numTowers = 2 + math.randomInt(3);
   var maxHeight = 100;
@@ -360,10 +359,10 @@ function setupClassicBuilding(windowTexture) {
     var tower = tdl.primitives.clone(arrays);
     tdl.primitives.reorient(
         tower,
-        [[width, 0, 0, 0],
-         [0, height, 0, 0],
-         [0, 0, width, 0, 0],
-         [0, 0, 0, 1]]);
+        [width, 0, 0, 0,
+         0, height, 0, 0,
+         0, 0, width, 0,
+         0, 0, 0, 1]);
     towers.push(tower);
   }
   var width = (1 - numTowers * 0.1) * 10;
@@ -535,10 +534,10 @@ function setupCylinderBuilding(windowTexture) {
     9);    // maxSkipUnits,
   delete arrays.normal;
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 1, 0, 0],
-       [0, 0, 1, 0],
-       [0, 50, 0, 1]]);
+      [1, 0, 0, 0,
+       0, 1, 0, 0,
+       0, 0, 1, 0,
+       0, 50, 0, 1]);
   return new tdl.models.Model(program, arrays, textures);
 }
 

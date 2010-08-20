@@ -164,24 +164,24 @@ function setupFish() {
   var sphereArrays = tdl.primitives.createSphere(1, 10, 10);
   tdl.primitives.addTangentsAndBinormals(sphereArrays);
   tdl.primitives.reorient(sphereArrays,
-      [[0.2, 0, 0, 0],
-       [0, 0.5, 0, 0],
-       [0, 0, 1, 0],
-       [0, 0, 0, 1]]);
+      [0.2, 0, 0, 0,
+       0, 0.5, 0, 0,
+       0, 0, 1, 0,
+       0, 0, 0, 1]);
   var tailArrays = tdl.primitives.createCresent(0.75, 1, 0.5, 0.01, 10);
   tdl.primitives.addTangentsAndBinormals(tailArrays);
   tdl.primitives.reorient(tailArrays,
-      [[-1, 0, 0, 0],
-       [0, 1, 0, 0],
-       [0, 0, -1, 0],
-       [0, 0, 1.7, 1]]);
+      [-1, 0, 0, 0,
+       0, 1, 0, 0,
+       0, 0, -1, 0,
+       0, 0, 1.7, 1]);
   var finArrays = tdl.primitives.createCresent(1, 1, 0.5, 0.01, 10);
   tdl.primitives.addTangentsAndBinormals(finArrays);
   tdl.primitives.reorient(finArrays,
-      [[-1, 0, 0, 0],
-       [0, 1, 0, 0],
-       [0, 0, -1, 0],
-       [0, 0, 0.7, 1]]);
+      [-1, 0, 0, 0,
+       0, 1, 0, 0,
+       0, 0, -1, 0,
+       0, 0, 0.7, 1]);
   var arrays = tdl.primitives.concat([sphereArrays, tailArrays, finArrays]);
   return new tdl.models.Model(program, arrays, textures);
 }
@@ -198,22 +198,22 @@ function setupShark() {
       'sharkFragmentShader');
   var sphereArrays = tdl.primitives.createSphere(1, 10, 10);
   tdl.primitives.reorient(sphereArrays,
-      [[0.2, 0, 0, 0],
-       [0, 0.2, 0, 0],
-       [0, 0, 1, 0],
-       [0, 0, 0, 1]]);
+      [0.2, 0, 0, 0,
+       0, 0.2, 0, 0,
+       0, 0, 1, 0,
+       0, 0, 0, 1]);
   var tailArrays = tdl.primitives.createCresent(0.3, 0.5, 0.3, 0.01, 10);
   tdl.primitives.reorient(tailArrays,
-      [[-1, 0, 0, 0],
-       [0, 1, 0, 0],
-       [0, 0, -1, 0],
-       [0, 0, 1.3, 1]]);
+      [-1, 0, 0, 0,
+       0, 1, 0, 0,
+       0, 0, -1, 0,
+       0, 0, 1.3, 1]);
   var topFinArrays = tdl.primitives.createCresent(0.5, 0.7, 0.2, 0.01, 10, 0, 0.5);
   tdl.primitives.reorient(topFinArrays,
-      [[-1, 0, 0, 0],
-       [0, 1, 0, 0],
-       [0, 0, -1, 0],
-       [0, 0, 0.4, 1]]);
+      [-1, 0, 0, 0,
+       0, 1, 0, 0,
+       0, 0, -1, 0,
+       0, 0, 0.4, 1]);
   var leftFinArrays = tdl.primitives.clone(topFinArrays);
   tdl.primitives.reorient(leftFinArrays,
       math.matrix4.mul(
@@ -279,10 +279,10 @@ function setupSkybox() {
   delete arrays['normal'];
   delete arrays['texCoord'];
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 0, 1, 0],
-       [0,-1, 0, 0],
-       [0, 0, 0.99, 1]]);
+      [1, 0, 0, 0,
+       0, 0, 1, 0,
+       0,-1, 0, 0,
+       0, 0, 0.99, 1]);
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -302,10 +302,10 @@ function setupSand() {
   tdl.primitives.applyPlanarUVMapping(arrays.position, arrays.texCoord);
   tdl.primitives.addTangentsAndBinormals(arrays);
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 1, 0, 0],
-       [0, 0, 1, 0],
-       [0, -radius, 0, 1]]);
+      [1, 0, 0, 0,
+       0, 1, 0, 0,
+       0, 0, 1, 0,
+       0, -radius, 0, 1]);
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -323,10 +323,10 @@ function setupGlass() {
       g_tankRadius, g_tankHeight, 30, 1, false, false);
   tdl.primitives.addTangentsAndBinormals(arrays);
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 1, 0, 0],
-       [0, 0, 1, 0],
-       [0, (g_tankHeight - 6) / 2, 0, 1]]);
+      [1, 0, 0, 0,
+       0, 1, 0, 0,
+       0, 0, 1, 0,
+       0, (g_tankHeight - 6) / 2, 0, 1]);
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -345,10 +345,10 @@ function setupStand() {
   tdl.primitives.addTangentsAndBinormals(arrays);
   var domeHeight = g_tankRadius * (1 - Math.cos(g_endOfDome));
   tdl.primitives.reorient(arrays,
-      [[1, 0, 0, 0],
-       [0, 1, 0, 0],
-       [0, 0, 1, 0],
-       [0, (g_standHeight * -0.5) - domeHeight - 1, 0, 1]]);
+      [1, 0, 0, 0,
+       0, 1, 0, 0,
+       0, 0, 1, 0,
+       0, (g_standHeight * -0.5) - domeHeight - 1, 0, 1]);
   tdl.primitives.mulComponents(arrays.texCoord, [30, g_standHeight]);
   return new tdl.models.Model(program, arrays, textures);
 }
