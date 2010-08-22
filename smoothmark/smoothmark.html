@@ -98,7 +98,7 @@ function mainloop() {
 
 function initializeGraphics() {
   canvas = document.getElementById('render_area');
-  gl = tdl.webgl.create3DContext(canvas)
+  gl = tdl.webgl.setupWebGL("3dcontainer", canvas);
   if (!gl) {
     return false;
   }
@@ -119,7 +119,9 @@ $(document).ready(function() {
 </head>
 
 <body>
+<div id="3dcontainer">
 <canvas id="render_area" width="640" height="480"></canvas>
+</div>
 <br>
 <br>
 <span id="instructions">

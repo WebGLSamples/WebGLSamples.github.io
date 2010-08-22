@@ -631,14 +631,12 @@ var g;
 function initialize() {
   math = tdl.math;
   fast = tdl.fast;
-  canvas2d = document.getElementById("canvas2d");
-  ctx = canvas2d.getContext("2d");
   canvas = document.getElementById("canvas");
   g_fpsTimer = new tdl.fps.FPSTimer();
 
   setupCountButtons();
 
-  gl = tdl.webgl.create3DContext(canvas);
+  gl = tdl.webgl.setupWebGL("3dcontainer", canvas);
   if (!gl) {
     return false;
   }
@@ -646,6 +644,9 @@ function initialize() {
     gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
   }
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
+
+  canvas2d = document.getElementById("canvas2d");
+  ctx = canvas2d.getContext("2d");
 
   createWindowTexture(ctx);
 
@@ -845,7 +846,9 @@ function initialize() {
   <div id="setCount3">lots</div>
   <div><a href="http://www.shamusyoung.com/twentysidedtale/?p=2940">Inspired By<br/>PixelCity</a></div>
 </div>
+<div id="3dcontainer">
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
+</div>
 <canvas id="canvas2d" width="512" height="512"></canvas>
 </body>
 <script id="constVertexShader" type="text/something-not-javascript">
