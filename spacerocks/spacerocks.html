@@ -363,9 +363,9 @@ function setupPoofs(particleSystem) {
     }
 }
 
-var _tp_ = new Float32Array(16);
-var _tv_ = new Float32Array(3);
 function triggerPoof(transNorm) {
+    var _tp_ = new Float32Array(16);
+    var _tv_ = new Float32Array(3);
     // We have multiple poofs because if you only have one and it is still going
     // when you trigger it a second time it will immediately start over.
     tdl.fast.addVector(_tv_, transNorm, transNorm);
@@ -388,6 +388,9 @@ function initialize() {
   setupCountButtons();
 
   gl = tdl.webgl.create3DContext(canvas);
+  if (!gl) {
+    return false;
+  }
   if (g_debug) {
     gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
   }
@@ -766,6 +769,7 @@ function initialize() {
     // turn off logging after 1 frame.
     g_logGLCalls = false;
   }
+	return true;
 }
 </script>
 </head>

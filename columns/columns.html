@@ -291,6 +291,9 @@ function initialize() {
 
   g_fpsTimer = new tdl.fps.FPSTimer();
   gl = tdl.webgl.create3DContext(canvas);
+  if (!gl) {
+    return false;
+  }
   if (g_debug) {
     gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
   }
@@ -510,6 +513,7 @@ function initialize() {
     // turn off logging after 1 frame.
     g_logGLCalls = false;
   }
+	return true;
 }
 </script>
 </head>

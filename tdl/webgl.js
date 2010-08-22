@@ -45,28 +45,28 @@ tdl.webgl = tdl.webgl || {};
 
 /**
  * Creates a webgl context.
- * @param {!Canvas} opt_canvas The canvas tag to get context from. If one is not
- *     passed in one will be created.
+ * @param {!Canvas} canvas The canvas tag to get context
+ *     from. If one is not passed in one will be created.
  * @return {!WebGLContext} The created context.
  */
-tdl.webgl.create3DContext = function(opt_canvas) {
-  opt_canvas = opt_canvas || document.createElement("canvas");
+tdl.webgl.create3DContext = function(canvas) {
+  var names = ["webgl", "experimental-webgl", "webkit-3d", "moz-webgl"];
   var context = null;
-  try {
-    context = opt_canvas.getContext("experimental-webgl");
-  } catch(e) {}
-  if (!context) {
+  for (var ii = 0; ii < names.length; ++ii) {
     try {
-      context = opt_canvas.getContext("webkit-3d");
+      context = canvas.getContext(names[ii]);
     } catch(e) {}
+    if (context) {
+      break;
+    }
   }
   if (!context) {
-    try {
-      context = opt_canvas.getContext("moz-webgl");
-    } catch(e) {}
-  }
-  if (!context) {
-    testFailed("Unable to fetch WebGL rendering context for Canvas");
+    canvas.parentNode.innerHTML =
+      '<div style="display: table; width: 100%; height: 100%;">' +
+      '<div style="display: table-cell; vertical-align: middle; text-align: center;">' +
+      '<div style="">Unable to fetch WebGL rendering context for Canvas</div>' +
+      '</div>' +
+      '</div>';
   } else {
     if (!tdl.webgl.glEnums) {
       tdl.webgl.init(context);

@@ -5,12 +5,11 @@
 
 function initWebGL(canvas) {
   try {
-    gl = canvas.getContext("experimental-webgl");
+    gl = tdl.webgl.create3DContext(canvas);
   }
   catch(e) {
   }
   if (!gl) {
-    alert("Unable to initialize WebGL. Your browser may not support it.");
     return null
   }
   return gl
