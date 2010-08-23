@@ -78,6 +78,9 @@ tdl.string.argsToString = function(args) {
       }
       strs.push(arg.toFixed(3));
       lastArgWasNumber = true;
+    } else if (arg instanceof Float32Array) {
+      // TODO(gman): Make this handle other types of arrays.
+      strs.push(tdl.string.argsToString(arg));
     } else {
       strs.push(arg.toString());
       lastArgWasNumber = false;

@@ -104,8 +104,8 @@ var g_launchSpeed       = 0.5;
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
     if (args[ii] === undefined) {
-      console.error("undefined passed to gl." + functionName + "(" +
-                wd.glFunctionArgsToString(functionName, args) + ")");
+      tdl.error("undefined passed to gl." + functionName + "(" +
+                tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
     }
   }
 }
@@ -119,8 +119,8 @@ function Log(msg) {
 function LogGLCall(functionName, args) {
   if (g_logGLCalls) {
     ValidateNoneOfTheArgsAreUndefined(functionName, args)
-    console.log("gl." + functionName + "(" +
-                wd.glFunctionArgsToString(functionName, args) + ")");
+    tdl.log("gl." + functionName + "(" +
+                tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
   }
 }
 

@@ -106,8 +106,8 @@ var g_eyeRadius         = 30;
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
     if (args[ii] === undefined) {
-      console.error("undefined passed to gl." + functionName + "(" +
-                wd.glFunctionArgsToString(functionName, args) + ")");
+      tdl.error("undefined passed to gl." + functionName + "(" +
+                tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
     }
   }
 }
@@ -122,7 +122,7 @@ function LogGLCall(functionName, args) {
   if (g_logGLCalls) {
     ValidateNoneOfTheArgsAreUndefined(functionName, args)
     tdl.log("gl." + functionName + "(" +
-            wd.glFunctionArgsToString(functionName, args) + ")");
+            tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
   }
 }
 
@@ -276,9 +276,9 @@ function createBuildingPyramid(size) {
   var texCoords = new tdl.primitives.AttribBuffer(2, numVertices);
   var indices = new tdl.primitives.AttribBuffer(3, 6 * 2, 'Uint16Array');
 
-	for (var v = 0; v < cornerVertices.length; ++v) {
-		positions.push(cornerVertices[v]);
-		normals.push([0, 1, 0]);  // don't care. Going to remove anyway
+  for (var v = 0; v < cornerVertices.length; ++v) {
+    positions.push(cornerVertices[v]);
+    normals.push([0, 1, 0]);  // don't care. Going to remove anyway
     texCoords.push([0, 0]);  // don't care. Going to remove anyway
   }
 
@@ -369,11 +369,11 @@ function setupClassicBuilding(windowTexture) {
   var height = 10;
   var bottom = (1 - (0.5 / (numTowers))) * maxHeight;
   var pyramid = createBuildingPyramid(1);
-	delete pyramid.normal;
-	tdl.primitives.reorient(
+  delete pyramid.normal;
+  tdl.primitives.reorient(
       pyramid,
-			math.matrix4.mul(
-				math.matrix4.scaling([width, height, width]),
+      math.matrix4.mul(
+        math.matrix4.scaling([width, height, width]),
         math.matrix4.translation([0, bottom, 0])));
   towers.push(pyramid);
   var arrays = tdl.primitives.concat(towers);
@@ -716,11 +716,11 @@ function initialize() {
     texCoordMult: new Float32Array([2, 4])};
   // Classic building uniforms.
   var classicBuildingConst = {
-  	};
+    };
   var classicBuildingPer = {
-  	world: world,
-  	worldViewProjection: worldViewProjection,
-  	texCoordMult: new Float32Array([0.25, 2])};
+    world: world,
+    worldViewProjection: worldViewProjection,
+    texCoordMult: new Float32Array([0.25, 2])};
 
   var frameCount = 0;
   var intervalId = setInterval(render, 1000.0 / 70.0);

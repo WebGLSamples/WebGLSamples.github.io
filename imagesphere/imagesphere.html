@@ -135,8 +135,8 @@ var g_ui = [
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
     if (args[ii] === undefined) {
-      console.error("undefined passed to gl." + functionName + "(" +
-                wd.glFunctionArgsToString(functionName, args) + ")");
+      tdl.error("undefined passed to gl." + functionName + "(" +
+                tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
     }
   }
 }
@@ -151,7 +151,7 @@ function LogGLCall(functionName, args) {
   if (g_logGLCalls) {
     ValidateNoneOfTheArgsAreUndefined(functionName, args)
     tdl.log("gl." + functionName + "(" +
-            wd.glFunctionArgsToString(functionName, args) + ")");
+            tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
   }
 }
 

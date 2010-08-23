@@ -133,8 +133,8 @@ var g_ui = [
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
     if (args[ii] === undefined) {
-      console.error("undefined passed to gl." + functionName + "(" +
-                wd.glFunctionArgsToString(functionName, args) + ")");
+      tdl.error("undefined passed to gl." + functionName + "(" +
+          tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
     }
   }
 }
@@ -148,8 +148,8 @@ function Log(msg) {
 function LogGLCall(functionName, args) {
   if (g_logGLCalls) {
     ValidateNoneOfTheArgsAreUndefined(functionName, args)
-    console.log("gl." + functionName + "(" +
-                wd.glFunctionArgsToString(functionName, args) + ")");
+    tdl.log("gl." + functionName + "(" +
+            tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
   }
 }
 
@@ -530,7 +530,7 @@ function getParamId(id) {
 function setParam(event, ui, obj) {
   var id = event.target.id;
   var value = ui.value / 1000;
-  console.log(id + ": " + value);
+  tdl.log(id + ": " + value);
   obj[id] = value;
 }
 

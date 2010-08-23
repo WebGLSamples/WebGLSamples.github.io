@@ -291,7 +291,6 @@ function initializeGraphics() {
   if (!gl) {
     return false;
   }
-//  gl = tdl.webgl.makeDebugContext(wu.create3DContext(canvas))
   aspect = canvas.clientWidth / canvas.clientHeight
   quad = new QuadDrawer()
   backbuffer = tdl.framebuffers.getBackBuffer(canvas)
@@ -303,7 +302,7 @@ function initializeGraphics() {
   gl.depthFunc(gl.LEQUAL);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-	return true;
+  return true;
 }
 
 $(document).ready(function() {
