@@ -24,9 +24,9 @@ function MarchingCubesEffect() {
 
   // Size of field.
   var size = 32;
-  var blockSize = 32 + 1;
+  var blockSize = 16 + 1;
   // Deltas
-  var delta = 2.0 / blockSize;
+  var delta = 1.0;
   var yd = blockSize;
   var zd = blockSize * blockSize;
   var blockSize3 = blockSize * blockSize * blockSize;
@@ -46,7 +46,9 @@ function MarchingCubesEffect() {
   function wipeNormals() {
     // Wipe the normal cache.
     for (var i = 0; i < blockSize3; ++i) {
-      normal_cache[i * 3] = 0.0;
+      normal_cache[i * 3 + 0] = 0.0;
+      normal_cache[i * 3 + 1] = 0.0;
+      normal_cache[i * 3 + 2] = 1.0;
     }
   }
 
@@ -56,9 +58,6 @@ function MarchingCubesEffect() {
     pout[offset + 0] = x + mu * delta;
     pout[offset + 1] = y;
     pout[offset + 2] = z;
-    nout[offset + 0] = lerp(normal_cache[q],   normal_cache[q+3], mu);
-    nout[offset + 1] = lerp(normal_cache[q+1], normal_cache[q+4], mu);
-    nout[offset + 2] = lerp(normal_cache[q+2], normal_cache[q+5], mu);
   }
   function VIntY(q,pout,nout,offset,isol,x,y,z,valp1,valp2) {
     var mu = (isol - valp1) / (valp2 - valp1);
@@ -66,9 +65,6 @@ function MarchingCubesEffect() {
     pout[offset + 1] = y + mu * delta;
     pout[offset + 2] = z;
     var q2 = q + yd*3;
-    nout[offset + 0] = lerp(normal_cache[q],   normal_cache[q2], mu);
-    nout[offset + 1] = lerp(normal_cache[q+1], normal_cache[q2+1], mu);
-    nout[offset + 2] = lerp(normal_cache[q+2], normal_cache[q2+2], mu);
   }
   function VIntZ(q,pout,nout,offset,isol,x,y,z,valp1,valp2) {
     var mu = (isol - valp1) / (valp2 - valp1);
@@ -76,17 +72,6 @@ function MarchingCubesEffect() {
     pout[offset + 1] = y;
     pout[offset + 2] = z + mu * delta;
     var q2 = q + zd*3;
-    nout[offset + 0] = lerp(normal_cache[q],   normal_cache[q2], mu);
-    nout[offset + 1] = lerp(normal_cache[q+1], normal_cache[q2+1], mu);
-    nout[offset + 2] = lerp(normal_cache[q+2], normal_cache[q2+2], mu);
-  }
-
-  function compNorm(q, field) {
-    if (normal_cache[q*3] == 0.0) {
-      normal_cache[q*3    ] = field[q-1]  - field[q+1];
-      normal_cache[q*3 + 1] = field[q-yd] - field[q+yd];
-      normal_cache[q*3 + 2] = field[q-zd] - field[q+zd];
-    }
   }
 
   // Returns total number of triangles. Fills triangles.
@@ -121,20 +106,20 @@ function MarchingCubesEffect() {
     var fx2 = fx + d, fy2 = fy + d, fz2 = fz + d;
 
     // Top of the cube
-    if (bits & 1)    {compNorm(q, field);       compNorm(q+1, field);       VIntX(q*3,      vlist, nlist, 0, isol, fx,  fy,  fz, field0, field1); }
-    if (bits & 2)    {compNorm(q+1, field);     compNorm(q+1+yd, field);    VIntY((q+1)*3,  vlist, nlist, 3, isol, fx2, fy,  fz, field1, field3); }
-    if (bits & 4)    {compNorm(q+yd, field);    compNorm(q+1+yd, field);    VIntX((q+yd)*3, vlist, nlist, 6, isol, fx,  fy2, fz, field2, field3); }
-    if (bits & 8)    {compNorm(q, field);       compNorm(q+yd, field);      VIntY(q*3,      vlist, nlist, 9, isol, fx,  fy,  fz, field0, field2); }
+    if (bits & 1)    {VIntX(q*3,      vlist, nlist, 0, isol, fx,  fy,  fz, field0, field1); }
+    if (bits & 2)    {VIntY((q+1)*3,  vlist, nlist, 3, isol, fx2, fy,  fz, field1, field3); }
+    if (bits & 4)    {VIntX((q+yd)*3, vlist, nlist, 6, isol, fx,  fy2, fz, field2, field3); }
+    if (bits & 8)    {VIntY(q*3,      vlist, nlist, 9, isol, fx,  fy,  fz, field0, field2); }
     // Bottom of the cube
-    if (bits & 16)   {compNorm(q+zd, field);    compNorm(q+1+zd, field);    VIntX((q+zd)*3,    vlist, nlist, 12, isol, fx,  fy,  fz2, field4, field5); }
-    if (bits & 32)   {compNorm(q+1+zd, field);  compNorm(q+1+yd+zd, field); VIntY((q+1+zd)*3,  vlist, nlist, 15, isol, fx2, fy,  fz2, field5, field7); }
-    if (bits & 64)   {compNorm(q+yd+zd, field); compNorm(q+1+yd+zd, field); VIntX((q+yd+zd)*3, vlist, nlist, 18, isol, fx,  fy2, fz2, field6, field7); }
-    if (bits & 128)  {compNorm(q+zd, field);    compNorm(q+yd+zd, field);   VIntY((q+zd)*3,    vlist, nlist, 21, isol, fx,  fy,  fz2, field4, field6); }
+    if (bits & 16)   {VIntX((q+zd)*3,    vlist, nlist, 12, isol, fx,  fy,  fz2, field4, field5); }
+    if (bits & 32)   {VIntY((q+1+zd)*3,  vlist, nlist, 15, isol, fx2, fy,  fz2, field5, field7); }
+    if (bits & 64)   {VIntX((q+yd+zd)*3, vlist, nlist, 18, isol, fx,  fy2, fz2, field6, field7); }
+    if (bits & 128)  {VIntY((q+zd)*3,    vlist, nlist, 21, isol, fx,  fy,  fz2, field4, field6); }
     // Vertical lines of the cube
-    if (bits & 256)  {compNorm(q, field);       compNorm(q+zd, field);      VIntZ(q*3,        vlist, nlist, 24, isol, fx,  fy,  fz, field0, field4); }
-    if (bits & 512)  {compNorm(q+1, field);     compNorm(q+1+zd, field);    VIntZ((q+1)*3,    vlist, nlist, 27, isol, fx2, fy,  fz, field1, field5); }
-    if (bits & 1024) {compNorm(q+1+yd, field);  compNorm(q+1+yd+zd, field); VIntZ((q+1+yd)*3, vlist, nlist, 30, isol, fx2, fy2, fz, field3, field7); }
-    if (bits & 2048) {compNorm(q+yd, field);    compNorm(q+yd+zd, field);   VIntZ((q+yd)*3,   vlist, nlist, 33, isol, fx,  fy2, fz, field2, field6); }
+    if (bits & 256)  {VIntZ(q*3,        vlist, nlist, 24, isol, fx,  fy,  fz, field0, field4); }
+    if (bits & 512)  {VIntZ((q+1)*3,    vlist, nlist, 27, isol, fx2, fy,  fz, field1, field5); }
+    if (bits & 1024) {VIntZ((q+1+yd)*3, vlist, nlist, 30, isol, fx2, fy2, fz, field3, field7); }
+    if (bits & 2048) {VIntZ((q+yd)*3,   vlist, nlist, 33, isol, fx,  fy2, fz, field2, field6); }
 
     cubeindex <<= 4;  // Re-purpose cubeindex into an offset into triTable.
     var numtris = 0, i = 0;
@@ -200,12 +185,12 @@ function MarchingCubesEffect() {
       var size2 = nodeSize / 2.0;
       for (var z = 1; z < nodeSize - 2; z++) {
         var z_offset = nodeSize * nodeSize * z;
-        var fz = (z - size2) / size2; //+ 1
+        var fz = minNodeZ + z;
         for (var y = 1; y < nodeSize - 2; y++) {
           var y_offset = z_offset + nodeSize * y;
-          var fy = (y - size2) / size2; //+ 1
+          var fy = minNodeY + y;
           for (var x = 1; x < nodeSize - 2; x++) {
-            var fx = (x - size2) / size2; //+ 1
+            var fx = minNodeX + x;
             var q = y_offset + x;
             polygonize(fx, fy, fz, q, isol, array, nodeSize);
           }

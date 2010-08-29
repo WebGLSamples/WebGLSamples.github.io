@@ -105,6 +105,12 @@ function DisplayList() {
     this.posnormvoff(pos, norm, o3);
   }
   
+  this.postriv = function(pos, o1, o2, o3) {
+    this.posvoff(pos, o1);
+    this.posvoff(pos, o2);
+    this.posvoff(pos, o3);
+  }
+  
   this.normal = function(x, y, z) {
     normalArray.push(x);
     normalArray.push(y);
