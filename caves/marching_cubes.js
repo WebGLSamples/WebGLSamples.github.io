@@ -170,11 +170,11 @@ function MarchingCubesEffect() {
       var min2_z = Math.max(min_z, minNodeZ);
       var max2_z = Math.min(max_z, minNodeZ + nodeSize);
       for (var z = min2_z; z < max2_z; ++z) {
-        var z_offset = size * size * z;
+        var z_offset = nodeSize * nodeSize * z;
         var fz = z / size - ballz;
         var fz2 = fz * fz;
         for (var y = min2_y; y < max2_y; ++y) {
-          var y_offset = z_offset + size * y;
+          var y_offset = z_offset + nodeSize * y;
           var fy = y / size - bally;
           var fy2 = fy * fy;
           for (var x = min2_x; x < max2_x; ++x) {
@@ -212,7 +212,7 @@ function MarchingCubesEffect() {
         }
       }
       var modelArrays = dlist.end();
-      var key = '' + minNodeX + ':' + minNodeY + ':' + minNodeZ;
+      var key = minNodeX + ':' + minNodeY + ':' + minNodeZ;
       modelMap[key] = new tdl.models.Model(program, modelArrays, textures);
     }
     tree.walkTree(uniform, buffer);
