@@ -169,20 +169,6 @@ function MarchingCubesEffect() {
     }
   }
   
-  function addFloor(strength, subtract) {
-    var dist = size * Math.sqrt(strength / subtract)
-    if (dist > size) dist = size
-    for (var y = 0; y < dist; y++) {
-      var yy = (y / size) * (y / size)
-      var val = strength / (0.0001 + yy) - subtract
-      if (val > 0.0) {
-        for (var x = 0; x < size; x++) 
-          for (var z = 0; z < size; z++)
-            field[zd * z + y * yd + x] += val
-      }
-    }
-  }
-  
   function createGeometry(isol) {
     dlist.begin()
     // Triangulate. Yeah, this is slow.

@@ -1,8 +1,6 @@
 
 // Provides access to a large (but sparsely allocated) 3d voxel field.
 
-// TODO: subdivide only so far, and then allocate Float32Array blocks.
-
 
 field = {}
 
@@ -10,7 +8,7 @@ field = {}
 field.NodeState = {
     UNIFORM: 0,  // All voxels have the same value: node.value.
     SUBDIVIDED: 1,  // Node has children. Descend into them to get values.
-    LEAF: 2  // This is a leaf node. Look at node.field array.
+    ALLOCATED: 2  // This node has a field buffer.
 };
 
 
@@ -27,10 +25,14 @@ field.FieldNode = function(minX, minY, minZ, size, blockSize) {
   this.midY = this.minY + this.size * 0.5; 
   this.midZ = this.minZ + this.size * 0.5; 
 
-  this.blockSize = blockSize;
   this.value = 1.0;
   this.state = field.NodeState.UNIFORM;
   this.children = [];
+  this.field = null;
+
+  // Values shared for the whole tree. If there are more, they should be moved to
+  // a shared object.
+  this.blockSize = blockSize;
 };
 
 field.FieldNode.prototype.whichChild = function(x, y, z) {
@@ -51,18 +53,23 @@ field.FieldNode.prototype.getValue = function(x, y, z) {
   }
 }
 
+// Subdivide, or allocate a field buffer.
 field.FieldNode.prototype.subdivide = function() {
-  // No bounds/size checking performed!
-  var halfSize = size / 2;
-  this.children[0] = new field.FieldNode(this.minX, this.minY, this.minZ, halfSize);
-  this.children[1] = new field.FieldNode(this.minX + halfSize, this.minY, this.minZ, halfSize);
-  this.children[2] = new field.FieldNode(this.minX, this.minY + halfSize, this.minZ, halfSize);
-  this.children[3] = new field.FieldNode(this.minX + halfSize, this.minY + halfSize, this.minZ, halfSize);
-  this.children[4] = new field.FieldNode(this.minX, this.minY, this.minZ, halfSize);
-  this.children[5] = new field.FieldNode(this.minX + halfSize, this.minY, this.minZ + halfSize, halfSize);
-  this.children[6] = new field.FieldNode(this.minX, this.minY + halfSize, this.minZ + halfSize, halfSize);
-  this.children[7] = new field.FieldNode(this.minX + halfSize, this.minY + halfSize, this.minZ + halfSize, halfSize);
-  this.state = field.NodeState.SUBDIVIDED;
+  if (this.size > this.blockSize) {
+    var halfSize = size / 2;
+    this.children[0] = new field.FieldNode(this.minX, this.minY, this.minZ, halfSize, blockSize);
+    this.children[1] = new field.FieldNode(this.minX + halfSize, this.minY, this.minZ, halfSize, blockSize);
+    this.children[2] = new field.FieldNode(this.minX, this.minY + halfSize, this.minZ, halfSize, blockSize);
+    this.children[3] = new field.FieldNode(this.minX + halfSize, this.minY + halfSize, this.minZ, halfSize, blockSize);
+    this.children[4] = new field.FieldNode(this.minX, this.minY, this.minZ, halfSize, blockSize);
+    this.children[5] = new field.FieldNode(this.minX + halfSize, this.minY, this.minZ + halfSize, halfSize, blockSize);
+    this.children[6] = new field.FieldNode(this.minX, this.minY + halfSize, this.minZ + halfSize, halfSize, blockSize);
+    this.children[7] = new field.FieldNode(this.minX + halfSize, this.minY + halfSize, this.minZ + halfSize, halfSize, blockSize);
+    this.state = field.NodeState.SUBDIVIDED;
+  } else {
+    // We're already block sized. Allocate a field.
+    this.state = field.NodeState.ALLOCATED;
+  }
 }
 
 /**
@@ -70,9 +77,28 @@ field.FieldNode.prototype.subdivide = function() {
  * The tree will be subdivided down to block level for the region specified, and the
  * function XX called for each block.
  * 
- * @param func = function(minX, minY, minZ, blockSize, fieldArray)
+ * Precondition: specified bounds must be entirely contained in this node.
+ * 
+ * Callback functions are called on leaf nodes: fieldFunc if subdivided, otherwise uniformFunc.
+ * Operations on the field must be deterministic!
+ *
+ * @param uniformFunc = function(minX, minY, minZ, size, value)
+ *   Called for nodes which have a uniform value.
+ *   Parameters correspond to the whole node, not just the intersecting region.
+ *   Return true if the node should be subdivided and its children walked.
+ * @param fieldFunc = function(minX, minY, minZ, size, fieldArray)
+ *   Called for leaf nodes which have a fieldArray.
+ *   Parameters correspond to the whole node, not just the intersecting region.
+ *   fieldArray has dimensions (size+1)^3.
  */
-field.FieldNode.prototype.walkTree = function(minX, minY, minZ, maxX, maxY, maxZ, func) {
+field.FieldNode.prototype.walkTree = function(minX, minY, minZ, size, uniformFunc, leafFunc) {
+  if (this.state === field.NodeState.UNIFORM) {
+    if (uniformFunc(minX, minY, minZ, size, this.value)) {
+      this.subdivide();
+    }
+  }
+  // At this point we may have subdivided, so no 'else'.
+  if (this.state === field.NodeState.SUBDIVIDED)
 }
 
 /*
