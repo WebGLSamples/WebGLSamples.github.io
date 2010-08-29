@@ -84,20 +84,25 @@ function mainloop() {
 }
 
 function initializeGraphics() {
-  canvas = document.getElementById('render_area');
+  gl = tdl.webgl.setupWebGL("3dcontainer", canvas);
   gl = tdl.webgl.create3DContext(canvas)
+  if (!gl) {
+    return false;
+  }
   // Set some sane defaults.
   gl.disable(gl.BLEND);
   gl.depthFunc(gl.LEQUAL);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  return true;
 }
 
 $(document).ready(function() {
-  initializeGraphics()
-  mainloop()
-  music = document.getElementById('soundtrack');
-  music.volume = 0.13;
-  music.play();
+  if (initializeGraphics()) {
+    mainloop()
+    music = document.getElementById('soundtrack');
+    music.volume = 0.13;
+    music.play();
+  }
 })
 
 </script>
@@ -109,7 +114,9 @@ No support for the audio tag in this browser.
 Get <a href="http://www.google.com/chrome">Google Chrome</a>.
 </audio>
 <br>
+<div id="3dcontainer">
 <canvas id="render_area" width="200" height="200"></canvas>
+</div>
 <br>
 <br>
 <span id="instructions">

@@ -44,30 +44,77 @@ tdl.require('tdl.log');
 tdl.webgl = tdl.webgl || {};
 
 /**
+ * Creates the HTLM for a failure message
+ * @param {string} canvasContainerId id of container of th
+ *        canvas.
+ * @return {string} The html.
+ */
+tdl.webgl.makeFailHTML = function(msg) {
+  return '' +
+    '<table style="display: table; width: 100%; height: 100%;"><tr><td>' +
+    '<div style="display: table-cell; vertical-align: middle; text-align: center;">' +
+    '<div style="">' + msg + '</div>' +
+    '</div>' +
+    '</td></tr></table>';
+};
+
+/**
+ * Mesasge for getting a webgl browser
+ * @type {string}
+ */
+tdl.webgl.GET_A_WEBGL_BROWSER = '' +
+  'This page requires browser that supports WebGL.<br/>' +
+  '<a href="http://get.webgl.org">Click here to upgrade your browser.</a>';
+
+/**
+ * Creates a webgl context and fils out teh
+ * @param {string} canvasContainerId id of container of th
+ *        canvas.
+ */
+tdl.webgl.setupWebGL = function(canvasContainerId, opt_canvas) {
+  var container = document.getElementById(canvasContainerId);
+  var context;
+  if (!opt_canvas) {
+    opt_canvas = container.getElementsByTagName("canvas")[0];
+  }
+  if (!opt_canvas) {
+    // this browser doesn't support the canvas tag at all. Not even 2d.
+    container.innerHTML = tdl.webgl.makeFailHTML(
+        tdl.webgl.GET_A_WEBGL_BROWSER);
+    return;
+  }
+
+  function handleCreationError() {
+    // TODO(gman): Set error based on why creation failed.
+  };
+
+  // opt_canvas.addEventHandler('webglcontextcreationerror', handleCreationError);
+  var context = tdl.webgl.create3DContext(opt_canvas);
+  if (!context) {
+    container.innerHTML = tdl.webgl.makeFailHTML(
+        tdl.webgl.GET_A_WEBGL_BROWSER);
+  }
+  return context;
+};
+
+/**
  * Creates a webgl context.
- * @param {!Canvas} opt_canvas The canvas tag to get context from. If one is not
- *     passed in one will be created.
+ * @param {!Canvas} canvas The canvas tag to get context
+ *     from. If one is not passed in one will be created.
  * @return {!WebGLContext} The created context.
  */
-tdl.webgl.create3DContext = function(opt_canvas) {
-  opt_canvas = opt_canvas || document.createElement("canvas");
+tdl.webgl.create3DContext = function(canvas) {
+  var names = ["webgl", "experimental-webgl", "webkit-3d", "moz-webgl"];
   var context = null;
-  try {
-    context = opt_canvas.getContext("experimental-webgl");
-  } catch(e) {}
-  if (!context) {
+  for (var ii = 0; ii < names.length; ++ii) {
     try {
-      context = opt_canvas.getContext("webkit-3d");
+      context = canvas.getContext(names[ii]);
     } catch(e) {}
+    if (context) {
+      break;
+    }
   }
-  if (!context) {
-    try {
-      context = opt_canvas.getContext("moz-webgl");
-    } catch(e) {}
-  }
-  if (!context) {
-    testFailed("Unable to fetch WebGL rendering context for Canvas");
-  } else {
+  if (context) {
     if (!tdl.webgl.glEnums) {
       tdl.webgl.init(context);
     }
@@ -153,7 +200,7 @@ tdl.webgl.glValidEnumContexts = {
   // Culling
 
   'cullFace': { 0:true },
-  'frontFace': { 0:true },
+  'frontFace': { 0:true }
 };
 
 /**

@@ -44,6 +44,9 @@ function setupWebGL() {
 
   try {
     gl = tdl.webgl.create3DContext(canvas);
+    if (!gl) {
+      return false;
+    }
   } catch(e) {
     reportNoWebGLSupport();
     return false;

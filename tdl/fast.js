@@ -42,6 +42,12 @@ tdl.provide('tdl.fast');
  */
 tdl.fast = tdl.fast || {};
 
+
+if (!window.Float32Array) {
+  // This just makes some errors go away when there is no WebGL.
+  window.Float32Array = function() { };
+}
+
 tdl.fast.temp0v3_ = new Float32Array(3);
 tdl.fast.temp1v3_ = new Float32Array(3);
 tdl.fast.temp2v3_ = new Float32Array(3);

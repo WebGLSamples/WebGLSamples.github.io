@@ -135,8 +135,8 @@ var g_ui = [
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
     if (args[ii] === undefined) {
-      console.error("undefined passed to gl." + functionName + "(" +
-                wd.glFunctionArgsToString(functionName, args) + ")");
+      tdl.error("undefined passed to gl." + functionName + "(" +
+                tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
     }
   }
 }
@@ -151,7 +151,7 @@ function LogGLCall(functionName, args) {
   if (g_logGLCalls) {
     ValidateNoneOfTheArgsAreUndefined(functionName, args)
     tdl.log("gl." + functionName + "(" +
-            wd.glFunctionArgsToString(functionName, args) + ")");
+            tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
   }
 }
 
@@ -627,7 +627,10 @@ function initialize() {
   g_canvas2d.height = 256;
   g_ctx2d = g_canvas2d.getContext("2d");
 
-  gl = tdl.webgl.create3DContext(canvas);
+  gl = tdl.webgl.setupWebGL("3dcontainer", canvas);
+  if (!gl) {
+    return false;
+  }
   if (g_debug) {
     gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
   }
@@ -859,6 +862,7 @@ function initialize() {
     // turn off logging after 1 frame.
     g_logGLCalls = false;
   }
+  return true;
 }
 
 var g_event;
@@ -918,7 +922,9 @@ $(function(){
 <div id="uiContainer">
 <div id="ui"></div>
 </div>
+<div id="3dcontainer">
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
+</div>
 </body>
 <!--- black shader -->
 <script id="blackVertexShader" type="text/something-not-javascript">

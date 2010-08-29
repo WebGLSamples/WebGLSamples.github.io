@@ -307,7 +307,7 @@ tdl.programs.Program.prototype.use = function() {
 //  } else {
 //    str = value.toString();
 //  }
-//  console.log(msg + name + ": " + str);
+//  tdl.log(msg + name + ": " + str);
 //}
 
 tdl.programs.Program.prototype.setUniform = function(uniform, value) {
