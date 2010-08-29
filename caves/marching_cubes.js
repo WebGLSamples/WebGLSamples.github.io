@@ -7,7 +7,7 @@
 // Converted from the standard C implementation that's all over the web.
 
 function MarchingCubesEffect() {
-  var program = createProgramFromTags("marching_cube_vs", "marching_cube_fs")
+  var program = createProgramFromTags("marching_cube_vs", "marching_cube_fs");
   var textures = {
       diffuseSamplerWall: tdl.textures.loadTexture('assets/rock-color.png'),
       diffuseSamplerFloor: tdl.textures.loadTexture('assets/sand-color.png')
@@ -15,31 +15,33 @@ function MarchingCubesEffect() {
 
   var dlist = new DisplayList();
 
-  var worldview = new Float32Array(16)
-  var viewproj = new Float32Array(16)
-  var worldviewproj = new Float32Array(16)
+  var worldview = new Float32Array(16);
+  var viewproj = new Float32Array(16);
+  var worldviewproj = new Float32Array(16);
 
-  var eyePosition = new Float32Array([0, 1.7, 0])
-  var target = new Float32Array([0, 0, 0])
+  var eyePosition = new Float32Array([0, 1.7, 0]);
+  var target = new Float32Array([0, 0, 0]);
 
-  // Size of field. 32 is pushing it in Javascript :)
-  var size = 40;
+  // Size of field.
+  var size = 32;
+  var blockSize = 16;
   // Deltas
-  var delta = 2.0 / size
-  var yd = size
-  var zd = size * size
-  var size3 = size * size * size
+  var delta = 2.0 / blockSize;
+  var yd = blockSize;
+  var zd = blockSize * blockSize;
+  var blockSize3 = blockSize * blockSize * blockSize;
 
-  var field = new Float32Array(size3)
-  var normal_cache = new Float32Array(size3 * 3)
+  var field = new field.FieldNode(0, 0, 0, size, 16);
+
+  var normal_cache = new Float32Array(blockSize3 * 3);
   
-  var model = null;
-
+  var modelMap = {};
+  
   var m4 = tdl.fast.matrix4
 
   // Temp buffers used in polygonize.
-  var vlist = new Float32Array(12 * 3)
-  var nlist = new Float32Array(12 * 3)
+  var vlist = new Float32Array(12 * 3);
+  var nlist = new Float32Array(12 * 3);
 
   function lerp(a,b,t) { return a + (b - a) * t; }
   function VIntX(q,pout,nout,offset,isol,x,y,z,valp1,valp2) {
@@ -142,55 +144,71 @@ function MarchingCubesEffect() {
 
   function addBall(ballx, bally, ballz, radius) {
     var scanradius = radius * size + 1;
-    var min_z = Math.max(Math.floor(ballz * size - scanradius), 0);
-    var max_z = Math.min(Math.floor(ballz * size + scanradius), size);
-    var min_y = Math.max(Math.floor(bally * size - scanradius), 0);
-    var max_y = Math.min(Math.floor(bally * size + scanradius), size);
     var min_x = Math.max(Math.floor(ballx * size - scanradius), 0);
     var max_x = Math.min(Math.floor(ballx * size + scanradius), size);
-    function uniform(minX, minY, minZ, size, value) {
+    var min_y = Math.max(Math.floor(bally * size - scanradius), 0);
+    var max_y = Math.min(Math.floor(bally * size + scanradius), size);
+    var min_z = Math.max(Math.floor(ballz * size - scanradius), 0);
+    var max_z = Math.min(Math.floor(ballz * size + scanradius), size);
+    function uniform(minNodeX, minNodeY, minNodeZ, nodeSize, value) {
+      // TODO: intersect sphere with cube to avoid unnecessary splits.
+      // TODO: allow 'set value' response for interior cubes.
       return true;  // 'Please subdivide this node.'
     }
-    function field(minX, minY, minZ, size, field) {
-    }
-    for (var z = min_z; z < max_z; z++) {
-      var z_offset = size * size * z;
-      var fz = z / size - ballz;
-      var fz2 = fz * fz;
-      for (var y = min_y; y < max_y; y++) {
-        var y_offset = z_offset + size * y;
-        var fy = y / size - bally;
-        var fy2 = fy * fy;
-        for (var x = min_x; x < max_x; x++) {
-          var fx = x / size - ballx;
-          var fx2 = fx * fx;
-          var dist = Math.sqrt(fx2 + fy2 + fz2);
-          var val = Math.pow(dist / radius, 2.0);
-          field[y_offset + x] *= Math.max(Math.min(val, 1.0), 0.0);
+    function field(minNodeX, minNodeY, minNodeZ, nodeSize, array) {
+      var min2_x = Math.max(min_x, minNodeX);
+      var max2_x = Math.min(max_x, minNodeX + nodeSize);
+      var min2_y = Math.max(min_y, minNodeY);
+      var max2_y = Math.min(max_y, minNodeY + nodeSize);
+      var min2_z = Math.max(min_z, minNodeZ);
+      var max2_z = Math.min(max_z, minNodeZ + nodeSize);
+      for (var z = min2_z; z < max2_z; ++z) {
+        var z_offset = size * size * z;
+        var fz = z / size - ballz;
+        var fz2 = fz * fz;
+        for (var y = min2_y; y < max2_y; ++y) {
+          var y_offset = z_offset + size * y;
+          var fy = y / size - bally;
+          var fy2 = fy * fy;
+          for (var x = min2_x; x < max2_x; ++x) {
+            var fx = x / size - ballx;
+            var fx2 = fx * fx;
+            var dist = Math.sqrt(fx2 + fy2 + fz2);
+            var val = Math.pow(dist / radius, 2.0);
+            array[y_offset + x] *= Math.max(Math.min(val, 1.0), 0.0);
+          }
         }
       }
     }
+    field.walkSubTree(min_x, max_x, min_y, max_y, min_z, max_z, uniform, field);
   }
   
   function createGeometry(isol) {
-    dlist.begin()
-    // Triangulate. Yeah, this is slow.
-    var size2 = size / 2.0
-    for (var z = 1; z < size - 2; z++) {
-      var z_offset = size * size * z;
-      var fz = (z - size2) / size2 //+ 1
-      for (var y = 1; y < size - 2; y++) {
-        var y_offset = z_offset + size * y;
-        var fy = (y - size2) / size2 //+ 1
-        for (var x = 1; x < size - 2; x++) {
-          var fx = (x - size2) / size2 //+ 1
-          var q = y_offset + x
-          polygonize(fx, fy, fz, q, isol)
+    function uniform(minNodeX, minNodeY, minNodeZ, nodeSize, value) {
+      return false;  // Don't subdivide.
+    }
+    function field(minNodeX, minNodeY, minNodeZ, nodeSize, array) {
+      dlist.begin();
+      // Triangulate. Yeah, this is slow.
+      var size2 = size / 2.0
+      for (var z = 1; z < size - 2; z++) {
+        var z_offset = size * size * z;
+        var fz = (z - size2) / size2 //+ 1
+        for (var y = 1; y < size - 2; y++) {
+          var y_offset = z_offset + size * y;
+          var fy = (y - size2) / size2 //+ 1
+          for (var x = 1; x < size - 2; x++) {
+            var fx = (x - size2) / size2 //+ 1
+            var q = y_offset + x
+            polygonize(fx, fy, fz, q, isol)
+          }
         }
       }
+      var arrays = dlist.end();
+      var key = '' + minX + ':' + minY + ':' + minZ;
+      modelMap[key] = new tdl.models.Model(program, arrays, textures);
     }
-    arrays = dlist.end();
-    return arrays;
+    field.walkTree(uniform, field);
   }
 
   var firstDraw = true
@@ -236,14 +254,15 @@ function MarchingCubesEffect() {
         var ballz = randm11() * 0.27 + 0.5;
         addBall(ballx, bally, ballz, radius);
       }
-      //addFloor(2, 12)
 
       var isol = 0.5
-      var arrays = createGeometry(isol);
-      model = new tdl.models.Model(program, arrays, textures);
+      createGeometry(isol);
     }
     
-    model.drawPrep(uniformsConst)
-    model.draw(uniformsConst);
+    for (var key in modelMap) {
+      var model = modelMap[key];
+      model.drawPrep(uniformsConst)
+      model.draw(uniformsConst);
+    }
   }
 }

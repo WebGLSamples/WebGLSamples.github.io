@@ -1,13 +1,13 @@
 
 // Provides access to a large voxel field.
-// Uses a loose octree for sparse allocation.
+// Uses a slightly loose octree for sparse allocation.
 
 
 field = {}
 
 
 field.NodeState = {
-    UNIFORM: 0,  // All voxels have the same value: node.value.
+    UNIFORM: 0,  // All voxels inside this node have the same value: node.value.
     SUBDIVIDED: 1,  // Node has children. Descend into them to get values.
     ALLOCATED: 2  // This node has a field buffer.
 };
@@ -69,21 +69,21 @@ field.FieldNode.prototype.subdivideOrAllocate = function() {
  * The tree will be subdivided down to block level for the region specified, and the
  * function XX called for each block.
  * 
- * Precondition: specified bounds must be entirely contained in this node.
+ * Precondition: specified bounds must be entirely contained in this node. (is this really necessary?)
  * 
  * Callback functions are called on leaf nodes: fieldFunc if subdivided, otherwise uniformFunc.
- * Operations on the field must be deterministic!
- *
+ * Operations on the field must be deterministic! (because of node overlap)
+ * 
  * @param uniformFunc = function(minX, minY, minZ, size, value)
  *   Called for nodes which have a uniform value.
  *   Parameters correspond to the whole node, not just the intersecting region.
  *   Return true if the node should be subdivided and its children walked.
- * @param fieldFunc = function(minX, minY, minZ, size, field)
+ * @param fieldFunc = function(minX, minY, minZ, size, array)
  *   Called for leaf nodes which have a fieldArray.
  *   Parameters correspond to the whole node, not just the intersecting region.
- *   field is a Float32Array with dimensions (size+1)^3.
+ *   array is a Float32Array(size^3).
  */
-field.FieldNode.prototype.walkTree = function(minX, minY, minZ, size, uniformFunc, fieldFunc) {
+field.FieldNode.prototype.walkSubTree = function(minX, maxX, minY, maxY, minZ, maxZ, uniformFunc, fieldFunc) {
   if (this.state === field.NodeState.UNIFORM) {
     if (uniformFunc(this.minX, this.minY, this.minZ, this.size, this.value)) {
       this.subdivideOrAllocate();
@@ -95,17 +95,36 @@ field.FieldNode.prototype.walkTree = function(minX, minY, minZ, size, uniformFun
       var child = this.children[i];
       // Note that this includes 1-voxel region overlaps.
       // This could be optimized a bit...
-      if (child.minX <= minX + size &&
+      if (child.minX <= maxX &&
           child.minX + child.size >= minX &&
-          child.minY < minY + size &&
+          child.minY <= maxY &&
           child.minY + child.size >= minY &&
-          child.minZ < minZ + size &&
+          child.minZ <= maxZ &&
           child.minZ + child.size >= minZ) {
-        child.walkTree(minX, minY, minZ, size, uniformFunc, fieldFunc);
+        child.walkSubTree(minX, maxX, minY, maxY, minZ, maxZ, uniformFunc, fieldFunc);
       }
     }
   } else if (this.state === field.NodeState.ALLOCATED) {
-    fieldFunc(this.minX, this.minY, this.minZ, this.size, this.field);
+    fieldFunc(this.minX, this.minY, this.minZ, this.size + 1, this.field);
   }
 }
 
+/**
+ * Simpler version of walkSubTree.
+ */
+field.FieldNode.prototype.walkTree = function(uniformFunc, fieldFunc) {
+  if (this.state === field.NodeState.UNIFORM) {
+    if (uniformFunc(this.minX, this.minY, this.minZ, this.size, this.value)) {
+      this.subdivideOrAllocate();
+    }
+  }
+  // At this point we may have subdivided or allocated, so no 'else'.
+  if (this.state === field.NodeState.SUBDIVIDED) {
+    for (var i = 0; i < 8; ++i) {
+      var child = this.children[i];
+      child.walkTree(uniformFunc, fieldFunc);
+    }
+  } else if (this.state === field.NodeState.ALLOCATED) {
+    fieldFunc(this.minX, this.minY, this.minZ, this.size + 1, this.field);
+  }
+}
