@@ -9,7 +9,7 @@ field = {}
 field.NodeState = {
     UNIFORM: 0,  // All voxels inside this node have the same value: node.value.
     SUBDIVIDED: 1,  // Node has children. Descend into them to get values.
-    ALLOCATED: 2  // This node has a field buffer.
+    ALLOCATED: 2  // This node has a voxel buffer.
 };
 
 
@@ -34,7 +34,7 @@ field.FieldNode = function(minX, minY, minZ, size, blockSize) {
   this.value = 1.0;
   this.state = field.NodeState.UNIFORM;
   this.children = null;
-  this.field = null;
+  this.buffer = null;
 
   // Values shared for the whole tree. If there are more, they should be moved to
   // a shared object.
@@ -47,20 +47,27 @@ field.FieldNode = function(minX, minY, minZ, size, blockSize) {
 field.FieldNode.prototype.subdivideOrAllocate = function() {
   if (this.size > this.blockSize) {
     this.state = field.NodeState.SUBDIVIDED;
-    var halfSize = size / 2;
+    var halfSize = this.size / 2;
+    var blockSize = this.blockSize;
     this.children = [];
-    this.children[0] = new field.FieldNode(this.minX, this.minY, this.minZ, halfSize, blockSize);
-    this.children[1] = new field.FieldNode(this.minX + halfSize, this.minY, this.minZ, halfSize, blockSize);
-    this.children[2] = new field.FieldNode(this.minX, this.minY + halfSize, this.minZ, halfSize, blockSize);
-    this.children[3] = new field.FieldNode(this.minX + halfSize, this.minY + halfSize, this.minZ, halfSize, blockSize);
-    this.children[4] = new field.FieldNode(this.minX, this.minY, this.minZ, halfSize, blockSize);
-    this.children[5] = new field.FieldNode(this.minX + halfSize, this.minY, this.minZ + halfSize, halfSize, blockSize);
-    this.children[6] = new field.FieldNode(this.minX, this.minY + halfSize, this.minZ + halfSize, halfSize, blockSize);
+    this.children[0] = new field.FieldNode(this.minX,            this.minY,            this.minZ,            halfSize, blockSize);
+    this.children[1] = new field.FieldNode(this.minX + halfSize, this.minY,            this.minZ,            halfSize, blockSize);
+    this.children[2] = new field.FieldNode(this.minX,            this.minY + halfSize, this.minZ,            halfSize, blockSize);
+    this.children[3] = new field.FieldNode(this.minX + halfSize, this.minY + halfSize, this.minZ,            halfSize, blockSize);
+    this.children[4] = new field.FieldNode(this.minX,            this.minY,            this.minZ + halfSize, halfSize, blockSize);
+    this.children[5] = new field.FieldNode(this.minX + halfSize, this.minY,            this.minZ + halfSize, halfSize, blockSize);
+    this.children[6] = new field.FieldNode(this.minX,            this.minY + halfSize, this.minZ + halfSize, halfSize, blockSize);
     this.children[7] = new field.FieldNode(this.minX + halfSize, this.minY + halfSize, this.minZ + halfSize, halfSize, blockSize);
   } else {
-    // We're already minimum size. Allocate a field.
+    // We're already minimum size. Allocate a buffer.
     this.state = field.NodeState.ALLOCATED;
-    this.field = new Float32Array((this.size+1) * (this.size+1) * (this.size+1));
+    var size = this.size + 1;
+    size = size * size * size;
+    var buffer = new Float32Array(size);
+    for (var i = 0; i < size; ++i) {
+      buffer[i] = this.value;
+    }
+    this.buffer = buffer;
   }
 }
 
@@ -78,12 +85,12 @@ field.FieldNode.prototype.subdivideOrAllocate = function() {
  *   Called for nodes which have a uniform value.
  *   Parameters correspond to the whole node, not just the intersecting region.
  *   Return true if the node should be subdivided and its children walked.
- * @param fieldFunc = function(minX, minY, minZ, size, array)
- *   Called for leaf nodes which have a fieldArray.
+ * @param bufferFunc = function(minX, minY, minZ, size, array)
+ *   Called for leaf nodes which have a buffer.
  *   Parameters correspond to the whole node, not just the intersecting region.
  *   array is a Float32Array(size^3).
  */
-field.FieldNode.prototype.walkSubTree = function(minX, maxX, minY, maxY, minZ, maxZ, uniformFunc, fieldFunc) {
+field.FieldNode.prototype.walkSubTree = function(minX, maxX, minY, maxY, minZ, maxZ, uniformFunc, bufferFunc) {
   if (this.state === field.NodeState.UNIFORM) {
     if (uniformFunc(this.minX, this.minY, this.minZ, this.size, this.value)) {
       this.subdivideOrAllocate();
@@ -95,24 +102,24 @@ field.FieldNode.prototype.walkSubTree = function(minX, maxX, minY, maxY, minZ, m
       var child = this.children[i];
       // Note that this includes 1-voxel region overlaps.
       // This could be optimized a bit...
-      if (child.minX <= maxX &&
+      if (child.minX              <= maxX &&
           child.minX + child.size >= minX &&
-          child.minY <= maxY &&
+          child.minY              <= maxY &&
           child.minY + child.size >= minY &&
-          child.minZ <= maxZ &&
+          child.minZ              <= maxZ &&
           child.minZ + child.size >= minZ) {
-        child.walkSubTree(minX, maxX, minY, maxY, minZ, maxZ, uniformFunc, fieldFunc);
+        child.walkSubTree(minX, maxX, minY, maxY, minZ, maxZ, uniformFunc, bufferFunc);
       }
     }
   } else if (this.state === field.NodeState.ALLOCATED) {
-    fieldFunc(this.minX, this.minY, this.minZ, this.size + 1, this.field);
+    bufferFunc(this.minX, this.minY, this.minZ, this.size + 1, this.buffer);
   }
 }
 
 /**
  * Simpler version of walkSubTree.
  */
-field.FieldNode.prototype.walkTree = function(uniformFunc, fieldFunc) {
+field.FieldNode.prototype.walkTree = function(uniformFunc, bufferFunc) {
   if (this.state === field.NodeState.UNIFORM) {
     if (uniformFunc(this.minX, this.minY, this.minZ, this.size, this.value)) {
       this.subdivideOrAllocate();
@@ -122,9 +129,9 @@ field.FieldNode.prototype.walkTree = function(uniformFunc, fieldFunc) {
   if (this.state === field.NodeState.SUBDIVIDED) {
     for (var i = 0; i < 8; ++i) {
       var child = this.children[i];
-      child.walkTree(uniformFunc, fieldFunc);
+      child.walkTree(uniformFunc, bufferFunc);
     }
   } else if (this.state === field.NodeState.ALLOCATED) {
-    fieldFunc(this.minX, this.minY, this.minZ, this.size + 1, this.field);
+    bufferFunc(this.minX, this.minY, this.minZ, this.size + 1, this.buffer);
   }
 }

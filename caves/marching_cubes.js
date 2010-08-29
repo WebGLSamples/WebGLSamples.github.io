@@ -24,14 +24,14 @@ function MarchingCubesEffect() {
 
   // Size of field.
   var size = 32;
-  var blockSize = 16;
+  var blockSize = 32 + 1;
   // Deltas
   var delta = 2.0 / blockSize;
   var yd = blockSize;
   var zd = blockSize * blockSize;
   var blockSize3 = blockSize * blockSize * blockSize;
 
-  var field = new field.FieldNode(0, 0, 0, size, 16);
+  var tree = new field.FieldNode(0, 0, 0, size, blockSize - 1);
 
   var normal_cache = new Float32Array(blockSize3 * 3);
   
@@ -42,6 +42,13 @@ function MarchingCubesEffect() {
   // Temp buffers used in polygonize.
   var vlist = new Float32Array(12 * 3);
   var nlist = new Float32Array(12 * 3);
+  
+  function wipeNormals() {
+    // Wipe the normal cache.
+    for (var i = 0; i < blockSize3; ++i) {
+      normal_cache[i * 3] = 0.0;
+    }
+  }
 
   function lerp(a,b,t) { return a + (b - a) * t; }
   function VIntX(q,pout,nout,offset,isol,x,y,z,valp1,valp2) {
@@ -49,36 +56,36 @@ function MarchingCubesEffect() {
     pout[offset + 0] = x + mu * delta;
     pout[offset + 1] = y;
     pout[offset + 2] = z;
-    nout[offset + 0] = lerp(normal_cache[q],   normal_cache[q+3], mu)
-    nout[offset + 1] = lerp(normal_cache[q+1], normal_cache[q+4], mu)
-    nout[offset + 2] = lerp(normal_cache[q+2], normal_cache[q+5], mu)
+    nout[offset + 0] = lerp(normal_cache[q],   normal_cache[q+3], mu);
+    nout[offset + 1] = lerp(normal_cache[q+1], normal_cache[q+4], mu);
+    nout[offset + 2] = lerp(normal_cache[q+2], normal_cache[q+5], mu);
   }
   function VIntY(q,pout,nout,offset,isol,x,y,z,valp1,valp2) {
     var mu = (isol - valp1) / (valp2 - valp1);
     pout[offset + 0] = x;
     pout[offset + 1] = y + mu * delta;
     pout[offset + 2] = z;
-    var q2 = q + yd*3
-    nout[offset + 0] = lerp(normal_cache[q],   normal_cache[q2], mu)
-    nout[offset + 1] = lerp(normal_cache[q+1], normal_cache[q2+1], mu)
-    nout[offset + 2] = lerp(normal_cache[q+2], normal_cache[q2+2], mu)
+    var q2 = q + yd*3;
+    nout[offset + 0] = lerp(normal_cache[q],   normal_cache[q2], mu);
+    nout[offset + 1] = lerp(normal_cache[q+1], normal_cache[q2+1], mu);
+    nout[offset + 2] = lerp(normal_cache[q+2], normal_cache[q2+2], mu);
   }
   function VIntZ(q,pout,nout,offset,isol,x,y,z,valp1,valp2) {
     var mu = (isol - valp1) / (valp2 - valp1);
     pout[offset + 0] = x;
     pout[offset + 1] = y;
-    pout[offset + 2] = z + mu * delta
-    var q2 = q + zd*3
-    nout[offset + 0] = lerp(normal_cache[q],   normal_cache[q2], mu)
-    nout[offset + 1] = lerp(normal_cache[q+1], normal_cache[q2+1], mu)
-    nout[offset + 2] = lerp(normal_cache[q+2], normal_cache[q2+2], mu)
+    pout[offset + 2] = z + mu * delta;
+    var q2 = q + zd*3;
+    nout[offset + 0] = lerp(normal_cache[q],   normal_cache[q2], mu);
+    nout[offset + 1] = lerp(normal_cache[q+1], normal_cache[q2+1], mu);
+    nout[offset + 2] = lerp(normal_cache[q+2], normal_cache[q2+2], mu);
   }
 
-  function compNorm(q) {
+  function compNorm(q, field) {
     if (normal_cache[q*3] == 0.0) {
-      normal_cache[q*3    ] = field[q-1]  - field[q+1]
-      normal_cache[q*3 + 1] = field[q-yd] - field[q+yd]
-      normal_cache[q*3 + 2] = field[q-zd] - field[q+zd]
+      normal_cache[q*3    ] = field[q-1]  - field[q+1];
+      normal_cache[q*3 + 1] = field[q-yd] - field[q+yd];
+      normal_cache[q*3 + 2] = field[q-zd] - field[q+zd];
     }
   }
 
@@ -86,16 +93,16 @@ function MarchingCubesEffect() {
   // TODO: Optimize to death, add normal calculations so that we can run
   // proper lighting shaders on the results. The grid parameter should be
   // implicit and removed.
-  function polygonize(fx, fy, fz, q, isol) {
+  function polygonize(fx, fy, fz, q, isol, field, nodeSize) {
     var cubeindex = 0;
-    var field0 = field[q]
-    var field1 = field[q+1]
-    var field2 = field[q+yd]
-    var field3 = field[q+1+yd]
-    var field4 = field[q+zd]
-    var field5 = field[q+1+zd]
-    var field6 = field[q+yd+zd]
-    var field7 = field[q+1+yd+zd]
+    var field0 = field[q];
+    var field1 = field[q+1];
+    var field2 = field[q+yd];
+    var field3 = field[q+1+yd];
+    var field4 = field[q+zd];
+    var field5 = field[q+1+zd];
+    var field6 = field[q+yd+zd];
+    var field7 = field[q+1+yd+zd];
     
     if (field0 < isol) cubeindex |= 1;
     if (field1 < isol) cubeindex |= 2;
@@ -107,35 +114,35 @@ function MarchingCubesEffect() {
     if (field7 < isol) cubeindex |= 64;
 
     // If cube is entirely in/out of the surface - bail, nothing to draw.
-    var bits = edgeTable[cubeindex]
+    var bits = edgeTable[cubeindex];
     if (bits == 0) return 0;
 
-    var d = delta
-    var fx2 = fx + d, fy2 = fy + d, fz2 = fz + d
+    var d = delta;
+    var fx2 = fx + d, fy2 = fy + d, fz2 = fz + d;
 
     // Top of the cube
-    if (bits & 1)    {compNorm(q);       compNorm(q+1);       VIntX(q*3,      vlist, nlist, 0, isol, fx,  fy,  fz, field0, field1); }
-    if (bits & 2)    {compNorm(q+1);     compNorm(q+1+yd);    VIntY((q+1)*3,  vlist, nlist, 3, isol, fx2, fy,  fz, field1, field3); }
-    if (bits & 4)    {compNorm(q+yd);    compNorm(q+1+yd);    VIntX((q+yd)*3, vlist, nlist, 6, isol, fx,  fy2, fz, field2, field3); }
-    if (bits & 8)    {compNorm(q);       compNorm(q+yd);      VIntY(q*3,      vlist, nlist, 9, isol, fx,  fy,  fz, field0, field2); }
+    if (bits & 1)    {compNorm(q, field);       compNorm(q+1, field);       VIntX(q*3,      vlist, nlist, 0, isol, fx,  fy,  fz, field0, field1); }
+    if (bits & 2)    {compNorm(q+1, field);     compNorm(q+1+yd, field);    VIntY((q+1)*3,  vlist, nlist, 3, isol, fx2, fy,  fz, field1, field3); }
+    if (bits & 4)    {compNorm(q+yd, field);    compNorm(q+1+yd, field);    VIntX((q+yd)*3, vlist, nlist, 6, isol, fx,  fy2, fz, field2, field3); }
+    if (bits & 8)    {compNorm(q, field);       compNorm(q+yd, field);      VIntY(q*3,      vlist, nlist, 9, isol, fx,  fy,  fz, field0, field2); }
     // Bottom of the cube
-    if (bits & 16)   {compNorm(q+zd);    compNorm(q+1+zd);    VIntX((q+zd)*3,    vlist, nlist, 12, isol, fx,  fy,  fz2, field4, field5); }
-    if (bits & 32)   {compNorm(q+1+zd);  compNorm(q+1+yd+zd); VIntY((q+1+zd)*3,  vlist, nlist, 15, isol, fx2, fy,  fz2, field5, field7); }
-    if (bits & 64)   {compNorm(q+yd+zd); compNorm(q+1+yd+zd); VIntX((q+yd+zd)*3, vlist, nlist, 18, isol, fx,  fy2, fz2, field6, field7); }
-    if (bits & 128)  {compNorm(q+zd);    compNorm(q+yd+zd);   VIntY((q+zd)*3,    vlist, nlist, 21, isol, fx,  fy,  fz2, field4, field6); }
+    if (bits & 16)   {compNorm(q+zd, field);    compNorm(q+1+zd, field);    VIntX((q+zd)*3,    vlist, nlist, 12, isol, fx,  fy,  fz2, field4, field5); }
+    if (bits & 32)   {compNorm(q+1+zd, field);  compNorm(q+1+yd+zd, field); VIntY((q+1+zd)*3,  vlist, nlist, 15, isol, fx2, fy,  fz2, field5, field7); }
+    if (bits & 64)   {compNorm(q+yd+zd, field); compNorm(q+1+yd+zd, field); VIntX((q+yd+zd)*3, vlist, nlist, 18, isol, fx,  fy2, fz2, field6, field7); }
+    if (bits & 128)  {compNorm(q+zd, field);    compNorm(q+yd+zd, field);   VIntY((q+zd)*3,    vlist, nlist, 21, isol, fx,  fy,  fz2, field4, field6); }
     // Vertical lines of the cube
-    if (bits & 256)  {compNorm(q);       compNorm(q+zd);      VIntZ(q*3,        vlist, nlist, 24, isol, fx,  fy,  fz, field0, field4); }
-    if (bits & 512)  {compNorm(q+1);     compNorm(q+1+zd);    VIntZ((q+1)*3,    vlist, nlist, 27, isol, fx2, fy,  fz, field1, field5); }
-    if (bits & 1024) {compNorm(q+1+yd);  compNorm(q+1+yd+zd); VIntZ((q+1+yd)*3, vlist, nlist, 30, isol, fx2, fy2, fz, field3, field7); }
-    if (bits & 2048) {compNorm(q+yd);    compNorm(q+yd+zd);   VIntZ((q+yd)*3,   vlist, nlist, 33, isol, fx,  fy2, fz, field2, field6); }
+    if (bits & 256)  {compNorm(q, field);       compNorm(q+zd, field);      VIntZ(q*3,        vlist, nlist, 24, isol, fx,  fy,  fz, field0, field4); }
+    if (bits & 512)  {compNorm(q+1, field);     compNorm(q+1+zd, field);    VIntZ((q+1)*3,    vlist, nlist, 27, isol, fx2, fy,  fz, field1, field5); }
+    if (bits & 1024) {compNorm(q+1+yd, field);  compNorm(q+1+yd+zd, field); VIntZ((q+1+yd)*3, vlist, nlist, 30, isol, fx2, fy2, fz, field3, field7); }
+    if (bits & 2048) {compNorm(q+yd, field);    compNorm(q+yd+zd, field);   VIntZ((q+yd)*3,   vlist, nlist, 33, isol, fx,  fy2, fz, field2, field6); }
 
-    cubeindex <<= 4  // Re-purpose cubeindex into an offset into triTable.
+    cubeindex <<= 4;  // Re-purpose cubeindex into an offset into triTable.
     var numtris = 0, i = 0;
     while (triTable[cubeindex + i] != -1) {
       dlist.posnormtriv(vlist, nlist,
                       3 * triTable[cubeindex + i + 0],
                       3 * triTable[cubeindex + i + 1],
-                      3 * triTable[cubeindex + i + 2])
+                      3 * triTable[cubeindex + i + 2]);
       i += 3;
       numtris++;
     }
@@ -155,7 +162,7 @@ function MarchingCubesEffect() {
       // TODO: allow 'set value' response for interior cubes.
       return true;  // 'Please subdivide this node.'
     }
-    function field(minNodeX, minNodeY, minNodeZ, nodeSize, array) {
+    function buffer(minNodeX, minNodeY, minNodeZ, nodeSize, array) {
       var min2_x = Math.max(min_x, minNodeX);
       var max2_x = Math.min(max_x, minNodeX + nodeSize);
       var min2_y = Math.max(min_y, minNodeY);
@@ -180,48 +187,48 @@ function MarchingCubesEffect() {
         }
       }
     }
-    field.walkSubTree(min_x, max_x, min_y, max_y, min_z, max_z, uniform, field);
+    tree.walkSubTree(min_x, max_x, min_y, max_y, min_z, max_z, uniform, buffer);
   }
   
   function createGeometry(isol) {
     function uniform(minNodeX, minNodeY, minNodeZ, nodeSize, value) {
       return false;  // Don't subdivide.
     }
-    function field(minNodeX, minNodeY, minNodeZ, nodeSize, array) {
+    function buffer(minNodeX, minNodeY, minNodeZ, nodeSize, array) {
+      wipeNormals();
       dlist.begin();
-      // Triangulate. Yeah, this is slow.
-      var size2 = size / 2.0
-      for (var z = 1; z < size - 2; z++) {
-        var z_offset = size * size * z;
-        var fz = (z - size2) / size2 //+ 1
-        for (var y = 1; y < size - 2; y++) {
-          var y_offset = z_offset + size * y;
-          var fy = (y - size2) / size2 //+ 1
-          for (var x = 1; x < size - 2; x++) {
-            var fx = (x - size2) / size2 //+ 1
-            var q = y_offset + x
-            polygonize(fx, fy, fz, q, isol)
+      var size2 = nodeSize / 2.0;
+      for (var z = 1; z < nodeSize - 2; z++) {
+        var z_offset = nodeSize * nodeSize * z;
+        var fz = (z - size2) / size2; //+ 1
+        for (var y = 1; y < nodeSize - 2; y++) {
+          var y_offset = z_offset + nodeSize * y;
+          var fy = (y - size2) / size2; //+ 1
+          for (var x = 1; x < nodeSize - 2; x++) {
+            var fx = (x - size2) / size2; //+ 1
+            var q = y_offset + x;
+            polygonize(fx, fy, fz, q, isol, array, nodeSize);
           }
         }
       }
-      var arrays = dlist.end();
-      var key = '' + minX + ':' + minY + ':' + minZ;
-      modelMap[key] = new tdl.models.Model(program, arrays, textures);
+      var modelArrays = dlist.end();
+      var key = '' + minNodeX + ':' + minNodeY + ':' + minNodeZ;
+      modelMap[key] = new tdl.models.Model(program, modelArrays, textures);
     }
-    field.walkTree(uniform, field);
+    tree.walkTree(uniform, buffer);
   }
 
-  var firstDraw = true
+  var firstDraw = true;
 
   this.render = function(framebuffer, time, world, view, proj) {
-    m4.mul(viewproj, view, proj)
-    m4.mul(worldview, world, view)
-    m4.mul(worldviewproj, world, viewproj)
+    m4.mul(viewproj, view, proj);
+    m4.mul(worldview, world, view);
+    m4.mul(worldviewproj, world, viewproj);
 
-    gl.clearColor(0.0,0.0,0.2,1)
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-    gl.enable(gl.DEPTH_TEST)
-    gl.enable(gl.CULL_FACE)
+    gl.clearColor(0.0,0.0,0.2,1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
 
     var uniformsConst = {
       u_worldviewproj: worldviewproj,
@@ -233,36 +240,34 @@ function MarchingCubesEffect() {
       u_ambientDown: [0.3, 0.15, 0.02, 1.0],
     }
 
-    // Wipe the normal cache.
-    for (var i = 0; i < size3; i++) {
-      normal_cache[i * 3] = 0.0
-    }
     if (firstDraw) {
-      // Uncomment to check the speed impact of the field filling.
-      firstDraw = false
-      for (var i = 0; i < size * size * size; i++) {
-        field[i] = 1.0
-      }
+      firstDraw = false;
 
-      // Fill the field with some metaballs. 
       var radius = 0.2;
-      addBall(0.5, 0.5, 0.5, 0.3);
+      addBall(0.5, 0.5, 0.5, 0.25);
       for (var i = 0; i < 2; ++i) {
-        function randm11() { return Math.random() * 2 - 1; };
+        function randm11() { return Math.random() * 2 - 1; }
         var ballx = randm11() * 0.27 + 0.5;
         var bally = randm11() * 0.27 + 0.5;
         var ballz = randm11() * 0.27 + 0.5;
         addBall(ballx, bally, ballz, radius);
       }
 
-      var isol = 0.5
+      var isol = 0.5;
       createGeometry(isol);
+      
+      for (var key in modelMap) {
+        console.log(key);
+        console.log(modelMap[key].buffers.indices.numElements_);
+      }
     }
     
     for (var key in modelMap) {
       var model = modelMap[key];
-      model.drawPrep(uniformsConst)
-      model.draw(uniformsConst);
+      if (model.buffers.indices.numElements_ > 0) {
+        model.drawPrep(uniformsConst);
+        model.draw(uniformsConst);
+      }
     }
   }
 }
