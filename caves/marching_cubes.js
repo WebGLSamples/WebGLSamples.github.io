@@ -140,9 +140,7 @@ function MarchingCubesEffect() {
     return numtris;
   }
 
-  // Adds a reciprocal ball (nice and blobby) that, to be fast, fades to zero after
-  // a fixed distance, determined by strength and subtract.
-  function addBall(ballx, bally, ballz, radius) {       
+  function addBall(ballx, bally, ballz, radius) {
     var scanradius = radius * size + 1;
     var min_z = Math.max(Math.floor(ballz * size - scanradius), 0);
     var max_z = Math.min(Math.floor(ballz * size + scanradius), size);
@@ -150,6 +148,11 @@ function MarchingCubesEffect() {
     var max_y = Math.min(Math.floor(bally * size + scanradius), size);
     var min_x = Math.max(Math.floor(ballx * size - scanradius), 0);
     var max_x = Math.min(Math.floor(ballx * size + scanradius), size);
+    function uniform(minX, minY, minZ, size, value) {
+      return true;  // 'Please subdivide this node.'
+    }
+    function field(minX, minY, minZ, size, field) {
+    }
     for (var z = min_z; z < max_z; z++) {
       var z_offset = size * size * z;
       var fz = z / size - ballz;

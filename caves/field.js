@@ -1,5 +1,6 @@
 
-// Provides access to a large (but sparsely allocated) 3d voxel field.
+// Provides access to a large voxel field.
+// Uses a loose octree for sparse allocation.
 
 
 field = {}
@@ -12,9 +13,14 @@ field.NodeState = {
 };
 
 
-// A FieldNode is a cube of field space.
-// If not subdivided, this.value represents the value within the whole cube.
-// size and blockSize must be powers of two.
+/**
+ * A FieldNode is a cube of field space.
+ * 
+ * If not subdivided, this.value represents the value within the whole cube.
+ * size and blockSize must be powers of two.
+ * 
+ * minX,Y,Z define one corner of cube. size is the length of the cube edges.
+ */
 field.FieldNode = function(minX, minY, minZ, size, blockSize) {
   this.minX = minX;
   this.minY = minY;
@@ -27,7 +33,7 @@ field.FieldNode = function(minX, minY, minZ, size, blockSize) {
 
   this.value = 1.0;
   this.state = field.NodeState.UNIFORM;
-  this.children = [];
+  this.children = null;
   this.field = null;
 
   // Values shared for the whole tree. If there are more, they should be moved to
@@ -35,28 +41,14 @@ field.FieldNode = function(minX, minY, minZ, size, blockSize) {
   this.blockSize = blockSize;
 };
 
-field.FieldNode.prototype.whichChild = function(x, y, z) {
-  return 1 * (x >= this.midX) |
-         2 * (y >= this.midY) |
-         4 * (z >= this.midZ);
-}
-
-field.FieldNode.prototype.getValue = function(x, y, z) {
-  if (this.state === field.NodeState.UNIFORM) {
-    return this.value;
-  } else if (this.state === field.NodeState.SUBDIVIDED) {
-    var child = this.whichChild(x, y, z);
-    return this.children[child].getValue(x, y, z);
-  } else {
-    // state === field.NodeState.LEAF
-    // TODO
-  }
-}
-
-// Subdivide, or allocate a field buffer.
-field.FieldNode.prototype.subdivide = function() {
+/**
+ * Subdivide node, or allocate a field buffer if already small enough.
+ */
+field.FieldNode.prototype.subdivideOrAllocate = function() {
   if (this.size > this.blockSize) {
+    this.state = field.NodeState.SUBDIVIDED;
     var halfSize = size / 2;
+    this.children = [];
     this.children[0] = new field.FieldNode(this.minX, this.minY, this.minZ, halfSize, blockSize);
     this.children[1] = new field.FieldNode(this.minX + halfSize, this.minY, this.minZ, halfSize, blockSize);
     this.children[2] = new field.FieldNode(this.minX, this.minY + halfSize, this.minZ, halfSize, blockSize);
@@ -65,10 +57,10 @@ field.FieldNode.prototype.subdivide = function() {
     this.children[5] = new field.FieldNode(this.minX + halfSize, this.minY, this.minZ + halfSize, halfSize, blockSize);
     this.children[6] = new field.FieldNode(this.minX, this.minY + halfSize, this.minZ + halfSize, halfSize, blockSize);
     this.children[7] = new field.FieldNode(this.minX + halfSize, this.minY + halfSize, this.minZ + halfSize, halfSize, blockSize);
-    this.state = field.NodeState.SUBDIVIDED;
   } else {
-    // We're already block sized. Allocate a field.
+    // We're already minimum size. Allocate a field.
     this.state = field.NodeState.ALLOCATED;
+    this.field = new Float32Array((this.size+1) * (this.size+1) * (this.size+1));
   }
 }
 
@@ -86,33 +78,34 @@ field.FieldNode.prototype.subdivide = function() {
  *   Called for nodes which have a uniform value.
  *   Parameters correspond to the whole node, not just the intersecting region.
  *   Return true if the node should be subdivided and its children walked.
- * @param fieldFunc = function(minX, minY, minZ, size, fieldArray)
+ * @param fieldFunc = function(minX, minY, minZ, size, field)
  *   Called for leaf nodes which have a fieldArray.
  *   Parameters correspond to the whole node, not just the intersecting region.
- *   fieldArray has dimensions (size+1)^3.
+ *   field is a Float32Array with dimensions (size+1)^3.
  */
-field.FieldNode.prototype.walkTree = function(minX, minY, minZ, size, uniformFunc, leafFunc) {
+field.FieldNode.prototype.walkTree = function(minX, minY, minZ, size, uniformFunc, fieldFunc) {
   if (this.state === field.NodeState.UNIFORM) {
-    if (uniformFunc(minX, minY, minZ, size, this.value)) {
-      this.subdivide();
+    if (uniformFunc(this.minX, this.minY, this.minZ, this.size, this.value)) {
+      this.subdivideOrAllocate();
     }
   }
-  // At this point we may have subdivided, so no 'else'.
-  if (this.state === field.NodeState.SUBDIVIDED)
-}
-
-/*
-field.FieldNode.prototype.setValue(x, y, z, value) = function() {
-  if (this.subdivided) {
-    var child = this.whichChild(x, y, z);
-    this.children[child].setValue(x, y, z, value);
-  } else if (this.size > 1) {
-    this.subdivide();
-    var child = this.whichChild(x, y, z);
-    this.children[child].setValue(x, y, z, value);
-  } else {
-    this.value = value;
+  // At this point we may have subdivided or allocated, so no 'else'.
+  if (this.state === field.NodeState.SUBDIVIDED) {
+    for (var i = 0; i < 8; ++i) {
+      var child = this.children[i];
+      // Note that this includes 1-voxel region overlaps.
+      // This could be optimized a bit...
+      if (child.minX <= minX + size &&
+          child.minX + child.size >= minX &&
+          child.minY < minY + size &&
+          child.minY + child.size >= minY &&
+          child.minZ < minZ + size &&
+          child.minZ + child.size >= minZ) {
+        child.walkTree(minX, minY, minZ, size, uniformFunc, fieldFunc);
+      }
+    }
+  } else if (this.state === field.NodeState.ALLOCATED) {
+    fieldFunc(this.minX, this.minY, this.minZ, this.size, this.field);
   }
 }
-*/
 
