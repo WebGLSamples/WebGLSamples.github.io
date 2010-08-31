@@ -1,0 +1,775 @@
+<!--
+ * Copyright 2009, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+  "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>WebGL Particle Editor</title>
+<style>
+html, body {
+  width: 100%;
+  height: 100%;
+  border: 0px;
+  padding: 0px;
+  margin: 0px;
+  background-color: red;
+}
+CANVAS {
+  background-color: gray;
+}
+#uiContainer {
+  z-index: 2;
+  padding: 10px;
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  width: 250px;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  font-size: xx-small;
+}
+#ui {
+}
+#fpsContainer {
+  background: rgba(0,0,0,0.5);
+  padding: 10px;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  color: white;
+  font-family: sans-serif;
+}
+</style>
+<link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
+<link type="text/css" href="../colorpicker/css/colorpicker.css" rel="stylesheet" />
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
+<script type="text/javascript" src="../colorpicker/js/colorpicker.js"></script>
+<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript">
+tdl.require('tdl.buffers');
+tdl.require('tdl.fast');
+tdl.require('tdl.fps');
+tdl.require('tdl.log');
+tdl.require('tdl.math');
+tdl.require('tdl.models');
+tdl.require('tdl.particles');
+tdl.require('tdl.primitives');
+tdl.require('tdl.programs');
+tdl.require('tdl.textures');
+tdl.require('tdl.webgl');
+
+// globals
+var gl;                   // the gl context.
+var canvas;               // the canvas
+var math;                 // the math lib.
+var fast;                 // the fast math lib.
+var g_fpsTimer;           // object to measure frames per second;
+var g_logGLCalls = true;  // whether or not to log webgl calls
+var g_debug = false;      // whether or not to debug.
+var g_drawOnce = false;   // draw just one frame.
+var g_setCountElements = [];
+var g_poofIndex = 0;
+var g_poofs = [];
+var g_anims = [];
+var g_timeTillLaunch = 0;
+var g_emitters = [];
+var g_idToWidgetMap = {};
+var g_id = 0;
+
+var g = {
+  p: {
+  },
+  globals: {
+  }
+};
+
+var g_ui = [
+  { obj: 'globals', name: 'targetHeight',  type: 'float',  value: 1,            max:  5 },
+  { obj: 'globals', name: 'targetRadius',  type: 'float',  value: 1,            max:  5 },
+  { obj: 'globals', name: 'eyeHeight',     type: 'float',  value: 2,            max:  10 },
+  { obj: 'globals', name: 'eyeRadius',     type: 'float',  value: 3,            max:  10 },
+  { obj: 'globals', name: 'eyeSpeed',      type: 'float',  value: 0.1,          max:  1 },
+  { obj: 'p',      name: 'numParticles',   type: 'int',    value: 20,           max: 200,  min: 1 },
+//{ obj: 'p',      name: 'numFrames',      type: 'int',    value: 1,            max: }, Need image selector. Compute from image.
+  { obj: 'p',      name: 'frameDuration',  type: 'dur',    value: 0.1,          max: 1 },
+  { obj: 'p',      name: 'frameStart',     type: 'intR',   value: 0,            max: 32 },           // compute max from image?
+  { obj: 'p',      name: 'timeRange',      type: 'dur',    value: 2,            max: 10 },           // special. 0 = 99999999
+//  { obj: 'p',      name: 'startTime',      type: 'dur',    value: null,         max: },              // need flag. (a) spread over range (b) random over range (c) in specified time range
+  { obj: 'p',      name: 'lifeTime',       type: 'durR',   value: 2,            max: 10 },
+  { obj: 'p',      name: 'startSize',      type: 'floatR', value: 0.5,          max: 5 },
+  { obj: 'p',      name: 'endSize',        type: 'floatR', value: 0.9,          max: 5 },
+  { obj: 'p',      name: 'position',       type: 'vec3R',  value: [0, 0, 0],    max: [10, 10, 10]},  // Needs to go negative, actually needs manipulator
+  { obj: 'p',      name: 'velocity',       type: 'vec3R',  value: [0, 0.6, 0],  max: [5, 5, 5]},     // Needs to go negative, actually needs manipulator
+  { obj: 'p',      name: 'acceleration',   type: 'vec3R',  value: [0, 0, 0],    max: [5, 5, 5]},     // Needs to go negative, actually needs manipulator
+  { obj: 'p',      name: 'spinStart',      type: 'floatR', value: 0,            max: 5 },
+  { obj: 'p',      name: 'spinSpeed',      type: 'floatR', value: 0,            max: 5 },
+  { obj: 'p',      name: 'colorMult',      type: 'colorR', value: [1, 1, 1, 1], max: [1, 1, 1, 1]},  // range is strange here
+  { obj: 'p',      name: 'worldVelocity',  type: 'vec3R',  value: [0, 0, 0],    max: [5, 5, 5]},
+  { obj: 'p',      name: 'billboard',      type: 'bool',   value: true                           },
+//{ obj: 'p',  name: 'orientation ',       type: 'rot',    value: '[0, 0, 0, 1]', max: },            // needs flag
+  ];
+
+//g_drawOnce = true;
+//g_debug = true;
+
+var g_numPoofs          = 20;
+
+function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
+  for (var ii = 0; ii < args.length; ++ii) {
+    if (args[ii] === undefined) {
+      console.error("undefined passed to gl." + functionName + "(" +
+                wd.glFunctionArgsToString(functionName, args) + ")");
+    }
+  }
+}
+
+function Log(msg) {
+  if (g_logGLCalls) {
+    tdl.log(msg);
+  }
+}
+
+function LogGLCall(functionName, args) {
+  if (g_logGLCalls) {
+    ValidateNoneOfTheArgsAreUndefined(functionName, args)
+    tdl.log("gl." + functionName + "(" +
+            wd.glFunctionArgsToString(functionName, args) + ")");
+  }
+}
+
+function createProgramFromTags(vertexTagId, fragmentTagId) {
+  return tdl.programs.loadProgram(
+      document.getElementById(vertexTagId).text,
+      document.getElementById(fragmentTagId).text);
+}
+
+/**
+ * Sets up Ground.
+ */
+function setupGround() {
+  var textures = {};
+  var program = createProgramFromTags(
+      'groundVertexShader',
+      'groundFragmentShader');
+  var arrays = tdl.primitives.createPlane(20, 20, 4, 4);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+function setupFlame(particleSystem) {
+  var emitter = particleSystem.createParticleEmitter();
+  emitter.setTranslation(0, 0, 0);
+  emitter.setState(tdl.particles.ParticleStateIds.ADD);
+  emitter.setColorRamp(
+      [1, 1, 0, 1,
+       1, 0, 0, 1,
+       0, 0, 0, 1,
+       0, 0, 0, 0.5,
+       0, 0, 0, 0]);
+  emitter.setParameters({
+      numParticles: 20,
+      lifeTime: 2,
+      timeRange: 2,
+      startSize: 0.5,
+      endSize: 0.9,
+      velocity:[0, 0.60, 0], velocityRange: [0.15, 0.15, 0.15],
+      worldAcceleration: [0, -0.20, 0],
+      spinSpeedRange: 4});
+  g_emitters.push(emitter);
+}
+
+function updateCurrentParticleEmitter() {
+  g_emitters[0].setParameters(g.p);
+};
+
+function setupAnims(particleSystem) {
+    var texture = tdl.textures.loadTexture('assets/rocks.png');
+    var emitter = particleSystem.createParticleEmitter(texture.texture);
+    emitter.setTranslation(0, 0, 0);
+    emitter.setColorRamp(
+        [1, 1, 1, 1,
+         1, 1, 1, 1,
+         1, 1, 1, 0]);
+    emitter.setParameters({
+        numParticles: 10,
+        numFrames: 4,
+        frameDuration: 50.0,
+        frameStartRange: 4,
+        lifeTime: 2,
+        startTime: 0,
+        startSize: 0.3,
+        endSize: 0.0,
+        spinSpeedRange: 20},
+        function(index, parameters) {
+            var speed = Math.random() * 0.6 + 0.2;
+            var speed2 = Math.random() * 0.2 + 0.1;
+            var angle = Math.random() * 2 * Math.PI;
+            parameters.velocity = math.matrix4.transformPoint(
+                math.matrix4.rotationZ(angle), [speed, speed2, 0]);
+        });
+    for (var ii = 0; ii < g_numPoofs; ++ii) {
+        g_anims[ii] = emitter.createOneShot();
+    }
+}
+
+function setupPoofs(particleSystem) {
+    var emitter = particleSystem.createParticleEmitter();
+    emitter.setState(tdl.particles.ParticleStateIds.ADD);
+    emitter.setColorRamp(
+        [1, 1, 1, 1,
+         1, 1, 0, 1,
+         1, 0, 0, 1,
+         1, 1, 1, 0.5,
+         1, 1, 1, 0]);
+    emitter.setParameters({
+        numParticles: 60,
+        lifeTime: 1.5,
+        startTime: 0,
+        startSize: 0.2,
+        endSize: 1.0,
+        spinSpeedRange: 10},
+        function(index, parameters) {
+            var speed = Math.random() * 0.4 + 0.8;
+            var angle = Math.random() * 2 * Math.PI;
+            parameters.velocity = math.matrix4.transformPoint(
+                math.matrix4.rotationZ(angle), [speed, 0, 0]);
+            parameters.acceleration = math.mulVectorVector(
+                parameters.velocity, [speed * -0.3, speed * -0.3, 0]);
+        });
+    // make 3 poofs one shots
+    for (var ii = 0; ii < g_numPoofs; ++ii) {
+        g_poofs[ii] = emitter.createOneShot();
+    }
+}
+
+function triggerPoof(transNorm) {
+var _tp_ = new Float32Array(16);
+var _tv_ = new Float32Array(3);
+    // We have multiple poofs because if you only have one and it is still going
+    // when you trigger it a second time it will immediately start over.
+    tdl.fast.addVector(_tv_, transNorm, transNorm);
+    tdl.fast.matrix4.cameraLookAt(_tp_, transNorm, _tv_, [0, 1, 0]);
+    g_poofs[g_poofIndex].trigger(_tp_);
+    g_anims[g_poofIndex].trigger(_tp_);
+    g_poofIndex++;
+    if (g_poofIndex == g_numPoofs) {
+        g_poofIndex = 0;
+    }
+}
+
+
+function initialize() {
+  math = tdl.math;
+  fast = tdl.fast;
+  canvas = document.getElementById("canvas");
+  g_fpsTimer = new tdl.fps.FPSTimer();
+
+  gl = tdl.webgl.setupWebGL("3dcontainer", canvas);
+  if (!gl) {
+    return false;
+  }
+  if (g_debug) {
+    gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
+  }
+//  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
+
+  Log("--Setup Ground---------------------------------------");
+  var ground = setupGround();
+
+  particleSystem = new tdl.particles.ParticleSystem(
+      gl, null, math.pseudoRandom);
+  setupFlame(particleSystem);
+  setupPoofs(particleSystem);
+  setupAnims(particleSystem);
+
+  var then = 0.0;
+  var clock = 0.0;
+  var fpsElem = document.getElementById("fps");
+
+  var projection = new Float32Array(16);
+  var view = new Float32Array(16);
+  var world = new Float32Array(16);
+  var worldInverse = new Float32Array(16);
+  var worldInverseTranspose = new Float32Array(16);
+  var viewProjection = new Float32Array(16);
+  var worldViewProjection = new Float32Array(16);
+  var viewInverse = new Float32Array(16);
+  var viewProjectionInverse = new Float32Array(16);
+  var eyePosition = new Float32Array(3);
+  var target = new Float32Array(3);
+  var up = new Float32Array([0,1,0]);
+  var lightWorldPos = new Float32Array(3);
+  var v3t0 = new Float32Array(3);
+  var v3t1 = new Float32Array(3);
+  var v3t2 = new Float32Array(3);
+  var v3t3 = new Float32Array(3);
+  var m4t0 = new Float32Array(16);
+  var m4t1 = new Float32Array(16);
+  var m4t2 = new Float32Array(16);
+  var m4t3 = new Float32Array(16);
+  var zero4 = new Float32Array(4);
+  var one4 = new Float32Array([1,1,1,1]);
+
+  // Ground uniforms.
+  var groundConst = {
+    viewInverse: viewInverse,
+    lightWorldPos: lightWorldPos,
+    lightColor: one4,
+    color1: new Float32Array([0.4, 0.5, 0.5, 1]),
+    color2: new Float32Array([0.6, 0.8, 0.8, 1]),
+		checkSize: 10};
+  var groundPer = {
+    world: world,
+    worldViewProjection: worldViewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose};
+
+  var frameCount = 0;
+  var intervalId = setInterval(render, 1000.0 / 70.0);
+  function render() {
+    ++frameCount;
+    if (g_drawOnce) {
+      clearInterval(intervalId);
+    }
+    var now = (new Date()).getTime() * 0.001;
+    var elapsedTime;
+    if(then == 0.0) {
+      elapsedTime = 0.0;
+    } else {
+      elapsedTime = now - then;
+    }
+    then = now;
+
+    g_fpsTimer.update(elapsedTime);
+    fpsElem.innerHTML = g_fpsTimer.averageFPS;
+
+    clock += elapsedTime;
+    eyePosition[0] = Math.sin(clock * g.globals.eyeSpeed) * g.globals.eyeRadius;
+    eyePosition[1] = g.globals.eyeHeight;
+    eyePosition[2] = Math.cos(clock * g.globals.eyeSpeed) * g.globals.eyeRadius;
+    target[0] = Math.sin(clock * g.globals.eyeSpeed + Math.PI) * g.globals.targetRadius;
+    target[1] = g.globals.targetHeight;
+    target[2] = Math.cos(clock * g.globals.eyeSpeed + Math.PI) * g.globals.targetRadius;
+
+    gl.colorMask(true, true, true, true);
+    gl.depthMask(true);
+    gl.clearColor(0,0,0,0);
+    gl.clearDepth(1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+    gl.disable(gl.BLEND);
+    gl.depthFunc(gl.LEQUAL);
+    gl.enable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    fast.matrix4.perspective(
+        projection,
+        math.degToRad(60),
+        canvas.clientWidth / canvas.clientHeight,
+        1,
+        5000);
+    fast.matrix4.lookAt(
+        view,
+        eyePosition,
+        target,
+        up);
+    fast.matrix4.mul(viewProjection, view, projection);
+    fast.matrix4.inverse(viewInverse, view);
+    fast.matrix4.inverse(viewProjectionInverse, viewProjection);
+
+    fast.matrix4.getAxis(v3t0, viewInverse, 0); // x
+    fast.matrix4.getAxis(v3t1, viewInverse, 1); // y;
+    fast.matrix4.getAxis(v3t2, viewInverse, 2); // z;
+    fast.mulScalarVector(v3t0, 10, v3t0);
+    fast.mulScalarVector(v3t1, 10, v3t1);
+    fast.mulScalarVector(v3t2, 10, v3t2);
+    fast.addVector(lightWorldPos, eyePosition, v3t0);
+    fast.addVector(lightWorldPos, lightWorldPos, v3t1);
+    fast.addVector(lightWorldPos, lightWorldPos, v3t2);
+
+//      view: view,
+//      projection: projection,
+//      viewProjection: viewProjection,
+
+    Log("--Draw Ground---------------------------------------");
+    ground.drawPrep(groundConst);
+    fast.matrix4.translation(world, [0, 0, 0]),
+    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+    fast.matrix4.inverse(worldInverse, world);
+    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+    ground.draw(groundPer);
+
+    Log("--Draw Particles------------------------------------");
+    fast.matrix4.translation(world, [0, 0, 0]);
+    particleSystem.draw(viewProjection, world, viewInverse);
+
+    // Set the alpha to 255.
+    gl.colorMask(false, false, false, true);
+    gl.clearColor(0,0,0,1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    // turn off logging after 1 frame.
+    g_logGLCalls = false;
+  }
+	return true;
+}
+
+function getParamId(id) {
+  return id.substr(6).replace(/(\w)/, function(m) {return m.toLowerCase() });
+}
+
+function setFloatParam(event, jqui, ui, obj) {
+  var value = jqui.value / 1000;
+  tdl.log(ui.name, ": ", value);
+  obj[ui.name] = value;
+  if (obj == g.p) {
+    updateCurrentParticleEmitter();
+  }
+}
+
+function setFloatRParam(event, jqui, ui, obj) {
+  var minValue = jqui.values[0] / 1000;
+  var maxValue = jqui.values[1] / 1000;
+  var range = maxValue - minValue;
+  tdl.log(ui.name, ": ", minValue, maxValue);
+
+  obj[ui.name] = minValue + range * 0.5;
+  obj[ui.name + 'Range'] = range;
+  if (obj == g.p) {
+    updateCurrentParticleEmitter();
+  }
+}
+
+function setIntParam(event, jqui, ui, obj) {
+  var value = Math.floor(jqui.value / 1000);
+  tdl.log(ui.name, "(i): ", value);
+  obj[ui.name] = value;
+  if (obj == g.p) {
+    updateCurrentParticleEmitter();
+  }
+}
+
+function setIntRParam(event, jqui, ui, obj) {
+  var minValue = Math.floor(jqui.values[0] / 1000);
+  var maxValue = Math.floor(jqui.values[1] / 1000);
+  var range = maxValue - minValue;
+  tdl.log(ui.name, ": ", minValue, maxValue);
+
+  obj[ui.name] = minValue + Math.floor(range * 0.5);
+  obj[ui.name + 'Range'] = range;
+  if (obj == g.p) {
+    updateCurrentParticleEmitter();
+  }
+}
+
+function setColorRParam(event, rgba, ui, obj) {
+  var color = [rgba.r / 255.0, rgba.g / 255.0, rgba.b / 255.0, rgba.a / 255.0];
+  tdl.log(ui.name, ": ", color);
+  obj[ui.name] = color;
+//  obj[ui.name + 'Range'] = range;
+  if (obj == g.p) {
+    updateCurrentParticleEmitter();
+  }
+}
+
+function getUIValue(obj, id) {
+  return obj[id] * 1000;
+}
+
+function setupWidget($, elem, ui, obj) {
+  var widgets = {
+    // Duration
+    'dur': {
+      makeWidget: function($, elem, ui, obj) {
+        $(elem).slider({
+          range: false,
+          step: 1,
+          min: (ui.min ? ui.min * 1000 : 0),
+          max: ui.max * 1000,
+          value: getUIValue(obj, ui.name),
+          slide: function(ui, obj) {
+            return function(event, jqui) {
+              setFloatParam(event, jqui, ui, obj);
+            };
+          } (ui, obj),
+        });
+      },
+    },
+    // Duration Random
+    'durR': {
+      makeWidget: function($, elem, ui, obj) {
+        var max = ui.max * 1000;
+        var value = getUIValue(obj, ui.name);
+        $(elem).slider({
+          range: true,
+          step: 1,
+          min: (ui.min ? ui.min * 1000 : 0),
+          max: max,
+          values: [value, value],
+          slide: function(ui, obj) {
+            return function(event, jqui) {
+              setFloatRParam(event, jqui, ui, obj);
+            };
+          }(ui, obj),
+        });
+      }
+    },
+    // Int
+    'int': {
+      makeWidget: function($, elem, ui, obj) {
+        $(elem).slider({
+          range: false,
+          step: 1,
+          min: (ui.min ? ui.min * 1000 : 0),
+          max: ui.max * 1000,
+          value: getUIValue(obj, ui.name),
+          slide: function(ui, obj) {
+            return function(event, jqui) {
+              setIntParam(event, jqui, ui, obj);
+            };
+          } (ui, obj),
+        });
+      },
+    },
+    // Int random
+    'intR': {
+      makeWidget: function($, elem, ui, obj) {
+        var max = ui.max * 1000;
+        var value = getUIValue(obj, ui.name);
+        $(elem).slider({
+          range: true,
+          step: 1,
+          min: (ui.min ? ui.min * 1000 : 0),
+          max: max,
+          values: [value, value],
+          slide: function(ui, obj) {
+            return function(event, jqui) {
+              setIntRParam(event, jqui, ui, obj);
+            };
+          }(ui, obj),
+        });
+      },
+    },
+    // Float
+    'float': {
+			makeWidget: function($, elem, ui, obj) {
+        $(elem).slider({
+          range: false,
+          step: 1,
+          min: (ui.min ? ui.min * 1000 : 0),
+          max: ui.max * 1000,
+          value: getUIValue(obj, ui.name),
+          slide: function(ui, obj) {
+            return function(event, jqui) {
+              setFloatParam(event, jqui, ui, obj);
+            };
+          } (ui, obj),
+        });
+      },
+    },
+    // Float random
+    'floatR': {
+      makeWidget: function($, elem, ui, obj) {
+        var max = ui.max * 1000;
+        var value = getUIValue(obj, ui.name);
+        $(elem).slider({
+          range: true,
+          step: 1,
+          min: (ui.min ? ui.min * 1000 : 0),
+          max: max,
+          values: [value, value],
+          slide: function(ui, obj) {
+            return function(event, jqui) {
+              setFloatRParam(event, jqui, ui, obj);
+            };
+          }(ui, obj),
+        });
+      }
+    },
+    // Vec3 random
+    'vec3R': {
+      makeWidget: function($, elem, ui, obj) {
+      },
+    },
+    // Color Random
+    'colorR': {
+      makeWidget: function($, elem, ui, obj) {
+        var input = document.createElement('input');
+        input.type = "text";
+        input.maxlength = 8;
+        input.size = 8;
+        input.value = "00ff00ff"
+        $(input).ColorPicker({
+          color: {
+            r: Math.round(ui.value[0] * 255),
+            g: Math.round(ui.value[1] * 255),
+            b: Math.round(ui.value[2] * 255),
+            a: Math.round(ui.value[3] * 255)
+          },
+          onChange: function(ui, obj) {
+            return function(hsb, hex, rgba) {
+              setColorRParam(event, rgba, ui, obj);
+            };
+          }(ui, obj),
+        });
+        elem.appendChild(input);
+      },
+    },
+    // Bool
+    'bool': {
+      makeWidget: function($, elem, ui, obj) {
+      },
+    }
+  };
+
+  var labelDiv = document.createElement('div');
+  labelDiv.appendChild(document.createTextNode(ui.name));
+  var widgetDiv = document.createElement('div');
+  widgetDiv.id = "widget" + g_id;
+  g_idToWidgetMap[g_id] = { ui: ui, obj: obj };
+  ++g_id;
+  tdl.log("type", ui.type);
+  elem.appendChild(labelDiv);
+  elem.appendChild(widgetDiv);
+ 	widgets[ui.type].makeWidget($, widgetDiv, ui, obj)
+}
+
+$(function(){
+  // Setup UI.
+  var uiElem = document.getElementById('ui');
+  for (var ii = 0; ii < g_ui.length; ++ii) {
+    var ui = g_ui[ii];
+    var obj = g[ui.obj];
+    obj[ui.name] = ui.value;
+    var div = document.createElement('div');
+    setupWidget($, div, ui, obj);
+    uiElem.appendChild(div);
+  }
+
+  initialize();
+});
+</script>
+</head>
+<body>
+<div id="fpsContainer">
+  <div class="fps">fps: <span id="fps"></div>
+</div>
+<div id="uiContainer">
+<div id="ui"></div>
+</div>
+<div id="3dcontainer">
+<canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
+</div>
+</body>
+<!--
+<script id="constVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+//attribute vec3 normal;
+//attribute vec2 texCoord;
+//varying vec2 v_texCoord;
+//varying vec3 v_normal;
+uniform mat4 worldViewProjection;
+void main() {
+  //v_texCoord = texCoord;
+  //v_normal = normal;
+  gl_Position = (worldViewProjection * position);
+}
+</script>
+<script id="constFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+//varying vec2 v_texCoord;
+//varying vec3 v_normal;
+void main() {
+//  gl_FragColor = vec4(vec3(v_texCoord, 1) + v_normal, 1);
+  gl_FragColor = vec4(1, 1, 0, 1);
+}
+</script>
+-->
+<script id="groundVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+void main() {
+  v_texCoord = texCoord;
+  v_position = worldViewProjection * position;
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="groundFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+
+uniform float checkSize;
+uniform vec4 color1;
+uniform vec4 color2;
+
+vec4 checker(vec2 uv) {
+  float fmodResult = mod(
+    floor(checkSize * uv.x) +
+    floor(checkSize * uv.y), 2.0);
+  return (fmodResult < 1.0) ? color1 : color2;
+}
+
+void main() {
+  vec4 diffuse = checker(v_texCoord);
+  vec3 normal = normalize(v_normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  float directionalIntensity =
+      clamp(dot(normal, surfaceToLight), 0.0, 1.0);
+
+  gl_FragColor = vec4(diffuse.rgb * directionalIntensity, diffuse.a);
+}
+</script>
+</html>
+
+

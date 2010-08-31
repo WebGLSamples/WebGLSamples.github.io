@@ -996,12 +996,14 @@ tdl.particles.ParticleEmitter.prototype.allocateParticles_ = function(
   if (this.numParticles_ != numParticles) {
     var gl = this.gl;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.particleBuffer_);
-    // FIXME: (numParticles + 1) is a workaround for https://bugs.webkit.org/show_bug.cgi?id=31891
     gl.bufferData(gl.ARRAY_BUFFER,
-                  (numParticles + 1) * this.particleSystem.singleParticleArray_.byteLength,
+                  numParticles * this.particleSystem.singleParticleArray_.byteLength,
                   gl.DYNAMIC_DRAW);
-    // TODO(kbr): assumption of <= 65536 particles
-    var indices = new Uint16Array(6 * numParticles);
+    var numIndices = 6 * numParticles;
+    if (numIndices > 65536) {
+      throw "can't have more than 10922 particles per emitter";
+    }
+    var indices = new Uint16Array(numIndices);
     var idx = 0;
     for (var ii = 0; ii < numParticles; ++ii) {
       // Make 2 triangles for the quad.
