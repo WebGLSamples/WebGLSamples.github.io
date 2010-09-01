@@ -115,29 +115,30 @@ var g = {
 };
 
 var g_ui = [
-  { obj: 'globals', name: 'targetHeight',  type: 'float',  value: 1,            max:  5 },
-  { obj: 'globals', name: 'targetRadius',  type: 'float',  value: 1,            max:  5 },
-  { obj: 'globals', name: 'eyeHeight',     type: 'float',  value: 2,            max:  10 },
-  { obj: 'globals', name: 'eyeRadius',     type: 'float',  value: 3,            max:  10 },
-  { obj: 'globals', name: 'eyeSpeed',      type: 'float',  value: 0.1,          max:  1 },
-  { obj: 'p',      name: 'numParticles',   type: 'int',    value: 20,           max: 200,  min: 1 },
-//{ obj: 'p',      name: 'numFrames',      type: 'int',    value: 1,            max: }, Need image selector. Compute from image.
-  { obj: 'p',      name: 'frameDuration',  type: 'dur',    value: 0.1,          max: 1 },
-  { obj: 'p',      name: 'frameStart',     type: 'intR',   value: 0,            max: 32 },           // compute max from image?
-  { obj: 'p',      name: 'timeRange',      type: 'dur',    value: 2,            max: 10 },           // special. 0 = 99999999
-//  { obj: 'p',      name: 'startTime',      type: 'dur',    value: null,         max: },              // need flag. (a) spread over range (b) random over range (c) in specified time range
-  { obj: 'p',      name: 'lifeTime',       type: 'durR',   value: 2,            max: 10 },
-  { obj: 'p',      name: 'startSize',      type: 'floatR', value: 0.5,          max: 5 },
-  { obj: 'p',      name: 'endSize',        type: 'floatR', value: 0.9,          max: 5 },
-  { obj: 'p',      name: 'position',       type: 'vec3R',  value: [0, 0, 0],    max: [10, 10, 10]},  // Needs to go negative, actually needs manipulator
-  { obj: 'p',      name: 'velocity',       type: 'vec3R',  value: [0, 0.6, 0],  max: [5, 5, 5]},     // Needs to go negative, actually needs manipulator
-  { obj: 'p',      name: 'acceleration',   type: 'vec3R',  value: [0, 0, 0],    max: [5, 5, 5]},     // Needs to go negative, actually needs manipulator
-  { obj: 'p',      name: 'spinStart',      type: 'floatR', value: 0,            max: 5 },
-  { obj: 'p',      name: 'spinSpeed',      type: 'floatR', value: 0,            max: 5 },
-  { obj: 'p',      name: 'colorMult',      type: 'colorR', value: [1, 1, 1, 1], max: [1, 1, 1, 1]},  // range is strange here
-  { obj: 'p',      name: 'worldVelocity',  type: 'vec3R',  value: [0, 0, 0],    max: [5, 5, 5]},
-  { obj: 'p',      name: 'billboard',      type: 'bool',   value: true                           },
-//{ obj: 'p',  name: 'orientation ',       type: 'rot',    value: '[0, 0, 0, 1]', max: },            // needs flag
+  { obj: 'globals', name: 'targetHeight',     type: 'float',  value: 1,            max:  5 },
+  { obj: 'globals', name: 'targetRadius',     type: 'float',  value: 1,            max:  5 },
+  { obj: 'globals', name: 'eyeHeight',        type: 'float',  value: 2,            max:  10 },
+  { obj: 'globals', name: 'eyeRadius',        type: 'float',  value: 3,            max:  10 },
+  { obj: 'globals', name: 'eyeSpeed',         type: 'float',  value: 0.1,          max:  1 },
+  { obj: 'p',      name: 'numParticles',      type: 'int',    value: 20,           max: 200,  min: 1 },
+//{ obj: 'p',      name: 'numFrames',         type: 'int',    value: 1,            max: }, Need image selector. Compute from image.
+  { obj: 'p',      name: 'frameDuration',     type: 'dur',    value: 0.1,          max: 1 },
+  { obj: 'p',      name: 'frameStart',        type: 'intR',   value: 0,            max: 32 },           // compute max from image?
+  { obj: 'p',      name: 'timeRange',         type: 'dur',    value: 2,            max: 10 },           // special. 0 = 99999999
+//{ obj: 'p',      name: 'startTime',         type: 'dur',    value: null,         max: },              // need flag. (a) spread over range (b) random over range (c) in specified time range
+  { obj: 'p',      name: 'lifeTime',          type: 'durR',   value: 2,            max: 10 },
+  { obj: 'p',      name: 'startSize',         type: 'floatR', value: 0.5,          max: 5 },
+  { obj: 'p',      name: 'endSize',           type: 'floatR', value: 0.9,          max: 5 },
+  { obj: 'p',      name: 'position',          type: 'vec3R',  value: [0, 0, 0],    max: [10, 10, 10]},  // Needs to go negative, actually needs manipulator
+  { obj: 'p',      name: 'velocity',          type: 'vec3R',  value: [0, 0.6, 0],  max: [5, 5, 5]},     // Needs to go negative, actually needs manipulator
+  { obj: 'p',      name: 'acceleration',      type: 'vec3R',  value: [0, 0, 0],    max: [5, 5, 5]},     // Needs to go negative, actually needs manipulator
+  { obj: 'p',      name: 'spinStart',         type: 'floatR', value: 0,            max: 5 },
+  { obj: 'p',      name: 'spinSpeed',         type: 'floatR', value: 0,            max: 5 },
+  { obj: 'p',      name: 'colorMult',         type: 'colorR', value: [1, 1, 1, 1], max: [1, 1, 1, 1]},  // range is strange here
+  { obj: 'p',      name: 'worldVelocity',     type: 'vec3',   value: [0, 0, 0],    max: [5, 5, 5]},
+  { obj: 'p',      name: 'worldAcceleration', type: 'vec3',   value: [0, 0, 0],    max: [5, 5, 5]},
+  { obj: 'p',      name: 'billboard',         type: 'bool',   value: true                           },
+//{ obj: 'p',  name: 'orientation ',          type: 'rot',    value: '[0, 0, 0, 1]', max: },            // needs flag
   ];
 
 //g_drawOnce = true;
@@ -471,6 +472,21 @@ function setFloatRParam(event, jqui, ui, obj) {
   }
 }
 
+var g_axisNames = ['x', 'y', 'z'];
+
+function setVec3RParam(event, jqui, ui, obj, ii) {
+  var minValue = jqui.values[0] / 1000;
+  var maxValue = jqui.values[1] / 1000;
+  var range = maxValue - minValue;
+  tdl.log(ui.name, g_axisNames[ii], ": ", minValue, maxValue);
+
+  obj[ui.name][ii] = minValue + range * 0.5;
+  obj[ui.name + 'Range'][ii] = range;
+  if (obj == g.p) {
+    updateCurrentParticleEmitter();
+  }
+}
+
 function setIntParam(event, jqui, ui, obj) {
   var value = Math.floor(jqui.value / 1000);
   tdl.log(ui.name, "(i): ", value);
@@ -586,7 +602,7 @@ function setupWidget($, elem, ui, obj) {
           range: true,
           step: 1,
           min: (ui.min ? ui.min * 1000 : 0),
-          max: max,
+          max: ui.max * 1000,
           values: [value, value],
           slide: function(ui, obj) {
             return function(event, jqui) {
@@ -633,8 +649,31 @@ function setupWidget($, elem, ui, obj) {
       }
     },
     // Vec3 random
+    'vec3': {
+      makeWidget: function($, elem, ui, obj) {
+      }
+    },
+    // Vec3 random
     'vec3R': {
       makeWidget: function($, elem, ui, obj) {
+        obj[ui.name + 'Range'] = [0,0,0];
+        for (var ii = 0; ii < 3; ++ii) {
+          var div = document.createElement('div');
+          var value = ui.value[ii] * 1000; //getUIValue(obj, ui.name)[ii];
+          $(div).slider({
+            range: true,
+            step: 1,
+            min: (ui.min ? ui.min[ii] * 1000 : 0),
+            max: ui.max[ii] * 1000,
+            values: [value, value],
+            slide: function(ui, obj, ii) {
+              return function(event, jqui) {
+                setVec3RParam(event, jqui, ui, obj, ii);
+              };
+            }(ui, obj, ii),
+          });
+          elem.appendChild(div);
+        }
       },
     },
     // Color Random
@@ -654,6 +693,7 @@ function setupWidget($, elem, ui, obj) {
           color: color,
           onChange: function(ui, obj, colorDiv) {
             return function(hsb, hex, rgba) {
+              // TODO(gman): this colorDiv should move inside the widget.
               colorDiv.style.backgroundColor = rgba255ToCSSrgba(rgba);
               setColorRParam(event, rgba, ui, obj);
             };
