@@ -493,11 +493,26 @@ function setIntRParam(event, jqui, ui, obj) {
   }
 }
 
+function rgba255ToCSSrgba(rgba) {
+  return 'rgba(' +
+      Math.round(rgba.r) + ',' +
+      Math.round(rgba.g) + ',' +
+      Math.round(rgba.b) + ',' +
+      Math.round(rgba.a / 255) + ')';
+}
+
+function rgba01ToCSSrgba(rgba) {
+  return 'rgba(' +
+      Math.round(rgba.r * 255) + ',' +
+      Math.round(rgba.g * 255) + ',' +
+      Math.round(rgba.b * 255) + ',' +
+      Math.round(rgba.a) + ')';
+}
+
 function setColorRParam(event, rgba, ui, obj) {
   var color = [rgba.r / 255.0, rgba.g / 255.0, rgba.b / 255.0, rgba.a / 255.0];
   tdl.log(ui.name, ": ", color);
   obj[ui.name] = color;
-//  obj[ui.name + 'Range'] = range;
   if (obj == g.p) {
     updateCurrentParticleEmitter();
   }
@@ -625,25 +640,26 @@ function setupWidget($, elem, ui, obj) {
     // Color Random
     'colorR': {
       makeWidget: function($, elem, ui, obj) {
-        var input = document.createElement('input');
-        input.type = "text";
-        input.maxlength = 8;
-        input.size = 8;
-        input.value = "00ff00ff"
-        $(input).ColorPicker({
-          color: {
-            r: Math.round(ui.value[0] * 255),
-            g: Math.round(ui.value[1] * 255),
-            b: Math.round(ui.value[2] * 255),
-            a: Math.round(ui.value[3] * 255)
-          },
-          onChange: function(ui, obj) {
+        var div = document.createElement('div');
+        div.style.width = "100%";
+        div.style.height = "1em";
+        var color = {
+          r: Math.round(ui.value[0] * 255),
+          g: Math.round(ui.value[1] * 255),
+          b: Math.round(ui.value[2] * 255),
+          a: Math.round(ui.value[3] * 255)
+        };
+        div.style.backgroundColor = rgba255ToCSSrgba(color);
+        $(div).ColorPicker({
+          color: color,
+          onChange: function(ui, obj, colorDiv) {
             return function(hsb, hex, rgba) {
+              colorDiv.style.backgroundColor = rgba255ToCSSrgba(rgba);
               setColorRParam(event, rgba, ui, obj);
             };
-          }(ui, obj),
+          }(ui, obj, div),
         });
-        elem.appendChild(input);
+        elem.appendChild(div);
       },
     },
     // Bool
