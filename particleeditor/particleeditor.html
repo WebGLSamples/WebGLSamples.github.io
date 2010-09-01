@@ -56,6 +56,7 @@ CANVAS {
   background: rgba(0,0,0,0.5);
   color: white;
   font-size: xx-small;
+  font-family: sans-serif;
 }
 #ui {
 }
@@ -459,20 +460,20 @@ function getParamId(id) {
   return id.substr(6).replace(/(\w)/, function(m) {return m.toLowerCase() });
 }
 
-function setFloatParam(event, jqui, ui, obj) {
+function setFloatParam(event, jqui, ui, obj, valueDiv) {
   var value = jqui.value / 1000;
-  tdl.log(ui.name, ": ", value);
+  valueDiv.innerText = value;
   obj[ui.name] = value;
   if (obj == g.p) {
     updateCurrentParticleEmitter();
   }
 }
 
-function setFloatRParam(event, jqui, ui, obj) {
+function setFloatRParam(event, jqui, ui, obj, valueDiv) {
   var minValue = jqui.values[0] / 1000;
   var maxValue = jqui.values[1] / 1000;
   var range = maxValue - minValue;
-  tdl.log(ui.name, ": ", minValue, maxValue);
+  valueDiv.innerText = "[" + minValue + "," + maxValue + "]";
 
   obj[ui.name] = minValue + range * 0.5;
   obj[ui.name + 'Range'] = range;
@@ -483,45 +484,60 @@ function setFloatRParam(event, jqui, ui, obj) {
 
 var g_axisNames = ['x', 'y', 'z'];
 
-function setVec3Param(event, jqui, ui, obj, ii) {
+function setVec3Param(event, jqui, ui, obj, ii, valueDiv) {
   var max = ui.max[ii];
   var value = jqui.value / 1000 - max;
-  tdl.log(ui.name, g_axisNames[ii], ": ", value);
-
-  obj[ui.name][ii] = value;
+  var o = obj[ui.name];
+  o[ii] = value;
+  valueDiv.innerText = "[" + o[0].toFixed(3) + "," + o[1].toFixed(3) + "," + o[2].toFixed(3) + "]";
   if (obj == g.p) {
     updateCurrentParticleEmitter();
   }
 }
 
-function setVec3RParam(event, jqui, ui, obj, ii) {
+function setVec3RParam(event, jqui, ui, obj, ii, valueDiv) {
   var max = ui.max[ii];
   var minValue = jqui.values[0] / 1000 - max;
   var maxValue = jqui.values[1] / 1000 - max;
   var range = maxValue - minValue;
-  tdl.log(ui.name, g_axisNames[ii], ": ", minValue, maxValue);
 
-  obj[ui.name][ii] = minValue + range * 0.5;
-  obj[ui.name + 'Range'][ii] = range;
+  var o = obj[ui.name];
+  var or = obj[ui.name + 'Range'];
+  o[ii] = minValue + range * 0.5;
+  or[ii] = range;
+
+  var min = [
+    o[0] - or[0] * 0.5,
+    o[1] - or[1] * 0.5,
+    o[2] - or[2] * 0.5,
+  ];
+  var max = [
+    o[0] + or[0] * 0.5,
+    o[1] + or[1] * 0.5,
+    o[2] + or[2] * 0.5,
+  ];
+  valueDiv.innerText = "[" + min[0].toFixed(3) + "," + min[1].toFixed(3) + "," + min[2].toFixed(3) + "]-" +
+                       "[" + max[0].toFixed(3) + "," + max[1].toFixed(3) + "," + max[2].toFixed(3) + "]";
+
   if (obj == g.p) {
     updateCurrentParticleEmitter();
   }
 }
 
-function setIntParam(event, jqui, ui, obj) {
+function setIntParam(event, jqui, ui, obj, valueDiv) {
   var value = Math.floor(jqui.value / 1000);
-  tdl.log(ui.name, "(i): ", value);
+  valueDiv.innerText = value;
   obj[ui.name] = value;
   if (obj == g.p) {
     updateCurrentParticleEmitter();
   }
 }
 
-function setIntRParam(event, jqui, ui, obj) {
+function setIntRParam(event, jqui, ui, obj, valueDiv) {
   var minValue = Math.floor(jqui.values[0] / 1000);
   var maxValue = Math.floor(jqui.values[1] / 1000);
   var range = maxValue - minValue;
-  tdl.log(ui.name, ": ", minValue, maxValue);
+  valueDiv.innerText = "[" + minValue + "," + maxValue + "]";
 
   obj[ui.name] = minValue + Math.floor(range * 0.5);
   obj[ui.name + 'Range'] = range;
@@ -556,24 +572,41 @@ function rgba01ToCSSrgba(rgba) {
 //}
 
 var g_colorChannelNames = ['r', 'g', 'b', 'a'];
-function setColorRParam(event, jqui, ui, obj, ii) {
+function setColorRParam(event, jqui, ui, obj, ii, valueDiv) {
   var minValue = jqui.values[0] / 1000;
   var maxValue = jqui.values[1] / 1000;
   var range = maxValue - minValue;
-  tdl.log(ui.name, g_colorChannelNames[ii], ": ", minValue, maxValue);
 
-  obj[ui.name][ii] = minValue + range * 0.5;
-  obj[ui.name + 'Range'][ii] = range;
+  var o = obj[ui.name];
+  var or = obj[ui.name + 'Range'];
+  o[ii] = minValue + range * 0.5;
+  or[ii] = range;
+
+  var min = [
+    o[0] - or[0] * 0.5,
+    o[1] - or[1] * 0.5,
+    o[2] - or[2] * 0.5,
+    o[3] - or[3] * 0.5,
+  ];
+  var max = [
+    o[0] + or[0] * 0.5,
+    o[1] + or[1] * 0.5,
+    o[2] + or[2] * 0.5,
+    o[3] + or[3] * 0.5,
+  ];
+  valueDiv.innerText = "[" + min[0].toFixed(2) + "," + min[1].toFixed(2) + "," + min[2].toFixed(2) + "," + min[3].toFixed(2)  + "]-" +
+                       "[" + max[0].toFixed(2) + "," + max[1].toFixed(2) + "," + max[2].toFixed(2) + "," + max[3].toFixed(2)  + "]";
+
   if (obj == g.p) {
     updateCurrentParticleEmitter();
   }
 }
 
 
-function setColorParam(event, rgba, ui, obj) {
+function setColorParam(event, rgba, ui, obj, valueDiv) {
   var color = [rgba.r / 255.0, rgba.g / 255.0, rgba.b / 255.0, rgba.a / 255.0];
-  tdl.log(ui.name, ": ", color);
   obj[ui.name] = color;
+  valueDiv.innerText = "[" + color[0].toFixed(2) + "," + color[1].toFixed(2) + "," + color[2].toFixed(2) + "," + color[3].toFixed(2)  + "]";
   if (obj == g.p) {
     updateCurrentParticleEmitter();
   }
@@ -587,24 +620,24 @@ function setupWidget($, elem, ui, obj) {
   var widgets = {
     // Duration
     'dur': {
-      makeWidget: function($, elem, ui, obj) {
+      makeWidget: function($, elem, ui, obj, valueDiv) {
         $(elem).slider({
           range: false,
           step: 1,
           min: (ui.min ? ui.min * 1000 : 0),
           max: ui.max * 1000,
           value: getUIValue(obj, ui.name),
-          slide: function(ui, obj) {
+          slide: function(ui, obj, valueDiv) {
             return function(event, jqui) {
-              setFloatParam(event, jqui, ui, obj);
+              setFloatParam(event, jqui, ui, obj, valueDiv);
             };
-          } (ui, obj),
+          } (ui, obj, valueDiv),
         });
       },
     },
     // Duration Random
     'durR': {
-      makeWidget: function($, elem, ui, obj) {
+      makeWidget: function($, elem, ui, obj, valueDiv) {
         var max = ui.max * 1000;
         var halfRange = (ui.range ? ui.range : 0) * 1000 * 0.5;
         var value = getUIValue(obj, ui.name);
@@ -614,34 +647,34 @@ function setupWidget($, elem, ui, obj) {
           min: (ui.min ? ui.min * 1000 : 0),
           max: max,
           values: [value - halfRange, value + halfRange],
-          slide: function(ui, obj) {
+          slide: function(ui, obj, valueDiv) {
             return function(event, jqui) {
-              setFloatRParam(event, jqui, ui, obj);
+              setFloatRParam(event, jqui, ui, obj, valueDiv);
             };
-          }(ui, obj),
+          }(ui, obj, valueDiv),
         });
       }
     },
     // Int
     'int': {
-      makeWidget: function($, elem, ui, obj) {
+      makeWidget: function($, elem, ui, obj, valueDiv) {
         $(elem).slider({
           range: false,
           step: 1,
           min: (ui.min ? ui.min * 1000 : 0),
           max: ui.max * 1000,
           value: getUIValue(obj, ui.name),
-          slide: function(ui, obj) {
+          slide: function(ui, obj, valueDiv) {
             return function(event, jqui) {
-              setIntParam(event, jqui, ui, obj);
+              setIntParam(event, jqui, ui, obj, valueDiv);
             };
-          } (ui, obj),
+          } (ui, obj, valueDiv),
         });
       },
     },
     // Int random
     'intR': {
-      makeWidget: function($, elem, ui, obj) {
+      makeWidget: function($, elem, ui, obj, valueDiv) {
         var halfRange = (ui.range ? ui.range : 0) * 1000 * 0.5;
         var max = ui.max * 1000;
         var value = getUIValue(obj, ui.name);
@@ -651,34 +684,34 @@ function setupWidget($, elem, ui, obj) {
           min: (ui.min ? ui.min * 1000 : 0),
           max: ui.max * 1000,
           values: [value - halfRange, value + halfRange],
-          slide: function(ui, obj) {
+          slide: function(ui, obj, valueDiv) {
             return function(event, jqui) {
-              setIntRParam(event, jqui, ui, obj);
+              setIntRParam(event, jqui, ui, obj, valueDiv);
             };
-          }(ui, obj),
+          }(ui, obj, valueDiv),
         });
       },
     },
     // Float
     'float': {
-			makeWidget: function($, elem, ui, obj) {
+			makeWidget: function($, elem, ui, obj, valueDiv) {
         $(elem).slider({
           range: false,
           step: 1,
           min: (ui.min ? ui.min * 1000 : 0),
           max: ui.max * 1000,
           value: getUIValue(obj, ui.name),
-          slide: function(ui, obj) {
+          slide: function(ui, obj, valueDiv) {
             return function(event, jqui) {
-              setFloatParam(event, jqui, ui, obj);
+              setFloatParam(event, jqui, ui, obj, valueDiv);
             };
-          } (ui, obj),
+          } (ui, obj, valueDiv),
         });
       },
     },
     // Float random
     'floatR': {
-      makeWidget: function($, elem, ui, obj) {
+      makeWidget: function($, elem, ui, obj, valueDiv) {
         var halfRange = (ui.range ? ui.range : 0) * 1000 * 0.5;
         var max = ui.max * 1000;
         var value = getUIValue(obj, ui.name);
@@ -688,17 +721,17 @@ function setupWidget($, elem, ui, obj) {
           min: (ui.min ? ui.min * 1000 : 0),
           max: max,
           values: [value - halfRange, value + halfRange],
-          slide: function(ui, obj) {
+          slide: function(ui, obj, valueDiv) {
             return function(event, jqui) {
-              setFloatRParam(event, jqui, ui, obj);
+              setFloatRParam(event, jqui, ui, obj, valueDiv);
             };
-          }(ui, obj),
+          }(ui, obj, valueDiv),
         });
       }
     },
     // Vec3
     'vec3': {
-      makeWidget: function($, elem, ui, obj) {
+      makeWidget: function($, elem, ui, obj, valueDiv) {
         for (var ii = 0; ii < 3; ++ii) {
           var div = document.createElement('div');
           var max = ui.max[ii] * 1000;
@@ -709,11 +742,11 @@ function setupWidget($, elem, ui, obj) {
             min: 0,
             max: max * 2,
             value: value,
-            slide: function(ui, obj, ii) {
+            slide: function(ui, obj, ii, valueDiv) {
               return function(event, jqui) {
-                setVec3Param(event, jqui, ui, obj, ii);
+                setVec3Param(event, jqui, ui, obj, ii, valueDiv);
               };
-            }(ui, obj, ii),
+            }(ui, obj, ii, valueDiv),
           });
           elem.appendChild(div);
         }
@@ -721,7 +754,7 @@ function setupWidget($, elem, ui, obj) {
     },
     // Vec3 random
     'vec3R': {
-      makeWidget: function($, elem, ui, obj) {
+      makeWidget: function($, elem, ui, obj, valueDiv) {
         var ranges = ui.range ? ui.range : [0,0,0];
         obj[ui.name + 'Range'] = ranges;
         for (var ii = 0; ii < 3; ++ii) {
@@ -736,11 +769,11 @@ function setupWidget($, elem, ui, obj) {
             min: 0,
             max: max * 2,
             values: [value, value2],
-            slide: function(ui, obj, ii) {
+            slide: function(ui, obj, ii, valueDiv) {
               return function(event, jqui) {
-                setVec3RParam(event, jqui, ui, obj, ii);
+                setVec3RParam(event, jqui, ui, obj, ii, valueDiv);
               };
-            }(ui, obj, ii),
+            }(ui, obj, ii, valueDiv),
           });
           elem.appendChild(div);
         }
@@ -748,7 +781,7 @@ function setupWidget($, elem, ui, obj) {
     },
     // Color
     'color': {
-      makeWidget: function($, elem, ui, obj) {
+      makeWidget: function($, elem, ui, obj, valueDiv) {
         var div = document.createElement('div');
         div.style.width = "100%";
         div.style.height = "1em";
@@ -761,20 +794,20 @@ function setupWidget($, elem, ui, obj) {
         div.style.backgroundColor = rgba255ToCSSrgba(color);
         $(div).ColorPicker({
           color: color,
-          onChange: function(ui, obj, colorDiv) {
+          onChange: function(ui, obj, colorDiv, valueDiv) {
             return function(hsb, hex, rgba) {
               // TODO(gman): this colorDiv should move inside the widget.
               colorDiv.style.backgroundColor = rgba255ToCSSrgba(rgba);
-              setColorRParam(event, rgba, ui, obj);
+              setColorParam(event, rgba, ui, obj, valueDiv);
             };
-          }(ui, obj, div),
+          }(ui, obj, div, valueDiv),
         });
         elem.appendChild(div);
       },
     },
     // Color Random
     'colorR': {
-      makeWidget: function($, elem, ui, obj) {
+      makeWidget: function($, elem, ui, obj, valueDiv) {
         var ranges = ui.range ? ui.range : [0,0,0,0];
         obj[ui.name + 'Range'] = ranges;
         for (var ii = 0; ii < 4; ++ii) {
@@ -789,16 +822,16 @@ function setupWidget($, elem, ui, obj) {
             min: 0,
             max: max,
             values: [value, value2],
-            slide: function(ui, obj, ii) {
+            slide: function(ui, obj, ii, valueDiv) {
               return function(event, jqui) {
-                setColorRParam(event, jqui, ui, obj, ii);
+                setColorRParam(event, jqui, ui, obj, ii, valueDiv);
               };
-            }(ui, obj, ii),
+            }(ui, obj, ii, valueDiv),
           });
           elem.appendChild(div);
         }
       },
-      //makeWidget: function($, elem, ui, obj) {
+      //makeWidget: function($, elem, ui, obj, valueDiv) {
       //  var div = document.createElement('div');
       //  div.style.width = "100%";
       //  div.style.height = "1em";
@@ -811,34 +844,41 @@ function setupWidget($, elem, ui, obj) {
       //  div.style.backgroundColor = rgba255ToCSSrgba(color);
       //  $(div).ColorPicker({
       //    color: color,
-      //    onChange: function(ui, obj, colorDiv) {
+      //    onChange: function(ui, obj, colorDiv, valueDiv) {
       //      return function(hsb, hex, rgba) {
       //        // TODO(gman): this colorDiv should move inside the widget.
       //        colorDiv.style.backgroundColor = rgba255ToCSSrgba(rgba);
-      //        setColorRParam(event, rgba, ui, obj);
+      //        setColorRParam(event, rgba, ui, obj, valueDiv);
       //      };
-      //    }(ui, obj, div),
+      //    }(ui, obj, div, valueDiv),
       //  });
       //  elem.appendChild(div);
       //},
     },
     // Bool
     'bool': {
-      makeWidget: function($, elem, ui, obj) {
+      makeWidget: function($, elem, ui, obj, valueDiv) {
       },
     }
   };
 
-  var labelDiv = document.createElement('div');
+  var textDiv = document.createElement('div');
+  var labelDiv = document.createElement('span');
   labelDiv.appendChild(document.createTextNode(ui.name));
+  var valueDiv = document.createElement('span');
+  valueDiv.appendChild(document.createTextNode("-"));
+  valueDiv.style.position = "absolute";
+  valueDiv.style.right = "10px";
   var widgetDiv = document.createElement('div');
   widgetDiv.id = "widget" + g_id;
   g_idToWidgetMap[g_id] = { ui: ui, obj: obj };
   ++g_id;
   //tdl.log("type", ui.type);
-  elem.appendChild(labelDiv);
+  textDiv.appendChild(labelDiv);
+  textDiv.appendChild(valueDiv);
+  elem.appendChild(textDiv);
   elem.appendChild(widgetDiv);
- 	widgets[ui.type].makeWidget($, widgetDiv, ui, obj)
+ 	widgets[ui.type].makeWidget($, widgetDiv, ui, obj, valueDiv)
 }
 
 $(function(){
