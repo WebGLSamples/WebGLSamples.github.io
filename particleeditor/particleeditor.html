@@ -131,7 +131,7 @@ var g_ui = [
   { obj: 'ground',  name: 'color2',           type: 'color',  value: [0.6, 0.8, 0.8, 1], max: [1, 1, 1, 1]},
   { obj: 'ground',  name: 'checkSize',        type: 'float',  value: 10,           max:  20 },
   { section: 'particles' },
-  { obj: 'p',      name: 'numParticles',      type: 'int',    value: 20,           max: 200,  min: 1 },
+  { obj: 'p',      name: 'numParticles',      type: 'int',    value: 20,           max: 400,  min: 1 },
 //{ obj: 'p',      name: 'numFrames',         type: 'int',    value: 1,            max: }, Need image selector. Compute from image.
   { obj: 'p',      name: 'frameDuration',     type: 'dur',    value: 0.1,          max: 1 },
   { obj: 'p',      name: 'frameStart',        type: 'intR',   value: 0,            max: 32 },           // compute max from image?
@@ -140,14 +140,14 @@ var g_ui = [
   { obj: 'p',      name: 'lifeTime',          type: 'durR',   value: 2,            max: 10 },
   { obj: 'p',      name: 'startSize',         type: 'floatR', value: 0.5,          max: 5 },
   { obj: 'p',      name: 'endSize',           type: 'floatR', value: 0.9,          max: 5 },
-  { obj: 'p',      name: 'position',          type: 'vec3R',  value: [0, 0, 0],    max: [10, 10, 10]},  // Needs to go negative, actually needs manipulator
-  { obj: 'p',      name: 'velocity',          type: 'vec3R',  value: [0, 0.6, 0],  max: [5, 5, 5]},     // Needs to go negative, actually needs manipulator
-  { obj: 'p',      name: 'acceleration',      type: 'vec3R',  value: [0, 0, 0],    max: [5, 5, 5]},     // Needs to go negative, actually needs manipulator
+  { obj: 'p',      name: 'position',          type: 'vec3R',  value: [0, 0, 0],    max: [2, 2, 2]},  // Needs to go negative, actually needs manipulator
+  { obj: 'p',      name: 'velocity',          type: 'vec3R',  value: [0, 0.6, 0],  max: [2, 2, 2], range: [0.15, 0.15, 0.15]},     // Needs to go negative, actually needs manipulator
+  { obj: 'p',      name: 'acceleration',      type: 'vec3R',  value: [0, 0, 0],    max: [2, 2, 2]},     // Needs to go negative, actually needs manipulator
   { obj: 'p',      name: 'spinStart',         type: 'floatR', value: 0,            max: 5 },
   { obj: 'p',      name: 'spinSpeed',         type: 'floatR', value: 0,            max: 5 },
   { obj: 'p',      name: 'colorMult',         type: 'colorR', value: [1, 1, 1, 1], max: [1, 1, 1, 1]},  // range is strange here
-  { obj: 'p',      name: 'worldVelocity',     type: 'vec3',   value: [0, 0, 0],    max: [5, 5, 5]},
-  { obj: 'p',      name: 'worldAcceleration', type: 'vec3',   value: [0, 0, 0],    max: [5, 5, 5]},
+  { obj: 'p',      name: 'worldVelocity',     type: 'vec3',   value: [0, 0, 0],    max: [2, 2, 2]},
+  { obj: 'p',      name: 'worldAcceleration', type: 'vec3',   value: [0, -0.2, 0], max: [2, 2, 2]},
   { obj: 'p',      name: 'billboard',         type: 'bool',   value: true                           },
 //{ obj: 'p',  name: 'orientation ',          type: 'rot',    value: '[0, 0, 0, 1]', max: },            // needs flag
   ];
@@ -483,9 +483,21 @@ function setFloatRParam(event, jqui, ui, obj) {
 
 var g_axisNames = ['x', 'y', 'z'];
 
+function setVec3Param(event, jqui, ui, obj, ii) {
+  var max = ui.max[ii];
+  var value = jqui.value / 1000 - max;
+  tdl.log(ui.name, g_axisNames[ii], ": ", value);
+
+  obj[ui.name][ii] = value;
+  if (obj == g.p) {
+    updateCurrentParticleEmitter();
+  }
+}
+
 function setVec3RParam(event, jqui, ui, obj, ii) {
-  var minValue = jqui.values[0] / 1000;
-  var maxValue = jqui.values[1] / 1000;
+  var max = ui.max[ii];
+  var minValue = jqui.values[0] / 1000 - max;
+  var maxValue = jqui.values[1] / 1000 - max;
   var range = maxValue - minValue;
   tdl.log(ui.name, g_axisNames[ii], ": ", minValue, maxValue);
 
@@ -534,14 +546,29 @@ function rgba01ToCSSrgba(rgba) {
       Math.round(rgba.a) + ')';
 }
 
-function setColorRParam(event, rgba, ui, obj) {
-  var color = [rgba.r / 255.0, rgba.g / 255.0, rgba.b / 255.0, rgba.a / 255.0];
-  tdl.log(ui.name, ": ", color);
-  obj[ui.name] = color;
+//function setColorRParam(event, rgba, ui, obj) {
+//  var color = [rgba.r / 255.0, rgba.g / 255.0, rgba.b / 255.0, rgba.a / 255.0];
+//  tdl.log(ui.name, ": ", color);
+//  obj[ui.name] = color;
+//  if (obj == g.p) {
+//    updateCurrentParticleEmitter();
+//  }
+//}
+
+var g_colorChannelNames = ['r', 'g', 'b', 'a'];
+function setColorRParam(event, jqui, ui, obj, ii) {
+  var minValue = jqui.values[0] / 1000;
+  var maxValue = jqui.values[1] / 1000;
+  var range = maxValue - minValue;
+  tdl.log(ui.name, g_colorChannelNames[ii], ": ", minValue, maxValue);
+
+  obj[ui.name][ii] = minValue + range * 0.5;
+  obj[ui.name + 'Range'][ii] = range;
   if (obj == g.p) {
     updateCurrentParticleEmitter();
   }
 }
+
 
 function setColorParam(event, rgba, ui, obj) {
   var color = [rgba.r / 255.0, rgba.g / 255.0, rgba.b / 255.0, rgba.a / 255.0];
@@ -579,13 +606,14 @@ function setupWidget($, elem, ui, obj) {
     'durR': {
       makeWidget: function($, elem, ui, obj) {
         var max = ui.max * 1000;
+        var halfRange = (ui.range ? ui.range : 0) * 1000 * 0.5;
         var value = getUIValue(obj, ui.name);
         $(elem).slider({
           range: true,
           step: 1,
           min: (ui.min ? ui.min * 1000 : 0),
           max: max,
-          values: [value, value],
+          values: [value - halfRange, value + halfRange],
           slide: function(ui, obj) {
             return function(event, jqui) {
               setFloatRParam(event, jqui, ui, obj);
@@ -614,6 +642,7 @@ function setupWidget($, elem, ui, obj) {
     // Int random
     'intR': {
       makeWidget: function($, elem, ui, obj) {
+        var halfRange = (ui.range ? ui.range : 0) * 1000 * 0.5;
         var max = ui.max * 1000;
         var value = getUIValue(obj, ui.name);
         $(elem).slider({
@@ -621,7 +650,7 @@ function setupWidget($, elem, ui, obj) {
           step: 1,
           min: (ui.min ? ui.min * 1000 : 0),
           max: ui.max * 1000,
-          values: [value, value],
+          values: [value - halfRange, value + halfRange],
           slide: function(ui, obj) {
             return function(event, jqui) {
               setIntRParam(event, jqui, ui, obj);
@@ -650,6 +679,7 @@ function setupWidget($, elem, ui, obj) {
     // Float random
     'floatR': {
       makeWidget: function($, elem, ui, obj) {
+        var halfRange = (ui.range ? ui.range : 0) * 1000 * 0.5;
         var max = ui.max * 1000;
         var value = getUIValue(obj, ui.name);
         $(elem).slider({
@@ -657,7 +687,7 @@ function setupWidget($, elem, ui, obj) {
           step: 1,
           min: (ui.min ? ui.min * 1000 : 0),
           max: max,
-          values: [value, value],
+          values: [value - halfRange, value + halfRange],
           slide: function(ui, obj) {
             return function(event, jqui) {
               setFloatRParam(event, jqui, ui, obj);
@@ -666,24 +696,46 @@ function setupWidget($, elem, ui, obj) {
         });
       }
     },
-    // Vec3 random
+    // Vec3
     'vec3': {
       makeWidget: function($, elem, ui, obj) {
+        for (var ii = 0; ii < 3; ++ii) {
+          var div = document.createElement('div');
+          var max = ui.max[ii] * 1000;
+          var value = ui.value[ii] * 2000 + max; //getUIValue(obj, ui.name)[ii];
+          $(div).slider({
+            range: false,
+            step: 1,
+            min: 0,
+            max: max * 2,
+            value: value,
+            slide: function(ui, obj, ii) {
+              return function(event, jqui) {
+                setVec3Param(event, jqui, ui, obj, ii);
+              };
+            }(ui, obj, ii),
+          });
+          elem.appendChild(div);
+        }
       }
     },
     // Vec3 random
     'vec3R': {
       makeWidget: function($, elem, ui, obj) {
-        obj[ui.name + 'Range'] = [0,0,0];
+        var ranges = ui.range ? ui.range : [0,0,0];
+        obj[ui.name + 'Range'] = ranges;
         for (var ii = 0; ii < 3; ++ii) {
           var div = document.createElement('div');
-          var value = ui.value[ii] * 1000; //getUIValue(obj, ui.name)[ii];
+          var max = ui.max[ii] * 1000;
+          var base = ui.value[ii] * 2000 + max;
+          var value = base - ranges[ii] * 1000; //getUIValue(obj, ui.name)[ii];
+          var value2 = base + ranges[ii] * 1000;
           $(div).slider({
             range: true,
             step: 1,
-            min: (ui.min ? ui.min[ii] * 1000 : 0),
-            max: ui.max[ii] * 1000,
-            values: [value, value],
+            min: 0,
+            max: max * 2,
+            values: [value, value2],
             slide: function(ui, obj, ii) {
               return function(event, jqui) {
                 setVec3RParam(event, jqui, ui, obj, ii);
@@ -723,28 +775,52 @@ function setupWidget($, elem, ui, obj) {
     // Color Random
     'colorR': {
       makeWidget: function($, elem, ui, obj) {
-        var div = document.createElement('div');
-        div.style.width = "100%";
-        div.style.height = "1em";
-        var color = {
-          r: Math.round(ui.value[0] * 255),
-          g: Math.round(ui.value[1] * 255),
-          b: Math.round(ui.value[2] * 255),
-          a: Math.round(ui.value[3] * 255)
-        };
-        div.style.backgroundColor = rgba255ToCSSrgba(color);
-        $(div).ColorPicker({
-          color: color,
-          onChange: function(ui, obj, colorDiv) {
-            return function(hsb, hex, rgba) {
-              // TODO(gman): this colorDiv should move inside the widget.
-              colorDiv.style.backgroundColor = rgba255ToCSSrgba(rgba);
-              setColorRParam(event, rgba, ui, obj);
-            };
-          }(ui, obj, div),
-        });
-        elem.appendChild(div);
+        var ranges = ui.range ? ui.range : [0,0,0,0];
+        obj[ui.name + 'Range'] = ranges;
+        for (var ii = 0; ii < 4; ++ii) {
+          var div = document.createElement('div');
+          var max = ui.max[ii] * 1000;
+          var base = ui.value[ii] * 1000;
+          var value = base - ranges[ii] * 1000; //getUIValue(obj, ui.name)[ii];
+          var value2 = base + ranges[ii] * 1000;
+          $(div).slider({
+            range: true,
+            step: 1,
+            min: 0,
+            max: max,
+            values: [value, value2],
+            slide: function(ui, obj, ii) {
+              return function(event, jqui) {
+                setColorRParam(event, jqui, ui, obj, ii);
+              };
+            }(ui, obj, ii),
+          });
+          elem.appendChild(div);
+        }
       },
+      //makeWidget: function($, elem, ui, obj) {
+      //  var div = document.createElement('div');
+      //  div.style.width = "100%";
+      //  div.style.height = "1em";
+      //  var color = {
+      //    r: Math.round(ui.value[0] * 255),
+      //    g: Math.round(ui.value[1] * 255),
+      //    b: Math.round(ui.value[2] * 255),
+      //    a: Math.round(ui.value[3] * 255)
+      //  };
+      //  div.style.backgroundColor = rgba255ToCSSrgba(color);
+      //  $(div).ColorPicker({
+      //    color: color,
+      //    onChange: function(ui, obj, colorDiv) {
+      //      return function(hsb, hex, rgba) {
+      //        // TODO(gman): this colorDiv should move inside the widget.
+      //        colorDiv.style.backgroundColor = rgba255ToCSSrgba(rgba);
+      //        setColorRParam(event, rgba, ui, obj);
+      //      };
+      //    }(ui, obj, div),
+      //  });
+      //  elem.appendChild(div);
+      //},
     },
     // Bool
     'bool': {
