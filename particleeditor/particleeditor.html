@@ -130,7 +130,7 @@ var g_ui = [
   { section: 'ground' },
   { obj: 'ground',  name: 'color1',           type: 'color',  value: [0.4, 0.5, 0.5, 1], max: [1, 1, 1, 1]},
   { obj: 'ground',  name: 'color2',           type: 'color',  value: [0.6, 0.8, 0.8, 1], max: [1, 1, 1, 1]},
-  { obj: 'ground',  name: 'checkSize',        type: 'float',  value: 10,           max:  20 },
+  { obj: 'ground',  name: 'checkDivisions',   type: 'float',  value: 10,           max:  40 },
   { section: 'particles' },
   { obj: 'p',      name: 'numParticles',      type: 'int',    value: 20,           max: 400,  min: 1 },
 //{ obj: 'p',      name: 'numFrames',         type: 'int',    value: 1,            max: }, Need image selector. Compute from image.
@@ -981,14 +981,14 @@ varying vec2 v_texCoord;
 varying vec3 v_normal;
 varying vec3 v_surfaceToLight;
 
-uniform float checkSize;
+uniform float checkDivisions;
 uniform vec4 color1;
 uniform vec4 color2;
 
 vec4 checker(vec2 uv) {
   float fmodResult = mod(
-    floor(checkSize * uv.x) +
-    floor(checkSize * uv.y), 2.0);
+    floor(checkDivisions * uv.x) +
+    floor(checkDivisions * uv.y), 2.0);
   return (fmodResult < 1.0) ? color1 : color2;
 }
 
