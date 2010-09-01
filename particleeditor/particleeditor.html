@@ -119,7 +119,7 @@ var g_ui = [
   { obj: 'globals', name: 'targetRadius',     type: 'float',  value: 1,            max:  5 },
   { obj: 'globals', name: 'eyeHeight',        type: 'float',  value: 2,            max:  10 },
   { obj: 'globals', name: 'eyeRadius',        type: 'float',  value: 3,            max:  10 },
-  { obj: 'globals', name: 'eyeSpeed',         type: 'float',  value: 0.1,          max:  1 },
+  { obj: 'globals', name: 'eyeSpeed',         type: 'float',  value: 0.1,          max:  4 },
   { obj: 'p',      name: 'numParticles',      type: 'int',    value: 20,           max: 200,  min: 1 },
 //{ obj: 'p',      name: 'numFrames',         type: 'int',    value: 1,            max: }, Need image selector. Compute from image.
   { obj: 'p',      name: 'frameDuration',     type: 'dur',    value: 0.1,          max: 1 },
@@ -356,6 +356,7 @@ function initialize() {
     worldInverseTranspose: worldInverseTranspose};
 
   var frameCount = 0;
+  var cameraClock = 0;
   var intervalId = setInterval(render, 1000.0 / 70.0);
   function render() {
     ++frameCount;
@@ -375,12 +376,13 @@ function initialize() {
     fpsElem.innerHTML = g_fpsTimer.averageFPS;
 
     clock += elapsedTime;
-    eyePosition[0] = Math.sin(clock * g.globals.eyeSpeed) * g.globals.eyeRadius;
+    cameraClock += elapsedTime * g.globals.eyeSpeed;
+    eyePosition[0] = Math.sin(cameraClock) * g.globals.eyeRadius;
     eyePosition[1] = g.globals.eyeHeight;
-    eyePosition[2] = Math.cos(clock * g.globals.eyeSpeed) * g.globals.eyeRadius;
-    target[0] = Math.sin(clock * g.globals.eyeSpeed + Math.PI) * g.globals.targetRadius;
+    eyePosition[2] = Math.cos(cameraClock) * g.globals.eyeRadius;
+    target[0] = Math.sin(cameraClock + Math.PI) * g.globals.targetRadius;
     target[1] = g.globals.targetHeight;
-    target[2] = Math.cos(clock * g.globals.eyeSpeed + Math.PI) * g.globals.targetRadius;
+    target[2] = Math.cos(cameraClock + Math.PI) * g.globals.targetRadius;
 
     gl.colorMask(true, true, true, true);
     gl.depthMask(true);
