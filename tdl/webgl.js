@@ -118,6 +118,15 @@ tdl.webgl.create3DContext = function(canvas) {
     if (!tdl.webgl.glEnums) {
       tdl.webgl.init(context);
     }
+
+    // Disallow selection by default. This keeps the cursor from changing to an
+    // I-beam when the user clicks and drags.  It's easier on the eyes.
+    function returnFalse() {
+      return false;
+    }
+
+    canvas.onselectstart = returnFalse;
+    canvas.onmousedown = returnFalse;
   }
   return context;
 }
