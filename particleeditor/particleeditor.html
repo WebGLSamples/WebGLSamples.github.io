@@ -69,6 +69,9 @@ CANVAS {
   color: white;
   font-family: sans-serif;
 }
+.accordion {
+  //border: 1px solid red;
+}
 </style>
 <link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
 <link type="text/css" href="../colorpicker/css/colorpicker.css" rel="stylesheet" />
@@ -110,16 +113,24 @@ var g_id = 0;
 var g = {
   p: {
   },
+  ground: {
+  },
   globals: {
   }
 };
 
 var g_ui = [
+  { section: 'globals' },
   { obj: 'globals', name: 'targetHeight',     type: 'float',  value: 1,            max:  5 },
   { obj: 'globals', name: 'targetRadius',     type: 'float',  value: 1,            max:  5 },
   { obj: 'globals', name: 'eyeHeight',        type: 'float',  value: 2,            max:  10 },
   { obj: 'globals', name: 'eyeRadius',        type: 'float',  value: 3,            max:  10 },
   { obj: 'globals', name: 'eyeSpeed',         type: 'float',  value: 0.1,          max:  4 },
+  { section: 'ground' },
+  { obj: 'ground',  name: 'color1',           type: 'color',  value: [0.4, 0.5, 0.5, 1], max: [1, 1, 1, 1]},
+  { obj: 'ground',  name: 'color2',           type: 'color',  value: [0.6, 0.8, 0.8, 1], max: [1, 1, 1, 1]},
+  { obj: 'ground',  name: 'checkSize',        type: 'float',  value: 10,           max:  20 },
+  { section: 'particles' },
   { obj: 'p',      name: 'numParticles',      type: 'int',    value: 20,           max: 200,  min: 1 },
 //{ obj: 'p',      name: 'numFrames',         type: 'int',    value: 1,            max: }, Need image selector. Compute from image.
   { obj: 'p',      name: 'frameDuration',     type: 'dur',    value: 0.1,          max: 1 },
@@ -342,13 +353,9 @@ function initialize() {
   var one4 = new Float32Array([1,1,1,1]);
 
   // Ground uniforms.
-  var groundConst = {
-    viewInverse: viewInverse,
-    lightWorldPos: lightWorldPos,
-    lightColor: one4,
-    color1: new Float32Array([0.4, 0.5, 0.5, 1]),
-    color2: new Float32Array([0.6, 0.8, 0.8, 1]),
-		checkSize: 10};
+  g.ground.viewInverse = viewInverse;
+  g.ground.lightWorldPos = lightWorldPos;
+  g.ground.lightColor = one4;
   var groundPer = {
     world: world,
     worldViewProjection: worldViewProjection,
@@ -426,7 +433,7 @@ function initialize() {
 //      viewProjection: viewProjection,
 
     Log("--Draw Ground---------------------------------------");
-    ground.drawPrep(groundConst);
+    ground.drawPrep(g.ground);
     fast.matrix4.translation(world, [0, 0, 0]),
     fast.matrix4.mul(worldViewProjection, world, viewProjection);
     fast.matrix4.inverse(worldInverse, world);
@@ -528,6 +535,15 @@ function rgba01ToCSSrgba(rgba) {
 }
 
 function setColorRParam(event, rgba, ui, obj) {
+  var color = [rgba.r / 255.0, rgba.g / 255.0, rgba.b / 255.0, rgba.a / 255.0];
+  tdl.log(ui.name, ": ", color);
+  obj[ui.name] = color;
+  if (obj == g.p) {
+    updateCurrentParticleEmitter();
+  }
+}
+
+function setColorParam(event, rgba, ui, obj) {
   var color = [rgba.r / 255.0, rgba.g / 255.0, rgba.b / 255.0, rgba.a / 255.0];
   tdl.log(ui.name, ": ", color);
   obj[ui.name] = color;
@@ -678,6 +694,32 @@ function setupWidget($, elem, ui, obj) {
         }
       },
     },
+    // Color
+    'color': {
+      makeWidget: function($, elem, ui, obj) {
+        var div = document.createElement('div');
+        div.style.width = "100%";
+        div.style.height = "1em";
+        var color = {
+          r: Math.round(ui.value[0] * 255),
+          g: Math.round(ui.value[1] * 255),
+          b: Math.round(ui.value[2] * 255),
+          a: Math.round(ui.value[3] * 255)
+        };
+        div.style.backgroundColor = rgba255ToCSSrgba(color);
+        $(div).ColorPicker({
+          color: color,
+          onChange: function(ui, obj, colorDiv) {
+            return function(hsb, hex, rgba) {
+              // TODO(gman): this colorDiv should move inside the widget.
+              colorDiv.style.backgroundColor = rgba255ToCSSrgba(rgba);
+              setColorRParam(event, rgba, ui, obj);
+            };
+          }(ui, obj, div),
+        });
+        elem.appendChild(div);
+      },
+    },
     // Color Random
     'colorR': {
       makeWidget: function($, elem, ui, obj) {
@@ -717,7 +759,7 @@ function setupWidget($, elem, ui, obj) {
   widgetDiv.id = "widget" + g_id;
   g_idToWidgetMap[g_id] = { ui: ui, obj: obj };
   ++g_id;
-  tdl.log("type", ui.type);
+  //tdl.log("type", ui.type);
   elem.appendChild(labelDiv);
   elem.appendChild(widgetDiv);
  	widgets[ui.type].makeWidget($, widgetDiv, ui, obj)
@@ -726,13 +768,29 @@ function setupWidget($, elem, ui, obj) {
 $(function(){
   // Setup UI.
   var uiElem = document.getElementById('ui');
+  var outerElem = uiElem;
+  var sections = [];
   for (var ii = 0; ii < g_ui.length; ++ii) {
     var ui = g_ui[ii];
-    var obj = g[ui.obj];
-    obj[ui.name] = ui.value;
     var div = document.createElement('div');
-    setupWidget($, div, ui, obj);
-    uiElem.appendChild(div);
+    if (ui.section) {
+      tdl.log("make:", ui.section);
+      var html = '<div class="accordion"><h3><a href="#">' + ui.section + '</a></h3><div></div></div>';
+      var p = $(html);
+      p.find('h3').click(function() { $(this).next().toggle('slow'); return false; }).next().hide();
+      sections.push(p);
+      uiElem = p.find('div').get()[0];
+      //uiElem = innerDiv;
+    } else {
+      var obj = g[ui.obj];
+      obj[ui.name] = ui.value;
+      setupWidget($, div, ui, obj);
+      uiElem.appendChild(div);
+    }
+  }
+
+  for (var ii = 0; ii < sections.length; ++ii) {
+    sections[ii].appendTo(outerElem);
   }
 
   initialize();
