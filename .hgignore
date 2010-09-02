@@ -3,3 +3,7 @@ syntax: glob
 *.swp
 *.bat
 *.bak
+temp
+.mayaSwatches
+*.pyc
+

@@ -5,7 +5,7 @@
 
 function initWebGL(canvas) {
   try {
-    gl = tdl.webgl.create3DContext(canvas);
+    gl = tdl.webgl.setupWebGL("viewContainer", canvas);
   }
   catch(e) {
   }

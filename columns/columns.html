@@ -57,6 +57,10 @@ CANVAS {
 .fps {
   color: white;
 }
+#viewContainer {
+  width: 100%;
+  height: 100%;
+}
 </style>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
@@ -290,7 +294,7 @@ function initialize() {
   canvas = document.getElementById("canvas");
 
   g_fpsTimer = new tdl.fps.FPSTimer();
-  gl = tdl.webgl.setupWebGL("3dcontainer", canvas);
+  gl = tdl.webgl.setupWebGL("viewContainer", canvas);
   if (!gl) {
     return false;
   }
@@ -513,7 +517,7 @@ function initialize() {
     // turn off logging after 1 frame.
     g_logGLCalls = false;
   }
-	return true;
+  return true;
 }
 </script>
 </head>
@@ -521,7 +525,7 @@ function initialize() {
 <div class="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
 </div>
-<div id="3dcontainer">
+<div id="viewContainer">
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </div>
 </body>

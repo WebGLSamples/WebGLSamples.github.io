@@ -15,7 +15,7 @@ nodeNames = [
   "eye L",    // 11
   "eye R"     // 12
 ]
- 
+
 lines = [
   {s: 0, e: 1},
   {s: 1, e: 2},
@@ -77,6 +77,9 @@ w = 300
 h = 380
 
 function MorphEditor(id, json_id) {
+  if (!$(id)[0].getContext) {
+    return;
+  }
   var ctx = $(id)[0].getContext("2d")
   var leftLeft = $(id).offset().left;
   var leftTop = $(id).offset().top;

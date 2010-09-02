@@ -84,7 +84,7 @@ function mainloop() {
 }
 
 function initializeGraphics() {
-  gl = tdl.webgl.setupWebGL("3dcontainer", canvas);
+  gl = tdl.webgl.setupWebGL("viewContainer", canvas);
   gl = tdl.webgl.create3DContext(canvas)
   if (!gl) {
     return false;
@@ -114,7 +114,7 @@ No support for the audio tag in this browser.
 Get <a href="http://www.google.com/chrome">Google Chrome</a>.
 </audio>
 <br>
-<div id="3dcontainer">
+<div id="viewContainer">
 <canvas id="render_area" width="200" height="200"></canvas>
 </div>
 <br>

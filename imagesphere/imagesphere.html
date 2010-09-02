@@ -71,6 +71,10 @@ CANVAS {
   color: white;
   font-family: sans-serif;
 }
+#viewContainer {
+  width: 100%;
+  height: 100%;
+}
 </style>
 <link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
@@ -627,7 +631,7 @@ function initialize() {
   g_canvas2d.height = 256;
   g_ctx2d = g_canvas2d.getContext("2d");
 
-  gl = tdl.webgl.setupWebGL("3dcontainer", canvas);
+  gl = tdl.webgl.setupWebGL("viewContainer", canvas);
   if (!gl) {
     return false;
   }
@@ -922,7 +926,7 @@ $(function(){
 <div id="uiContainer">
 <div id="ui"></div>
 </div>
-<div id="3dcontainer">
+<div id="viewContainer">
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </div>
 </body>

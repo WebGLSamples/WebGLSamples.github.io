@@ -73,6 +73,10 @@ CANVAS {
 .accordion {
   //border: 1px solid red;
 }
+#viewContainer {
+  width: 100%;
+  height: 100%;
+}
 </style>
 <link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
 <link type="text/css" href="../colorpicker/css/colorpicker.css" rel="stylesheet" />
@@ -307,7 +311,7 @@ function initialize() {
   canvas = document.getElementById("canvas");
   g_fpsTimer = new tdl.fps.FPSTimer();
 
-  gl = tdl.webgl.setupWebGL("3dcontainer", canvas);
+  gl = tdl.webgl.setupWebGL("viewContainer", canvas);
   if (!gl) {
     return false;
   }
@@ -453,7 +457,7 @@ function initialize() {
     // turn off logging after 1 frame.
     g_logGLCalls = false;
   }
-	return true;
+  return true;
 }
 
 function getParamId(id) {
@@ -631,9 +635,9 @@ function setupWidget($, elem, ui, obj) {
             return function(event, jqui) {
               setFloatParam(event, jqui, ui, obj, valueDiv);
             };
-          } (ui, obj, valueDiv),
+          } (ui, obj, valueDiv)
         });
-      },
+      }
     },
     // Duration Random
     'durR': {
@@ -651,7 +655,7 @@ function setupWidget($, elem, ui, obj) {
             return function(event, jqui) {
               setFloatRParam(event, jqui, ui, obj, valueDiv);
             };
-          }(ui, obj, valueDiv),
+          }(ui, obj, valueDiv)
         });
       }
     },
@@ -668,9 +672,9 @@ function setupWidget($, elem, ui, obj) {
             return function(event, jqui) {
               setIntParam(event, jqui, ui, obj, valueDiv);
             };
-          } (ui, obj, valueDiv),
+          } (ui, obj, valueDiv)
         });
-      },
+      }
     },
     // Int random
     'intR': {
@@ -688,13 +692,13 @@ function setupWidget($, elem, ui, obj) {
             return function(event, jqui) {
               setIntRParam(event, jqui, ui, obj, valueDiv);
             };
-          }(ui, obj, valueDiv),
+          }(ui, obj, valueDiv)
         });
-      },
+      }
     },
     // Float
     'float': {
-			makeWidget: function($, elem, ui, obj, valueDiv) {
+      makeWidget: function($, elem, ui, obj, valueDiv) {
         $(elem).slider({
           range: false,
           step: 1,
@@ -705,9 +709,9 @@ function setupWidget($, elem, ui, obj) {
             return function(event, jqui) {
               setFloatParam(event, jqui, ui, obj, valueDiv);
             };
-          } (ui, obj, valueDiv),
+          } (ui, obj, valueDiv)
         });
-      },
+      }
     },
     // Float random
     'floatR': {
@@ -725,7 +729,7 @@ function setupWidget($, elem, ui, obj) {
             return function(event, jqui) {
               setFloatRParam(event, jqui, ui, obj, valueDiv);
             };
-          }(ui, obj, valueDiv),
+          }(ui, obj, valueDiv)
         });
       }
     },
@@ -746,7 +750,7 @@ function setupWidget($, elem, ui, obj) {
               return function(event, jqui) {
                 setVec3Param(event, jqui, ui, obj, ii, valueDiv);
               };
-            }(ui, obj, ii, valueDiv),
+            }(ui, obj, ii, valueDiv)
           });
           elem.appendChild(div);
         }
@@ -773,11 +777,11 @@ function setupWidget($, elem, ui, obj) {
               return function(event, jqui) {
                 setVec3RParam(event, jqui, ui, obj, ii, valueDiv);
               };
-            }(ui, obj, ii, valueDiv),
+            }(ui, obj, ii, valueDiv)
           });
           elem.appendChild(div);
         }
-      },
+      }
     },
     // Color
     'color': {
@@ -800,10 +804,10 @@ function setupWidget($, elem, ui, obj) {
               colorDiv.style.backgroundColor = rgba255ToCSSrgba(rgba);
               setColorParam(event, rgba, ui, obj, valueDiv);
             };
-          }(ui, obj, div, valueDiv),
+          }(ui, obj, div, valueDiv)
         });
         elem.appendChild(div);
-      },
+      }
     },
     // Color Random
     'colorR': {
@@ -826,11 +830,11 @@ function setupWidget($, elem, ui, obj) {
               return function(event, jqui) {
                 setColorRParam(event, jqui, ui, obj, ii, valueDiv);
               };
-            }(ui, obj, ii, valueDiv),
+            }(ui, obj, ii, valueDiv)
           });
           elem.appendChild(div);
         }
-      },
+      }
       //makeWidget: function($, elem, ui, obj, valueDiv) {
       //  var div = document.createElement('div');
       //  div.style.width = "100%";
@@ -850,7 +854,7 @@ function setupWidget($, elem, ui, obj) {
       //        colorDiv.style.backgroundColor = rgba255ToCSSrgba(rgba);
       //        setColorRParam(event, rgba, ui, obj, valueDiv);
       //      };
-      //    }(ui, obj, div, valueDiv),
+      //    }(ui, obj, div, valueDiv)
       //  });
       //  elem.appendChild(div);
       //},
@@ -858,7 +862,7 @@ function setupWidget($, elem, ui, obj) {
     // Bool
     'bool': {
       makeWidget: function($, elem, ui, obj, valueDiv) {
-      },
+      }
     }
   };
 
@@ -878,35 +882,37 @@ function setupWidget($, elem, ui, obj) {
   textDiv.appendChild(valueDiv);
   elem.appendChild(textDiv);
   elem.appendChild(widgetDiv);
- 	widgets[ui.type].makeWidget($, widgetDiv, ui, obj, valueDiv)
+  widgets[ui.type].makeWidget($, widgetDiv, ui, obj, valueDiv)
 }
 
 $(function(){
-  // Setup UI.
-  var uiElem = document.getElementById('ui');
-  var outerElem = uiElem;
-  var sections = [];
-  for (var ii = 0; ii < g_ui.length; ++ii) {
-    var ui = g_ui[ii];
-    var div = document.createElement('div');
-    if (ui.section) {
-      tdl.log("make:", ui.section);
-      var html = '<div class="accordion"><h3><a href="#">' + ui.section + '</a></h3><div></div></div>';
-      var p = $(html);
-      p.find('h3').click(function() { $(this).next().toggle('slow'); return false; }).next().hide();
-      sections.push(p);
-      uiElem = p.find('div').get()[0];
-      //uiElem = innerDiv;
-    } else {
-      var obj = g[ui.obj];
-      obj[ui.name] = ui.value;
-      setupWidget($, div, ui, obj);
-      uiElem.appendChild(div);
+  if (!tdl.base.IsMSIE()) {
+    // Setup UI.
+    var uiElem = document.getElementById('ui');
+    var outerElem = uiElem;
+    var sections = [];
+    for (var ii = 0; ii < g_ui.length; ++ii) {
+      var ui = g_ui[ii];
+      var div = document.createElement('div');
+      if (ui.section) {
+        tdl.log("make:", ui.section);
+        var html = '<div class="accordion"><h3><a href="#">' + ui.section + '</a></h3><div></div></div>';
+        var p = $(html);
+        p.find('h3').click(function() { $(this).next().toggle('slow'); return false; }).next().hide();
+        sections.push(p);
+        uiElem = p.find('div').get()[0];
+        //uiElem = innerDiv;
+      } else {
+        var obj = g[ui.obj];
+        obj[ui.name] = ui.value;
+        setupWidget($, div, ui, obj);
+        uiElem.appendChild(div);
+      }
     }
-  }
 
-  for (var ii = 0; ii < sections.length; ++ii) {
-    sections[ii].appendTo(outerElem);
+    for (var ii = 0; ii < sections.length; ++ii) {
+      sections[ii].appendTo(outerElem);
+    }
   }
 
   initialize();
@@ -920,7 +926,7 @@ $(function(){
 <div id="uiContainer">
 <div id="ui"></div>
 </div>
-<div id="3dcontainer">
+<div id="viewContainer">
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </div>
 </body>
