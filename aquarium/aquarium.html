@@ -234,6 +234,7 @@ function loadScene(name) {
 
 function loadScenes() {
   var scenes = [
+    "SmallFishA",
     "Arch",
     "BigFishA",
     "BigFishB",
@@ -246,7 +247,6 @@ function loadScenes() {
     "RockB",
     "RockC",
     "RuinColumnA",
-    "SmallFishA",
     "Stones",
     "SunknShip",
     "SunknSub",
@@ -553,37 +553,39 @@ function initialize() {
     // Draw Fishes.
     Log("--Draw Fish---------------------------------------");
 
-    var fish = g_scenes.SmallFishA.models[0];
-    fish.drawPrep(fishConst);
-    var fishClock = clock * g_fishSpeed;
-    for (var ii = 0; ii < g_numFish; ++ii) {
-      var fishClock = clock * g_fishSpeed + ii * g_fishClockOffset;
-      var speed = 0.5 + math.pseudoRandom() * 4;
-      var scale = 1.0 + math.pseudoRandom() * 1;
-      var xRadius = 2.0 + pseudoRandom() * (g_tankRadius - 8.0);
-      var yRadius = 2.0 + pseudoRandom() * (g_tankHeight - 8.0) * 0.3;
-      var zRadius = 2.0 + pseudoRandom() * (g_tankRadius - 8.0);
-      var xClock = fishClock * speed * g_fishXClock;
-      var yClock = fishClock * speed * g_fishYClock;
-      var zClock = fishClock * speed * g_fishZClock;
-      var x = Math.sin(xClock) * xRadius;
-      var y = Math.sin(yClock) * yRadius + 4;
-      var z = Math.cos(zClock) * zRadius;
-      var nextX = Math.sin(xClock - 0.01) * xRadius;
-      var nextY = Math.sin(yClock - 0.01) * yRadius + 4;
-      var nextZ = Math.cos(zClock - 0.01) * zRadius;
-      colorMult[0] = 0.7 + math.pseudoRandom() * 0.3;
-      colorMult[1] = 0.7 + math.pseudoRandom() * 0.3;
-      colorMult[2] = 0.7 + math.pseudoRandom() * 0.3;
+    if (g_scenes.SmallFishA.loaded && !g_scenes.SmallFishA.bad) {
+      var fish = g_scenes.SmallFishA.models[0];
+      fish.drawPrep(fishConst);
+      var fishClock = clock * g_fishSpeed;
+      for (var ii = 0; ii < g_numFish; ++ii) {
+        var fishClock = clock * g_fishSpeed + ii * g_fishClockOffset;
+        var speed = 0.5 + math.pseudoRandom() * 4;
+        var scale = 1.0 + math.pseudoRandom() * 1;
+        var xRadius = 2.0 + pseudoRandom() * (g_tankRadius - 8.0);
+        var yRadius = 2.0 + pseudoRandom() * (g_tankHeight - 8.0) * 0.3;
+        var zRadius = 2.0 + pseudoRandom() * (g_tankRadius - 8.0);
+        var xClock = fishClock * speed * g_fishXClock;
+        var yClock = fishClock * speed * g_fishYClock;
+        var zClock = fishClock * speed * g_fishZClock;
+        var x = Math.sin(xClock) * xRadius;
+        var y = Math.sin(yClock) * yRadius + 4;
+        var z = Math.cos(zClock) * zRadius;
+        var nextX = Math.sin(xClock - 0.01) * xRadius;
+        var nextY = Math.sin(yClock - 0.01) * yRadius + 4;
+        var nextZ = Math.cos(zClock - 0.01) * zRadius;
+        colorMult[0] = 0.7 + math.pseudoRandom() * 0.3;
+        colorMult[1] = 0.7 + math.pseudoRandom() * 0.3;
+        colorMult[2] = 0.7 + math.pseudoRandom() * 0.3;
 
-      fast.matrix4.mul(world,
-          fast.matrix4.scaling(m4t0, [scale, scale, scale]),
-          fast.matrix4.cameraLookAt(m4t1, [x, y, z], [nextX, nextY, nextZ], [0, 1, 0]));
-      fast.matrix4.mul(worldViewProjection, world, viewProjection);
-      fast.matrix4.inverse(worldInverse, world);
-      fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-      fishPer.time = (clock + ii * g_tailOffsetMult) * g_tailSpeed * speed * 0.2;
-      fish.draw(fishPer);
+        fast.matrix4.mul(world,
+            fast.matrix4.scaling(m4t0, [scale, scale, scale]),
+            fast.matrix4.cameraLookAt(m4t1, [x, y, z], [nextX, nextY, nextZ], [0, 1, 0]));
+        fast.matrix4.mul(worldViewProjection, world, viewProjection);
+        fast.matrix4.inverse(worldInverse, world);
+        fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+        fishPer.time = (clock + ii * g_tailOffsetMult) * g_tailSpeed * speed * 0.2;
+        fish.draw(fishPer);
+      }
     }
 
 //    // Draw Laser
