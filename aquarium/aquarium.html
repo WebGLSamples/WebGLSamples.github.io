@@ -1,0 +1,1276 @@
+<!--
+ * Copyright 2009, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+  "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>WebGL Aqarium</title>
+<style>
+html, body {
+  width: 100%;
+  height: 100%;
+  border: 0px;
+  padding: 0px;
+  margin: 0px;
+  background-color: red;
+}
+CANVAS {
+  background-color: gray;
+}
+.fpsContainer {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  color: gray;
+  font-family: sans-serif;
+}
+.fps {
+  color: white;
+}
+#viewContainer {
+  width: 100%;
+  height: 100%;
+}
+</style>
+<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript">
+tdl.require('tdl.buffers');
+tdl.require('tdl.fast');
+tdl.require('tdl.fps');
+tdl.require('tdl.io');
+tdl.require('tdl.log');
+tdl.require('tdl.math');
+tdl.require('tdl.models');
+tdl.require('tdl.primitives');
+tdl.require('tdl.programs');
+tdl.require('tdl.textures');
+tdl.require('tdl.webgl');
+window.onload = initialize;
+
+// globals
+var gl;                   // the gl context.
+var canvas;               // the canvas
+var math;                 // the math lib.
+var fast;                 // the fast math lib.
+var g_fpsTimer;           // object to measure frames per second;
+var g_logGLCalls = true   // whether or not to log webgl calls
+var g_debug = false;      // whether or not to debug.
+var g_drawOnce = false;
+var g_setSettingElements = [];
+var g_sharkWorldMats = [];
+var g_beamWorldMats = [];
+var g_scenes = {};
+
+//g_debug = true;
+//g_drawOnce = true;
+
+var g_numFish          = 1;
+var g_numSharks        = 0;
+var g_eyeSpeed         = 0.01;
+var g_eyeHeight        = 8;
+var g_eyeRadius        = 60;
+var g_tailSpeed        = 30;
+var g_tailOffsetMult   = 1;
+var g_endOfDome        = Math.PI / 8;
+var g_tankRadius       = 22;
+var g_tankHeight       = 30;
+var g_standHeight      = 25;
+var g_fishSpeed        = 0.3;
+var g_fishClockOffset  = 0.3;
+var g_fishXClock       = 1;
+var g_fishYClock       = 0.17;
+var g_fishZClock       = 1.09;
+var g_sharkSpeed       = 0.3;
+var g_sharkClockOffset = 17;
+var g_sharkXClock      = 1;
+var g_sharkYClock      = 0.17;
+var g_sharkZClock      = 1;
+
+var g_skyBoxUrls = [
+  'static_assets/skybox/InteriorCubeEnv_EM.png'
+]
+
+function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
+  for (var ii = 0; ii < args.length; ++ii) {
+    if (args[ii] === undefined) {
+      tdl.error("undefined passed to gl." + functionName + "(" +
+                tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
+    }
+  }
+}
+
+function Log(msg) {
+  if (g_logGLCalls) {
+    tdl.log(msg);
+  }
+}
+
+function LogGLCall(functionName, args) {
+  if (g_logGLCalls) {
+    ValidateNoneOfTheArgsAreUndefined(functionName, args)
+    tdl.log("gl." + functionName + "(" +
+            tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
+  }
+}
+
+function createProgramFromTags(vertexTagId, fragmentTagId) {
+  return tdl.programs.loadProgram(
+      document.getElementById(vertexTagId).text,
+      document.getElementById(fragmentTagId).text);
+}
+
+var Scene = function() {
+  this.bad = false;
+  this.loaded = false;
+  this.models = [];
+};
+
+Scene.prototype.load = function(url) {
+  var that = this;
+  this.url = url;
+  tdl.io.loadTextFile(url, function(data, exception) {
+      that.onload_(data, exception);
+    });
+};
+
+Scene.prototype.onload_ = function(data, exception) {
+  this.loaded = true;
+  if (exception) {
+    this.bad = true;
+  } else {
+    // This would be insecure if loading data not from us.
+    try {
+      var data = eval('(' + data + ')');
+    } catch (e) {
+      this.bad = true
+    }
+
+    if (!this.bad) {
+      for (var mm = 0; mm < data.models.length; ++mm) {
+        var model = data.models[mm];
+        // setup textures
+        var textures = {};
+        for (var name in model.textures) {
+          textures[name] = tdl.textures.loadTexture(
+              'assets/' + model.textures[name], true);
+        }
+        // setup vertices
+        var arrays = {};
+        for (var name in model.fields) {
+          var field = model.fields[name];
+          arrays[name] = new tdl.primitives.AttribBuffer(
+            field.numComponents,
+            field.data,
+            field.type);
+        }
+        // setup program
+        // There are 3 programs
+        // DM
+        // DM+NM
+        // DM+NM+RM
+        var program;
+        if (!textures.diffuse) {
+          throw "missing diffuse texture for: " + this.url;
+        }
+        if (textures.reflectionMap) {
+          if (!textures.normalMap) {
+            throw "missing normalMap for: " + this.url;
+          }
+          program = createProgramFromTags(
+              'reflectionMapVertexShader',
+              'reflectionMapFragmentShader');
+          textures.skybox = tdl.textures.loadTexture(g_skyBoxUrls);
+
+        } else if (textures.normalMap) {
+          program = createProgramFromTags(
+              'normalMapVertexShader',
+              'normalMapFragmentShader');
+        } else {
+          program = createProgramFromTags(
+              'diffuseVertexShader',
+              'diffuseFragmentShader');
+        }
+        this.models.push(new tdl.models.Model(program, arrays, textures));
+      }
+    }
+  }
+};
+
+function loadScene(name) {
+  var scene = new Scene();
+  scene.load("assets/" + name + ".js");
+  return scene;
+}
+
+function loadScenes() {
+  var scenes = [
+    "Arch",
+    "BigFishA",
+    "BigFishB",
+    "FloorCenter",
+    "GlobeInner",
+    "GlobeOuter",
+    "MediumFishA",
+    "MediumFishB",
+    "RockA",
+    "RockB",
+    "RockC",
+    "RuinColumnA",
+    "SmallFishA",
+    "Stones",
+    "SunknShip",
+    "SunknSub",
+    "TreasureChest"
+  ];
+
+  for (var ii = 0; ii < scenes.length; ++ii) {
+    g_scenes[scenes[ii]] = loadScene(scenes[ii]);
+  }
+}
+
+/**
+ * Sets up the Skybox
+ */
+function setupSkybox() {
+  var textures = {
+    skybox: tdl.textures.loadTexture(g_skyBoxUrls)};
+  var program;
+  program = createProgramFromTags(
+      'skyboxVertexShader',
+      'skyboxFragmentShader');
+  var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
+  delete arrays['normal'];
+  delete arrays['texCoord'];
+  tdl.primitives.reorient(arrays,
+      [1, 0, 0, 0,
+       0, 0, 1, 0,
+       0,-1, 0, 0,
+       0, 0, 0.99, 1]);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
+ * Sets the count
+ */
+function setSetting(elem, id) {
+  switch (id) {
+  case 0:
+  case 1:
+  case 2:
+  case 3:
+    g_numFish = Math.pow(10, id);
+    for (var ii = 0; ii < 4; ++ii) {
+      g_setSettingElements[ii].style.color = "gray";
+    }
+    elem.style.color = "red";
+    break;
+  case 4:
+    if (g_numSharks) {
+      g_numSharks = 0;
+      elem.style.color = "gray";
+    } else {
+      g_numSharks = 3;
+      elem.style.color = "red";
+    }
+    break;
+  }
+}
+
+/**
+ * Sets up the count buttons.
+ */
+function setupCountButtons() {
+  for (var ii = 0; ii < 100; ++ii) {
+    var elem = document.getElementById("setSetting" + ii);
+    if (!elem) {
+      break;
+    }
+    g_setSettingElements.push(elem);
+    elem.onclick = function(elem, id) {
+      return function () {
+        setSetting(elem, id);
+      }}(elem, ii);
+  }
+  setSetting(document.getElementById("setSetting0"), 0);
+}
+
+/**
+ * Initializes stuff.
+ */
+function initialize() {
+  math = tdl.math;
+  fast = tdl.fast;
+  canvas = document.getElementById("canvas");
+
+  setupCountButtons();
+
+  g_fpsTimer = new tdl.fps.FPSTimer();
+  gl = tdl.webgl.setupWebGL("viewContainer", canvas);
+  if (!gl) {
+    return false;
+  }
+  if (g_debug) {
+    gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
+  }
+  gl.enable(gl.DEPTH_TEST);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+  Log("--Setup Skybox---------------------------------------");
+  var skybox = setupSkybox();
+  loadScenes();
+
+  var then = 0.0;
+  var clock = 0.0;
+  var fpsElem = document.getElementById("fps");
+
+  var intervalId = setInterval(render, 1000.0 / 70.0);
+  var projection = new Float32Array(16);
+  var view = new Float32Array(16);
+  var world = new Float32Array(16);
+  var worldInverse = new Float32Array(16);
+  var worldInverseTranspose = new Float32Array(16);
+  var viewProjection = new Float32Array(16);
+  var worldViewProjection = new Float32Array(16);
+  var viewInverse = new Float32Array(16);
+  var viewProjectionInverse = new Float32Array(16);
+  var eyePosition = new Float32Array(3);
+  var target = new Float32Array(3);
+  var up = new Float32Array([0,1,0]);
+  var lightWorldPos = new Float32Array(3);
+  var v3t0 = new Float32Array(3);
+  var v3t1 = new Float32Array(3);
+  var m4t0 = new Float32Array(16);
+  var m4t1 = new Float32Array(16);
+  var m4t2 = new Float32Array(16);
+  var m4t3 = new Float32Array(16);
+  var zero4 = new Float32Array(4);
+  var one4 = new Float32Array([1,1,1,1]);
+  var colorMult = new Float32Array([1,1,1,1]);
+
+  // Sky uniforms.
+  var skyConst = {viewProjectionInverse: viewProjectionInverse};
+  var skyPer = {};
+
+  // Sand uniforms.
+  var sandConst = {
+    viewInverse: viewInverse,
+    lightWorldPos: lightWorldPos,
+    lightColor: one4,
+    specular: one4,
+    shininess: 5,
+    specularFactor: 0.3};
+  var sandPer = {
+    world: world,
+    worldViewProjection: worldViewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose};
+
+  // Fish uniforms.
+  var fishConst = {
+    viewInverse: viewInverse,
+    lightWorldPos: lightWorldPos,
+    lightColor: one4,
+    specular: one4,
+    shininess: 5,
+    specularFactor: 0.3};
+  var fishPer = {
+    world: world,
+    worldViewProjection: worldViewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose};
+
+  var frameCount = 0;
+  var eyeClock = 0;
+  function render() {
+    if (g_drawOnce) {
+      clearInterval(intervalId);
+    }
+    var now = (new Date()).getTime() * 0.001;
+    var elapsedTime;
+    if(then == 0.0) {
+      elapsedTime = 0.0;
+    } else {
+      elapsedTime = now - then;
+    }
+    then = now;
+
+    frameCount++;
+
+    g_fpsTimer.update(elapsedTime);
+    fpsElem.innerHTML = g_fpsTimer.averageFPS;
+
+    clock += elapsedTime;
+    eyeClock += elapsedTime * g_eyeSpeed;
+    eyePosition[0] = Math.sin(eyeClock) * g_eyeRadius;
+    eyePosition[1] = g_eyeHeight;
+    eyePosition[2] = Math.cos(eyeClock) * g_eyeRadius;
+
+    gl.colorMask(true, true, true, true);
+    gl.clearColor(0,0,0,0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+    fast.matrix4.perspective(
+        projection,
+        math.degToRad(30),
+        canvas.clientWidth / canvas.clientHeight,
+        1,
+        5000);
+    fast.matrix4.lookAt(
+        view,
+        eyePosition,
+        target,
+        up);
+    fast.matrix4.mul(viewProjection, view, projection);
+    fast.matrix4.inverse(viewInverse, view);
+    fast.matrix4.inverse(viewProjectionInverse, viewProjection);
+
+    fast.matrix4.getAxis(v3t0, viewInverse, 0); // x
+    fast.matrix4.getAxis(v3t1, viewInverse, 1); // y;
+    fast.mulScalarVector(v3t0, 20, v3t0);
+    fast.mulScalarVector(v3t1, 30, v3t1);
+    fast.addVector(lightWorldPos, eyePosition, v3t0);
+    fast.addVector(lightWorldPos, lightWorldPos, v3t1);
+
+//      view: view,
+//      projection: projection,
+//      viewProjection: viewProjection,
+
+    gl.disable(gl.BLEND);
+    gl.enable(gl.CULL_FACE);
+
+    math.resetPseudoRandom();
+    var pseudoRandom = math.pseudoRandom;
+    //var pseudoRandom = function() {
+    //  return 0.5;
+    //};
+
+    // Draw Skybox
+    Log("--Draw Sky---------------------------------------");
+    skybox.drawPrep(skyConst);
+    skybox.draw(skyPer);
+
+//    Log("--Draw Arch---------------------------------------");
+//    var sCount = 0;
+//    for (var name in g_scenes) {
+//      Log("--Draw ", name, "---");
+//      var models = g_scenes[name].models;
+//      for (var ii = 0; ii < models.length; ++ii) {
+//        models[ii].drawPrep(sandConst);
+//        fast.matrix4.translation(world, [0, sCount * 4, 0]);
+//        fast.matrix4.mul(worldViewProjection, world, viewProjection);
+//        fast.matrix4.inverse(worldInverse, world);
+//        fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+//        models[ii].draw(sandPer);
+//      }
+//      ++sCount;
+//    }
+
+//    // Draw Sand
+//    Log("--Draw Sand---------------------------------------");
+//    sand.drawPrep(sandConst);
+//    fast.matrix4.translation(world, [0, -5, 0]);
+//    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+//    fast.matrix4.inverse(worldInverse, world);
+//    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+//    sand.draw(sandPer);
+//
+//    // Draw Stand
+//    Log("--Draw Stand---------------------------------------");
+//    gl.disable(gl.CULL_FACE);
+//    stand.drawPrep(standConst);
+//    fast.matrix4.translation(world, [0, -5, 0]);
+//    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+//    fast.matrix4.inverse(worldInverse, world);
+//    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+//    stand.draw(standPer);
+//
+//    gl.enable(gl.CULL_FACE);
+//
+//    // Draw Sharks.
+//    Log("--Draw Sharks---------------------------------------");
+//
+//    shark.drawPrep(sharkConst);
+//    for (var ii = 0; ii < g_numSharks; ++ii) {
+//      if (!g_sharkWorldMats[ii]) {
+//        g_sharkWorldMats[ii] = new Float32Array(16);
+//        g_beamWorldMats[ii] = new Float32Array(16);
+//      }
+//      var sharkClock = clock * g_sharkSpeed + ii * g_sharkClockOffset;
+//      var speed = 1;
+//      var xRadius = g_tankRadius - 6.0;
+//      var yRadius = 4.0;
+//      var zRadius = xRadius;
+//      var xClock = sharkClock * speed * g_sharkXClock;
+//      var yClock = sharkClock * speed * g_sharkYClock;
+//      var zClock = sharkClock * speed * g_sharkZClock;
+//      var x = Math.sin(xClock) * xRadius;
+//      var y = Math.sin(yClock) * yRadius;
+//      var z = Math.cos(zClock) * zRadius;
+//      var nextX = Math.sin(xClock + 0.01) * xRadius;
+//      var nextY = Math.sin(yClock + 0.01) * yRadius;
+//      var nextZ = Math.cos(zClock + 0.01) * zRadius;
+//      fast.matrix4.mul(g_sharkWorldMats[ii],
+//          fast.matrix4.scaling(m4t0, [6, 6, 6]),
+//          fast.matrix4.cameraLookAt(m4t1, [x, y, z], [nextX, nextY, nextZ], [0, 1, 0]));
+//      fast.matrix4.copy(world, g_sharkWorldMats[ii]);
+//      fast.matrix4.mul(worldViewProjection, world, viewProjection);
+//      fast.matrix4.inverse(worldInverse, world);
+//      fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+//      sharkPer.time = (clock + ii * g_sharkClockOffset) * 3;
+//      shark.draw(sharkPer);
+//    }
+//
+    // Draw Fishes.
+    Log("--Draw Fish---------------------------------------");
+
+    var fish = g_scenes.SmallFishA.models[0];
+    fish.drawPrep(fishConst);
+    var fishClock = clock * g_fishSpeed;
+    for (var ii = 0; ii < g_numFish; ++ii) {
+      var fishClock = clock * g_fishSpeed + ii * g_fishClockOffset;
+      var speed = 0.5 + math.pseudoRandom() * 4;
+      var scale = 1.0 + math.pseudoRandom() * 1;
+      var xRadius = 2.0 + pseudoRandom() * (g_tankRadius - 8.0);
+      var yRadius = 2.0 + pseudoRandom() * (g_tankHeight - 8.0) * 0.3;
+      var zRadius = 2.0 + pseudoRandom() * (g_tankRadius - 8.0);
+      var xClock = fishClock * speed * g_fishXClock;
+      var yClock = fishClock * speed * g_fishYClock;
+      var zClock = fishClock * speed * g_fishZClock;
+      var x = Math.sin(xClock) * xRadius;
+      var y = Math.sin(yClock) * yRadius + 4;
+      var z = Math.cos(zClock) * zRadius;
+      var nextX = Math.sin(xClock - 0.01) * xRadius;
+      var nextY = Math.sin(yClock - 0.01) * yRadius + 4;
+      var nextZ = Math.cos(zClock - 0.01) * zRadius;
+      colorMult[0] = 0.7 + math.pseudoRandom() * 0.3;
+      colorMult[1] = 0.7 + math.pseudoRandom() * 0.3;
+      colorMult[2] = 0.7 + math.pseudoRandom() * 0.3;
+
+      fast.matrix4.mul(world,
+          fast.matrix4.scaling(m4t0, [scale, scale, scale]),
+          fast.matrix4.cameraLookAt(m4t1, [x, y, z], [nextX, nextY, nextZ], [0, 1, 0]));
+      fast.matrix4.mul(worldViewProjection, world, viewProjection);
+      fast.matrix4.inverse(worldInverse, world);
+      fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+      fishPer.time = (clock + ii * g_tailOffsetMult) * g_tailSpeed * speed * 0.2;
+      fish.draw(fishPer);
+    }
+
+//    // Draw Laser
+//    Log("--Draw Laser---------------------------------------");
+//    gl.enable(gl.BLEND);
+//    gl.blendFunc(gl.ONE, gl.ONE);
+//    gl.disable(gl.CULL_FACE);
+//    gl.depthMask(false);
+//
+//    laser.drawPrep(laserConst);
+//    var c = 0.5 + (frameCount % 2) + 0.5;
+//    laserConst.colorMult = [c * 1, c * 0.1, c * 0.1, c];
+//    for (var ii = 0; ii < g_numSharks; ++ii) {
+//      var time = (clock + ii * g_sharkClockOffset) * 3;
+//      fast.matrix4.mul(
+//          m4t1,
+//          fast.matrix4.scaling(m4t0, [0.3 / 6, 0.3 / 6, 1000]),
+//              fast.matrix4.mul(
+//                  m4t2,
+//                  fast.matrix4.rotationY(m4t3, -Math.sin(time) * 0.025),
+//                  fast.matrix4.translation(m4t1, [0, 0.1, 0.5])));
+//      fast.matrix4.mul(
+//          g_beamWorldMats[ii],
+//          m4t1,
+//          g_sharkWorldMats[ii]);
+//      fast.matrix4.copy(world, g_beamWorldMats[ii]);
+//      fast.matrix4.mul(worldViewProjection, world, viewProjection);
+//      laser.draw(laserPer);
+//    }
+//
+//    // Draw light flash
+//    Log("--Draw light flash---------------------------------------");
+//    gl.disable(gl.DEPTH_TEST);
+////    flash.drawPrep(laserConst);
+////    for (var ii = 0; ii < g_numSharks; ++ii) {
+////      flash.draw(laserPer);
+////    }
+//
+//    // Draw Glass
+//    Log("--Draw Glass---------------------------------------");
+//    gl.enable(gl.BLEND);
+//    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+//    gl.enable(gl.CULL_FACE);
+//    gl.depthMask(true);
+//    gl.enable(gl.DEPTH_TEST);
+//
+//    fast.matrix4.translation(world, [0, -5, 0]);
+//    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+//    fast.matrix4.inverse(worldInverse, world);
+//    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+//    glass.drawPrep(glassConst);
+//
+//    // Draw front of class
+//    if (!g_refract) {
+//      gl.cullFace(gl.FRONT);
+//      glass.draw(glassBackPer);
+//    }
+//
+//    // Draw front of class
+//    gl.cullFace(gl.BACK);
+//    glass.draw(glassFrontPer);
+
+    // Set the alpha to 255.
+    gl.colorMask(false, false, false, true);
+    gl.clearColor(0,0,0,1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    // turn off logging after 1 frame.
+    g_logGLCalls = false;
+  }
+  return true;
+}
+</script>
+</head>
+<body>
+<div class="fpsContainer">
+  <div class="fps">fps: <span id="fps"></div>
+  <div>Number of Fish</div>
+  <div id="setSetting0">1</div>
+  <div id="setSetting1">10</div>
+  <div id="setSetting2">100</div>
+  <div id="setSetting3">1000</div>
+  <div id="setSetting4">Sharks</div>
+</div>
+<div id="viewContainer">
+<canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
+</div>
+</body>
+<!--
+<script id="constVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+//attribute vec3 normal;
+//attribute vec2 texCoord;
+//varying vec2 v_texCoord;
+//varying vec3 v_normal;
+uniform mat4 worldViewProjection;
+void main() {
+  //v_texCoord = texCoord;
+  //v_normal = normal;
+  gl_Position = (worldViewProjection * position);
+}
+</script>
+<script id="constFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+//varying vec2 v_texCoord;
+//varying vec3 v_normal;
+void main() {
+//  gl_FragColor = vec4(vec3(v_texCoord, 1) + v_normal, 1);
+  gl_FragColor = vec4(1, 1, 0, 1);
+}
+</script>
+-->
+<script id="laserVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+attribute vec2 texCoord;
+varying vec2 v_texCoord;
+uniform mat4 worldViewProjection;
+void main() {
+  v_texCoord = texCoord;
+  gl_Position = (worldViewProjection * position);
+}
+</script>
+<script id="laserFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+
+varying vec2 v_texCoord;
+uniform vec4 colorMult;
+uniform sampler2D colorMap;
+void main() {
+  gl_FragColor = texture2D(colorMap, v_texCoord) * colorMult;
+}
+</script>
+<!-- ===[ Fish Shader ]============================================== -->
+<script id="fishVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+uniform float time;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+attribute vec3 tangent;
+attribute vec3 binormal;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+void main() {
+  v_texCoord = texCoord;
+  float mult = position.z > 0.0 ? (position.z / 10.0) : (-position.z / 20.0);  // 10 = radius.
+  float s = sin(time + mult * 3.0);
+  float a = sign(s);
+  float offset = pow(mult, 2.0) * s * 20.0;
+  v_position = (
+      worldViewProjection *
+      (position +
+       vec4(offset, 0, 0, 0)));
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;
+  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="fishFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform vec4 lightColor;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform vec4 emissive;
+uniform vec4 colorMult;
+uniform sampler2D diffuseSampler;
+uniform vec4 specular;
+uniform sampler2D bumpSampler;
+uniform samplerCube skybox;
+uniform float shininess;
+uniform float specularFactor;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec4 diffuse = texture2D(diffuseSampler, v_texCoord);
+  mat3 tangentToWorld = mat3(v_tangent,
+                             v_binormal,
+                             v_normal);
+  vec3 tangentNormal = texture2D(bumpSampler, v_texCoord.xy).xyz -
+                                 vec3(0.5, 0.5, 0.5);
+  tangentNormal = normalize(tangentNormal + vec3(0, 0, 2));
+  vec3 normal = (tangentToWorld * tangentNormal);
+  normal = normalize(normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec4 skyColor = textureCube(skybox, -reflect(surfaceToView, normal));
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  gl_FragColor = vec4((emissive +
+  lightColor * colorMult * ((diffuse * vec4(0.0, 0.0, 0.0, 0.0) +
+                 skyColor * vec4(1.0, 1.0, 1.0, 1.0)) /* * litR.y */ +
+                        + specular * litR.z * specularFactor)).rgb,
+      diffuse.a);
+}
+</script>
+<!-- ===[ Shark Shader ]============================================== -->
+<script id="sharkVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+uniform float time;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+attribute vec3 tangent;
+attribute vec3 binormal;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+void main() {
+  v_texCoord = texCoord;
+  float mult = position.z > 0.0 ? (position.z / 10.0) : (-position.z / 20.0);  // 10 = radius.
+  float s = sin(time + mult * 3.0);
+  float a = sign(s);
+  float offset = pow(mult, 2.0) * s * 20.0;
+  v_position = (
+      worldViewProjection *
+      (position +
+       vec4(offset, 0, 0, 0)));
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="sharkFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform vec4 lightColor;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform vec4 specular;
+uniform float shininess;
+uniform float specularFactor;
+uniform sampler2D diffuseSampler;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec3 normal = normalize(v_normal);
+  vec4 diffuse = texture2D(
+      diffuseSampler,
+      vec2(v_texCoord.x, normal.y * 0.5 + 0.7));
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  gl_FragColor = vec4((
+                       lightColor * (diffuse * litR.y +
+                                     specular * litR.z * specularFactor)).rgb,
+                      diffuse.a) * 0.3 + diffuse * 0.7;
+}
+</script>
+<!-- ===[ Glass Shader ]============================================== -->
+<script id="glassVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+uniform float normMult;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+attribute vec3 tangent;
+attribute vec3 binormal;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToView;
+void main() {
+  v_texCoord = texCoord;
+  v_position = worldViewProjection * position;
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;
+  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="glassFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToView;
+
+uniform sampler2D bumpSampler;
+uniform samplerCube skybox;
+
+vec4 lerp(vec4 a, vec4 b, float mix) {
+  return a + (b - a) * vec4(mix, mix, mix, mix);
+}
+void main() {
+  mat3 tangentToWorld = mat3(v_tangent,
+                             v_binormal,
+                             v_normal);
+  vec3 tangentNormal = texture2D(bumpSampler, v_texCoord.xy).xyz -
+                                 vec3(0.5, 0.5, 0.5);
+  tangentNormal = normalize(tangentNormal + vec3(0, 0, 20));
+  vec3 normal = (tangentToWorld * tangentNormal);
+  normal = normalize(normal);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec4 skyColor = textureCube(skybox, -reflect(surfaceToView, normal));
+  float waterAmount = 0.2;
+  vec4 waterColor = vec4(0,0.9,1,1);
+  float fudgeAmount = 1.1;
+  vec3 fudge = skyColor.rgb * vec3(fudgeAmount, fudgeAmount, fudgeAmount);
+  float bright = min(1.0, fudge.r * fudge.g * fudge.b);
+  vec4 reflectColor = lerp(vec4(skyColor.rgb, bright), waterColor, waterAmount);
+  float r = abs(dot(surfaceToView, normal));
+  gl_FragColor = lerp(skyColor, reflectColor, r + 0.3);
+}
+</script>
+<!-- ===[ Normal Map Shader ]============================================== -->
+<script id="diffuseVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+void main() {
+  v_texCoord = texCoord;
+  v_position = (worldViewProjection * position);
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="diffuseFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform vec4 lightColor;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform sampler2D diffuse;
+uniform vec4 specular;
+uniform float shininess;
+uniform float specularFactor;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec4 diffuse = texture2D(diffuse, v_texCoord);
+  vec3 normal = normalize(v_normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  gl_FragColor = vec4((
+  lightColor * (diffuse * litR.y +
+                specular * litR.z * specularFactor)).rgb,
+      diffuse.a);
+}
+</script>
+<!-- ===[ Normal Map Shader ]============================================== -->
+<script id="normalMapVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+attribute vec3 tangent;
+attribute vec3 binormal;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+void main() {
+  v_texCoord = texCoord;
+  v_position = (worldViewProjection * position);
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;
+  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="normalMapFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform vec4 lightColor;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform sampler2D diffuse;
+uniform vec4 specular;
+uniform sampler2D normalMap;
+uniform float shininess;
+uniform float specularFactor;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec4 diffuse = texture2D(diffuse, v_texCoord);
+  mat3 tangentToWorld = mat3(v_tangent,
+                             v_binormal,
+                             v_normal);
+  vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);
+  vec3 tangentNormal = normalSpec.xyz -
+                                 vec3(0.5, 0.5, 0.5);
+  vec3 normal = (tangentToWorld * tangentNormal);
+  normal = normalize(normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  gl_FragColor = vec4((
+  lightColor * (diffuse * litR.y +
+                specular * litR.z * specularFactor * normalSpec.a)).rgb,
+      diffuse.a);
+}
+</script>
+<!-- ===[ Normal Map Shader ]============================================== -->
+<script id="reflectionMapVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+attribute vec3 tangent;
+attribute vec3 binormal;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+void main() {
+  v_texCoord = texCoord;
+  v_position = (worldViewProjection * position);
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;
+  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="reflectionMapFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform vec4 lightColor;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform sampler2D diffuse;
+uniform vec4 specular;
+uniform sampler2D normalMap;
+uniform sampler2D reflectionMap;
+uniform samplerCube skybox;
+uniform float shininess;
+uniform float specularFactor;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec4 diffuse = texture2D(diffuse, v_texCoord);
+  mat3 tangentToWorld = mat3(v_tangent,
+                             v_binormal,
+                             v_normal);
+  vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);
+  vec4 reflection = texture2D(reflectionMap, v_texCoord.xy);
+  vec3 tangentNormal = normalSpec.xyz - vec3(0.5, 0.5, 0.5);
+  vec3 normal = (tangentToWorld * tangentNormal);
+  normal = normalize(normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec4 skyColor = textureCube(skybox, -reflect(surfaceToView, normal));
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  gl_FragColor = vec4(mix(
+      skyColor,
+      lightColor * (diffuse * litR.y +
+                    specular * litR.z * specularFactor * normalSpec.a),
+      reflection.r).rgb,
+      diffuse.a);
+}
+</script>
+<!-- ===[ SkyBox ]============================================== -->
+<script id="refractSkyboxVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+varying vec4 v_position;
+
+void main() {
+  v_position = position;
+  gl_Position = position;
+}
+</script>
+<script id="refractSkyboxFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform samplerCube skybox;
+uniform mat4 viewProjectionInverse;
+uniform mat4 viewInverse;
+uniform float tankRadiusSquared;
+uniform float tankRadiusInverse;
+uniform float tankRefractionRatio;
+varying vec4 v_position;
+
+void main() {
+  vec4 fragment = viewProjectionInverse * v_position;
+  fragment /= fragment.w;
+  vec3 viewPosition = viewInverse[3].xyz;
+  vec3 viewDirection = normalize(fragment.xyz - viewPosition);
+
+  // Trace ray from camera to tank cylinder. Start with an infinite cylinder.
+  float a = dot(viewDirection.xz, viewDirection.xz);
+  float b = 2.0 * dot(viewPosition.xz, viewDirection.xz);
+  float c = dot(viewPosition.xz, viewPosition.xz) - tankRadiusSquared;
+  float discriminant = b * b - 4.0 * a * c;
+
+  // If the discrimant is negative then the ray does not collide with the tank.
+  if (discriminant < 0.0) {
+    gl_FragColor = textureCube(skybox, viewDirection);
+  } else {
+    // Calculate the near and far collision times and pick the closest.
+    float sqrtDiscrimant = sqrt(discriminant);
+    float inverse2a = 1.0 / (2.0 * a);
+    float tn = (-b - sqrtDiscrimant) * inverse2a;
+    vec3 nearPosition = viewPosition + tn * viewDirection;
+
+    // The surface normal for the sphere is the intersecting position normalized
+    // by dividing by the radius.
+    vec3 nearSurfaceNormal = normalize(vec3(nearPosition.x, 0, nearPosition.z));
+    vec3 nearRefractedDirection = refract(viewDirection, nearSurfaceNormal, 1.0 / tankRefractionRatio);
+
+    // Trace ray from near intersection to tank cylinder.
+    a = dot(nearRefractedDirection.xz, nearRefractedDirection.xz);
+    b = 2.0 * dot(nearPosition.xz, nearRefractedDirection.xz);
+    c = dot(nearPosition.xz, nearPosition.xz) - tankRadiusSquared;
+    discriminant = b * b - 4.0 * a * c;
+
+    // Assume discriminant is not negative because we should have been tracing
+    // through the cylinder. Calculate near and far collision times and pick
+    // far one. Near one should be approximately zero. TODO: optimization here?
+    sqrtDiscrimant = sqrt(discriminant);
+    inverse2a = 1.0 / (2.0 * a);
+    float tf = (-b + sqrtDiscrimant) * inverse2a;
+    vec3 farPosition = nearPosition + tf * nearRefractedDirection;
+
+    // The surface normal for the sphere is the intersecting position normalized
+    // by dividing by the radius.
+    vec3 farSurfaceNormal = normalize(vec3(farPosition.x, 0, farPosition.z));
+    vec3 farRefractedDirection = refract(nearRefractedDirection, -farSurfaceNormal, tankRefractionRatio);
+
+    vec4 externalColor = textureCube(skybox, farRefractedDirection);
+
+    vec4 murkColor = vec4(0.1, 0.11, 0.1, 1.0);
+    float murkVisibilityDistance = 100.0;
+
+    float murkiness = min(1.0, tf / murkVisibilityDistance);
+
+    gl_FragColor = mix(externalColor, murkColor, murkiness);
+  }
+}
+</script>
+<script id="skyboxVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+varying vec4 v_position;
+void main() {
+  v_position = position;
+  gl_Position = position;
+}
+</script>
+<script id="skyboxFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform samplerCube skybox;
+uniform mat4 viewProjectionInverse;
+varying vec4 v_position;
+void main() {
+  vec4 t = viewProjectionInverse * v_position;
+  gl_FragColor = textureCube(
+      skybox,
+      normalize(t.xyz / t.w));
+}
+</script>
+</html>
+
+
