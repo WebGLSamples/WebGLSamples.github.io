@@ -27,9 +27,9 @@ field.FieldNode = function(minX, minY, minZ, size, blockSize) {
   this.minZ = minZ;
   this.size = size;
   
-  this.midX = this.minX + this.size * 0.5; 
-  this.midY = this.minY + this.size * 0.5; 
-  this.midZ = this.minZ + this.size * 0.5; 
+  this.midX = this.minX + this.size * 0.5;
+  this.midY = this.minY + this.size * 0.5;
+  this.midZ = this.minZ + this.size * 0.5;
 
   this.value = 1.0;
   this.state = field.NodeState.UNIFORM;

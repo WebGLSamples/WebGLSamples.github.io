@@ -122,16 +122,16 @@ function CavesMain() {
     mouseY = y;
   }
   
+  this.onClick = function() {
+    addBall(eyePos[0] + forward[0]*2,
+            eyePos[1] + forward[1]*2,
+            eyePos[2] + forward[2]*2,
+            3.0);
+    cubes.update();
+  }
+  
   this.onKeyDown = function(key) {
     keyDown[key] = true;
-    
-    if (key === 32) {
-      addBall(eyePos[0] + forward[0]*2,
-              eyePos[1] + forward[1]*2,
-              eyePos[2] + forward[2]*2,
-              3.0);
-      cubes.update();
-    }
   }
 
   this.onKeyUp = function(key) {

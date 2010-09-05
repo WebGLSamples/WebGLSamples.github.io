@@ -96,6 +96,12 @@ $(document).mousemove(function(event) {
   }
 })
 
+$(document).click(function(event) {
+  if (caves !== null) {
+    caves.onClick();
+  }
+})
+
 $(document).keydown(function(event) {
   if (caves !== null) {
     caves.onKeyDown(event.which);
