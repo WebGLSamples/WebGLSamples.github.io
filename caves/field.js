@@ -84,7 +84,8 @@ field.FieldNode.prototype.subdivideOrAllocate = function() {
  * @param uniformFunc = function(minX, minY, minZ, size, value)
  *   Called for nodes which have a uniform value.
  *   Parameters correspond to the whole node, not just the intersecting region.
- *   Return true if the node should be subdivided and its children walked.
+ *   Return true if the node should be subdivided and its children walked. If the node is
+ *   already small enough, a buffer will be allocated instead and bufferFunc called.
  * @param bufferFunc = function(minX, minY, minZ, size, array)
  *   Called for leaf nodes which have a buffer.
  *   Parameters correspond to the whole node, not just the intersecting region.
@@ -125,7 +126,7 @@ field.FieldNode.prototype.walkTree = function(uniformFunc, bufferFunc) {
       this.subdivideOrAllocate();
     }
   }
-  // At this point we may have subdivided or allocated, so no 'else'.
+  // At this point we may have subdivided or allocated, so no 'else' - check state again.
   if (this.state === field.NodeState.SUBDIVIDED) {
     for (var i = 0; i < 8; ++i) {
       var child = this.children[i];
