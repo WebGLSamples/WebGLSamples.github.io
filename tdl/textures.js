@@ -55,20 +55,22 @@ tdl.textures.textureDB = {};
  *        makes a 2d texture with that url, passing an array of
  *        urls makes a cubemap, passing an img or canvas makes a 2d texture with
  *        that image.
+ * @param {boolean} opt_flipY Flip the texture in Y?
  */
-tdl.textures.loadTexture = function(arg) {
+tdl.textures.loadTexture = function(arg, opt_flipY) {
   var texture = tdl.textures.textureDB[arg.toString()];
   if (texture) {
     return texture;
   }
   if (typeof arg == 'string') {
-    texture = new tdl.textures.Texture2D(arg);
+    texture = new tdl.textures.Texture2D(arg, opt_flipY);
   } else if (arg.length == 4 && typeof arg[0] == 'number') {
     texture = new tdl.textures.SolidTexture(arg);
-  } else if (arg.length == 6 && typeof arg[0] == 'string') {
+  } else if ((arg.length == 1 || arg.length == 6) &&
+             typeof arg[0] == 'string') {
     texture = new tdl.textures.CubeMap(arg);
   } else if (arg.tagName == 'CANVAS' || arg.tagName == 'IMG') {
-    texture = new tdl.textures.Texture2D(arg);
+    texture = new tdl.textures.Texture2D(arg, opt_flipY);
   } else if (arg.width) {
     texture = new tdl.textures.ColorTexture2D(arg);
   } else {
@@ -149,6 +151,7 @@ tdl.base.inherit(tdl.textures.ColorTexture, tdl.textures.Texture);
 
 tdl.textures.ColorTexture.prototype.uploadTexture = function() {
   gl.bindTexture(gl.TEXTURE_2D, this.texture);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
   gl.texImage2D(
     gl.TEXTURE_2D, 0, this.format, this.data.width, this.data.height,
     0, this.format, this.type, this.data.pixels);
@@ -167,11 +170,10 @@ tdl.textures.ColorTexture.prototype.bindToUnit = function(unit) {
 /**
  * @constructor
  * @param {{string|!Element}} url URL of image to load into texture.
- * @param {*} opt_updateOb Object with update function to call
- *     when texture is updated with image.
  */
-tdl.textures.Texture2D = function(url, opt_updateOb) {
+tdl.textures.Texture2D = function(url, opt_flipY) {
   tdl.textures.Texture.call(this, gl.TEXTURE_2D);
+  this.flipY = opt_flipY || false;
   var that = this;
   var img
   if (typeof url !== 'string') {
@@ -184,7 +186,6 @@ tdl.textures.Texture2D = function(url, opt_updateOb) {
     }
   }
   this.img = img;
-  this.updateOb = opt_updateOb;
   this.uploadTexture();
 
   if (!this.loaded) {
@@ -203,6 +204,7 @@ tdl.textures.Texture2D.prototype.uploadTexture = function() {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   if (this.loaded) {
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, this.flipY);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.img);
     if (tdl.textures.isPowerOf2(this.img.width) &&
         tdl.textures.isPowerOf2(this.img.height)) {
@@ -222,9 +224,6 @@ tdl.textures.Texture2D.prototype.uploadTexture = function() {
 tdl.textures.Texture2D.prototype.updateTexture = function() {
   this.loaded = true;
   this.uploadTexture();
-  if (this.updateOb) {
-    this.updateOb.update();
-  }
 };
 
 tdl.textures.Texture2D.prototype.recoverFromLostContext = function() {
@@ -273,10 +272,8 @@ tdl.base.inherit(tdl.textures.ExternalTexture2D, tdl.textures.ExternalTexture);
  * @param {!Array.<string>} urls The urls of the 6 faces, which
  *     must be in the order positive_x, negative_x positive_y,
  *     negative_y, positive_z, negative_Z
- * @param {*} opt_updateOb Object with update function to call
- *     when images have been uploaded into texture.
  */
-tdl.textures.CubeMap = function(urls, opt_updateOb) {
+tdl.textures.CubeMap = function(urls) {
   tdl.textures.Texture.call(this, gl.TEXTURE_CUBE_MAP);
   // TODO(gman): make this global.
   if (!tdl.textures.CubeMap.faceTargets) {
@@ -287,16 +284,23 @@ tdl.textures.CubeMap = function(urls, opt_updateOb) {
       gl.TEXTURE_CUBE_MAP_NEGATIVE_Y,
       gl.TEXTURE_CUBE_MAP_POSITIVE_Z,
       gl.TEXTURE_CUBE_MAP_NEGATIVE_Z];
+    tdl.textures.CubeMap.offsets = [
+      [0, 1],
+      [2, 1],
+      [1, 0],
+      [1, 2],
+      [1, 1],
+      [3, 1]];
   }
   var faceTargets = tdl.textures.CubeMap.faceTargets;
   gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.texture);
   this.setParameter(gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   this.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   this.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  this.updateOb = opt_updateOb;
   this.faces = [];
+  this.numUrls = urls.length;
   var that = this;
-  for (var ff = 0; ff < faceTargets.length; ++ff) {
+  for (var ff = 0; ff < urls.length; ++ff) {
     var face = { };
     this.faces[ff] = face;
     var img = document.createElement('img');
@@ -314,8 +318,8 @@ tdl.textures.CubeMap = function(urls, opt_updateOb) {
 tdl.base.inherit(tdl.textures.CubeMap, tdl.textures.Texture);
 
 /**
- * Check if all 6 faces are loaded.
- * @return {boolean} true if all 6 faces are loaded.
+ * Check if all faces are loaded.
+ * @return {boolean} true if all faces are loaded.
  */
 tdl.textures.CubeMap.prototype.loaded = function() {
   for (var ff = 0; ff < this.faces.length; ++ff) {
@@ -330,22 +334,43 @@ tdl.textures.CubeMap.prototype.loaded = function() {
  * Uploads the images to the texture.
  */
 tdl.textures.CubeMap.prototype.uploadTextures = function() {
-  var all6FacesLoaded = this.loaded();
+  var allFacesLoaded = this.loaded();
   var faceTargets = tdl.textures.CubeMap.faceTargets;
-  for (var faceIndex = 0; faceIndex < this.faces.length; ++faceIndex) {
-    var face = this.faces[faceIndex];
+  for (var faceIndex = 0; faceIndex < 6; ++faceIndex) {
+    var face = this.faces[Math.min(this.faces.length - 1, faceIndex)];
     var target = faceTargets[faceIndex];
     gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.texture);
-    if (all6FacesLoaded) {
-      gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, face.img);
+    if (allFacesLoaded) {
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      if (this.faces.length == 6) {
+        gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, face.img);
+      } else {
+        var canvas = document.createElement('canvas');
+        var width = face.img.width / 4;
+        var height = face.img.height / 3;
+        canvas.width = width;
+        canvas.height = height;
+        var ctx = canvas.getContext("2d");
+        var sx = tdl.textures.CubeMap.offsets[faceIndex][0] * width;
+        var sy = tdl.textures.CubeMap.offsets[faceIndex][1] * height;
+        ctx.drawImage(face.img, sx, sy, width, height, 0, 0, width, height);
+        gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+      }
     } else {
       var pixel = new Uint8Array([100,100,255,255]);
       gl.texImage2D(target, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
     }
   }
   var faceImg = this.faces[0].img;
-  if (tdl.textures.isPowerOf2(faceImg.width) &&
-      tdl.textures.isPowerOf2(faceImg.height)) {
+  var genMips = false;
+  if (this.faces.length == 6) {
+    genMips = tdl.textures.isPowerOf2(faceImg.width) &&
+              tdl.textures.isPowerOf2(faceImg.height);
+  } else {
+    genMips = tdl.textures.isPowerOf2(faceImg.width / 4) &&
+              tdl.textures.isPowerOf2(faceImg.height / 3);
+  }
+  if (genMips) {
     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
     this.setParameter(gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
   } else {
@@ -373,9 +398,6 @@ tdl.textures.CubeMap.prototype.updateTexture = function(faceIndex) {
   var loaded = this.loaded();
   if (loaded) {
     this.uploadTextures();
-    if (this.updateOb) {
-      this.updateOb.update();
-    }
   }
 };
 

@@ -13,7 +13,7 @@ function reportNoWebGLSupport() {
   $("#header").after(
       '<div class="ui-state-error ui-widget" style="margin: 1em auto; text-align: center"> \
         Your browser does not support WebGL (or it is disabled). <br> \
-        See <a href="http://khronos.org/webgl/wiki/Getting_a_WebGL_Implementation">WebGL wiki</a> for details. \
+        See <a href="http://get.webgl.org">http://get.webgl.org</a> for details. \
       </div>');
 };
 
@@ -44,13 +44,13 @@ function setupWebGL() {
 
   try {
     gl = tdl.webgl.create3DContext(canvas);
-    if (!gl) {
-      return false;
-    }
   } catch(e) {
+  };
+
+  if (!gl) {
     reportNoWebGLSupport();
     return false;
-  };
+  }
 
   return true;
 };

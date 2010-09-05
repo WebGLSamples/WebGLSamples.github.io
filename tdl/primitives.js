@@ -50,15 +50,23 @@ tdl.primitives = tdl.primitives || {};
  *
  * @param {number} numComponents Number of components per
  *     vector.
- * @param {number} numElements Number of vectors.
+ * @param {number|!Array.<number>} numElements Number of vectors or the data.
  * @param {string} opt_type The type of the TypedArray to
  *     create. Default = 'Float32Array'.
+ * @param {!Array.<number>} opt_data The data for the array.
  */
-tdl.primitives.AttribBuffer = function(numComponents, numElements, opt_type) {
+tdl.primitives.AttribBuffer = function(
+    numComponents, numElements, opt_type) {
   opt_type = opt_type || 'Float32Array';
   var type = window[opt_type];
-  this.buffer = new type(numComponents * numElements);
-  this.cursor = 0;
+  if (numElements.length) {
+    this.buffer = new type(numElements);
+    numElements = this.buffer.length / numComponents;
+    this.cursor = numElements;
+  } else {
+    this.buffer = new type(numComponents * numElements);
+    this.cursor = 0;
+  }
   this.numComponents = numComponents;
   this.numElements = numElements;
   this.type = opt_type;
