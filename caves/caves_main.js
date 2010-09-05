@@ -14,8 +14,8 @@ function CavesMain() {
   //m4.scaling(world, [0.7, 0.7, 0.7]);
   //m4.translate(world, [-16, -16, -16]);
   
-  var size = 32;
-  var tree = new field.FieldNode(0, 0, 0, size, 8);
+  var size = 64;
+  var tree = new field.FieldNode(0, 0, 0, size, 16);
 
   var cubes = new MarchingCubes(tree);
 
@@ -71,11 +71,11 @@ function CavesMain() {
   }
   
   var radius = 7.0;
-  for (var i = 0; i < 6; ++i) {
+  for (var i = 0; i < 25; ++i) {
     function randm11() { return Math.random() * 2 - 1; }
-    var ballx = randm11() * 16 + 16;
-    var bally = randm11() * 16 + 16;
-    var ballz = randm11() * 16 + 16;
+    var ballx = randm11() * size/4 + size/2;
+    var bally = randm11() * size/4 + size/2;
+    var ballz = randm11() * size/4 + size/2;
     addBall(ballx, bally, ballz, radius);
   }
   cubes.update();
