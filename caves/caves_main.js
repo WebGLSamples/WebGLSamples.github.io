@@ -1,11 +1,16 @@
 
 
+function randm11() { return Math.random() * 2 - 1; }
+
+// Implicit Euler integration of x decaying exponentially towards target.
+function decayTo(x, target, dt) { return target + (x - target) / (1 + dt); }
+
 function CavesMain() {
   var proj = new Float32Array(16);
   var view = new Float32Array(16);
   var world = new Float32Array(16);
 
-  var keyDown = [];
+  var keyDown = [], mouseDown = [];
 
   var m4 = tdl.fast.matrix4;
 
@@ -14,33 +19,42 @@ function CavesMain() {
   //m4.scaling(world, [0.7, 0.7, 0.7]);
   //m4.translate(world, [-16, -16, -16]);
   
-  var size = 64;
-  var tree = new field.FieldNode(0, 0, 0, size, 16);
+  var size = 96;
+  var tree = new field.FieldNode(0, 0, 0, size, 24+1);
 
   var cubes = new MarchingCubes(tree);
 
-  var eyePos = [size/2,size/2,size/2];
+  var eyePos = new Float32Array([size/2,size/2,size*1.2]);
+  var eyePosVel = new Float32Array([0, 0, 0]);
   var eyeRotTheta = 0, eyeRotPhi = Math.PI/2;
-  var forward = [20, 0, 0];
+
+  var forward = new Float32Array([20, 0, 0]);
+  var left = new Float32Array(3);
   var up = new Float32Array([0, 0, 1]);
   
   var time = 0;
   
   var mouseX = 0, mouseY = 0;
+  var laserDist = 0, nextCutDist = 0;
 
   function addBall(ballx, bally, ballz, radius) {
-    var min_x = Math.max(Math.floor(ballx - radius), 0);
+    var min_x = Math.max(Math.floor(ballx - radius), 1);
     var max_x = Math.min(Math.ceil(ballx + radius), size);
-    var min_y = Math.max(Math.floor(bally - radius), 0);
+    var min_y = Math.max(Math.floor(bally - radius), 1);
     var max_y = Math.min(Math.ceil(bally + radius), size);
-    var min_z = Math.max(Math.floor(ballz - radius), 0);
+    var min_z = Math.max(Math.floor(ballz - radius), 1);
     var max_z = Math.min(Math.ceil(ballz + radius), size);
-    function uniform(minNodeX, minNodeY, minNodeZ, nodeSize, value) {
+    function uniform(node) {
       // TODO: intersect sphere with cube to avoid unnecessary splits.
       // TODO: allow 'set value' response for interior cubes.
       return true;  // 'Please subdivide this node.'
     }
-    function buffer(minNodeX, minNodeY, minNodeZ, nodeSize, array) {
+    function buffer(node) {
+      var minNodeX = node.minX;
+      var minNodeY = node.minY;
+      var minNodeZ = node.minZ;
+      var nodeSize = node.blockSize;
+      var array = node.buffer;
       // Get mins and maxes in node space.
       var min2_x = Math.max(min_x - minNodeX, 0);
       var max2_x = Math.min(max_x - minNodeX, nodeSize);
@@ -65,14 +79,48 @@ function CavesMain() {
           }
         }
       }
+      if (min2_x < max2_x && min2_y < max2_y && min2_z < max2_z) {
+        node.dirty = true;
+      }
     }
     tree.walkSubTree(min_x, max_x, min_y, max_y, min_z, max_z, uniform, buffer);
     //tree.walkTree(uniform, buffer);
   }
   
+  function addFloor(min_z) {
+    function uniform(node) {
+      return (node.minZ + node.size >= min_z);
+    }
+    function buffer(node) {
+      var minNodeZ = node.minZ;
+      var nodeSize = node.blockSize;
+      var array = node.buffer;
+      // Get mins and maxes in node space.
+      var min2_x = 0;
+      var max2_x = nodeSize;
+      var min2_y = 0;
+      var max2_y = nodeSize;
+      var min2_z = Math.max(min_z - minNodeZ, 0);
+      var max2_z = nodeSize;
+      for (var z = min2_z; z < max2_z; ++z) {
+        var z_offset = nodeSize * nodeSize * z;
+        for (var y = min2_y; y < max2_y; ++y) {
+          var y_offset = z_offset + nodeSize * y;
+          for (var x = min2_x; x < max2_x; ++x) {
+            array[y_offset + x] = 0;
+          }
+        }
+      }
+      if (min2_z < max2_z) {
+        node.dirty = true;
+      }
+    }
+    tree.walkSubTree(0, size, 0, size, min_z, size, uniform, buffer);
+  }
+
+  addFloor(size - 0);
   var radius = 7.0;
   for (var i = 0; i < 25; ++i) {
-    function randm11() { return Math.random() * 2 - 1; }
     var ballx = randm11() * size/4 + size/2;
     var bally = randm11() * size/4 + size/2;
     var ballz = randm11() * size/4 + size/2;
@@ -86,10 +134,10 @@ function CavesMain() {
     var orbit = 1.1;
     //eyePos = new Float32Array([Math.cos(time)*orbit, Math.sin(time)*orbit, 0.3]);
     var mvX, mvY;
-    mvX = Math.min(Math.max(mouseX - 400, -400), 400);
-    mvY = Math.min(Math.max(mouseY - 400, -400), 400);
-    mvX = Math.pow(mvX / 100, 3);
-    mvY = Math.pow(mvY / 100, 3);
+    mvX = Math.min(Math.max(mouseX - 512, -200), 200);
+    mvY = Math.min(Math.max(mouseY - 256, -200), 200);
+    mvX = Math.pow(mvX / 60, 3);
+    mvY = Math.pow(mvY / 60, 3);
     eyeRotTheta = (eyeRotTheta - mvX * time_delta * 0.1) % (Math.PI * 2);
     eyeRotPhi += mvY * time_delta * 0.1;
     eyeRotPhi = Math.min(Math.max(eyeRotPhi, 0.1), Math.PI-0.1);
@@ -97,24 +145,54 @@ function CavesMain() {
     forward = [Math.cos(eyeRotTheta)*Math.sin(eyeRotPhi),
                Math.sin(eyeRotTheta)*Math.sin(eyeRotPhi),
                Math.cos(eyeRotPhi)];
+    left = [-Math.sin(eyeRotTheta),
+            Math.cos(eyeRotTheta),
+            0];
     
-    var movement = time_delta * 9;
-    var moveForward = 0, moveLeft = 0;
-    if (keyDown[87]) {
+    var movement = 10;
+    var decayRate = 20 * time_delta;
+    var moveForward = 0, moveLeft = 0, moveUp = 0;
+    if (keyDown[16]) {  // Shift
+      movement = 20;
+    }
+    if (keyDown[87]) {  // W
       moveForward = movement;
     }
-    if (keyDown[83]) {
+    if (keyDown[83]) {  // S
       moveForward = -movement;
     }
-    if (keyDown[65]) {
+    if (keyDown[65]) {  // A
       moveLeft = movement;
     }
-    if (keyDown[68]) {
+    if (keyDown[68]) {  // D
       moveLeft = -movement;
     }
-    eyePos[0] += forward[0] * moveForward - forward[1] * moveLeft;
-    eyePos[1] += forward[1] * moveForward + forward[0] * moveLeft;
-    eyePos[2] += forward[2] * moveForward;
+    if (keyDown[32]) {  // Space
+      moveUp = movement;
+    }
+    eyePosVel[0] = decayTo(eyePosVel[0], forward[0] * moveForward + left[0] * moveLeft + up[0] * moveUp, decayRate);
+    eyePosVel[1] = decayTo(eyePosVel[1], forward[1] * moveForward + left[1] * moveLeft + up[1] * moveUp, decayRate);
+    eyePosVel[2] = decayTo(eyePosVel[2], forward[2] * moveForward + left[2] * moveLeft + up[2] * moveUp, decayRate);
+    eyePos[0] += eyePosVel[0] * time_delta;
+    eyePos[1] += eyePosVel[1] * time_delta;
+    eyePos[2] += eyePosVel[2] * time_delta;
+    
+    if (mouseDown[1]) {
+      var needUpdate = false;
+      for (laserDist += time_delta * 15; nextCutDist <= laserDist; nextCutDist += 0.8) {
+        needUpdate = true;
+        addBall(eyePos[0] + forward[0]*nextCutDist + randm11() * 1.0,
+                eyePos[1] + forward[1]*nextCutDist + randm11() * 1.0,
+                eyePos[2] + forward[2]*nextCutDist + randm11() * 1.0,
+                4.0 + randm11() * 1.0);
+      }
+      if (needUpdate) {
+        cubes.update();
+      }
+    } else {
+      laserDist = 0;
+      nextCutDist = 0;
+    }
   }
   
   this.onMouseMove = function(x, y) {
@@ -122,15 +200,16 @@ function CavesMain() {
     mouseY = y;
   }
   
-  this.onClick = function() {
-    addBall(eyePos[0] + forward[0]*2,
-            eyePos[1] + forward[1]*2,
-            eyePos[2] + forward[2]*2,
-            3.0);
-    cubes.update();
+  this.onMouseDown = function(button) {
+    mouseDown[button] = true;
+  }
+  
+  this.onMouseUp = function(button) {
+    mouseDown[button] = false;
   }
   
   this.onKeyDown = function(key) {
+    //console.log(''+key);
     keyDown[key] = true;
   }
 
@@ -142,7 +221,7 @@ function CavesMain() {
     var target = tdl.math.addVector(eyePos, forward);
 	  m4.lookAt(view, eyePos, target, up);
 
-    gl.clearColor(0.0,0.0,0.2,1);
+    gl.clearColor(0.4,0.6,0.8,1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);

@@ -96,9 +96,15 @@ $(document).mousemove(function(event) {
   }
 })
 
-$(document).click(function(event) {
+$(document).mousedown(function(event) {
   if (caves !== null) {
-    caves.onClick();
+    caves.onMouseDown(event.which);
+  }
+})
+
+$(document).mouseup(function(event) {
+  if (caves !== null) {
+    caves.onMouseUp(event.which);
   }
 })
 
@@ -119,7 +125,7 @@ $(document).keyup(function(event) {
 </head>
 
 <body>
-<center><canvas id="render_area" width="1024" height="512"></canvas></center>
+<canvas id="render_area" width="1024" height="512"></canvas>
 </body>
 
 <script id="marching_cube_fs" type="x-shader/x-fragment">

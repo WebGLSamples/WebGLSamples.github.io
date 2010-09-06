@@ -14,7 +14,7 @@ function MarchingCubes(tree) {
 
   // Size of field.
   var size = tree.size;
-  var blockSize = tree.blockSize + 1;
+  var blockSize = tree.blockSize;
   // Deltas
   var delta = 1.0;
   var yd = blockSize;
@@ -68,15 +68,14 @@ function MarchingCubes(tree) {
   }
   function compNorm(q, field) {
     if (normal_cache[q*3] == 0.0) {
-      normal_cache[q*3    ] = field[q>=1  ? q-1  : q] - field[q<blockSize3-1  ? q+1  : q];
-      normal_cache[q*3 + 1] = field[q>=yd ? q-yd : q] - field[q<blockSize3-yd ? q+yd : q];
-      normal_cache[q*3 + 2] = field[q>=zd ? q-zd : q] - field[q<blockSize3-zd ? q+zd : q];
+      // If we clip to an edge and only diff across 1 unit, double the value in that axis.
+      var dX = 0.5, dY = 0.5, dZ = 0.5;
+      normal_cache[q*3    ] = (field[q>=1  ? q-1  : (dX=1, q)] - field[q<blockSize3-1  ? q+1  : (dX=1, q)]) * dX;
+      normal_cache[q*3 + 1] = (field[q>=yd ? q-yd : (dY=1, q)] - field[q<blockSize3-yd ? q+yd : (dY=1, q)]) * dY;
+      normal_cache[q*3 + 2] = (field[q>=zd ? q-zd : (dZ=1, q)] - field[q<blockSize3-zd ? q+zd : (dZ=1, q)]) * dZ;
     }
   }
 
-  // Returns total number of triangles. Fills triangles.
-  // TODO: Optimize to death, add normal calculations so that we can run
-  // proper lighting shaders on the results.
   function polygonize(fx, fy, fz, q, isol, field) {
     var cubeindex = 0;
     var field0 = field[q];
@@ -104,23 +103,6 @@ function MarchingCubes(tree) {
     var d = delta;
     var fx2 = fx + d, fy2 = fy + d, fz2 = fz + d;
 
-    /*
-    // Top of the cube
-    if (bits & 1)    {VIntX(q*3,      vlist, 0, isol, fx,  fy,  fz, field0, field1); }
-    if (bits & 2)    {VIntY((q+1)*3,  vlist, 3, isol, fx2, fy,  fz, field1, field3); }
-    if (bits & 4)    {VIntX((q+yd)*3, vlist, 6, isol, fx,  fy2, fz, field2, field3); }
-    if (bits & 8)    {VIntY(q*3,      vlist, 9, isol, fx,  fy,  fz, field0, field2); }
-    // Bottom of the cube
-    if (bits & 16)   {VIntX((q+zd)*3,    vlist, 12, isol, fx,  fy,  fz2, field4, field5); }
-    if (bits & 32)   {VIntY((q+1+zd)*3,  vlist, 15, isol, fx2, fy,  fz2, field5, field7); }
-    if (bits & 64)   {VIntX((q+yd+zd)*3, vlist, 18, isol, fx,  fy2, fz2, field6, field7); }
-    if (bits & 128)  {VIntY((q+zd)*3,    vlist, 21, isol, fx,  fy,  fz2, field4, field6); }
-    // Vertical lines of the cube
-    if (bits & 256)  {VIntZ(q*3,        vlist, 24, isol, fx,  fy,  fz, field0, field4); }
-    if (bits & 512)  {VIntZ((q+1)*3,    vlist, 27, isol, fx2, fy,  fz, field1, field5); }
-    if (bits & 1024) {VIntZ((q+1+yd)*3, vlist, 30, isol, fx2, fy2, fz, field3, field7); }
-    if (bits & 2048) {VIntZ((q+yd)*3,   vlist, 33, isol, fx,  fy2, fz, field2, field6); }
-    */
     // Top of the cube
     if (bits & 1)    {compNorm(q, field);       compNorm(q+1, field);       VIntX(q*3,      vlist, nlist, 0, isol, fx,  fy,  fz, field0, field1); }
     if (bits & 2)    {compNorm(q+1, field);     compNorm(q+1+yd, field);    VIntY((q+1)*3,  vlist, nlist, 3, isol, fx2, fy,  fz, field1, field3); }
@@ -146,47 +128,50 @@ function MarchingCubes(tree) {
     }
   }
 
-  function createGeometry(isol) {
-    function uniform(minNodeX, minNodeY, minNodeZ, nodeSize, value) {
+  function updateGeometry(isol) {
+    function uniform(node) {
       return false;  // Don't subdivide.
     }
-    function buffer(minNodeX, minNodeY, minNodeZ, nodeSize, array) {
-      wipeNormalCache();
-      dlist.begin();
-      for (var z = 0; z < nodeSize - 1; ++z) {
-        var z_offset = nodeSize * nodeSize * z;
-        var fz = minNodeZ + z;
-        for (var y = 0; y < nodeSize - 1; ++y) {
-          var y_offset = z_offset + nodeSize * y;
-          var fy = minNodeY + y;
-          for (var x = 0; x < nodeSize - 1; ++x) {
-            var fx = minNodeX + x;
-            var q = y_offset + x;
-            polygonize(fx, fy, fz, q, isol, array);
+    function buffer(node) {
+      if (node.dirty) {
+        node.dirty = false;
+        var minNodeX = node.minX;
+        var minNodeY = node.minY;
+        var minNodeZ = node.minZ;
+        var nodeSize = node.blockSize;
+        var array = node.buffer;
+        wipeNormalCache();
+        dlist.begin();
+        for (var z = 0; z < nodeSize - 1; ++z) {
+          var z_offset = nodeSize * nodeSize * z;
+          var fz = minNodeZ + z;
+          for (var y = 0; y < nodeSize - 1; ++y) {
+            var y_offset = z_offset + nodeSize * y;
+            var fy = minNodeY + y;
+            for (var x = 0; x < nodeSize - 1; ++x) {
+              var fx = minNodeX + x;
+              var q = y_offset + x;
+              polygonize(fx, fy, fz, q, isol, array);
+            }
           }
         }
+        var modelArrays = dlist.end();
+        var key = minNodeX + ':' + minNodeY + ':' + minNodeZ;
+        modelMap[key] = new tdl.models.Model(program, modelArrays, textures);
       }
-      var modelArrays = dlist.end();
-      var key = minNodeX + ':' + minNodeY + ':' + minNodeZ;
-      modelMap[key] = new tdl.models.Model(program, modelArrays, textures);
     }
     tree.walkTree(uniform, buffer);
   }
 
   this.update = function() {
     var isol = 0.5;
-    createGeometry(isol);
+    updateGeometry(isol);
   }
 
   this.render = function(framebuffer, world, view, proj) {
     m4.mul(viewproj, view, proj);
     m4.mul(worldview, world, view);
     m4.mul(worldviewproj, world, viewproj);
-
-    gl.clearColor(0.0,0.0,0.2,1);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.CULL_FACE);
 
     var uniformsConst = {
       u_worldviewproj: worldviewproj,

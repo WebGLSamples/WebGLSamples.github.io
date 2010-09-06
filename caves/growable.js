@@ -4,7 +4,7 @@
 
 Growable = function(opt_type, opt_startsize) {
   opt_type = opt_type || 'Float32Array';
-  opt_startsize = opt_startsize || 1000;
+  opt_startsize = opt_startsize || 10000;
   var type = window[opt_type];
   this.buffer = new type(opt_startsize);
   this.type = opt_type;

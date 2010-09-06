@@ -47,21 +47,21 @@ field.FieldNode = function(minX, minY, minZ, size, blockSize) {
 field.FieldNode.prototype.subdivideOrAllocate = function() {
   if (this.size > this.blockSize) {
     this.state = field.NodeState.SUBDIVIDED;
-    var halfSize = this.size / 2;
     var blockSize = this.blockSize;
+    var halfSize = this.size / 2;
     this.children = [];
-    this.children[0] = new field.FieldNode(this.minX,            this.minY,            this.minZ,            halfSize, blockSize);
-    this.children[1] = new field.FieldNode(this.minX + halfSize, this.minY,            this.minZ,            halfSize, blockSize);
-    this.children[2] = new field.FieldNode(this.minX,            this.minY + halfSize, this.minZ,            halfSize, blockSize);
-    this.children[3] = new field.FieldNode(this.minX + halfSize, this.minY + halfSize, this.minZ,            halfSize, blockSize);
-    this.children[4] = new field.FieldNode(this.minX,            this.minY,            this.minZ + halfSize, halfSize, blockSize);
-    this.children[5] = new field.FieldNode(this.minX + halfSize, this.minY,            this.minZ + halfSize, halfSize, blockSize);
-    this.children[6] = new field.FieldNode(this.minX,            this.minY + halfSize, this.minZ + halfSize, halfSize, blockSize);
-    this.children[7] = new field.FieldNode(this.minX + halfSize, this.minY + halfSize, this.minZ + halfSize, halfSize, blockSize);
+    this.children[0] = new field.FieldNode(this.minX, this.minY, this.minZ, halfSize, blockSize);
+    this.children[1] = new field.FieldNode(this.midX, this.minY, this.minZ, halfSize, blockSize);
+    this.children[2] = new field.FieldNode(this.minX, this.midY, this.minZ, halfSize, blockSize);
+    this.children[3] = new field.FieldNode(this.midX, this.midY, this.minZ, halfSize, blockSize);
+    this.children[4] = new field.FieldNode(this.minX, this.minY, this.midZ, halfSize, blockSize);
+    this.children[5] = new field.FieldNode(this.midX, this.minY, this.midZ, halfSize, blockSize);
+    this.children[6] = new field.FieldNode(this.minX, this.midY, this.midZ, halfSize, blockSize);
+    this.children[7] = new field.FieldNode(this.midX, this.midY, this.midZ, halfSize, blockSize);
   } else {
     // We're already minimum size. Allocate a buffer.
     this.state = field.NodeState.ALLOCATED;
-    var size = this.size + 1;
+    var size = this.blockSize;
     size = size * size * size;
     var buffer = new Float32Array(size);
     for (var i = 0; i < size; ++i) {
@@ -81,23 +81,23 @@ field.FieldNode.prototype.subdivideOrAllocate = function() {
  * Callback functions are called on leaf nodes: fieldFunc if subdivided, otherwise uniformFunc.
  * Operations on the field must be deterministic! (because of node overlap)
  * 
- * @param uniformFunc = function(minX, minY, minZ, size, value)
+ * @param uniformFunc = function(node)
  *   Called for nodes which have a uniform value.
  *   Parameters correspond to the whole node, not just the intersecting region.
  *   Return true if the node should be subdivided and its children walked. If the node is
  *   already small enough, a buffer will be allocated instead and bufferFunc called.
- * @param bufferFunc = function(minX, minY, minZ, size, array)
+ * @param bufferFunc = function(node)
  *   Called for leaf nodes which have a buffer.
- *   Parameters correspond to the whole node, not just the intersecting region.
+ *   node is the current FieldNode.
  *   array is a Float32Array(size^3).
  */
 field.FieldNode.prototype.walkSubTree = function(minX, maxX, minY, maxY, minZ, maxZ, uniformFunc, bufferFunc) {
   if (this.state === field.NodeState.UNIFORM) {
-    if (uniformFunc(this.minX, this.minY, this.minZ, this.size, this.value)) {
+    if (uniformFunc(this)) {
       this.subdivideOrAllocate();
     }
   }
-  // At this point we may have subdivided or allocated, so no 'else'.
+  // At this point we may have subdivided or allocated, so no 'else' - check state again.
   if (this.state === field.NodeState.SUBDIVIDED) {
     for (var i = 0; i < 8; ++i) {
       var child = this.children[i];
@@ -113,7 +113,7 @@ field.FieldNode.prototype.walkSubTree = function(minX, maxX, minY, maxY, minZ, m
       }
     }
   } else if (this.state === field.NodeState.ALLOCATED) {
-    bufferFunc(this.minX, this.minY, this.minZ, this.size + 1, this.buffer);
+    bufferFunc(this);
   }
 }
 
@@ -122,7 +122,7 @@ field.FieldNode.prototype.walkSubTree = function(minX, maxX, minY, maxY, minZ, m
  */
 field.FieldNode.prototype.walkTree = function(uniformFunc, bufferFunc) {
   if (this.state === field.NodeState.UNIFORM) {
-    if (uniformFunc(this.minX, this.minY, this.minZ, this.size, this.value)) {
+    if (uniformFunc(this)) {
       this.subdivideOrAllocate();
     }
   }
@@ -133,6 +133,6 @@ field.FieldNode.prototype.walkTree = function(uniformFunc, bufferFunc) {
       child.walkTree(uniformFunc, bufferFunc);
     }
   } else if (this.state === field.NodeState.ALLOCATED) {
-    bufferFunc(this.minX, this.minY, this.minZ, this.size + 1, this.buffer);
+    bufferFunc(this);
   }
 }
