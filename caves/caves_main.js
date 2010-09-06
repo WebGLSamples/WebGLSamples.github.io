@@ -142,12 +142,11 @@ function CavesMain() {
     eyeRotPhi += mvY * time_delta * 0.1;
     eyeRotPhi = Math.min(Math.max(eyeRotPhi, 0.1), Math.PI-0.1);
     
-    forward = [Math.cos(eyeRotTheta)*Math.sin(eyeRotPhi),
-               Math.sin(eyeRotTheta)*Math.sin(eyeRotPhi),
-               Math.cos(eyeRotPhi)];
-    left = [-Math.sin(eyeRotTheta),
-            Math.cos(eyeRotTheta),
-            0];
+    forward[0] = Math.cos(eyeRotTheta) * Math.sin(eyeRotPhi);
+    forward[1] = Math.sin(eyeRotTheta) * Math.sin(eyeRotPhi);
+    forward[2] = Math.cos(eyeRotPhi);
+    left[0] = -Math.sin(eyeRotTheta);
+    left[1] = Math.cos(eyeRotTheta);
     
     var movement = 10;
     var decayRate = 20 * time_delta;
