@@ -364,7 +364,7 @@ def ConvertColladaToModelJS(
     if not builder.VerifyExists([output_file]):
       raise RuntimeError("Failed to build: %s" % output_file)
 
-def MatMult(a, b):
+def MatMult(b, a):
   """multiply 2 4x4 matrices"""
   a00 = a[0*4+0]
   a01 = a[0*4+1]
