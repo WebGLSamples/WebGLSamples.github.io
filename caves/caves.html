@@ -1,0 +1,195 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>WebGL Caves Demo</title>
+<style>
+html, body {
+  width: 100%;
+  height: 100%;
+  border: 0px;
+  padding: 0px;
+  margin: 0px;
+  background-color: grey;
+}
+canvas#render_area {
+  background-color: red;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
+<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript" src="growable.js"></script>
+<script type="text/javascript" src="field.js"></script>
+<script type="text/javascript" src="display_list.js"></script>
+<script type="text/javascript" src="marching_cubes_tables.js"></script>
+<script type="text/javascript" src="marching_cubes.js"></script>
+<script type="text/javascript" src="caves_main.js"></script>
+<script type="text/javascript">
+
+tdl.require('tdl.fast');
+tdl.require('tdl.math');
+tdl.require('tdl.primitives');
+tdl.require('tdl.shader');
+tdl.require('tdl.programs');
+tdl.require('tdl.log');
+tdl.require('tdl.models');
+tdl.require('tdl.buffers');
+tdl.require('tdl.framebuffers');
+tdl.require('tdl.textures');
+tdl.require('tdl.webgl');
+
+// Util functions
+function createProgramFromTags(vertexTagId, fragmentTagId) {
+  return tdl.programs.loadProgram(
+      document.getElementById(vertexTagId).text,
+      document.getElementById(fragmentTagId).text);
+}
+
+var gl;
+var canvas;
+var aspect;
+
+// Use this to refer to the backbuffer as if it were another framebuffer
+var backbuffer;
+
+function initializeGraphics() {
+  canvas = document.getElementById('render_area');
+  gl = tdl.webgl.create3DContext(canvas);
+//  gl = tdl.webgl.makeDebugContext(wu.create3DContext(canvas));
+  aspect = canvas.clientWidth / canvas.clientHeight;
+  backbuffer = tdl.framebuffers.getBackBuffer(canvas);
+
+  // Set some sane defaults.
+  gl.disable(gl.BLEND);
+  gl.depthFunc(gl.LEQUAL);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+}
+
+var caves = null;
+
+$(document).ready(function() {
+  initializeGraphics();
+
+  caves = new CavesMain();
+
+  var time_then = (new Date()).getTime() * 0.001;
+
+  function render() {
+    var time_now = (new Date()).getTime() * 0.001;
+    var time_delta = time_now - time_then;
+    time_then = time_now;
+
+    caves.tick(time_delta);
+    caves.render(backbuffer);
+
+	  setTimeout(render, 20);
+	}
+
+  setTimeout(render, 20);
+})
+
+$(document).mousemove(function(event) {
+  if (caves !== null) {
+    caves.onMouseMove(event.pageX, event.pageY);
+  }
+})
+
+$(document).mousedown(function(event) {
+  if (caves !== null) {
+    caves.onMouseDown(event.which);
+  }
+})
+
+$(document).mouseup(function(event) {
+  if (caves !== null) {
+    caves.onMouseUp(event.which);
+  }
+})
+
+$(document).keydown(function(event) {
+  if (caves !== null) {
+    caves.onKeyDown(event.which);
+  }
+})
+
+$(document).keyup(function(event) {
+  if (caves !== null) {
+    caves.onKeyUp(event.which);
+  }
+})
+
+</script>
+
+</head>
+
+<body>
+<canvas id="render_area" width="1024" height="512"></canvas><br />
+Move with W,S,A,D. Shift to increase speed.<br />
+Hold left mouse button to carve.
+</body>
+
+<script id="marching_cube_fs" type="x-shader/x-fragment">
+  #ifdef GL_ES
+  precision highp float;
+  #endif
+
+  uniform vec4 u_ambientUp;
+  uniform vec4 u_ambientDown;
+  uniform vec3 u_lightDir;
+  uniform vec4 u_lightColor;
+  uniform sampler2D diffuseSamplerWall;
+  uniform sampler2D diffuseSamplerFloor;
+
+  varying vec3 v_worldPos;
+  //varying vec4 v_color;
+  varying vec3 v_normal;
+  varying vec3 v_eyeDir;
+
+  void main(void) {
+    vec4 diffuseX = texture2D(diffuseSamplerWall, vec2(v_worldPos.y, v_worldPos.z) * 0.1);
+    vec4 diffuseY = texture2D(diffuseSamplerWall, vec2(v_worldPos.z, v_worldPos.x) * 0.1);
+    vec4 diffuseZ = texture2D(diffuseSamplerFloor, vec2(v_worldPos.x, v_worldPos.y) * 0.1);
+    vec3 normal = normalize(v_normal);
+    vec3 diff_blend = normal * normal;
+    vec4 diffuse = diffuseX * diff_blend.x + diffuseY * diff_blend.y + diffuseZ * diff_blend.z;
+    float light = max(0.0, dot(normalize(u_lightDir), normal));
+    float glare = max(0.0, dot(v_normal, normalize(v_eyeDir + u_lightDir)));
+    glare = glare*glare;
+    glare = glare*glare;
+    glare = glare*glare;
+    glare = glare*glare;
+    glare = glare*glare;
+    glare = glare*glare;
+    vec4 ambient = mix(u_ambientDown, u_ambientUp, (normal.z + 1.0)/2.0);
+    // Gamma correction approximation (sqrt)
+    gl_FragColor = vec4((sqrt(ambient + light * u_lightColor) * diffuse).xyz, 1.0);
+  }
+</script>
+
+<script id="marching_cube_vs" type="x-shader/x-vertex">
+  attribute vec3 position;
+  attribute vec3 normal;
+  attribute vec2 texCoord;
+
+  uniform mat4 u_worldviewproj;
+  uniform mat4 u_worldview;
+  uniform mat4 u_world;
+
+  varying vec3 v_worldPos;
+  //varying vec4 v_color;
+  varying vec3 v_normal;
+  varying vec3 v_eyeDir;
+
+  void main(void) {
+    //v_color = vec4(position.x + 0.5, position.y + 0.5, position.z + 0.5, 1.0);
+    v_normal = (u_world * vec4(normal, 0.0)).xyz;
+    //v_normal = vec3(0.0, 0.0, 1.0);
+    v_eyeDir = -normalize((u_worldview * vec4(position, 1.0)).xyz);
+    v_worldPos = position;
+    gl_Position = u_worldviewproj * vec4(position, 1.0);
+  }
+</script>
+
+</html>
