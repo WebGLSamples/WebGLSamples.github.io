@@ -10,7 +10,7 @@ html, body {
   border: 0px;
   padding: 0px;
   margin: 0px;
-  background-color: black;
+  background-color: grey;
 }
 canvas#render_area {
   background-color: red;
@@ -125,7 +125,9 @@ $(document).keyup(function(event) {
 </head>
 
 <body>
-<canvas id="render_area" width="1024" height="512"></canvas>
+<canvas id="render_area" width="1024" height="512"></canvas><br />
+Move with W,S,A,D. Shift to increase speed.<br />
+Hold left mouse button to carve.
 </body>
 
 <script id="marching_cube_fs" type="x-shader/x-fragment">

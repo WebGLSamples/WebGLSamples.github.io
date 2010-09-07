@@ -24,7 +24,7 @@ function CavesMain() {
 
   var cubes = new MarchingCubes(tree);
 
-  var eyePos = new Float32Array([size/2,size/2,size*1.2]);
+  var eyePos = new Float32Array([size/2,size/2,size*1.1]);
   var eyePosVel = new Float32Array([0, 0, 0]);
   var eyeRotTheta = 0, eyeRotPhi = Math.PI/2;
 
@@ -45,8 +45,8 @@ function CavesMain() {
     var min_z = Math.max(Math.floor(ballz - radius), 1);
     var max_z = Math.min(Math.ceil(ballz + radius), size);
     function uniform(node) {
-      // TODO: intersect sphere with cube to avoid unnecessary splits.
-      // TODO: allow 'set value' response for interior cubes.
+      // TODO(libra): intersect sphere with cube to avoid unnecessary splits.
+      // TODO(libra): just set value if this is an interior cube
       return true;  // 'Please subdivide this node.'
     }
     function buffer(node) {
@@ -121,9 +121,9 @@ function CavesMain() {
   addFloor(size - 0);
   var radius = 7.0;
   for (var i = 0; i < 25; ++i) {
-    var ballx = randm11() * size/4 + size/2;
-    var bally = randm11() * size/4 + size/2;
-    var ballz = randm11() * size/4 + size/2;
+    var ballx = randm11() * size/3 + size/2;
+    var bally = randm11() * size/3 + size/2;
+    var ballz = randm11() * size*0.1 + size*0.8;
     addBall(ballx, bally, ballz, radius);
   }
   cubes.update();
