@@ -56,6 +56,10 @@ def main(argv):
     'source_assets/Scenes/Arch.ma',
     'source_assets/Scenes/BigFishA.ma',
     'source_assets/Scenes/BigFishB.ma',
+    'source_assets/Scenes/Coral.ma',
+    'source_assets/Scenes/CoralStoneA.ma',
+    'source_assets/Scenes/CoralStoneB.ma',
+    'source_assets/Scenes/FloorBase_Baked.ma',
     'source_assets/Scenes/FloorCenter.ma',
     'source_assets/Scenes/GlobeInner.ma',
     'source_assets/Scenes/GlobeOuter.ma',
@@ -64,8 +68,9 @@ def main(argv):
     'source_assets/Scenes/RockA.ma',
     'source_assets/Scenes/RockB.ma',
     'source_assets/Scenes/RockC.ma',
-    'source_assets/Scenes/RuinColumnA.ma',
+    'source_assets/Scenes/RuinColumn.ma',
     'source_assets/Scenes/SmallFishA.ma',
+    'source_assets/Scenes/Stone.ma',
     'source_assets/Scenes/Stones.ma',
     'source_assets/Scenes/SunknShip.ma',
     'source_assets/Scenes/SunknSub.ma',
@@ -412,6 +417,15 @@ def MatMult(a, b):
     a30 * b03 + a31 * b13 + a32 * b23 + a33 * b33]
 
 
+def GetParentTransform(js, transform):
+  """."""
+  parent = None
+  if 'parent' in transform['properties']:
+    parent = GetJSObjectByTypeAndId(
+        js, 'o3d.Transform', transform['properties']['parent']['ref'], False)
+  return parent
+
+
 def GetWorldMatrix(js, transform):
   m44 = transform['params']['o3d.localMatrix']['value']
   localMatrix = [
@@ -420,15 +434,25 @@ def GetWorldMatrix(js, transform):
     m44[2][0], m44[2][1], m44[2][2], m44[2][3],
     m44[3][0], m44[3][1], m44[3][2], m44[3][3],
   ]
-  parent = None
-  if 'parent' in transform:
-    parent = GetJSObjectByTypeAndId(
-        js, 'o3d.Transform', transform['parent']['ref'])
+  parent = GetParentTransform(js, transform)
   if parent:
     worldMatrix = GetWorldMatrix(js, parent)
     return MatMult(worldMatrix, localMatrix)
   else:
     return localMatrix
+
+
+def GetSceneName(name):
+  # remove digits
+  name = re.sub(r'\d+$', '', name)
+  # remove "shape"
+  if name.endswith('Shape'):
+    name = name[:-5]
+  # remove digits
+  name = re.sub(r'\d+$', '', name)
+  # remove '_'
+  name = re.sub(r'_+$', '', name)
+  return name
 
 
 def ConvertColladaToLevelJS(
@@ -450,22 +474,25 @@ def ConvertColladaToLevelJS(
     for transform in js['objects']['o3d.Transform']:
       for shapeRef in transform['properties']['shapes']:
         shape = GetJSObjectByTypeAndId(js, 'o3d.Shape', shapeRef['ref'])
+        shapeName = GetSceneName(shape['properties']['name'])
+        parentName = "***"
+        parent = GetParentTransform(js, transform)
+        if parent:
+          parentName = GetSceneName(parent['properties']['name'])
         worldMatrix = GetWorldMatrix(js, transform)
-        shapeName = shape['properties']['name']
-        # remove digits
-        shapeName = re.sub(r'\d+$', '', shapeName)
-        # remove "shape"
-        if shapeName.endswith('Shape'):
-          shapeName = shapeName[:-5]
-        # remove digits
-        shapeName = re.sub(r'\d+$', '', shapeName)
-        # remove '_'
-        shapeName = re.sub(r'_+$', '', shapeName)
+
+        skipOtherShapes = False
+        if shapeName.startswith(parentName):
+          shapeName = parentName
+          skipOtherShapes = True
 
         objects.append({
           'name': shapeName,
           'worldMatrix': worldMatrix,
           })
+
+        if skipOtherShapes:
+          break
 
     file = open(output_file, "wb")
     if pretty:

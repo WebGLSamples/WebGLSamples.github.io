@@ -255,18 +255,23 @@ function loadScene(name) {
 function loadScenes() {
   var scenes = [
     "SmallFishA",
-    "Arch",
+    "MediumFishA",
+    "MediumFishB",
     "BigFishA",
     "BigFishB",
+    "Arch",
+    "Coral",
+    "CoralStoneA",
+    "CoralStoneB",
+    "FloorBase_Baked",
     "FloorCenter",
     "GlobeInner",
     "GlobeOuter",
-    "MediumFishA",
-    "MediumFishB",
     "RockA",
     "RockB",
     "RockC",
-    "RuinColumnA",
+    "RuinColumn",
+    "Stone",
     "Stones",
     "SunknShip",
     "SunknSub",
@@ -671,6 +676,23 @@ function initialize() {
         fast.matrix4.transpose(worldInverseTranspose, worldInverse);
         fishPer.time = (clock + ii * g_tailOffsetMult) * g_tailSpeed * speed * 0.2;
         fish.draw(fishPer);
+      }
+    }
+
+
+    var foo = ['GlobeInner', 'GlobeOuter'];
+    for (var ff = 0; ff  < foo.length; ++ff) {
+      var scene = g_scenes[foo[ff]];
+      if (scene.loaded && !scene.bad) {
+        for (var ii = 0; ii < scene.models.length; ++ii) {
+          var model = scene.models[ii];
+          model.drawPrep(genericConst);
+          fast.matrix4.translation(world, [0,0,0]);
+          fast.matrix4.mul(worldViewProjection, world, viewProjection);
+          fast.matrix4.inverse(worldInverse, world);
+          fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+          model.draw(genericPer);
+        }
       }
     }
 
