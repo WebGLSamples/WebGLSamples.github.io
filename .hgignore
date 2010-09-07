@@ -6,4 +6,5 @@ syntax: glob
 temp
 .mayaSwatches
 *.pyc
+*.orig
 

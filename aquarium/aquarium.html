@@ -57,11 +57,27 @@ CANVAS {
 .fps {
   color: white;
 }
+#uiContainer {
+  z-index: 2;
+  padding: 1em;
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  width: 250px;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  font-size: xx-small;
+}
+#ui {
+}
 #viewContainer {
   width: 100%;
   height: 100%;
 }
 </style>
+<link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
@@ -75,7 +91,6 @@ tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
 tdl.require('tdl.textures');
 tdl.require('tdl.webgl');
-window.onload = initialize;
 
 // globals
 var gl;                   // the gl context.
@@ -89,32 +104,46 @@ var g_drawOnce = false;
 var g_setSettingElements = [];
 var g_sharkWorldMats = [];
 var g_beamWorldMats = [];
-var g_scenes = {};
+var g_scenes = {};  // each of the models
+var g_scene;  // the placement of the models
 
 //g_debug = true;
 //g_drawOnce = true;
 
 var g_numFish          = 1;
 var g_numSharks        = 0;
-var g_eyeSpeed         = 0.01;
-var g_eyeHeight        = 8;
-var g_eyeRadius        = 60;
 var g_tailSpeed        = 30;
 var g_tailOffsetMult   = 1;
 var g_endOfDome        = Math.PI / 8;
 var g_tankRadius       = 22;
 var g_tankHeight       = 30;
 var g_standHeight      = 25;
-var g_fishSpeed        = 0.3;
-var g_fishClockOffset  = 0.3;
-var g_fishXClock       = 1;
-var g_fishYClock       = 0.17;
-var g_fishZClock       = 1.09;
 var g_sharkSpeed       = 0.3;
 var g_sharkClockOffset = 17;
 var g_sharkXClock      = 1;
 var g_sharkYClock      = 0.17;
 var g_sharkZClock      = 1;
+
+var g = {
+  globals: {},
+  fish: {}};
+
+var g_ui = [
+  { obj: 'globals',    name: 'targetHeight',     value: 0,     max:  50 },
+  { obj: 'globals',    name: 'targetRadius',     value: 88,    max:  200 },
+  { obj: 'globals',    name: 'eyeHeight',        value: 19,    max:  50 },
+  { obj: 'globals',    name: 'eyeRadius',        value: 60,    max:  200 },
+  { obj: 'globals',    name: 'eyeSpeed',         value: 0.1,   max:  1 },
+  { obj: 'globals',    name: 'fieldOfView',      value: 50,    max:  179, min: 1},
+  { obj: 'fish',       name: 'fishRadius',       value: 14,    max:  200},
+  { obj: 'fish',       name: 'fishHeightRange',  value: 7,     max:  50},
+  { obj: 'fish',       name: 'fishHeight',       value: 16,    max:  50},
+  { obj: 'fish',       name: 'fishSpeed',        value: 0.3,   max:  2},
+  { obj: 'fish',       name: 'fishOffset',       value: 0.3,   max:  2},
+  { obj: 'fish',       name: 'fishXClock',       value: 1,     max:  2},
+  { obj: 'fish',       name: 'fishYClock',       value: 0.17,  max:  2},
+  { obj: 'fish',       name: 'fishZClock',       value: 1.09,  max:  2}
+];
 
 var g_skyBoxUrls = [
   'static_assets/skybox/InteriorCubeEnv_EM.png'
@@ -158,7 +187,7 @@ var Scene = function() {
 Scene.prototype.load = function(url) {
   var that = this;
   this.url = url;
-  tdl.io.loadTextFile(url, function(data, exception) {
+  tdl.io.loadJSON(url, function(data, exception) {
       that.onload_(data, exception);
     });
 };
@@ -168,60 +197,51 @@ Scene.prototype.onload_ = function(data, exception) {
   if (exception) {
     this.bad = true;
   } else {
-    // This would be insecure if loading data not from us.
-    try {
-      var data = eval('(' + data + ')');
-    } catch (e) {
-      this.bad = true
-    }
-
-    if (!this.bad) {
-      for (var mm = 0; mm < data.models.length; ++mm) {
-        var model = data.models[mm];
-        // setup textures
-        var textures = {};
-        for (var name in model.textures) {
-          textures[name] = tdl.textures.loadTexture(
-              'assets/' + model.textures[name], true);
-        }
-        // setup vertices
-        var arrays = {};
-        for (var name in model.fields) {
-          var field = model.fields[name];
-          arrays[name] = new tdl.primitives.AttribBuffer(
-            field.numComponents,
-            field.data,
-            field.type);
-        }
-        // setup program
-        // There are 3 programs
-        // DM
-        // DM+NM
-        // DM+NM+RM
-        var program;
-        if (!textures.diffuse) {
-          throw "missing diffuse texture for: " + this.url;
-        }
-        if (textures.reflectionMap) {
-          if (!textures.normalMap) {
-            throw "missing normalMap for: " + this.url;
-          }
-          program = createProgramFromTags(
-              'reflectionMapVertexShader',
-              'reflectionMapFragmentShader');
-          textures.skybox = tdl.textures.loadTexture(g_skyBoxUrls);
-
-        } else if (textures.normalMap) {
-          program = createProgramFromTags(
-              'normalMapVertexShader',
-              'normalMapFragmentShader');
-        } else {
-          program = createProgramFromTags(
-              'diffuseVertexShader',
-              'diffuseFragmentShader');
-        }
-        this.models.push(new tdl.models.Model(program, arrays, textures));
+    for (var mm = 0; mm < data.models.length; ++mm) {
+      var model = data.models[mm];
+      // setup textures
+      var textures = {};
+      for (var name in model.textures) {
+        textures[name] = tdl.textures.loadTexture(
+            'assets/' + model.textures[name], true);
       }
+      // setup vertices
+      var arrays = {};
+      for (var name in model.fields) {
+        var field = model.fields[name];
+        arrays[name] = new tdl.primitives.AttribBuffer(
+          field.numComponents,
+          field.data,
+          field.type);
+      }
+      // setup program
+      // There are 3 programs
+      // DM
+      // DM+NM
+      // DM+NM+RM
+      var program;
+      if (!textures.diffuse) {
+        throw "missing diffuse texture for: " + this.url;
+      }
+      if (textures.reflectionMap) {
+        if (!textures.normalMap) {
+          throw "missing normalMap for: " + this.url;
+        }
+        program = createProgramFromTags(
+            'reflectionMapVertexShader',
+            'reflectionMapFragmentShader');
+        textures.skybox = tdl.textures.loadTexture(g_skyBoxUrls);
+
+      } else if (textures.normalMap) {
+        program = createProgramFromTags(
+            'normalMapVertexShader',
+            'normalMapFragmentShader');
+      } else {
+        program = createProgramFromTags(
+            'diffuseVertexShader',
+            'diffuseFragmentShader');
+      }
+      this.models.push(new tdl.models.Model(program, arrays, textures));
     }
   }
 };
@@ -256,6 +276,16 @@ function loadScenes() {
   for (var ii = 0; ii < scenes.length; ++ii) {
     g_scenes[scenes[ii]] = loadScene(scenes[ii]);
   }
+}
+
+function loadPlacement() {
+  tdl.io.loadJSON('assets/PropPlacement.js', function(json, exception) {
+    if (exception) {
+      throw exception
+    } else {
+      g_scene = json;
+    }
+  });
 }
 
 /**
@@ -345,6 +375,7 @@ function initialize() {
   gl.enable(gl.DEPTH_TEST);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
+  loadPlacement();
   Log("--Setup Skybox---------------------------------------");
   var skybox = setupSkybox();
   loadScenes();
@@ -395,6 +426,20 @@ function initialize() {
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose};
 
+  // Generic uniforms.
+  var genericConst = {
+    viewInverse: viewInverse,
+    lightWorldPos: lightWorldPos,
+    lightColor: one4,
+    specular: one4,
+    shininess: 50,
+    specularFactor: 1};
+  var genericPer = {
+    world: world,
+    worldViewProjection: worldViewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose};
+
   // Fish uniforms.
   var fishConst = {
     viewInverse: viewInverse,
@@ -430,10 +475,13 @@ function initialize() {
     fpsElem.innerHTML = g_fpsTimer.averageFPS;
 
     clock += elapsedTime;
-    eyeClock += elapsedTime * g_eyeSpeed;
-    eyePosition[0] = Math.sin(eyeClock) * g_eyeRadius;
-    eyePosition[1] = g_eyeHeight;
-    eyePosition[2] = Math.cos(eyeClock) * g_eyeRadius;
+    eyeClock += elapsedTime * g.globals.eyeSpeed;
+    eyePosition[0] = Math.sin(eyeClock) * g.globals.eyeRadius;
+    eyePosition[1] = g.globals.eyeHeight;
+    eyePosition[2] = Math.cos(eyeClock) * g.globals.eyeRadius;
+    target[0] = Math.sin(eyeClock + Math.PI) * g.globals.targetRadius;
+    target[1] = g.globals.targetHeight;
+    target[2] = Math.cos(eyeClock + Math.PI) * g.globals.targetRadius;
 
     gl.colorMask(true, true, true, true);
     gl.clearColor(0,0,0,0);
@@ -441,10 +489,10 @@ function initialize() {
 
     fast.matrix4.perspective(
         projection,
-        math.degToRad(30),
+        math.degToRad(g.globals.fieldOfView),
         canvas.clientWidth / canvas.clientHeight,
         1,
-        5000);
+        25000);
     fast.matrix4.lookAt(
         view,
         eyePosition,
@@ -476,8 +524,45 @@ function initialize() {
 
     // Draw Skybox
     Log("--Draw Sky---------------------------------------");
+    gl.depthMask(false);
     skybox.drawPrep(skyConst);
     skybox.draw(skyPer);
+    gl.depthMask(true);
+
+    // Draw Scene
+    var objects = g_scene.objects;
+    // make sure it's loaded.
+    if (objects) {
+      var numObjects = objects.length;
+      var currentModel = undefined;
+      for (var ii = 0; ii < numObjects; ++ii) {
+        var object = objects[ii];
+        var scene = g_scenes[object.name];
+        if (!scene) {
+          g_scenes[object.name] = { missing: true };
+          tdl.log("missing scene:", object.name);
+          continue;
+        }
+        if (scene.missing || !scene.loaded) {
+          continue;
+        }
+
+        var models = scene.models;
+        var numModels = models.length;
+        for (var jj = 0; jj < numModels; ++jj) {
+          var model = models[jj];
+          if (model != currentModel) {
+            currentModel = model;
+            model.drawPrep(genericConst);
+          }
+          fast.matrix4.copy(world, object.worldMatrix);
+          fast.matrix4.mul(worldViewProjection, world, viewProjection);
+          fast.matrix4.inverse(worldInverse, world);
+          fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+          model.draw(genericPer);
+        }
+      }
+    }
 
 //    Log("--Draw Arch---------------------------------------");
 //    var sCount = 0;
@@ -555,27 +640,28 @@ function initialize() {
 
     if (g_scenes.SmallFishA.loaded && !g_scenes.SmallFishA.bad) {
       var fish = g_scenes.SmallFishA.models[0];
+      var f = g.fish;
       fish.drawPrep(fishConst);
-      var fishClock = clock * g_fishSpeed;
+      var fishClock = clock * f.fishSpeed;
       for (var ii = 0; ii < g_numFish; ++ii) {
-        var fishClock = clock * g_fishSpeed + ii * g_fishClockOffset;
+        var fishClock = clock * f.fishSpeed + ii * f.fishOffset;
         var speed = 0.5 + math.pseudoRandom() * 4;
         var scale = 1.0 + math.pseudoRandom() * 1;
-        var xRadius = 2.0 + pseudoRandom() * (g_tankRadius - 8.0);
-        var yRadius = 2.0 + pseudoRandom() * (g_tankHeight - 8.0) * 0.3;
-        var zRadius = 2.0 + pseudoRandom() * (g_tankRadius - 8.0);
-        var xClock = fishClock * speed * g_fishXClock;
-        var yClock = fishClock * speed * g_fishYClock;
-        var zClock = fishClock * speed * g_fishZClock;
+        var xRadius = 2.0 + pseudoRandom() * f.fishRadius;
+        var yRadius = 2.0 + pseudoRandom() * f.fishHeightRange;
+        var zRadius = 2.0 + pseudoRandom() * f.fishRadius;
+        var xClock = fishClock * speed * f.fishXClock;
+        var yClock = fishClock * speed * f.fishYClock;
+        var zClock = fishClock * speed * f.fishZClock;
         var x = Math.sin(xClock) * xRadius;
-        var y = Math.sin(yClock) * yRadius + 4;
+        var y = Math.sin(yClock) * yRadius + f.fishHeight;
         var z = Math.cos(zClock) * zRadius;
         var nextX = Math.sin(xClock - 0.01) * xRadius;
-        var nextY = Math.sin(yClock - 0.01) * yRadius + 4;
+        var nextY = Math.sin(yClock - 0.01) * yRadius + f.fishHeight;
         var nextZ = Math.cos(zClock - 0.01) * zRadius;
-        colorMult[0] = 0.7 + math.pseudoRandom() * 0.3;
-        colorMult[1] = 0.7 + math.pseudoRandom() * 0.3;
-        colorMult[2] = 0.7 + math.pseudoRandom() * 0.3;
+        //colorMult[0] = 0.7 + math.pseudoRandom() * 0.3;
+        //colorMult[1] = 0.7 + math.pseudoRandom() * 0.3;
+        //colorMult[2] = 0.7 + math.pseudoRandom() * 0.3;
 
         fast.matrix4.mul(world,
             fast.matrix4.scaling(m4t0, [scale, scale, scale]),
@@ -658,6 +744,63 @@ function initialize() {
   }
   return true;
 }
+
+var g_event;
+var g_ui;
+
+function getParamId(id) {
+  return id.substr(6).replace(/(\w)/, function(m) {return m.toLowerCase() });
+}
+
+function setParam(event, ui, obj, valueElem) {
+  var id = event.target.id;
+  var value = ui.value / 1000;
+  valueElem.innerHTML = value;
+  obj[id] = value;
+}
+
+function getUIValue(obj, id) {
+  return obj[id] * 1000;
+}
+
+function setupSlider($, elem, ui, obj) {
+  var textDiv = document.createElement('div');
+  var labelDiv = document.createElement('span');
+  labelDiv.appendChild(document.createTextNode(ui.name));
+  var valueDiv = document.createElement('span');
+  valueDiv.appendChild(
+      document.createTextNode(getUIValue(obj, ui.name) / 1000));
+  valueDiv.style.position = "absolute";
+  valueDiv.style.right = "10px";
+  var sliderDiv = document.createElement('div');
+  sliderDiv.id = ui.name;
+  textDiv.appendChild(labelDiv);
+  textDiv.appendChild(valueDiv);
+  elem.appendChild(textDiv);
+  elem.appendChild(sliderDiv);
+  $(sliderDiv).slider({
+    range: false,
+    step: 1,
+    max: ui.max * 1000,
+    min: ui.min || 0,
+    value: getUIValue(obj, ui.name),
+    slide: function(event, ui) { setParam(event, ui, obj, valueDiv); }
+  });
+}
+
+$(function(){
+  var uiElem = document.getElementById('ui');
+  for (var ii = 0; ii < g_ui.length; ++ii) {
+    var ui = g_ui[ii];
+    var obj = g[ui.obj];
+    obj[ui.name] = ui.value;
+    var div = document.createElement('div');
+    setupSlider($, div, ui, obj);
+    uiElem.appendChild(div);
+  }
+
+  initialize();
+});
 </script>
 </head>
 <body>
@@ -669,6 +812,9 @@ function initialize() {
   <div id="setSetting2">100</div>
   <div id="setSetting3">1000</div>
   <div id="setSetting4">Sharks</div>
+</div>
+<div id="uiContainer">
+<div id="ui"></div>
 </div>
 <div id="viewContainer">
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
