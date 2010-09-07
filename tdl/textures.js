@@ -271,7 +271,16 @@ tdl.base.inherit(tdl.textures.ExternalTexture2D, tdl.textures.ExternalTexture);
  * @constructor
  * @param {!Array.<string>} urls The urls of the 6 faces, which
  *     must be in the order positive_x, negative_x positive_y,
- *     negative_y, positive_z, negative_Z
+ *     negative_y, positive_z, negative_z OR an array with a single url
+ *     where the images are arranged as a cross in this order.
+ *
+ *     +--+--+--+--+
+ *     |  |PY|  |  |
+ *     +--+--+--+--+
+ *     |NX|PZ|PX|NZ|
+ *     +--+--+--+--+
+ *     |  |NY|  |  |
+ *     +--+--+--+--+
  */
 tdl.textures.CubeMap = function(urls) {
   tdl.textures.Texture.call(this, gl.TEXTURE_CUBE_MAP);
