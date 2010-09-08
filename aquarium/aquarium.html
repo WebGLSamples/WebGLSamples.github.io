@@ -142,9 +142,9 @@ var g_ui = [
   { obj: 'globals',    name: 'eyeRadius',        value: 60,    max:  200 },
   { obj: 'globals',    name: 'eyeSpeed',         value: 0.06,  max:  1 },
   { obj: 'globals',    name: 'fieldOfView',      value: 85,  max:  179, min: 1},
-  { obj: 'globals',    name: 'ambientRed',       value: 0.05,  max:  1},
-  { obj: 'globals',    name: 'ambientGreen',     value: 0.05,  max:  1},
-  { obj: 'globals',    name: 'ambientBlue',      value: 0.05,  max:  1},
+  { obj: 'globals',    name: 'ambientRed',       value: 0.35,  max:  1},
+  { obj: 'globals',    name: 'ambientGreen',     value: 0.35,  max:  1},
+  { obj: 'globals',    name: 'ambientBlue',      value: 0.35,  max:  1},
   { obj: 'fish',       name: 'fishRadius',       value: 50,    max:  200},
   { obj: 'fish',       name: 'fishHeightRange',  value: 16,    max:  50},
   { obj: 'fish',       name: 'fishHeight',       value: 22,    max:  50},
@@ -630,7 +630,8 @@ function initialize() {
     lightColor: one4,
     specular: one4,
     shininess: 5,
-    specularFactor: 0.3};
+    specularFactor: 0.3,
+    ambient: ambient};
   var fishPer = {
     world: world,
     worldViewProjection: worldViewProjection,
