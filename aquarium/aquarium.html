@@ -134,11 +134,12 @@ var g = {
   innerConst: {}};
 
 var g_ui = [
+  { obj: 'globals',    name: 'speed',            value: 1,     max:  4 },
   { obj: 'globals',    name: 'targetHeight',     value: 0,     max:  50 },
   { obj: 'globals',    name: 'targetRadius',     value: 88,    max:  200 },
   { obj: 'globals',    name: 'eyeHeight',        value: 19,    max:  50 },
   { obj: 'globals',    name: 'eyeRadius',        value: 60,    max:  200 },
-  { obj: 'globals',    name: 'eyeSpeed',         value: 0.1,   max:  1 },
+  { obj: 'globals',    name: 'eyeSpeed',         value: 0.06,  max:  1 },
   { obj: 'globals',    name: 'fieldOfView',      value: 85,  max:  179, min: 1},
   { obj: 'globals',    name: 'ambientRed',       value: 0.05,  max:  1},
   { obj: 'globals',    name: 'ambientGreen',     value: 0.05,  max:  1},
@@ -154,6 +155,54 @@ var g_ui = [
   { obj: 'innerConst', name: 'refractionFudge',  value: 7,     max:  50},
   { obj: 'innerConst', name: 'eta',              value: 1,     max:  1},
   { obj: 'innerConst', name: 'tankColorFudge',   value: 1,     max:  2}
+];
+
+var g_fishTable = [
+  {
+    name: 'SmallFishA',
+    num: 100,
+    constUniforms: {
+      fishLength: 10,
+      fishWaveLength: 1,
+      fishBendAmount: 2,
+    }
+  },
+  {
+    name: 'MediumFishA',
+    num: 7,
+    constUniforms: {
+      fishLength: 10,
+      fishWaveLength: 1,
+      fishBendAmount: 2,
+    }
+  },
+  {
+    name: 'MediumFishB',
+    num: 7,
+    constUniforms: {
+      fishLength: 10,
+      fishWaveLength: 1,
+      fishBendAmount: 2,
+    }
+  },
+  {
+    name: 'BigFishA',
+    num: 2,
+    constUniforms: {
+      fishLength: 10,
+      fishWaveLength: 0.25,
+      fishBendAmount: 0.5,
+    }
+  },
+  {
+    name: 'BigFishB',
+    num: 2,
+    constUniforms: {
+      fishLength: 10,
+      fishWaveLength: 0.25,
+      fishBendAmount: 0.5,
+    }
+  },
 ];
 
 var g_skyBoxUrls = [
@@ -182,10 +231,18 @@ function LogGLCall(functionName, args) {
   }
 }
 
+function getScriptText(id) {
+  var elem = document.getElementById(id);
+  if (!elem) {
+    throw 'no element: ' + id
+  }
+  return elem.text;
+}
+
 function createProgramFromTags(vertexTagId, fragmentTagId) {
   return tdl.programs.loadProgram(
-      document.getElementById(vertexTagId).text,
-      document.getElementById(fragmentTagId).text);
+      getScriptText(vertexTagId),
+      getScriptText(fragmentTagId));
 }
 
 var Scene = function(opt_program) {
@@ -276,19 +333,39 @@ function loadScene(name, opt_program) {
 function loadScenes() {
   var scenes = [
     {
-      name: "SmallFishA"
+      name: "SmallFishA",
+      program: [
+        "fishVertexShader",
+        "fishReflectionFragmentShader"
+      ],
     },
     {
-      name: "MediumFishA"
+      name: "MediumFishA",
+      program: [
+        "fishVertexShader",
+        "fishNormalMapFragmentShader"
+      ]
     },
     {
-      name: "MediumFishB"
+      name: "MediumFishB",
+      program: [
+        "fishVertexShader",
+        "fishReflectionFragmentShader"
+      ]
     },
     {
-      name: "BigFishA"
+      name: "BigFishA",
+      program: [
+        "fishVertexShader",
+        "fishNormalMapFragmentShader"
+      ]
     },
     {
-      name: "BigFishB"
+      name: "BigFishB",
+      program: [
+        "fishVertexShader",
+        "fishNormalMapFragmentShader"
+      ]
     },
     {
       name: "Arch"
@@ -579,7 +656,7 @@ function initialize() {
     g_fpsTimer.update(elapsedTime);
     fpsElem.innerHTML = g_fpsTimer.averageFPS;
 
-    clock += elapsedTime;
+    clock += elapsedTime * g.globals.speed;
     eyeClock += elapsedTime * g.globals.eyeSpeed;
     eyePosition[0] = Math.sin(eyeClock) * g.globals.eyeRadius;
     eyePosition[1] = g.globals.eyeHeight;
@@ -754,20 +831,22 @@ function initialize() {
     // Draw Fishes.
     Log("--Draw Fish---------------------------------------");
 
-    var fishTable = [
-      { name: 'SmallFishA', num: 100 },
-      { name: 'MediumFishA', num: 7 },
-      { name: 'MediumFishB', num: 7 },
-      { name: 'BigFishA', num: 2 },
-      { name: 'BigFishB', num: 2 },
-    ];
-    for (var ff = 0; ff < fishTable.length; ++ff) {
-      var fishName = fishTable[ff].name;
-      var numFish = fishTable[ff].num;
+    for (var ff = 0; ff < g_fishTable.length; ++ff) {
+      var fishInfo = g_fishTable[ff];
+      var fishName = fishInfo.name;
+      var numFish = fishInfo.num;
+      var matMul = fast.matrix4.mul;
+      var matInverse = fast.matrix4.inverse;
+      var matScaling = fast.matrix4.scaling;
+      var matCameraLookAt = fast.matrix4.cameraLookAt;
+      var matTranspose = fast.matrix4.transpose;
       var scene = g_scenes[fishName];
       if (scene && scene.loaded && !scene.bad) {
         var fish = scene.models[0];
         var f = g.fish;
+        for (var p in fishInfo.constUniforms) {
+          fishConst[p] = fishInfo.constUniforms[p];
+        }
         fish.drawPrep(fishConst);
         var fishClock = clock * f.fishSpeed;
         for (var ii = 0; ii < numFish; ++ii) {
@@ -790,13 +869,15 @@ function initialize() {
           //colorMult[1] = 0.7 + math.pseudoRandom() * 0.3;
           //colorMult[2] = 0.7 + math.pseudoRandom() * 0.3;
 
-          fast.matrix4.mul(world,
-              fast.matrix4.scaling(m4t0, [scale, scale, scale]),
-              fast.matrix4.cameraLookAt(m4t1, [x, y, z], [nextX, nextY, nextZ], [0, 1, 0]));
-          fast.matrix4.mul(worldViewProjection, world, viewProjection);
-          fast.matrix4.inverse(worldInverse, world);
-          fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-          fishPer.time = (clock + ii * g_tailOffsetMult) * g_tailSpeed * speed * 0.2;
+          matMul(world,
+              matScaling(m4t0, [scale, scale, scale]),
+              matCameraLookAt(
+                  m4t1, [x, y, z], [nextX, nextY, nextZ], [0, 1, 0]));
+          matMul(worldViewProjection, world, viewProjection);
+          matInverse(worldInverse, world);
+          matTranspose(worldInverseTranspose, worldInverse);
+          fishPer.time =
+              (clock + ii * g_tailOffsetMult) * g_tailSpeed * speed * 0.1;
           fish.draw(fishPer);
         }
       }
@@ -1022,7 +1103,7 @@ void main() {
   gl_FragColor = texture2D(colorMap, v_texCoord) * colorMult;
 }
 </script>
-<!-- ===[ Fish Shader ]============================================== -->
+<!-- ===[ fishNormalMap Shader ]=========================================== -->
 <script id="fishVertexShader" type="text/something-not-javascript">
 uniform mat4 worldViewProjection;
 uniform vec3 lightWorldPos;
@@ -1030,6 +1111,9 @@ uniform mat4 world;
 uniform mat4 viewInverse;
 uniform mat4 worldInverseTranspose;
 uniform float time;
+uniform float fishLength;
+uniform float fishWaveLength;
+uniform float fishBendAmount;
 attribute vec4 position;
 attribute vec3 normal;
 attribute vec2 texCoord;
@@ -1044,10 +1128,12 @@ varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
 void main() {
   v_texCoord = texCoord;
-  float mult = position.z > 0.0 ? (position.z / 10.0) : (-position.z / 20.0);  // 10 = radius.
-  float s = sin(time + mult * 3.0);
+  float mult = position.z > 0.0 ?
+      (position.z / fishLength) :
+      (-position.z / fishLength * 2.0);
+  float s = sin(time + mult * fishWaveLength);
   float a = sign(s);
-  float offset = pow(mult, 2.0) * s * 20.0;
+  float offset = pow(mult, 2.0) * s * fishBendAmount;
   v_position = (
       worldViewProjection *
       (position +
@@ -1061,7 +1147,7 @@ void main() {
 }
 
 </script>
-<script id="fishFragmentShader" type="text/something-not-javascript">
+<script id="fishNormalMapFragmentShader" type="text/something-not-javascript">
 #ifdef GL_ES
 precision highp float;
 #endif
@@ -1074,11 +1160,60 @@ varying vec3 v_normal;
 varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
 
-uniform vec4 emissive;
-uniform vec4 colorMult;
-uniform sampler2D diffuseSampler;
+uniform vec4 ambient;
+uniform sampler2D diffuse;
 uniform vec4 specular;
-uniform sampler2D bumpSampler;
+uniform sampler2D normalMap;
+uniform float shininess;
+uniform float specularFactor;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec4 diffuseColor = texture2D(diffuse, v_texCoord);
+  mat3 tangentToWorld = mat3(v_tangent,
+                             v_binormal,
+                             v_normal);
+  vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);
+  vec3 tangentNormal = normalSpec.xyz - vec3(0.5, 0.5, 0.5);
+  tangentNormal = normalize(tangentNormal + vec3(0, 0, 2));
+  vec3 normal = (tangentToWorld * tangentNormal);
+  normal = normalize(normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  gl_FragColor = vec4(
+    (lightColor * (diffuseColor * litR.y + diffuseColor * ambient +
+                  specular * litR.z * specularFactor * normalSpec.a)).rgb,
+      diffuseColor.a);
+}
+</script>
+<!-- ===[ fishReflection Shader ]=========================================== -->
+</script>
+<script id="fishReflectionFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform vec4 lightColor;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform vec4 ambient;
+uniform sampler2D diffuse;
+uniform vec4 specular;
+uniform sampler2D normalMap;
+uniform sampler2D reflectionMap;
 uniform samplerCube skybox;
 uniform float shininess;
 uniform float specularFactor;
@@ -1090,13 +1225,13 @@ vec4 lit(float l ,float h, float m) {
               1.0);
 }
 void main() {
-  vec4 diffuse = texture2D(diffuseSampler, v_texCoord);
+  vec4 diffuseColor = texture2D(diffuse, v_texCoord);
   mat3 tangentToWorld = mat3(v_tangent,
                              v_binormal,
                              v_normal);
-  vec3 tangentNormal = texture2D(bumpSampler, v_texCoord.xy).xyz -
-                                 vec3(0.5, 0.5, 0.5);
-  tangentNormal = normalize(tangentNormal + vec3(0, 0, 2));
+  vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);
+  vec4 reflection = texture2D(reflectionMap, v_texCoord.xy);
+  vec3 tangentNormal = normalSpec.xyz - vec3(0.5, 0.5, 0.5);
   vec3 normal = (tangentToWorld * tangentNormal);
   normal = normalize(normal);
   vec3 surfaceToLight = normalize(v_surfaceToLight);
@@ -1105,11 +1240,12 @@ void main() {
   vec3 halfVector = normalize(surfaceToLight + surfaceToView);
   vec4 litR = lit(dot(normal, surfaceToLight),
                     dot(normal, halfVector), shininess);
-  gl_FragColor = vec4((emissive +
-  lightColor * colorMult * ((diffuse * vec4(0.0, 0.0, 0.0, 0.0) +
-                 skyColor * vec4(1.0, 1.0, 1.0, 1.0)) /* * litR.y */ +
-                        + specular * litR.z * specularFactor)).rgb,
-      diffuse.a);
+  gl_FragColor = vec4(mix(
+      skyColor,
+      lightColor * (diffuseColor * litR.y + diffuseColor * ambient +
+                    specular * litR.z * specularFactor * normalSpec.a),
+      reflection.r).rgb,
+      diffuseColor.a);
 }
 </script>
 <!-- ===[ Shark Shader ]============================================== -->
