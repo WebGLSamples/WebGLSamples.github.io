@@ -195,7 +195,7 @@ def ConvertMayaToCollada(builder, input_file, output_file, temp_path):
       'cameraXFov=0;'
       'cameraYFov=1;'
       'doublePrecision=0;'
-      '" -typ "OpenCOLLADA exporter" -pr -ea "%s";\n') % (
+      '" -typ "OpenCOLLADA exporter" -f -pr -ea "%s";\n') % (
         UnixifyPath(os.path.abspath(output_file)),)
     file.write(out_cmd)
     file.close()
