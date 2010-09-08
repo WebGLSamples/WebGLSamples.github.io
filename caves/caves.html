@@ -72,6 +72,8 @@ function initializeGraphics() {
   gl.disable(gl.BLEND);
   gl.depthFunc(gl.LEQUAL);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+  return true;
 }
 
 var caves = null;

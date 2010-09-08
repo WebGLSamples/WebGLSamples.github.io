@@ -166,7 +166,6 @@ function Log(msg) {
     tdl.log(msg);
   }
 }
-
 function LogGLCall(functionName, args) {
   if (g_logGLCalls) {
     ValidateNoneOfTheArgsAreUndefined(functionName, args)
@@ -309,7 +308,11 @@ function loadScenes() {
       ]
     },
     {
-      name: "GlobeOuter"
+      name: "GlobeOuter",
+      program: [
+        "refractionMapVertexShader",
+        "refractionMapFragmentShader"
+      ]
     },
     {
       name: "RockA"
@@ -764,7 +767,7 @@ function initialize() {
     }
 
 
-    var foo = ['GlobeInner' /*, 'GlobeOuter' */];
+    var foo = ['GlobeInner', 'GlobeOuter'];
     for (var ff = 0; ff  < foo.length; ++ff) {
       Log("--Draw " + foo[ff] +  "---------------------------------------");
       var scene = g_scenes[foo[ff]];
