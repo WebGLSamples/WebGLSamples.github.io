@@ -53,13 +53,15 @@ CANVAS {
   z-index: 2;
   color: gray;
   font-family: sans-serif;
+  background-color: rgba(0,0,0,0.5);
+  border-radius: 10px;
+  padding: 10px;
 }
 .fps {
   color: white;
 }
 #uiContainer {
   z-index: 2;
-  padding: 1em;
   position: absolute;
   top: 10px;
   right: 20px;
@@ -67,6 +69,8 @@ CANVAS {
   background: rgba(0,0,0,0.5);
   color: white;
   font-size: xx-small;
+  border-radius: 10px;
+  padding: 10px;
 }
 #ui {
 }
@@ -145,7 +149,8 @@ var g_ui = [
   { obj: 'fish',       name: 'fishYClock',       value: 0.17,  max:  2},
   { obj: 'fish',       name: 'fishZClock',       value: 1.09,  max:  2},
   { obj: 'innerConst', name: 'refractionFudge',  value: 7,     max:  50},
-  { obj: 'innerConst', name: 'eta',              value: 1,     max:  1}
+  { obj: 'innerConst', name: 'eta',              value: 1,     max:  1},
+  { obj: 'innerConst', name: 'tankColorFudge',   value: 1,     max:  2}
 ];
 
 var g_skyBoxUrls = [
@@ -1489,6 +1494,7 @@ uniform float shininess;
 uniform float specularFactor;
 uniform float refractionFudge;
 uniform float eta;
+uniform float tankColorFudge;
 
 vec4 lit(float l ,float h, float m) {
   return vec4(1.0,
@@ -1497,7 +1503,8 @@ vec4 lit(float l ,float h, float m) {
               1.0);
 }
 void main() {
-  vec4 diffuse = texture2D(diffuse, v_texCoord) + vec4(10,0,0,1);
+  vec4 diffuse = texture2D(diffuse, v_texCoord) +
+      vec4(tankColorFudge, tankColorFudge, tankColorFudge, 1);
   mat3 tangentToWorld = mat3(v_tangent,
                              v_binormal,
                              v_normal);
@@ -1514,15 +1521,9 @@ void main() {
   vec3 refractionVec = refract(surfaceToView, normal, eta);
 
   vec4 skyColor = textureCube(skybox, refractionVec);
-  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
-  vec4 litR = lit(dot(normal, surfaceToLight),
-                    dot(normal, halfVector), shininess);
-  gl_FragColor = vec4(mix(
-      skyColor,
-      lightColor * (diffuse * litR.y +
-                    specular * litR.z * specularFactor * normalSpec.a),
-      0.0 /*refraction.r*/).rgb,
-      diffuse.a);// * 0.0001 + vec4(normal.xyz * 0.5 + vec3(0.5, 0.5, 0.5), 1);
+  gl_FragColor = vec4(
+      mix(skyColor * diffuse, diffuse, refraction.r).rgb,
+      diffuse.a);
 }
 </script>
 <!-- ===[ SkyBox ]============================================== -->
