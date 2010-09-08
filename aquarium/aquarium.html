@@ -126,7 +126,8 @@ var g_sharkZClock      = 1;
 
 var g = {
   globals: {},
-  fish: {}};
+  fish: {},
+  innerConst: {}};
 
 var g_ui = [
   { obj: 'globals',    name: 'targetHeight',     value: 0,     max:  50 },
@@ -142,7 +143,9 @@ var g_ui = [
   { obj: 'fish',       name: 'fishOffset',       value: 0.3,   max:  2},
   { obj: 'fish',       name: 'fishXClock',       value: 1,     max:  2},
   { obj: 'fish',       name: 'fishYClock',       value: 0.17,  max:  2},
-  { obj: 'fish',       name: 'fishZClock',       value: 1.09,  max:  2}
+  { obj: 'fish',       name: 'fishZClock',       value: 1.09,  max:  2},
+  { obj: 'innerConst', name: 'refractionFudge',  value: 7,     max:  50},
+  { obj: 'innerConst', name: 'eta',              value: 1,     max:  1}
 ];
 
 var g_skyBoxUrls = [
@@ -512,6 +515,20 @@ function initialize() {
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose};
 
+  // Inner uniforms.
+  g.innerConst.viewInverse = viewInverse;
+  g.innerConst.lightWorldPos = lightWorldPos;
+  g.innerConst.lightColor = one4;
+  g.innerConst.specular = one4;
+  g.innerConst.shininess = 50;
+  g.innerConst.specularFactor = 1;
+  var innerPer = {
+    world: world,
+    worldViewProjection: worldViewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose};
+
+
   // Fish uniforms.
   var fishConst = {
     viewInverse: viewInverse,
@@ -754,12 +771,12 @@ function initialize() {
       if (scene.loaded && !scene.bad) {
         for (var ii = 0; ii < scene.models.length; ++ii) {
           var model = scene.models[ii];
-          model.drawPrep(genericConst);
+          model.drawPrep(g.innerConst);
           fast.matrix4.translation(world, [0,0,0]);
           fast.matrix4.mul(worldViewProjection, world, viewProjection);
           fast.matrix4.inverse(worldInverse, world);
           fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-          model.draw(genericPer);
+          model.draw(innerPer);
         }
       }
     }
@@ -1467,6 +1484,8 @@ uniform sampler2D reflectionMap;
 uniform samplerCube skybox;
 uniform float shininess;
 uniform float specularFactor;
+uniform float refractionFudge;
+uniform float eta;
 
 vec4 lit(float l ,float h, float m) {
   return vec4(1.0,
@@ -1475,19 +1494,23 @@ vec4 lit(float l ,float h, float m) {
               1.0);
 }
 void main() {
-  vec4 diffuse = texture2D(diffuse, v_texCoord);
+  vec4 diffuse = texture2D(diffuse, v_texCoord) + vec4(10,0,0,1);
   mat3 tangentToWorld = mat3(v_tangent,
                              v_binormal,
                              v_normal);
   vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);
   vec4 refraction = texture2D(reflectionMap, v_texCoord.xy);
   vec3 tangentNormal = normalSpec.xyz - vec3(0.5, 0.5, 0.5);
+  tangentNormal = normalize(tangentNormal + vec3(0,0,refractionFudge));
   vec3 normal = (tangentToWorld * tangentNormal);
-normal = normal + vec3(0,0,3);
   normal = normalize(normal);
+
   vec3 surfaceToLight = normalize(v_surfaceToLight);
   vec3 surfaceToView = normalize(v_surfaceToView);
-  vec4 skyColor = textureCube(skybox, reflect(surfaceToView, normal));
+
+  vec3 refractionVec = refract(surfaceToView, normal, eta);
+
+  vec4 skyColor = textureCube(skybox, refractionVec);
   vec3 halfVector = normalize(surfaceToLight + surfaceToView);
   vec4 litR = lit(dot(normal, surfaceToLight),
                     dot(normal, halfVector), shininess);
@@ -1495,8 +1518,8 @@ normal = normal + vec3(0,0,3);
       skyColor,
       lightColor * (diffuse * litR.y +
                     specular * litR.z * specularFactor * normalSpec.a),
-      refraction.r).rgb,
-      diffuse.a);
+      0.0 /*refraction.r*/).rgb,
+      diffuse.a);// * 0.0001 + vec4(normal.xyz * 0.5 + vec3(0.5, 0.5, 0.5), 1);
 }
 </script>
 <!-- ===[ SkyBox ]============================================== -->
