@@ -49,6 +49,13 @@ var tdl = tdl || {};
  */
 var goog = goog || {};
 
+
+if (!window.Int32Array) {
+  window.Int32Array = function() { };
+  window.Float32Array = function() { };
+  window.Uint16Array = function() { };
+}
+
 /**
  * A macro for defining composite types.
  *

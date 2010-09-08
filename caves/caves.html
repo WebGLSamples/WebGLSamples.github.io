@@ -17,6 +17,10 @@ canvas#render_area {
   margin-left: auto;
   margin-right: auto;
 }
+#viewContainer {
+  width: 100%;
+  height: 100%;
+}
 </style>
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
@@ -56,7 +60,10 @@ var backbuffer;
 
 function initializeGraphics() {
   canvas = document.getElementById('render_area');
-  gl = tdl.webgl.create3DContext(canvas);
+  gl = tdl.webgl.setupWebGL("viewContainer", canvas);
+  if (!gl) {
+	return false;
+  }
 //  gl = tdl.webgl.makeDebugContext(wu.create3DContext(canvas));
   aspect = canvas.clientWidth / canvas.clientHeight;
   backbuffer = tdl.framebuffers.getBackBuffer(canvas);
@@ -70,7 +77,9 @@ function initializeGraphics() {
 var caves = null;
 
 $(document).ready(function() {
-  initializeGraphics();
+  if (!initializeGraphics()) {
+	return;
+  }
 
   caves = new CavesMain();
 
@@ -125,9 +134,12 @@ $(document).keyup(function(event) {
 </head>
 
 <body>
-<canvas id="render_area" width="1024" height="512"></canvas><br />
+<div id="viewContainer">
+<canvas id="render_area" width="1024" height="512"></canvas>
+<br />
 Move with W,S,A,D. Shift to increase speed.<br />
 Hold left mouse button to carve.
+</div>
 </body>
 
 <script id="marching_cube_fs" type="x-shader/x-fragment">
