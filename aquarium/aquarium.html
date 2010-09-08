@@ -106,6 +106,7 @@ var g_logGLCalls = true   // whether or not to log webgl calls
 var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;
 var g_setSettingElements = [];
+var g_numSettingElements = {};
 var g_sharkWorldMats = [];
 var g_beamWorldMats = [];
 var g_scenes = {};  // each of the models
@@ -476,26 +477,25 @@ function setupSkybox() {
  * Sets the count
  */
 function setSetting(elem, id) {
+  var value = elem.innerHTML;
+  tdl.log(id);
   switch (id) {
-  case 0:
-  case 1:
-  case 2:
-  case 3:
-    g_numFish = Math.pow(10, id);
-    for (var ii = 0; ii < 4; ++ii) {
-      g_setSettingElements[ii].style.color = "gray";
+  case 7:
+    break;
+  case 6:
+    if (value == "Outside") {
+      elem.innerHTML = "Inside";
+    } else {
+      elem.innerHTML = "Outside";
+    }
+    break;
+  default:
+    g_numSettingElements[id] = elem;
+    g_numFish = parseInt(value);
+    for (var otherElem in g_numSettingElements) {
+      g_numSettingElements[otherElem].style.color = "gray";
     }
     elem.style.color = "red";
-    break;
-  case 4:
-    if (g_numSharks) {
-      g_numSharks = 0;
-      elem.style.color = "gray";
-    } else {
-      g_numSharks = 3;
-      elem.style.color = "red";
-    }
-    break;
   }
 }
 
@@ -514,7 +514,7 @@ function setupCountButtons() {
         setSetting(elem, id);
       }}(elem, ii);
   }
-  setSetting(document.getElementById("setSetting0"), 0);
+  setSetting(document.getElementById("setSetting1"), 1);
 }
 
 /**
@@ -525,8 +525,6 @@ function initialize() {
   fast = tdl.fast;
   canvas = document.getElementById("canvas");
 
-  setupCountButtons();
-
   g_fpsTimer = new tdl.fps.FPSTimer();
   gl = tdl.webgl.setupWebGL("viewContainer", canvas);
   if (!gl) {
@@ -535,6 +533,9 @@ function initialize() {
   if (g_debug) {
     gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
   }
+
+  setupCountButtons();
+
   gl.enable(gl.DEPTH_TEST);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
@@ -1046,6 +1047,10 @@ $(function(){
     uiElem.appendChild(div);
   }
 
+  $('#setSetting7').click(function() {
+      $("#uiContainer").toggle('slow'); return false; });
+  $("#uiContainer").toggle();
+
   initialize();
 });
 </script>
@@ -1056,9 +1061,12 @@ $(function(){
   <div>Number of Fish</div>
   <div id="setSetting0">1</div>
   <div id="setSetting1">10</div>
-  <div id="setSetting2">100</div>
-  <div id="setSetting3">1000</div>
-  <div id="setSetting4">Sharks</div>
+  <div id="setSetting2">50</div>
+  <div id="setSetting3">100</div>
+  <div id="setSetting4">500</div>
+  <div id="setSetting5">1000</div>
+  <div><span id="setSetting6">Outside</span>
+  <span style="float: right" id="setSetting7">*</span></div>
 </div>
 <div id="uiContainer">
 <div id="ui"></div>
