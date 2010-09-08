@@ -883,23 +883,35 @@ function initialize() {
       }
     }
 
-
-    var foo = ['GlobeInner', 'GlobeOuter'];
-    for (var ff = 0; ff  < foo.length; ++ff) {
-      Log("--Draw " + foo[ff] +  "---------------------------------------");
-      var scene = g_scenes[foo[ff]];
-      if (scene.loaded && !scene.bad) {
-        for (var ii = 0; ii < scene.models.length; ++ii) {
-          var model = scene.models[ii];
-          model.drawPrep(g.innerConst);
-          fast.matrix4.translation(world, [0,0,0]);
-          fast.matrix4.mul(worldViewProjection, world, viewProjection);
-          fast.matrix4.inverse(worldInverse, world);
-          fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-          model.draw(innerPer);
-        }
+    var scene = g_scenes.GlobeInner;
+    if (scene.loaded && !scene.bad) {
+      Log("--Draw GlobeInner----------------");
+      for (var ii = 0; ii < scene.models.length; ++ii) {
+        var model = scene.models[ii];
+        model.drawPrep(g.innerConst);
+        fast.matrix4.translation(world, [0,0,0]);
+        fast.matrix4.mul(worldViewProjection, world, viewProjection);
+        fast.matrix4.inverse(worldInverse, world);
+        fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+        model.draw(innerPer);
       }
     }
+
+    gl.enable(gl.BLEND);
+    var scene = g_scenes.GlobeOuter;
+    if (scene.loaded && !scene.bad) {
+      Log("--Draw GlobeOuter----------------");
+      for (var ii = 0; ii < scene.models.length; ++ii) {
+        var model = scene.models[ii];
+        model.drawPrep(g.innerConst);
+        fast.matrix4.translation(world, [0,0,0]);
+        fast.matrix4.mul(worldViewProjection, world, viewProjection);
+        fast.matrix4.inverse(worldInverse, world);
+        fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+        model.draw(innerPer);
+      }
+    }
+
 
 
     //do {
@@ -1758,7 +1770,7 @@ vec4 lit(float l ,float h, float m) {
               1.0);
 }
 void main() {
-  vec4 diffuse = texture2D(diffuse, v_texCoord) +
+  vec4 diffuseColor = texture2D(diffuse, v_texCoord) +
       vec4(tankColorFudge, tankColorFudge, tankColorFudge, 1);
   mat3 tangentToWorld = mat3(v_tangent,
                              v_binormal,
@@ -1776,9 +1788,14 @@ void main() {
   vec3 refractionVec = refract(surfaceToView, normal, eta);
 
   vec4 skyColor = textureCube(skybox, refractionVec);
-  gl_FragColor = vec4(
-      mix(skyColor * diffuse, diffuse, refraction.r).rgb,
-      diffuse.a);
+  float diffuseAmount = 0.2;
+  float fudgeAmount = 1.1;
+  vec3 fudge = skyColor.rgb * vec3(fudgeAmount, fudgeAmount, fudgeAmount);
+  float bright = min(1.0, fudge.r * fudge.g * fudge.b);
+  vec4 reflectColor =
+      mix(vec4(skyColor.rgb, bright), diffuseColor, diffuseAmount);
+  float r = abs(dot(surfaceToView, normal));
+  gl_FragColor = vec4(mix(skyColor, reflectColor, r + 0.3).rgb, 1.0 - r);
 }
 </script>
 <!-- ===[ SkyBox ]============================================== -->
