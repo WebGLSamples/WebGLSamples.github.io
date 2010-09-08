@@ -178,7 +178,8 @@ function createProgramFromTags(vertexTagId, fragmentTagId) {
       document.getElementById(fragmentTagId).text);
 }
 
-var Scene = function() {
+var Scene = function(opt_program) {
+  this.program = opt_program;
   this.bad = false;
   this.loaded = false;
   this.models = [];
@@ -219,67 +220,133 @@ Scene.prototype.onload_ = function(data, exception) {
       // DM
       // DM+NM
       // DM+NM+RM
+      var type;
       var program;
       if (!textures.diffuse) {
         throw "missing diffuse texture for: " + this.url;
       }
-      if (textures.reflectionMap) {
+      if (this.program) {
+        type = "custom";
+        program = this.program;
+        // Fix this hack
+        textures.skybox = tdl.textures.loadTexture(g_skyBoxUrls);
+      } else if (textures.reflectionMap) {
         if (!textures.normalMap) {
           throw "missing normalMap for: " + this.url;
         }
+        type = "reflection";
         program = createProgramFromTags(
             'reflectionMapVertexShader',
             'reflectionMapFragmentShader');
         textures.skybox = tdl.textures.loadTexture(g_skyBoxUrls);
 
       } else if (textures.normalMap) {
+        type = "normalMap";
         program = createProgramFromTags(
             'normalMapVertexShader',
             'normalMapFragmentShader');
       } else {
+        type = "diffuse";
         program = createProgramFromTags(
             'diffuseVertexShader',
             'diffuseFragmentShader');
       }
+      //tdl.log(this.url, ": ", type);
       this.models.push(new tdl.models.Model(program, arrays, textures));
     }
   }
 };
 
-function loadScene(name) {
-  var scene = new Scene();
+function loadScene(name, opt_program) {
+  var scene = new Scene(opt_program);
   scene.load("assets/" + name + ".js");
   return scene;
 }
 
 function loadScenes() {
   var scenes = [
-    "SmallFishA",
-    "MediumFishA",
-    "MediumFishB",
-    "BigFishA",
-    "BigFishB",
-    "Arch",
-    "Coral",
-    "CoralStoneA",
-    "CoralStoneB",
-    "FloorBase_Baked",
-    "FloorCenter",
-    "GlobeInner",
-    "GlobeOuter",
-    "RockA",
-    "RockB",
-    "RockC",
-    "RuinColumn",
-    "Stone",
-    "Stones",
-    "SunknShip",
-    "SunknSub",
-    "TreasureChest"
+    {
+      name: "SmallFishA"
+    },
+    {
+      name: "MediumFishA"
+    },
+    {
+      name: "MediumFishB"
+    },
+    {
+      name: "BigFishA"
+    },
+    {
+      name: "BigFishB"
+    },
+    {
+      name: "Arch"
+    },
+    {
+      name: "Coral"
+    },
+    {
+      name: "CoralStoneA"
+    },
+    {
+      name: "CoralStoneB"
+    },
+    {
+      name: "FloorBase_Baked"
+    },
+    {
+      name: "FloorCenter"
+    },
+    {
+      name: "GlobeInner",
+      program: [
+        "refractionMapVertexShader",
+        "refractionMapFragmentShader"
+      ]
+    },
+    {
+      name: "GlobeOuter"
+    },
+    {
+      name: "RockA"
+    },
+    {
+      name: "RockB"
+    },
+    {
+      name: "RockC"
+    },
+    {
+      name: "RuinColumn"
+    },
+    {
+      name: "Stone"
+    },
+    {
+      name: "Stones"
+    },
+    {
+      name: "SunknShip"
+    },
+    {
+      name: "SunknSub"
+    },
+    {
+      name: "TreasureChest"
+    }
   ];
 
   for (var ii = 0; ii < scenes.length; ++ii) {
-    g_scenes[scenes[ii]] = loadScene(scenes[ii]);
+    var info = scenes[ii];
+    var program = undefined;
+    if (info.program) {
+      program = createProgramFromTags(
+          info.program[0],
+          info.program[1]);
+
+    }
+    g_scenes[info.name] = loadScene(info.name, program);
   }
 }
 
@@ -680,8 +747,9 @@ function initialize() {
     }
 
 
-    var foo = ['GlobeInner', 'GlobeOuter'];
+    var foo = ['GlobeInner' /*, 'GlobeOuter' */];
     for (var ff = 0; ff  < foo.length; ++ff) {
+      Log("--Draw " + foo[ff] +  "---------------------------------------");
       var scene = g_scenes[foo[ff]];
       if (scene.loaded && !scene.bad) {
         for (var ii = 0; ii < scene.models.length; ++ii) {
@@ -695,6 +763,14 @@ function initialize() {
         }
       }
     }
+
+
+    //do {
+    //  err = gl.getError();
+    //  if (err) {
+    //    tdl.log(err.toString(16));
+    //  }
+    //} while (err);
 
 //    // Draw Laser
 //    Log("--Draw Laser---------------------------------------");
@@ -1258,7 +1334,7 @@ void main() {
       diffuse.a);
 }
 </script>
-<!-- ===[ Normal Map Shader ]============================================== -->
+<!-- ===[ Reflection Map Shader ]============================================== -->
 <script id="reflectionMapVertexShader" type="text/something-not-javascript">
 uniform mat4 worldViewProjection;
 uniform vec3 lightWorldPos;
@@ -1337,6 +1413,89 @@ void main() {
       lightColor * (diffuse * litR.y +
                     specular * litR.z * specularFactor * normalSpec.a),
       reflection.r).rgb,
+      diffuse.a);
+}
+</script>
+<!-- ===[ Refraction Map Shader ]============================================== -->
+<script id="refractionMapVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+attribute vec3 tangent;
+attribute vec3 binormal;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+void main() {
+  v_texCoord = texCoord;
+  v_position = (worldViewProjection * position);
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;
+  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="refractionMapFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform vec4 lightColor;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_tangent;
+varying vec3 v_binormal;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform sampler2D diffuse;
+uniform vec4 specular;
+uniform sampler2D normalMap;
+uniform sampler2D reflectionMap;
+uniform samplerCube skybox;
+uniform float shininess;
+uniform float specularFactor;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec4 diffuse = texture2D(diffuse, v_texCoord);
+  mat3 tangentToWorld = mat3(v_tangent,
+                             v_binormal,
+                             v_normal);
+  vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);
+  vec4 refraction = texture2D(reflectionMap, v_texCoord.xy);
+  vec3 tangentNormal = normalSpec.xyz - vec3(0.5, 0.5, 0.5);
+  vec3 normal = (tangentToWorld * tangentNormal);
+normal = normal + vec3(0,0,3);
+  normal = normalize(normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec4 skyColor = textureCube(skybox, reflect(surfaceToView, normal));
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  gl_FragColor = vec4(mix(
+      skyColor,
+      lightColor * (diffuse * litR.y +
+                    specular * litR.z * specularFactor * normalSpec.a),
+      refraction.r).rgb,
       diffuse.a);
 }
 </script>
