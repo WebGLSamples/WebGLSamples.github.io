@@ -1,0 +1,125 @@
+//Maya ASCII 2010 scene
+//Name: LightRay.ma
+//Last modified: Wed, Sep 08, 2010 09:16:11 PM
+//Codeset: 1252
+requires maya "2010";
+requires "stereoCamera" "10.0";
+currentUnit -l centimeter -a degree -t film;
+fileInfo "application" "maya";
+fileInfo "product" "Maya Unlimited 2010";
+fileInfo "version" "2010";
+fileInfo "cutIdentifier" "200907280007-756013";
+fileInfo "osv" "Microsoft Windows XP Service Pack 3 (Build 2600)\n";
+createNode transform -n "LightRay_01";
+	setAttr ".rp" -type "double3" 0.041365351555093355 99.865736243192018 0 ;
+	setAttr ".sp" -type "double3" 0.041365351555093355 99.865736243192018 0 ;
+createNode mesh -n "LightRay_0Shape1" -p "LightRay_01";
+	addAttr -ci true -sn "mso" -ln "miShadingSamplesOverride" -min 0 -max 1 -at "bool";
+	addAttr -ci true -sn "msh" -ln "miShadingSamples" -min 0 -smx 8 -at "float";
+	addAttr -ci true -sn "mdo" -ln "miMaxDisplaceOverride" -min 0 -max 1 -at "bool";
+	addAttr -ci true -sn "mmd" -ln "miMaxDisplace" -min 0 -smx 1 -at "float";
+	setAttr -k off ".v";
+	setAttr ".vir" yes;
+	setAttr ".vif" yes;
+	setAttr ".pv" -type "double2" 1.0016198631917748 0.5 ;
+	setAttr ".uvst[0].uvsn" -type "string" "map1";
+	setAttr -s 4 ".uvst[0].uvsp[0:3]" -type "float2" 0 0 1.0016198 0 
+		0 1 1.0016198 1;
+	setAttr ".cuvs" -type "string" "map1";
+	setAttr ".dcc" -type "string" "Ambient+Diffuse";
+	setAttr ".covm[0]"  0 1 1;
+	setAttr ".cdvm[0]"  0 1 1;
+	setAttr -s 4 ".pt[0:3]" -type "float3"  0.041365385 59.14711 0 0.041365385 
+		59.14711 0 0.041365385 59.14711 0 0.041365385 59.14711 0;
+	setAttr -s 4 ".vt[0:3]"  -3.8006086 -40.698185 0 3.8006086 -40.698185 
+		0 -3.8006086 40.698185 0 3.8006086 40.698185 0;
+	setAttr -s 4 ".ed[0:3]"  0 1 0 0 2 0 
+		1 3 0 2 3 0;
+	setAttr ".fc[0]" -type "polyFaces" 
+		f 4 0 2 -4 -2 
+		mu 0 4 0 1 3 2 ;
+	setAttr ".cd" -type "dataPolyComponent" Index_Data Edge 0 ;
+	setAttr ".cvd" -type "dataPolyComponent" Index_Data Vertex 0 ;
+createNode materialInfo -n "materialInfo3";
+createNode shadingEngine -n "LightRaySG";
+	setAttr ".ihi" 0;
+	setAttr ".ro" yes;
+createNode lambert -n "LightRayM";
+createNode file -n "file5";
+	setAttr ".co" -type "float3" 0.49586001 0.49586001 0.49586001 ;
+	setAttr ".ag" 0.9917600154876709;
+	setAttr ".ftn" -type "string" "D:/Project/MyProject//sourceimages/Aquarium/PNGs/LightRay.png";
+createNode place2dTexture -n "place2dTexture5";
+createNode lightLinker -n "lightLinker1";
+	setAttr -s 5 ".lnk";
+	setAttr -s 5 ".slnk";
+select -ne :time1;
+	setAttr ".o" 0;
+select -ne :renderPartition;
+	setAttr -s 24 ".st";
+select -ne :renderGlobalsList1;
+select -ne :defaultShaderList1;
+	setAttr -s 24 ".s";
+select -ne :postProcessList1;
+	setAttr -s 2 ".p";
+select -ne :defaultRenderUtilityList1;
+	setAttr -s 62 ".u";
+select -ne :lightList1;
+	setAttr -s 3 ".l";
+	setAttr -s 8 ".ln";
+select -ne :defaultTextureList1;
+	setAttr -s 56 ".tx";
+select -ne :initialShadingGroup;
+	setAttr -s 11 ".dsm";
+	setAttr ".ro" yes;
+	setAttr -s 11 ".gn";
+select -ne :initialParticleSE;
+	setAttr ".ro" yes;
+select -ne :defaultLightSet;
+	setAttr -s 3 ".dsm";
+select -ne :defaultHardwareRenderGlobals;
+	setAttr ".fn" -type "string" "im";
+	setAttr ".res" -type "string" "ntsc_4d 646 485 1.333";
+connectAttr "LightRaySG.msg" "materialInfo3.sg";
+connectAttr "LightRayM.msg" "materialInfo3.m";
+connectAttr "file5.msg" "materialInfo3.t" -na;
+connectAttr "LightRayM.oc" "LightRaySG.ss";
+connectAttr "LightRay_0Shape1.iog" "LightRaySG.dsm" -na;
+connectAttr "file5.oc" "LightRayM.c";
+connectAttr "file5.ot" "LightRayM.it";
+connectAttr "place2dTexture5.c" "file5.c";
+connectAttr "place2dTexture5.tf" "file5.tf";
+connectAttr "place2dTexture5.rf" "file5.rf";
+connectAttr "place2dTexture5.mu" "file5.mu";
+connectAttr "place2dTexture5.mv" "file5.mv";
+connectAttr "place2dTexture5.s" "file5.s";
+connectAttr "place2dTexture5.wu" "file5.wu";
+connectAttr "place2dTexture5.wv" "file5.wv";
+connectAttr "place2dTexture5.re" "file5.re";
+connectAttr "place2dTexture5.of" "file5.of";
+connectAttr "place2dTexture5.r" "file5.ro";
+connectAttr "place2dTexture5.n" "file5.n";
+connectAttr "place2dTexture5.vt1" "file5.vt1";
+connectAttr "place2dTexture5.vt2" "file5.vt2";
+connectAttr "place2dTexture5.vt3" "file5.vt3";
+connectAttr "place2dTexture5.vc1" "file5.vc1";
+connectAttr "place2dTexture5.o" "file5.uv";
+connectAttr "place2dTexture5.ofs" "file5.fs";
+connectAttr ":defaultLightSet.msg" "lightLinker1.lnk[1].llnk";
+connectAttr ":initialShadingGroup.msg" "lightLinker1.lnk[1].olnk";
+connectAttr ":defaultLightSet.msg" "lightLinker1.lnk[2].llnk";
+connectAttr ":initialParticleSE.msg" "lightLinker1.lnk[2].olnk";
+connectAttr ":defaultLightSet.msg" "lightLinker1.lnk[4].llnk";
+connectAttr "LightRaySG.msg" "lightLinker1.lnk[4].olnk";
+connectAttr ":defaultLightSet.msg" "lightLinker1.slnk[1].sllk";
+connectAttr ":initialShadingGroup.msg" "lightLinker1.slnk[1].solk";
+connectAttr ":defaultLightSet.msg" "lightLinker1.slnk[2].sllk";
+connectAttr ":initialParticleSE.msg" "lightLinker1.slnk[2].solk";
+connectAttr ":defaultLightSet.msg" "lightLinker1.slnk[4].sllk";
+connectAttr "LightRaySG.msg" "lightLinker1.slnk[4].solk";
+connectAttr "LightRaySG.pa" ":renderPartition.st" -na;
+connectAttr "LightRayM.msg" ":defaultShaderList1.s" -na;
+connectAttr "place2dTexture5.msg" ":defaultRenderUtilityList1.u" -na;
+connectAttr "lightLinker1.msg" ":lightList1.ln" -na;
+connectAttr "file5.msg" ":defaultTextureList1.tx" -na;
+// End of LightRay.ma
