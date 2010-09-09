@@ -112,6 +112,7 @@ var g_sharkWorldMats = [];
 var g_beamWorldMats = [];
 var g_scenes = {};  // each of the models
 var g_scene = {};  // the placement of the models
+var g_fog = true;
 
 //g_debug = true;
 //g_drawOnce = true;
@@ -150,6 +151,9 @@ var g_ui = [
   { obj: 'globals',    name: 'ambientRed',      value: 0.35,  max:  1},
   { obj: 'globals',    name: 'ambientGreen',    value: 0.35,  max:  1},
   { obj: 'globals',    name: 'ambientBlue',     value: 0.35,  max:  1},
+  { obj: 'globals',    name: 'fogPower',        value: 3,     max:  10},
+  { obj: 'globals',    name: 'fogMult',         value: 1,     max:  10},
+  { obj: 'globals',    name: 'fogOffset',       value: 0.3,   max:  3},
   { obj: 'fish',       name: 'fishRadius',      value: 50,    max:  200},
   { obj: 'fish',       name: 'fishHeightRange', value: 16,    max:  50},
   { obj: 'fish',       name: 'fishHeight',      value: 22,    max:  50},
@@ -246,9 +250,23 @@ function getScriptText(id) {
 }
 
 function createProgramFromTags(vertexTagId, fragmentTagId) {
+  var fogUniforms = '' +
+    'uniform float fogPower;\n' +
+    'uniform float fogMult;\n' +
+    'uniform float fogOffset;\n';
+  var fogCode = '' +
+    'vec4 fogColor = vec4(0.8,0.9,1.0,1);\n' +
+    'outColor = mix(outColor, fogColor,\n' +
+    '   pow((v_position.z / v_position.w), fogPower) * fogMult - fogOffset);\n';
+  var fs = getScriptText(fragmentTagId)
+
+  if (g_fog) {
+    fs = fs.replace('// #fogUniforms', fogUniforms);
+    fs = fs.replace('// #fogCode', fogCode);
+  }
+
   return tdl.programs.loadProgram(
-      getScriptText(vertexTagId),
-      getScriptText(fragmentTagId));
+      getScriptText(vertexTagId), fs);
 }
 
 var Scene = function(opt_program) {
@@ -474,7 +492,7 @@ function setupBubbles(particleSystem) {
         numFrames: 1,
         frameDuration: 1000.0,
         frameStartRange: 0,
-        lifeTime: 30,
+        lifeTime: 40,
         startTime: 0,
         startSize: 0.01,
         startSizeRange: 0.01,
@@ -783,6 +801,18 @@ function initialize() {
     skybox.drawPrep(skyConst);
     skybox.draw(skyPer);
     gl.depthMask(true);
+
+    if (g_fog) {
+      genericConst.fogPower  = g.globals.fogPower;
+      genericConst.fogMult   = g.globals.fogMult;
+      genericConst.fogOffset = g.globals.fogOffset;
+      fishConst.fogPower     = g.globals.fogPower;
+      fishConst.fogMult      = g.globals.fogMult;
+      fishConst.fogOffset    = g.globals.fogOffset;
+      g.innerConst.fogPower  = g.globals.fogPower;
+      g.innerConst.fogMult   = g.globals.fogMult;
+      g.innerConst.fogOffset = g.globals.fogOffset;
+    }
 
     // Draw Scene
     var objects = g_scene.objects;
@@ -1273,6 +1303,7 @@ uniform vec4 specular;
 uniform sampler2D normalMap;
 uniform float shininess;
 uniform float specularFactor;
+// #fogUniforms
 
 vec4 lit(float l ,float h, float m) {
   return vec4(1.0,
@@ -1295,10 +1326,12 @@ void main() {
   vec3 halfVector = normalize(surfaceToLight + surfaceToView);
   vec4 litR = lit(dot(normal, surfaceToLight),
                     dot(normal, halfVector), shininess);
-  gl_FragColor = vec4(
+  vec4 outColor = vec4(
     (lightColor * (diffuseColor * litR.y + diffuseColor * ambient +
                   specular * litR.z * specularFactor * normalSpec.a)).rgb,
       diffuseColor.a);
+  // #fogCode
+  gl_FragColor = outColor;
 }
 </script>
 <!-- ===[ fishReflection Shader ]=========================================== -->
@@ -1324,6 +1357,7 @@ uniform sampler2D reflectionMap;
 uniform samplerCube skybox;
 uniform float shininess;
 uniform float specularFactor;
+// #fogUniforms
 
 vec4 lit(float l ,float h, float m) {
   return vec4(1.0,
@@ -1347,12 +1381,14 @@ void main() {
   vec3 halfVector = normalize(surfaceToLight + surfaceToView);
   vec4 litR = lit(dot(normal, surfaceToLight),
                     dot(normal, halfVector), shininess);
-  gl_FragColor = vec4(mix(
+  vec4 outColor = vec4(mix(
       skyColor,
       lightColor * (diffuseColor * litR.y + diffuseColor * ambient +
                     specular * litR.z * specularFactor * normalSpec.a),
       reflection.r).rgb,
       diffuseColor.a);
+  // #fogCode
+  gl_FragColor = outColor;
 }
 </script>
 <!-- ===[ Shark Shader ]============================================== -->
@@ -1536,6 +1572,7 @@ uniform sampler2D diffuse;
 uniform vec4 specular;
 uniform float shininess;
 uniform float specularFactor;
+// #fogUniforms
 
 vec4 lit(float l ,float h, float m) {
   return vec4(1.0,
@@ -1551,10 +1588,12 @@ void main() {
   vec3 halfVector = normalize(surfaceToLight + surfaceToView);
   vec4 litR = lit(dot(normal, surfaceToLight),
                     dot(normal, halfVector), shininess);
-  gl_FragColor = vec4((
+  vec4 outColor = vec4((
   lightColor * (diffuse * litR.y + diffuse * ambient +
                 specular * litR.z * specularFactor)).rgb,
       diffuse.a);
+  // #fogCode
+  gl_FragColor = outColor;
 }
 </script>
 <!-- ===[ Normal Map Shader ]============================================== -->
@@ -1607,6 +1646,7 @@ uniform vec4 specular;
 uniform sampler2D normalMap;
 uniform float shininess;
 uniform float specularFactor;
+// #fogUniforms
 
 vec4 lit(float l ,float h, float m) {
   return vec4(1.0,
@@ -1629,10 +1669,12 @@ void main() {
   vec3 halfVector = normalize(surfaceToLight + surfaceToView);
   vec4 litR = lit(dot(normal, surfaceToLight),
                     dot(normal, halfVector), shininess);
-  gl_FragColor = vec4((
-  lightColor * (diffuse * litR.y + diffuse * ambient +
-                specular * litR.z * specularFactor * normalSpec.a)).rgb,
+  vec4 outColor = vec4(
+     (lightColor * (diffuse * litR.y + diffuse * ambient +
+                    specular * litR.z * specularFactor * normalSpec.a)).rgb,
       diffuse.a);
+  // #fogCode
+  gl_FragColor = outColor;
 }
 </script>
 <!-- ===[ Reflection Map Shader ]============================================== -->
@@ -1687,6 +1729,7 @@ uniform sampler2D reflectionMap;
 uniform samplerCube skybox;
 uniform float shininess;
 uniform float specularFactor;
+// #fogUniforms
 
 vec4 lit(float l ,float h, float m) {
   return vec4(1.0,
@@ -1710,12 +1753,14 @@ void main() {
   vec3 halfVector = normalize(surfaceToLight + surfaceToView);
   vec4 litR = lit(dot(normal, surfaceToLight),
                     dot(normal, halfVector), shininess);
-  gl_FragColor = vec4(mix(
+  vec4 outColor = vec4(mix(
       skyColor,
       lightColor * (diffuse * litR.y + diffuse * ambient +
                     specular * litR.z * specularFactor * normalSpec.a),
       reflection.r).rgb,
       diffuse.a);
+  // #fogCode
+  gl_FragColor = outColor;
 }
 </script>
 <!-- ===[ Inner Refraction Map Shader ]==================================== -->
@@ -1772,6 +1817,7 @@ uniform float specularFactor;
 uniform float refractionFudge;
 uniform float eta;
 uniform float tankColorFudge;
+// #fogUniforms
 
 vec4 lit(float l ,float h, float m) {
   return vec4(1.0,
@@ -1798,9 +1844,11 @@ void main() {
   vec3 refractionVec = refract(surfaceToView, normal, eta);
 
   vec4 skyColor = textureCube(skybox, refractionVec);
-  gl_FragColor = vec4(
+  vec4 outColor = vec4(
       mix(skyColor * diffuse, diffuse, refraction.r).rgb,
       diffuse.a);
+  // #fogCode
+  gl_FragColor = outColor;
 }
 </script>
 <!-- ===[ Outer Refraction Map Shader ]==================================== -->
