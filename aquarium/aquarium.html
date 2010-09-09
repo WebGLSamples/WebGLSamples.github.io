@@ -480,17 +480,17 @@ Scene.prototype.onload_ = function(data, exception) {
 };
 
 function loadScene(name, opt_program, fog) {
-  var scene = new Scene(opt_program);
-  scene.load("assets/" + name + ".js", fog);
+  var scene = new Scene(opt_program, fog);
+  scene.load("assets/" + name + ".js");
   return scene;
 }
 
 function loadScenes() {
   for (var ii = 0; ii < g_sceneInfo.length; ++ii) {
     var info = g_sceneInfo[ii];
+    var fog = (info.fog !== undefined) ? info.fog : true;
     var program = undefined;
     if (info.program) {
-      var fog = info.fog !== undefined ? info.fog : true
       program = createProgramFromTags(
           info.program[0],
           info.program[1],
