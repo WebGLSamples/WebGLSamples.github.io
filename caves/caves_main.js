@@ -14,11 +14,10 @@ function CavesMain() {
 
   var m4 = tdl.fast.matrix4;
 
-  m4.perspective(proj, tdl.math.degToRad(60), aspect, 0.1, 500);
   m4.identity(world);
   //m4.scaling(world, [0.7, 0.7, 0.7]);
   //m4.translate(world, [-16, -16, -16]);
-  
+
   var size = 96;
   var tree = new field.FieldNode(0, 0, 0, size, 24+1);
 
@@ -26,14 +25,15 @@ function CavesMain() {
 
   var eyePos = new Float32Array([size/2,size/2,size*1.1]);
   var eyePosVel = new Float32Array([0, 0, 0]);
-  var eyeRotTheta = 0, eyeRotPhi = Math.PI/2;
+  //var eyeRotTheta = 0, eyeRotPhi = Math.PI/2;
+  var eyeRotTheta = 0, eyeRotPhi = 2.6;
 
   var forward = new Float32Array([20, 0, 0]);
   var left = new Float32Array(3);
   var up = new Float32Array([0, 0, 1]);
-  
+
   var time = 0;
-  
+
   var mouseX = 0, mouseY = 0;
   var laserDist = 0, nextCutDist = 0;
 
@@ -86,7 +86,7 @@ function CavesMain() {
     tree.walkSubTree(min_x, max_x, min_y, max_y, min_z, max_z, uniform, buffer);
     //tree.walkTree(uniform, buffer);
   }
-  
+
   function addFloor(min_z) {
     function uniform(node) {
       return (node.minZ + node.size >= min_z);
@@ -134,20 +134,19 @@ function CavesMain() {
     var orbit = 1.1;
     //eyePos = new Float32Array([Math.cos(time)*orbit, Math.sin(time)*orbit, 0.3]);
     var mvX, mvY;
-    mvX = Math.min(Math.max(mouseX - 512, -200), 200);
-    mvY = Math.min(Math.max(mouseY - 256, -200), 200);
+    mvX = Math.min(Math.max(mouseX - canvas.clientWidth / 2, -200), 200);
+    mvY = Math.min(Math.max(mouseY - canvas.clientHeight / 2, -200), 200);
     mvX = Math.pow(mvX / 60, 3);
     mvY = Math.pow(mvY / 60, 3);
     eyeRotTheta = (eyeRotTheta - mvX * time_delta * 0.1) % (Math.PI * 2);
     eyeRotPhi += mvY * time_delta * 0.1;
     eyeRotPhi = Math.min(Math.max(eyeRotPhi, 0.1), Math.PI-0.1);
-    
     forward[0] = Math.cos(eyeRotTheta) * Math.sin(eyeRotPhi);
     forward[1] = Math.sin(eyeRotTheta) * Math.sin(eyeRotPhi);
     forward[2] = Math.cos(eyeRotPhi);
     left[0] = -Math.sin(eyeRotTheta);
     left[1] = Math.cos(eyeRotTheta);
-    
+
     var movement = 10;
     var decayRate = 20 * time_delta;
     var moveForward = 0, moveLeft = 0, moveUp = 0;
@@ -175,7 +174,7 @@ function CavesMain() {
     eyePos[0] += eyePosVel[0] * time_delta;
     eyePos[1] += eyePosVel[1] * time_delta;
     eyePos[2] += eyePosVel[2] * time_delta;
-    
+
     if (mouseDown[1]) {
       var needUpdate = false;
       for (laserDist += time_delta * 15; nextCutDist <= laserDist; nextCutDist += 0.8) {
@@ -193,20 +192,20 @@ function CavesMain() {
       nextCutDist = 0;
     }
   }
-  
+
   this.onMouseMove = function(x, y) {
     mouseX = x;
     mouseY = y;
   }
-  
+
   this.onMouseDown = function(button) {
     mouseDown[button] = true;
   }
-  
+
   this.onMouseUp = function(button) {
     mouseDown[button] = false;
   }
-  
+
   this.onKeyDown = function(key) {
     //console.log(''+key);
     keyDown[key] = true;
@@ -218,7 +217,8 @@ function CavesMain() {
 
   this.render = function(framebuffer) {
     var target = tdl.math.addVector(eyePos, forward);
-	  m4.lookAt(view, eyePos, target, up);
+    m4.perspective(proj, tdl.math.degToRad(60), aspect, 0.1, 500);
+    m4.lookAt(view, eyePos, target, up);
 
     gl.clearColor(0.4,0.6,0.8,1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
