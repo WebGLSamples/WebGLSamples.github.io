@@ -1,6 +1,5 @@
 syntax: glob
 
-*#
 *~
 *.swp
 *.bat

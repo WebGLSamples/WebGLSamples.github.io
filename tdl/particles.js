@@ -911,7 +911,7 @@ tdl.particles.ParticleEmitter.prototype.createParticles_ = function(
       opt_perParticleParamSetter(ii, parameters);
     }
     var pLifeTime = parameters.lifeTime;
-    var pStartTime = (parameters.startTime === null) ?
+    var pStartTime = (parameters.startTime === undefined) ?
         (ii * parameters.lifeTime / numParticles) : parameters.startTime;
     var pFrameStart =
         parameters.frameStart + plusMinus(parameters.frameStartRange);

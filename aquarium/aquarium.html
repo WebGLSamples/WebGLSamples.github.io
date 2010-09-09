@@ -91,6 +91,7 @@ tdl.require('tdl.io');
 tdl.require('tdl.log');
 tdl.require('tdl.math');
 tdl.require('tdl.models');
+tdl.require('tdl.particles');
 tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
 tdl.require('tdl.textures');
@@ -128,11 +129,15 @@ var g_sharkClockOffset = 17;
 var g_sharkXClock      = 1;
 var g_sharkYClock      = 0.17;
 var g_sharkZClock      = 1;
+var g_numBubbleSets    = 10;
+var g_bubbleSets = [];
 
 var g = {
   globals: {},
   fish: {},
   innerConst: {}};
+
+var g_uiWidgets = {};
 
 var g_ui = [
   { obj: 'globals',    name: 'speed',            value: 1,     max:  4 },
@@ -319,7 +324,6 @@ Scene.prototype.onload_ = function(data, exception) {
             'diffuseVertexShader',
             'diffuseFragmentShader');
       }
-      tdl.log(this.url, ": ", type);
       this.models.push(new tdl.models.Model(program, arrays, textures));
     }
   }
@@ -452,6 +456,49 @@ function loadPlacement() {
   });
 }
 
+function setupBubbles(particleSystem) {
+ //  var texture = tdl.textures.loadTexture('static_assets/ParticleFX.png');
+    var texture = tdl.textures.loadTexture('static_assets/bubble.png');
+    var emitter = particleSystem.createParticleEmitter(texture.texture);
+    emitter.setTranslation(0, 0, 0);
+    emitter.setState(tdl.particles.ParticleStateIds.ADD);
+    emitter.setColorRamp(
+        [1, 1, 1, 1,
+         1, 1, 1, 1,
+         1, 1, 1, 1,
+         1, 1, 1, 1,
+         1, 1, 1, 1,
+         1, 1, 1, 0]);
+    emitter.setParameters({
+        numParticles: 100,
+        numFrames: 1,
+        frameDuration: 1000.0,
+        frameStartRange: 0,
+        lifeTime: 30,
+        startTime: 0,
+        startSize: 0.01,
+        startSizeRange: 0.01,
+        endSize: 0.4,
+        endSizeRange: 0.2,
+        position: [0,-2,0],
+        positionRange: [0.1,2,0.1],
+        acceleration: [0,0.05,0],
+        accelerationRange: [0,0.02,0],
+        velocityRange: [0.05,0,0.05],
+        colorMult: [0.7,0.8,1,0.9]});
+        //function(index, parameters) {
+        //    var speed = Math.random() * 0.6 + 0.2;
+        //    var speed2 = Math.random() * 0.2 + 0.1;
+        //    var angle = Math.random() * 2 * Math.PI;
+        //    parameters.velocity = math.matrix4.transformPoint(
+        //        math.matrix4.rotationZ(angle), [speed, speed2, 0]);
+        //}
+        //);
+    for (var ii = 0; ii < g_numBubbleSets; ++ii) {
+        g_bubbleSets[ii] = emitter.createOneShot();
+    }
+}
+
 /**
  * Sets up the Skybox
  */
@@ -478,15 +525,20 @@ function setupSkybox() {
  */
 function setSetting(elem, id) {
   var value = elem.innerHTML;
-  tdl.log(id);
   switch (id) {
   case 7:
     break;
   case 6:
     if (value == "Outside") {
       elem.innerHTML = "Inside";
+      $(g_uiWidgets.globals.eyeRadius).slider("value", 60);
+      g.globals.eyeRadius = 60;
+      g.globals.eyeHeight = 19;
     } else {
       elem.innerHTML = "Outside";
+      $(g_uiWidgets.globals.eyeRadius).slider("value", 90);
+      g.globals.eyeRadius = 90;
+      g.globals.eyeHeight = 33;
     }
     break;
   default:
@@ -543,6 +595,12 @@ function initialize() {
   Log("--Setup Skybox---------------------------------------");
   var skybox = setupSkybox();
   loadScenes();
+
+  var particleSystem = new tdl.particles.ParticleSystem(
+      gl, null, math.pseudoRandom);
+  setupBubbles(particleSystem);
+  var bubbleTimer = 0;
+  var bubbleIndex = 0;
 
   var then = 0.0;
   var clock = 0.0;
@@ -709,6 +767,8 @@ function initialize() {
 //      viewProjection: viewProjection,
 
     gl.disable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.blendEquation(gl.FUNC_ADD);
     gl.enable(gl.CULL_FACE);
 
     math.resetPseudoRandom();
@@ -900,6 +960,28 @@ function initialize() {
     }
 
     gl.enable(gl.BLEND);
+
+    bubbleTimer -= elapsedTime * g.globals.speed;
+    if (bubbleTimer < 0) {
+      bubbleTimer = 2 + Math.random() * 8;
+      var radius = Math.random() * 50;
+      var angle = Math.random() * Math.PI * 2;
+      fast.matrix4.translation(
+          world,
+          [Math.sin(angle) * radius,
+           0,
+           Math.cos(angle) * radius]);
+      g_bubbleSets[bubbleIndex].trigger(world);
+      ++bubbleIndex;
+      bubbleIndex = bubbleIndex % g_numBubbleSets;
+    }
+    fast.matrix4.translation(world, [0, 0, 0]);
+    particleSystem.draw(viewProjection, world, viewInverse);
+
+    gl.depthMask(true);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.blendEquation(gl.FUNC_ADD);
+
     var scene = g_scenes.GlobeOuter;
     if (scene.loaded && !scene.bad) {
       Log("--Draw GlobeOuter----------------");
@@ -1027,6 +1109,10 @@ function setupSlider($, elem, ui, obj) {
   textDiv.appendChild(valueDiv);
   elem.appendChild(textDiv);
   elem.appendChild(sliderDiv);
+  if (!g_uiWidgets[ui.obj]) {
+    g_uiWidgets[ui.obj] = { };
+  }
+  g_uiWidgets[ui.obj][ui.name] = sliderDiv;
   $(sliderDiv).slider({
     range: false,
     step: 1,
@@ -1066,7 +1152,7 @@ $(function(){
   <div id="setSetting3">100</div>
   <div id="setSetting4">500</div>
   <div id="setSetting5">1000</div>
-  <div><span id="setSetting6">Outside</span>
+  <div><span id="setSetting6">Inside</span>
   <span style="float: right" id="setSetting7">*</span></div>
 </div>
 <div id="uiContainer">
