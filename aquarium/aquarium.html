@@ -614,11 +614,13 @@ function setSetting(elem, id) {
     setViewHighlight(elem);
     setGlobal("eyeRadius", 60);
     setGlobal("eyeHeight", 19);
+    setGlobal("targetHeight", 0);
     break;
   case 7:
     setViewHighlight(elem);
-    setGlobal("eyeRadius", 90);
-    setGlobal("eyeHeight", 33);
+    setGlobal("eyeRadius", 120);
+    setGlobal("eyeHeight", 7);
+    setGlobal("targetHeight", 73);
     break;
   default:
     g_numSettingElements[id] = elem;
@@ -1895,7 +1897,6 @@ uniform sampler2D reflectionMap;
 uniform samplerCube skybox;
 uniform float shininess;
 uniform float specularFactor;
-uniform float tankColorFudge;
 
 vec4 lit(float l ,float h, float m) {
   return vec4(1.0,
@@ -1904,8 +1905,7 @@ vec4 lit(float l ,float h, float m) {
               1.0);
 }
 void main() {
-  vec4 diffuseColor = texture2D(diffuse, v_texCoord) +
-      vec4(tankColorFudge, tankColorFudge, tankColorFudge, 1);
+  vec4 diffuseColor = texture2D(diffuse, v_texCoord);
   mat3 tangentToWorld = mat3(v_tangent,
                              v_binormal,
                              v_normal);
@@ -1920,17 +1920,18 @@ void main() {
   vec3 surfaceToView = normalize(v_surfaceToView);
 
   vec4 skyColor = textureCube(skybox, -reflect(surfaceToView, normal));
-  float diffuseAmount = 0.2;
   float fudgeAmount = 1.1;
   vec3 fudge = skyColor.rgb * vec3(fudgeAmount, fudgeAmount, fudgeAmount);
   float bright = min(1.0, fudge.r * fudge.g * fudge.b);
   vec4 reflectColor =
-      mix(vec4(skyColor.rgb, bright), diffuseColor, diffuseAmount);
+      mix(vec4(skyColor.rgb, bright),
+          diffuseColor,
+          (1.0 - reflection.r));
   float r = abs(dot(surfaceToView, normal));
   gl_FragColor = vec4(mix(
       skyColor,
       reflectColor,
-      (r + 0.3 * (reflection.r))).rgb, 1.0 - r);
+      ((r + 0.3) * (reflection.r))).rgb, 1.0 - r);
 }
 </script>
 <!-- ===[ SkyBox ]============================================== -->
