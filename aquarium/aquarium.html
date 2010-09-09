@@ -114,7 +114,7 @@ var g_numSettingElements = {};
 var g_sharkWorldMats = [];
 var g_beamWorldMats = [];
 var g_scenes = {};  // each of the models
-var g_scene = {};  // the placement of the models
+var g_sceneGroups = {};  // the placement of the models
 var g_fog = true;
 
 //g_debug = true;
@@ -168,7 +168,7 @@ var g_ui = [
   { obj: 'fish',       name: 'fishXClock',      value: 1,     max:  2},
   { obj: 'fish',       name: 'fishYClock',      value: 0.17,  max:  2},
   { obj: 'fish',       name: 'fishZClock',      value: 1.09,  max:  2},
-  { obj: 'innerConst', name: 'refractionFudge', value: 7,     max:  50},
+  { obj: 'innerConst', name: 'refractionFudge', value: 1.3,   max:  50},
   { obj: 'innerConst', name: 'eta',             value: 1,     max:  1},
   { obj: 'innerConst', name: 'tankColorFudge',  value: 1,     max:  2}
 ];
@@ -221,6 +221,121 @@ var g_fishTable = [
   },
 ];
 
+var g_sceneInfoByName = {
+};
+
+var g_sceneInfo = [
+  {
+    name: "SmallFishA",
+    program: [
+      "fishVertexShader",
+      "fishReflectionFragmentShader"
+    ],
+  },
+  {
+    name: "MediumFishA",
+    program: [
+      "fishVertexShader",
+      "fishNormalMapFragmentShader"
+    ]
+  },
+  {
+    name: "MediumFishB",
+    program: [
+      "fishVertexShader",
+      "fishReflectionFragmentShader"
+    ]
+  },
+  {
+    name: "BigFishA",
+    program: [
+      "fishVertexShader",
+      "fishNormalMapFragmentShader"
+    ]
+  },
+  {
+    name: "BigFishB",
+    program: [
+      "fishVertexShader",
+      "fishNormalMapFragmentShader"
+    ]
+  },
+  {
+    name: "Arch"
+  },
+  {
+    name: "Coral"
+  },
+  {
+    name: "CoralStoneA"
+  },
+  {
+    name: "CoralStoneB"
+  },
+  {
+    name: "EnvironmentBox",
+    fog: false
+  },
+  {
+    name: "FloorBase_Baked"
+  },
+  {
+    name: "FloorCenter"
+  },
+  {
+    name: "GlobeInner",
+    group: "inner",
+    program: [
+      "innerRefractionMapVertexShader",
+      "innerRefractionMapFragmentShader"
+    ]
+  },
+  {
+    name: "GlobeOuter",
+    group: "outer",
+    blend: true,
+    program: [
+      "outerRefractionMapVertexShader",
+      "outerRefractionMapFragmentShader"
+    ]
+  },
+  {
+    name: "RockA"
+  },
+  {
+    name: "RockB"
+  },
+  {
+    name: "RockC"
+  },
+  {
+    name: "RuinColumn"
+  },
+  {
+    name: "Skybox",
+    fog: false
+  },
+  {
+    name: "Stone"
+  },
+  {
+    name: "Stones"
+  },
+  {
+    name: "SunknShip"
+  },
+  {
+    name: "SunknSub"
+  },
+  {
+    name: "SupportBeams",
+    fog: false
+  },
+  {
+    name: "TreasureChest"
+  }
+];
+
 var g_skyBoxUrls = [
   'assets/GlobeOuter_EM_positive_x.jpg',
   'assets/GlobeOuter_EM_negative_x.jpg',
@@ -261,7 +376,7 @@ function getScriptText(id) {
   return elem.text;
 }
 
-function createProgramFromTags(vertexTagId, fragmentTagId) {
+function createProgramFromTags(vertexTagId, fragmentTagId, fog) {
   var fogUniforms = '' +
     'uniform float fogPower;\n' +
     'uniform float fogMult;\n' +
@@ -272,7 +387,7 @@ function createProgramFromTags(vertexTagId, fragmentTagId) {
     '   clamp(pow((v_position.z / v_position.w), fogPower) * fogMult - fogOffset,0.0,1.0));\n';
   var fs = getScriptText(fragmentTagId)
 
-  if (g_fog) {
+  if (g_fog && fog) {
     fs = fs.replace('// #fogUniforms', fogUniforms);
     fs = fs.replace('// #fogCode', fogCode);
   }
@@ -281,10 +396,11 @@ function createProgramFromTags(vertexTagId, fragmentTagId) {
       getScriptText(vertexTagId), fs);
 }
 
-var Scene = function(opt_program) {
+var Scene = function(opt_program, fog) {
   this.program = opt_program;
   this.bad = false;
   this.loaded = false;
+  this.fog = fog;
   this.models = [];
 };
 
@@ -340,139 +456,48 @@ Scene.prototype.onload_ = function(data, exception) {
         type = "reflection";
         program = createProgramFromTags(
             'reflectionMapVertexShader',
-            'reflectionMapFragmentShader');
+            'reflectionMapFragmentShader',
+            this.fog);
         textures.skybox = tdl.textures.loadTexture(g_skyBoxUrls);
 
       } else if (textures.normalMap) {
         type = "normalMap";
         program = createProgramFromTags(
             'normalMapVertexShader',
-            'normalMapFragmentShader');
+            'normalMapFragmentShader',
+            this.fog);
       } else {
         type = "diffuse";
         program = createProgramFromTags(
             'diffuseVertexShader',
-            'diffuseFragmentShader');
+            'diffuseFragmentShader',
+            this.fog);
       }
+      tdl.log(this.url, ": ", type);
       this.models.push(new tdl.models.Model(program, arrays, textures));
     }
   }
 };
 
-function loadScene(name, opt_program) {
+function loadScene(name, opt_program, fog) {
   var scene = new Scene(opt_program);
-  scene.load("assets/" + name + ".js");
+  scene.load("assets/" + name + ".js", fog);
   return scene;
 }
 
 function loadScenes() {
-  var scenes = [
-    {
-      name: "SmallFishA",
-      program: [
-        "fishVertexShader",
-        "fishReflectionFragmentShader"
-      ],
-    },
-    {
-      name: "MediumFishA",
-      program: [
-        "fishVertexShader",
-        "fishNormalMapFragmentShader"
-      ]
-    },
-    {
-      name: "MediumFishB",
-      program: [
-        "fishVertexShader",
-        "fishReflectionFragmentShader"
-      ]
-    },
-    {
-      name: "BigFishA",
-      program: [
-        "fishVertexShader",
-        "fishNormalMapFragmentShader"
-      ]
-    },
-    {
-      name: "BigFishB",
-      program: [
-        "fishVertexShader",
-        "fishNormalMapFragmentShader"
-      ]
-    },
-    {
-      name: "Arch"
-    },
-    {
-      name: "Coral"
-    },
-    {
-      name: "CoralStoneA"
-    },
-    {
-      name: "CoralStoneB"
-    },
-    {
-      name: "FloorBase_Baked"
-    },
-    {
-      name: "FloorCenter"
-    },
-    {
-      name: "GlobeInner",
-      program: [
-        "innerRefractionMapVertexShader",
-        "innerRefractionMapFragmentShader"
-      ]
-    },
-    {
-      name: "GlobeOuter",
-      program: [
-        "outerRefractionMapVertexShader",
-        "outerRefractionMapFragmentShader"
-      ]
-    },
-    {
-      name: "RockA"
-    },
-    {
-      name: "RockB"
-    },
-    {
-      name: "RockC"
-    },
-    {
-      name: "RuinColumn"
-    },
-    {
-      name: "Stone"
-    },
-    {
-      name: "Stones"
-    },
-    {
-      name: "SunknShip"
-    },
-    {
-      name: "SunknSub"
-    },
-    {
-      name: "TreasureChest"
-    }
-  ];
-
-  for (var ii = 0; ii < scenes.length; ++ii) {
-    var info = scenes[ii];
+  for (var ii = 0; ii < g_sceneInfo.length; ++ii) {
+    var info = g_sceneInfo[ii];
     var program = undefined;
     if (info.program) {
+      var fog = info.fog !== undefined ? info.fog : true
       program = createProgramFromTags(
           info.program[0],
-          info.program[1]);
+          info.program[1],
+          fog);
 
     }
-    g_scenes[info.name] = loadScene(info.name, program);
+    g_scenes[info.name] = loadScene(info.name, program, fog);
   }
 }
 
@@ -481,7 +506,23 @@ function loadPlacement() {
     if (exception) {
       throw exception
     } else {
-      g_scene = json;
+      for (var ii = 0; ii < g_sceneInfo.length; ++ii) {
+        var info = g_sceneInfo[ii];
+        g_sceneInfoByName[info.name] = info;
+      }
+
+      var objects = json.objects;
+      for (var ii = 0; ii < objects.length; ++ii) {
+        var object = objects[ii];
+        var scene = g_scenes[object.name];
+        var info = g_sceneInfoByName[object.name];
+        var groupName = info.group || 'default';
+        if (!g_sceneGroups[groupName]) {
+          g_sceneGroups[groupName] = [];
+        }
+        var group = g_sceneGroups[groupName];
+        group.push(object);
+      }
     }
   });
 }
@@ -554,22 +595,30 @@ function setupSkybox() {
  * Sets the count
  */
 function setSetting(elem, id) {
-  var value = elem.innerHTML;
+
+  function setGlobal(name, value) {
+    $(g_uiWidgets.globals[name]).slider("value", value * 1000);
+    g.globals[name] = value;
+  }
+
+  function setViewHighlight(elem) {
+    document.getElementById("setSetting6").style.color = "gray";
+    document.getElementById("setSetting7").style.color = "gray";
+    elem.style.color = "red";
+  }
+
   switch (id) {
-  case 7:
+  case 8:
     break;
   case 6:
-    if (value == "Outside") {
-      elem.innerHTML = "Inside";
-      $(g_uiWidgets.globals.eyeRadius).slider("value", 60);
-      g.globals.eyeRadius = 60;
-      g.globals.eyeHeight = 19;
-    } else {
-      elem.innerHTML = "Outside";
-      $(g_uiWidgets.globals.eyeRadius).slider("value", 90);
-      g.globals.eyeRadius = 90;
-      g.globals.eyeHeight = 33;
-    }
+    setViewHighlight(elem);
+    setGlobal("eyeRadius", 60);
+    setGlobal("eyeHeight", 19);
+    break;
+  case 7:
+    setViewHighlight(elem);
+    setGlobal("eyeRadius", 90);
+    setGlobal("eyeHeight", 33);
     break;
   default:
     g_numSettingElements[id] = elem;
@@ -597,6 +646,7 @@ function setupCountButtons() {
       }}(elem, ii);
   }
   setSetting(document.getElementById("setSetting2"), 2);
+  setSetting(document.getElementById("setSetting6"), 6);
 }
 
 /**
@@ -727,6 +777,38 @@ function initialize() {
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose};
 
+  function DrawGroup(group, constUniforms, perUniforms) {
+    var numObjects = group.length;
+    var currentModel = undefined;
+    for (var ii = 0; ii < numObjects; ++ii) {
+      var object = group[ii];
+      var scene = g_scenes[object.name];
+      if (!scene) {
+        g_scenes[object.name] = { missing: true };
+        tdl.log("missing scene:", object.name);
+        continue;
+      }
+      if (scene.missing || !scene.loaded) {
+        continue;
+      }
+
+      var models = scene.models;
+      var numModels = models.length;
+      for (var jj = 0; jj < numModels; ++jj) {
+        var model = models[jj];
+        if (model != currentModel) {
+          currentModel = model;
+          model.drawPrep(constUniforms);
+        }
+        fast.matrix4.copy(world, object.worldMatrix);
+        fast.matrix4.mul(worldViewProjection, world, viewProjection);
+        fast.matrix4.inverse(worldInverse, world);
+        fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+        model.draw(perUniforms);
+      }
+    }
+  }
+
   var frameCount = 0;
   var eyeClock = 0;
   function render() {
@@ -835,77 +917,10 @@ function initialize() {
     }
 
     // Draw Scene
-    var objects = g_scene.objects;
-    // make sure it's loaded.
-    if (objects) {
-      var numObjects = objects.length;
-      var currentModel = undefined;
-      for (var ii = 0; ii < numObjects; ++ii) {
-        var object = objects[ii];
-        var scene = g_scenes[object.name];
-        if (!scene) {
-          g_scenes[object.name] = { missing: true };
-          tdl.log("missing scene:", object.name);
-          continue;
-        }
-        if (scene.missing || !scene.loaded) {
-          continue;
-        }
-
-        var models = scene.models;
-        var numModels = models.length;
-        for (var jj = 0; jj < numModels; ++jj) {
-          var model = models[jj];
-          if (model != currentModel) {
-            currentModel = model;
-            model.drawPrep(genericConst);
-          }
-          fast.matrix4.copy(world, object.worldMatrix);
-          fast.matrix4.mul(worldViewProjection, world, viewProjection);
-          fast.matrix4.inverse(worldInverse, world);
-          fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-          model.draw(genericPer);
-        }
-      }
+    if (g_sceneGroups.default) {
+      DrawGroup(g_sceneGroups.default, genericConst, genericPer);
     }
 
-//    Log("--Draw Arch---------------------------------------");
-//    var sCount = 0;
-//    for (var name in g_scenes) {
-//      Log("--Draw ", name, "---");
-//      var models = g_scenes[name].models;
-//      for (var ii = 0; ii < models.length; ++ii) {
-//        models[ii].drawPrep(sandConst);
-//        fast.matrix4.translation(world, [0, sCount * 4, 0]);
-//        fast.matrix4.mul(worldViewProjection, world, viewProjection);
-//        fast.matrix4.inverse(worldInverse, world);
-//        fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-//        models[ii].draw(sandPer);
-//      }
-//      ++sCount;
-//    }
-
-//    // Draw Sand
-//    Log("--Draw Sand---------------------------------------");
-//    sand.drawPrep(sandConst);
-//    fast.matrix4.translation(world, [0, -5, 0]);
-//    fast.matrix4.mul(worldViewProjection, world, viewProjection);
-//    fast.matrix4.inverse(worldInverse, world);
-//    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-//    sand.draw(sandPer);
-//
-//    // Draw Stand
-//    Log("--Draw Stand---------------------------------------");
-//    gl.disable(gl.CULL_FACE);
-//    stand.drawPrep(standConst);
-//    fast.matrix4.translation(world, [0, -5, 0]);
-//    fast.matrix4.mul(worldViewProjection, world, viewProjection);
-//    fast.matrix4.inverse(worldInverse, world);
-//    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-//    stand.draw(standPer);
-//
-//    gl.enable(gl.CULL_FACE);
-//
 //    // Draw Sharks.
 //    Log("--Draw Sharks---------------------------------------");
 //
@@ -939,7 +954,7 @@ function initialize() {
 //      sharkPer.time = (clock + ii * g_sharkClockOffset) * 3;
 //      shark.draw(sharkPer);
 //    }
-//
+
     // Draw Fishes.
     Log("--Draw Fish---------------------------------------");
 
@@ -995,18 +1010,9 @@ function initialize() {
       }
     }
 
-    var scene = g_scenes.GlobeInner;
-    if (scene.loaded && !scene.bad) {
+    if (g_sceneGroups.inner) {
       Log("--Draw GlobeInner----------------");
-      for (var ii = 0; ii < scene.models.length; ++ii) {
-        var model = scene.models[ii];
-        model.drawPrep(g.innerConst);
-        fast.matrix4.translation(world, [0,0,0]);
-        fast.matrix4.mul(worldViewProjection, world, viewProjection);
-        fast.matrix4.inverse(worldInverse, world);
-        fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-        model.draw(innerPer);
-      }
+      DrawGroup(g_sceneGroups.inner, g.innerConst, innerPer);
     }
 
     gl.enable(gl.BLEND);
@@ -1032,21 +1038,10 @@ function initialize() {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.blendEquation(gl.FUNC_ADD);
 
-    var scene = g_scenes.GlobeOuter;
-    if (scene.loaded && !scene.bad) {
+    if (g_sceneGroups.outer) {
       Log("--Draw GlobeOuter----------------");
-      for (var ii = 0; ii < scene.models.length; ++ii) {
-        var model = scene.models[ii];
-        model.drawPrep(g.innerConst);
-        fast.matrix4.translation(world, [0,0,0]);
-        fast.matrix4.mul(worldViewProjection, world, viewProjection);
-        fast.matrix4.inverse(worldInverse, world);
-        fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-        model.draw(innerPer);
-      }
+      DrawGroup(g_sceneGroups.outer, g.innerConst, innerPer);
     }
-
-
 
     //do {
     //  err = gl.getError();
@@ -1091,29 +1086,6 @@ function initialize() {
 ////      flash.draw(laserPer);
 ////    }
 //
-//    // Draw Glass
-//    Log("--Draw Glass---------------------------------------");
-//    gl.enable(gl.BLEND);
-//    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-//    gl.enable(gl.CULL_FACE);
-//    gl.depthMask(true);
-//    gl.enable(gl.DEPTH_TEST);
-//
-//    fast.matrix4.translation(world, [0, -5, 0]);
-//    fast.matrix4.mul(worldViewProjection, world, viewProjection);
-//    fast.matrix4.inverse(worldInverse, world);
-//    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-//    glass.drawPrep(glassConst);
-//
-//    // Draw front of class
-//    if (!g_refract) {
-//      gl.cullFace(gl.FRONT);
-//      glass.draw(glassBackPer);
-//    }
-//
-//    // Draw front of class
-//    gl.cullFace(gl.BACK);
-//    glass.draw(glassFrontPer);
 
     // Set the alpha to 255.
     gl.colorMask(false, false, false, true);
@@ -1184,7 +1156,7 @@ $(function(){
     uiElem.appendChild(div);
   }
 
-  $('#setSetting7').click(function() {
+  $('#setSetting8').click(function() {
       $("#uiContainer").toggle('slow'); return false; });
   $("#uiContainer").toggle();
 
@@ -1202,8 +1174,9 @@ $(function(){
   <div class="clickable" id="setSetting3">100</div>
   <div class="clickable" id="setSetting4">500</div>
   <div class="clickable" id="setSetting5">1000</div>
-  <div><span class="clickable" id="setSetting6">Inside</span>
-  <span style="float: right" class="clickable" id="setSetting7">*</span></div>
+  <div class="clickable" id="setSetting6">Inside</div>
+  <div><span class="clickable" id="setSetting7">Outside</span>
+  <span style="float: right" class="clickable" id="setSetting8">*</span></div>
 </div>
 <div id="uiContainer">
 <div id="ui"></div>
@@ -1922,8 +1895,6 @@ uniform sampler2D reflectionMap;
 uniform samplerCube skybox;
 uniform float shininess;
 uniform float specularFactor;
-uniform float refractionFudge;
-uniform float eta;
 uniform float tankColorFudge;
 
 vec4 lit(float l ,float h, float m) {
@@ -1939,18 +1910,16 @@ void main() {
                              v_binormal,
                              v_normal);
   vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);
-  vec4 refraction = texture2D(reflectionMap, v_texCoord.xy);
+  vec4 reflection = texture2D(reflectionMap, v_texCoord.xy);
   vec3 tangentNormal = normalSpec.xyz - vec3(0.5, 0.5, 0.5);
-  tangentNormal = normalize(tangentNormal + vec3(0,0,refractionFudge));
+//  tangentNormal = normalize(tangentNormal + vec3(0,0,refractionFudge));
   vec3 normal = (tangentToWorld * tangentNormal);
   normal = normalize(normal);
 
   vec3 surfaceToLight = normalize(v_surfaceToLight);
   vec3 surfaceToView = normalize(v_surfaceToView);
 
-  vec3 refractionVec = refract(surfaceToView, normal, eta);
-
-  vec4 skyColor = textureCube(skybox, refractionVec);
+  vec4 skyColor = textureCube(skybox, -reflect(surfaceToView, normal));
   float diffuseAmount = 0.2;
   float fudgeAmount = 1.1;
   vec3 fudge = skyColor.rgb * vec3(fudgeAmount, fudgeAmount, fudgeAmount);
@@ -1958,7 +1927,10 @@ void main() {
   vec4 reflectColor =
       mix(vec4(skyColor.rgb, bright), diffuseColor, diffuseAmount);
   float r = abs(dot(surfaceToView, normal));
-  gl_FragColor = vec4(mix(skyColor, reflectColor, r + 0.3).rgb, 1.0 - r);
+  gl_FragColor = vec4(mix(
+      skyColor,
+      reflectColor,
+      (r + 0.3 * (reflection.r))).rgb, 1.0 - r);
 }
 </script>
 <!-- ===[ SkyBox ]============================================== -->
