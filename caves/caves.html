@@ -21,6 +21,16 @@ canvas#render_area {
   width: 100%;
   height: 100%;
 }
+#info {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 3;
+  width: 300px;
+  padding: 10px;
+  border-radius: 10px;
+  background-color: rgba(255, 255, 255, 0.5);
+}
 </style>
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
@@ -62,7 +72,7 @@ function initializeGraphics() {
   canvas = document.getElementById('render_area');
   gl = tdl.webgl.setupWebGL("viewContainer", canvas);
   if (!gl) {
-	return false;
+  return false;
   }
 //  gl = tdl.webgl.makeDebugContext(wu.create3DContext(canvas));
   aspect = canvas.clientWidth / canvas.clientHeight;
@@ -80,7 +90,7 @@ var caves = null;
 
 $(document).ready(function() {
   if (!initializeGraphics()) {
-	return;
+  return;
   }
 
   caves = new CavesMain();
@@ -92,11 +102,13 @@ $(document).ready(function() {
     var time_delta = time_now - time_then;
     time_then = time_now;
 
+    aspect = canvas.clientWidth / canvas.clientHeight;
+
     caves.tick(time_delta);
     caves.render(backbuffer);
 
-	  setTimeout(render, 20);
-	}
+    setTimeout(render, 20);
+  }
 
   setTimeout(render, 20);
 })
@@ -137,8 +149,10 @@ $(document).keyup(function(event) {
 
 <body>
 <div id="viewContainer">
-<canvas id="render_area" width="1024" height="512"></canvas>
-<br />
+<canvas id="render_area" width="1024" height="1024"
+style="width: 100%; height: 100%;"></canvas>
+</div>
+<div id="info">
 Move with W,S,A,D. Shift to increase speed.<br />
 Hold left mouse button to carve.
 </div>
