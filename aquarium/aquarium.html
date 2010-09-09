@@ -116,7 +116,7 @@ var g_scene = {};  // the placement of the models
 //g_debug = true;
 //g_drawOnce = true;
 
-var g_numFish          = 1;
+var g_fishSetting      = 2;
 var g_numSharks        = 0;
 var g_tailSpeed        = 30;
 var g_tailOffsetMult   = 1;
@@ -140,33 +140,33 @@ var g = {
 var g_uiWidgets = {};
 
 var g_ui = [
-  { obj: 'globals',    name: 'speed',            value: 1,     max:  4 },
-  { obj: 'globals',    name: 'targetHeight',     value: 0,     max:  150 },
-  { obj: 'globals',    name: 'targetRadius',     value: 88,    max:  200 },
-  { obj: 'globals',    name: 'eyeHeight',        value: 19,    max:  150 },
-  { obj: 'globals',    name: 'eyeRadius',        value: 60,    max:  200 },
-  { obj: 'globals',    name: 'eyeSpeed',         value: 0.06,  max:  1 },
-  { obj: 'globals',    name: 'fieldOfView',      value: 85,  max:  179, min: 1},
-  { obj: 'globals',    name: 'ambientRed',       value: 0.35,  max:  1},
-  { obj: 'globals',    name: 'ambientGreen',     value: 0.35,  max:  1},
-  { obj: 'globals',    name: 'ambientBlue',      value: 0.35,  max:  1},
-  { obj: 'fish',       name: 'fishRadius',       value: 50,    max:  200},
-  { obj: 'fish',       name: 'fishHeightRange',  value: 16,    max:  50},
-  { obj: 'fish',       name: 'fishHeight',       value: 22,    max:  50},
-  { obj: 'fish',       name: 'fishSpeed',        value: 0.124, max:  2},
-  { obj: 'fish',       name: 'fishOffset',       value: 0.3,   max:  2},
-  { obj: 'fish',       name: 'fishXClock',       value: 1,     max:  2},
-  { obj: 'fish',       name: 'fishYClock',       value: 0.17,  max:  2},
-  { obj: 'fish',       name: 'fishZClock',       value: 1.09,  max:  2},
-  { obj: 'innerConst', name: 'refractionFudge',  value: 7,     max:  50},
-  { obj: 'innerConst', name: 'eta',              value: 1,     max:  1},
-  { obj: 'innerConst', name: 'tankColorFudge',   value: 1,     max:  2}
+  { obj: 'globals',    name: 'speed',           value: 1,     max:  4 },
+  { obj: 'globals',    name: 'targetHeight',    value: 0,     max:  150 },
+  { obj: 'globals',    name: 'targetRadius',    value: 88,    max:  200 },
+  { obj: 'globals',    name: 'eyeHeight',       value: 19,    max:  150 },
+  { obj: 'globals',    name: 'eyeRadius',       value: 60,    max:  200 },
+  { obj: 'globals',    name: 'eyeSpeed',        value: 0.06,  max:  1 },
+  { obj: 'globals',    name: 'fieldOfView',     value: 85,  max:  179, min: 1},
+  { obj: 'globals',    name: 'ambientRed',      value: 0.35,  max:  1},
+  { obj: 'globals',    name: 'ambientGreen',    value: 0.35,  max:  1},
+  { obj: 'globals',    name: 'ambientBlue',     value: 0.35,  max:  1},
+  { obj: 'fish',       name: 'fishRadius',      value: 50,    max:  200},
+  { obj: 'fish',       name: 'fishHeightRange', value: 16,    max:  50},
+  { obj: 'fish',       name: 'fishHeight',      value: 22,    max:  50},
+  { obj: 'fish',       name: 'fishSpeed',       value: 0.124, max:  2},
+  { obj: 'fish',       name: 'fishOffset',      value: 0.3,   max:  2},
+  { obj: 'fish',       name: 'fishXClock',      value: 1,     max:  2},
+  { obj: 'fish',       name: 'fishYClock',      value: 0.17,  max:  2},
+  { obj: 'fish',       name: 'fishZClock',      value: 1.09,  max:  2},
+  { obj: 'innerConst', name: 'refractionFudge', value: 7,     max:  50},
+  { obj: 'innerConst', name: 'eta',             value: 1,     max:  1},
+  { obj: 'innerConst', name: 'tankColorFudge',  value: 1,     max:  2}
 ];
 
 var g_fishTable = [
   {
     name: 'SmallFishA',
-    num: 100,
+    num: [0, 3, 36, 76, 500, 1000],
     constUniforms: {
       fishLength: 10,
       fishWaveLength: 1,
@@ -175,7 +175,7 @@ var g_fishTable = [
   },
   {
     name: 'MediumFishA',
-    num: 7,
+    num: [0, 3, 6, 10, 0, 0],
     constUniforms: {
       fishLength: 10,
       fishWaveLength: 1,
@@ -184,7 +184,7 @@ var g_fishTable = [
   },
   {
     name: 'MediumFishB',
-    num: 7,
+    num: [0, 2, 6, 10, 0, 0],
     constUniforms: {
       fishLength: 10,
       fishWaveLength: 1,
@@ -193,7 +193,7 @@ var g_fishTable = [
   },
   {
     name: 'BigFishA',
-    num: 2,
+    num: [1, 1, 1, 2, 0, 0],
     constUniforms: {
       fishLength: 10,
       fishWaveLength: 0.25,
@@ -202,7 +202,7 @@ var g_fishTable = [
   },
   {
     name: 'BigFishB',
-    num: 2,
+    num: [0, 1, 1, 2, 0, 0],
     constUniforms: {
       fishLength: 10,
       fishWaveLength: 0.25,
@@ -485,7 +485,7 @@ function setupBubbles(particleSystem) {
         acceleration: [0,0.05,0],
         accelerationRange: [0,0.02,0],
         velocityRange: [0.05,0,0.05],
-        colorMult: [0.7,0.8,1,0.9]});
+        colorMult: [0.7,0.8,1,1]});
         //function(index, parameters) {
         //    var speed = Math.random() * 0.6 + 0.2;
         //    var speed2 = Math.random() * 0.2 + 0.1;
@@ -543,7 +543,7 @@ function setSetting(elem, id) {
     break;
   default:
     g_numSettingElements[id] = elem;
-    g_numFish = parseInt(value);
+    g_fishSetting = id;
     for (var otherElem in g_numSettingElements) {
       g_numSettingElements[otherElem].style.color = "gray";
     }
@@ -566,7 +566,7 @@ function setupCountButtons() {
         setSetting(elem, id);
       }}(elem, ii);
   }
-  setSetting(document.getElementById("setSetting1"), 1);
+  setSetting(document.getElementById("setSetting2"), 2);
 }
 
 /**
@@ -896,7 +896,7 @@ function initialize() {
     for (var ff = 0; ff < g_fishTable.length; ++ff) {
       var fishInfo = g_fishTable[ff];
       var fishName = fishInfo.name;
-      var numFish = fishInfo.num;
+      var numFish = fishInfo.num[g_fishSetting];
       var matMul = fast.matrix4.mul;
       var matInverse = fast.matrix4.inverse;
       var matScaling = fast.matrix4.scaling;
