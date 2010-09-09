@@ -43,7 +43,6 @@ function MarchingCubesEffect() {
   var vlist = new Float32Array(12 * 3)
   var nlist = new Float32Array(12 * 3)
 
-  m4.perspective(proj, tdl.math.degToRad(60), aspect, 0.1, 500);
   m4.lookAt(view, eyePosition, target, up);
 
   function lerp(a,b,t) { return a + (b - a) * t; }
@@ -99,7 +98,7 @@ function MarchingCubesEffect() {
     var field5 = field[q+1+zd]
     var field6 = field[q+yd+zd]
     var field7 = field[q+1+yd+zd]
-    
+
     if (field0 < isol) cubeindex |= 1;
     if (field1 < isol) cubeindex |= 2;
     if (field2 < isol) cubeindex |= 8;
@@ -147,7 +146,7 @@ function MarchingCubesEffect() {
 
   // Adds a reciprocal ball (nice and blobby) that, to be fast, fades to zero after
   // a fixed distance, determined by strength and subtract.
-  function addBall(ballx, bally, ballz, strength, subtract) {       
+  function addBall(ballx, bally, ballz, strength, subtract) {
     // Let's solve the equation to find the radius:
     // 1.0 / (0.000001 + radius^2) * strength - subtract = 0
     // strength / (radius^2) = subtract
@@ -179,7 +178,7 @@ function MarchingCubesEffect() {
       }
     }
   }
-  
+
   function addFloor(strength, subtract) {
     var dist = size * Math.sqrt(strength / subtract)
     if (dist > size) dist = size
@@ -187,16 +186,17 @@ function MarchingCubesEffect() {
       var yy = (y / size) * (y / size)
       var val = strength / (0.0001 + yy) - subtract
       if (val > 0.0) {
-        for (var x = 0; x < size; x++) 
+        for (var x = 0; x < size; x++)
           for (var z = 0; z < size; z++)
             field[zd * z + y * yd + x] += val
       }
     }
   }
-  
+
   var firstDraw = true
 
   this.render = function(framebuffer, time, global_time) {
+    m4.perspective(proj, tdl.math.degToRad(60), aspect, 0.1, 500);
     m4.rotationY(world, time * 0.2)
     m4.translate(world, [0, 0*Math.sin(time)*0.5, 0])
     m4.mul(viewproj, view, proj)
@@ -233,7 +233,7 @@ function MarchingCubesEffect() {
       for (var i = 0; i < size * size * size; i++) {
         field[i] = 0.0
       }
-      // Fill the field with some metaballs. 
+      // Fill the field with some metaballs.
       for (var i = 0; i < 7; i++) {
         var ballx = Math.sin(i + 0.3 * time * (1.03 + 0.21 * i)) * 0.27 + 0.5;
         var bally = Math.abs(Math.cos(i + 0.3 * time * (1.22 + 0.1424 * i))) * 0.77; // dip into the floor

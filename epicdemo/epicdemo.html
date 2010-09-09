@@ -63,12 +63,25 @@ canvas {
 canvas.invisible {
   display: none;
 }
+#controls {
+  z-index: 2;
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  background-color: #FFEE99;
+  display: table;
+}
 #beat {
+  display: table-cell;
   font-family: sans-serif;
   margin: 4px;
   padding: 4px;
-  background-color: #FFEE99;
   border-width: 1px;
+  vertical-align: middle;
+}
+#viewContainer {
+  width: 100%;
+  height: 100%;
 }
 </style>
 <script type="text/javascript"
@@ -174,10 +187,10 @@ function SpinningCubeEffect() {
 
   var m4 = tdl.fast.matrix4
 
-  m4.perspective(proj, tdl.math.degToRad(60), aspect, 0.1, 500);
   m4.lookAt(view, eyePosition, target, up);
 
   this.render = function(framebuffer, time, global_time) {
+    m4.perspective(proj, tdl.math.degToRad(60), aspect, 0.1, 500);
     m4.rotationY(world, time)
     m4.translate(world, [0, Math.sin(time * Math.PI), 0])
     m4.mul(viewproj, view, proj)
@@ -216,14 +229,14 @@ function mainloop(music) {
   var intervalId = setInterval(render, 1000.0 / 60.0);
 
   // Fit these to your song.
-  var BPM = 109.0
-  var timeStart = 0.0  // at what time does the beat start?
+  var BPM = 109.0;
+  var timeStart = 0.0;  // at what time does the beat start?
 
-  var timeScale = BPM / 60.0
-  var frameCount = 0
-  var lastTime = 0
+  var timeScale = BPM / 60.0;
+  var frameCount = 0;
+  var lastTime = 0;
 
-  var singleEffect = null
+  var singleEffect = null;
 
   // Uncomment one of these to debug the individual effect.
   //
@@ -244,13 +257,13 @@ function mainloop(music) {
   var no_part = new BlankEffect([1, 0, 1])
 
   function render() {
-    var music_time = (music.currentTime - timeStart) * timeScale
+    var music_time = (music.currentTime - timeStart) * timeScale;
 
     // Don't render if time is stopped.
     if (music_time == lastTime) {
       return;
     } else {
-      lastTime = music_time
+      lastTime = music_time;
     }
 
     var beat = Math.floor(music_time)
@@ -260,28 +273,31 @@ function mainloop(music) {
       frameCount = 0
       $('#beat').html('<b>' + (curBeat + 0) + ' (' + ((curBeat % 4) + 1) + ":" + (Math.floor(curBeat / 4) + 1) + ')</b> ' + FPS + " fps")
     }
-    var any_rendered = false
+    var any_rendered = false;
+
+    aspect = canvas.clientWidth / canvas.clientHeight
+
 
     // Always pass default framebuffer. might do transitions later and then it's
     // important to have this hook so we can have the effect render to some other fb,
     // and they can still do post process and then restore to the passed fb.
-    var framebuffer = backbuffer
+    var framebuffer = backbuffer;
 
     if (singleEffect) {
       singleEffect.render(framebuffer, music_time, music_time)
     } else {
       for (var i in parts) {
         if (music_time >= parts[i].start && music_time < parts[i].end) {
-          parts[i].fx.render(framebuffer, music_time - parts[i].start, music_time)
-          any_rendered = true
+          parts[i].fx.render(framebuffer, music_time - parts[i].start, music_time);
+          any_rendered = true;
         }
       }
       if (!any_rendered) {
-        no_part.render(framebuffer, music_time)
+        no_part.render(framebuffer, music_time);
       }
     }
 
-    frameCount++
+    frameCount++;
   }
 }
 
@@ -291,10 +307,11 @@ function initializeGraphics() {
   if (!gl) {
     return false;
   }
+
   aspect = canvas.clientWidth / canvas.clientHeight
   quad = new QuadDrawer()
   backbuffer = tdl.framebuffers.getBackBuffer(canvas)
-  post = new PostProcessor(canvas.clientWidth, canvas.clientHeight)
+  post = new PostProcessor(canvas.width, canvas.height)
   imm = new ImmSim()
 
   // Set some sane defaults.
@@ -322,10 +339,10 @@ $(document).ready(function() {
 
 <body>
 <div id="viewContainer">
-<canvas id="render_area" width="854" height="480"></canvas>
+<canvas id="render_area" width="1024" height="512" style="width: 100%; height: 100%;"></canvas>
 </div>
 <canvas class='invisible' id="texture_area" width="512" height="64"></canvas>
-<div>
+<div id="controls">
 <audio id="soundtrack" src="music.ogg" controls>
 No support for the audio tag in this browser.
 Get <a href="http://www.google.com/chrome">Google Chrome</a>.
