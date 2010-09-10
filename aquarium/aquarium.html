@@ -237,10 +237,10 @@ var g_viewSettings = [
   {
     targetHeight: 72,
     targetRadius: 73,
-    eyeHeight: 7,
+    eyeHeight: 3.9,
     eyeRadius: 120,
     eyeSpeed: 0.058,
-    fieldOfView: 85,
+    fieldOfView: 74,
     ambientRed: 0.218,
     ambientGreen: 0.246,
     ambientBlue: 0.394,
@@ -830,7 +830,7 @@ function setupCountButtons() {
       }}(elem, ii);
   }
   setSetting(document.getElementById("setSetting2"), 2);
-  setSetting(document.getElementById("setSetting6"), 7);
+  setSetting(document.getElementById("setSetting6"), 6);
 }
 
 /**
@@ -2158,11 +2158,13 @@ void main() {
 
   vec3 refractionVec = refract(surfaceToView, normal, eta);
 
-  vec4 bumpSkyColor = textureCube(skybox, refractionVec);
-  vec4 nonBumpSkyColor = textureCube(
-      skybox,
-      refract(surfaceToView, normalize(v_normal), eta));
-  vec4 skyColor = mix(nonBumpSkyColor, bumpSkyColor, normalSpec.a);
+  vec4 skyColor = textureCube(skybox, refractionVec);
+
+//  vec4 bumpSkyColor = textureCube(skybox, refractionVec);
+//  vec4 nonBumpSkyColor = textureCube(
+//      skybox,
+//      refract(surfaceToView, normalize(v_normal), eta));
+//  vec4 skyColor = mix(nonBumpSkyColor, bumpSkyColor, normalSpec.a);
   vec4 outColor = vec4(
       mix(skyColor * diffuseColor, diffuseColor, refraction.r).rgb,
       diffuseColor.a);
