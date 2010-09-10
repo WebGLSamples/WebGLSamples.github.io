@@ -135,6 +135,17 @@ var g_sharkYClock      = 0.17;
 var g_sharkZClock      = 1;
 var g_numBubbleSets    = 10;
 var g_bubbleSets = [];
+var g_numLightRays = 5;
+var g_lightRayY = 50;
+var g_lightRayDurationMin = 1;
+var g_lightRayDurationRange = 1;
+var g_lightRaySpeed = 4;
+var g_lightRaySpread = 7;
+var g_lightRayPosRange = 20;
+var g_lightRayRotRange = 1.0;
+var g_lightRayRotLerp = 0.2;
+var g_lightRayOffset = Math.PI * 2 / g_numLightRays;
+var g_lightRayInfo = [];
 
 var g = {
   globals: {},
@@ -176,7 +187,7 @@ var g_ui = [
 var g_fishTable = [
   {
     name: 'SmallFishA',
-    num: [0, 3, 36, 76, 500, 1000],
+    num: [0, 3, 36, 76, 500, 1000, 50],
     constUniforms: {
       fishLength: 10,
       fishWaveLength: 1,
@@ -185,7 +196,7 @@ var g_fishTable = [
   },
   {
     name: 'MediumFishA',
-    num: [0, 3, 6, 10, 0, 0],
+    num: [0, 3, 6, 10, 0, 0, 10],
     constUniforms: {
       fishLength: 10,
       fishWaveLength: 1,
@@ -194,7 +205,7 @@ var g_fishTable = [
   },
   {
     name: 'MediumFishB',
-    num: [0, 2, 6, 10, 0, 0],
+    num: [0, 2, 6, 10, 0, 0, 10],
     constUniforms: {
       fishLength: 10,
       fishWaveLength: 1,
@@ -203,7 +214,7 @@ var g_fishTable = [
   },
   {
     name: 'BigFishA',
-    num: [1, 1, 1, 2, 0, 0],
+    num: [1, 1, 1, 2, 0, 0, 3],
     constUniforms: {
       fishLength: 10,
       fishWaveLength: 0.25,
@@ -212,7 +223,7 @@ var g_fishTable = [
   },
   {
     name: 'BigFishB',
-    num: [0, 1, 1, 2, 0, 0],
+    num: [0, 1, 1, 2, 0, 0, 1],
     constUniforms: {
       fishLength: 10,
       fishWaveLength: 0.25,
@@ -527,8 +538,39 @@ function loadPlacement() {
   });
 }
 
+function initLightRay(info) {
+  info.duration =
+      g_lightRayDurationMin + Math.random() * g_lightRayDurationRange;
+  info.timer = info.duration;
+  var r = Math.random();
+  info.rot = r * g_lightRayRotRange;
+  info.x = (r - 0.5) * g_lightRayPosRange;
+}
+
+function setupLightRay() {
+  for (var ii = 0; ii < g_numLightRays; ++ii) {
+    var info = { };
+    var l = ii / g_numLightRays;
+    initLightRay(info);
+    g_lightRayInfo[ii] = info;
+  }
+
+  var textures = {
+      colorMap: tdl.textures.loadTexture('assets/LightRay.png') };
+  var program = createProgramFromTags(
+      'texVertexShader',
+      'texFragmentShader');
+  var arrays = tdl.primitives.createPlane(1, 1, 1, 1);
+  tdl.primitives.reorient(arrays,
+      [1, 0, 0, 0,
+       0, 0, -1, 0,
+       0, 1, 0, 0,
+       0, 0.5, 0, 1]);
+  delete arrays.normal;
+  return new tdl.models.Model(program, arrays, textures);
+}
+
 function setupBubbles(particleSystem) {
- //  var texture = tdl.textures.loadTexture('static_assets/ParticleFX.png');
     var texture = tdl.textures.loadTexture('static_assets/bubble.png');
     var emitter = particleSystem.createParticleEmitter(texture.texture);
     emitter.setTranslation(0, 0, 0);
@@ -684,6 +726,8 @@ function initialize() {
   var bubbleTimer = 0;
   var bubbleIndex = 0;
 
+  var lightRay = setupLightRay();
+
   var then = 0.0;
   var clock = 0.0;
   var fpsElem = document.getElementById("fps");
@@ -778,6 +822,12 @@ function initialize() {
     worldViewProjection: worldViewProjection,
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose};
+
+  // lightRay uniforms.
+  var lightRayConst = {};
+  var lightRayPer = {
+    worldViewProjection: worldViewProjection,
+    colorMult: new Float32Array([1,1,1,1])};
 
   function DrawGroup(group, constUniforms, perUniforms) {
     var numObjects = group.length;
@@ -923,40 +973,6 @@ function initialize() {
       DrawGroup(g_sceneGroups.default, genericConst, genericPer);
     }
 
-//    // Draw Sharks.
-//    Log("--Draw Sharks---------------------------------------");
-//
-//    shark.drawPrep(sharkConst);
-//    for (var ii = 0; ii < g_numSharks; ++ii) {
-//      if (!g_sharkWorldMats[ii]) {
-//        g_sharkWorldMats[ii] = new Float32Array(16);
-//        g_beamWorldMats[ii] = new Float32Array(16);
-//      }
-//      var sharkClock = clock * g_sharkSpeed + ii * g_sharkClockOffset;
-//      var speed = 1;
-//      var xRadius = g_tankRadius - 6.0;
-//      var yRadius = 4.0;
-//      var zRadius = xRadius;
-//      var xClock = sharkClock * speed * g_sharkXClock;
-//      var yClock = sharkClock * speed * g_sharkYClock;
-//      var zClock = sharkClock * speed * g_sharkZClock;
-//      var x = Math.sin(xClock) * xRadius;
-//      var y = Math.sin(yClock) * yRadius;
-//      var z = Math.cos(zClock) * zRadius;
-//      var nextX = Math.sin(xClock + 0.01) * xRadius;
-//      var nextY = Math.sin(yClock + 0.01) * yRadius;
-//      var nextZ = Math.cos(zClock + 0.01) * zRadius;
-//      fast.matrix4.mul(g_sharkWorldMats[ii],
-//          fast.matrix4.scaling(m4t0, [6, 6, 6]),
-//          fast.matrix4.cameraLookAt(m4t1, [x, y, z], [nextX, nextY, nextZ], [0, 1, 0]));
-//      fast.matrix4.copy(world, g_sharkWorldMats[ii]);
-//      fast.matrix4.mul(worldViewProjection, world, viewProjection);
-//      fast.matrix4.inverse(worldInverse, world);
-//      fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-//      sharkPer.time = (clock + ii * g_sharkClockOffset) * 3;
-//      shark.draw(sharkPer);
-//    }
-
     // Draw Fishes.
     Log("--Draw Fish---------------------------------------");
 
@@ -1035,6 +1051,33 @@ function initialize() {
     }
     fast.matrix4.translation(world, [0, 0, 0]);
     particleSystem.draw(viewProjection, world, viewInverse);
+
+    gl.disable(gl.CULL_FACE);
+    lightRay.drawPrep(lightRayConst);
+    for (var ii = 0; ii < g_lightRayInfo.length; ++ii) {
+      var info = g_lightRayInfo[ii];
+      var lerp = info.timer / info.duration;
+      var y = Math.max(70, Math.min(120, g_lightRayY + g.globals.eyeHeight));
+      info.timer -= elapsedTime * g.globals.speed;
+      if (info.timer < 0) {
+        initLightRay(info);
+      }
+      fast.matrix4.mul(
+          m4t1,
+          fast.matrix4.rotationZ(m4t0, info.rot + lerp * g_lightRayRotLerp),
+          fast.matrix4.translation(m4t2, [info.x, y, 0])
+      );
+      fast.matrix4.mul(world,
+          fast.matrix4.scaling(m4t0, [10, -100, 10]),
+          m4t1
+      );
+      // compute a view with no rotation
+      fast.matrix4.translation(m4t1, [view[12], view[13], view[14]]);
+      fast.matrix4.mul(m4t0, m4t1, projection);
+      fast.matrix4.mul(worldViewProjection, world, m4t0);
+      lightRayPer.colorMult[3] = Math.sin(lerp * Math.PI);
+      lightRay.draw(lightRayPer);
+    }
 
     gl.depthMask(true);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -1213,7 +1256,7 @@ void main() {
 }
 </script>
 -->
-<script id="laserVertexShader" type="text/something-not-javascript">
+<script id="texVertexShader" type="text/something-not-javascript">
 attribute vec4 position;
 attribute vec2 texCoord;
 varying vec2 v_texCoord;
@@ -1223,7 +1266,7 @@ void main() {
   gl_Position = (worldViewProjection * position);
 }
 </script>
-<script id="laserFragmentShader" type="text/something-not-javascript">
+<script id="texFragmentShader" type="text/something-not-javascript">
 #ifdef GL_ES
 precision highp float;
 #endif

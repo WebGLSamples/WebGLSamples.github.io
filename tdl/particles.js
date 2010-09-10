@@ -177,7 +177,7 @@ tdl.particles.SHADER_STRINGS = [
   '  vec2 uv = uvLifeTimeFrameStart.xy;\n' +
   '  float lifeTime = uvLifeTimeFrameStart.z;\n' +
   '  float frameStart = uvLifeTimeFrameStart.w;\n' +
-  '  vec3 position = positionStartTime.xyz;\n' +
+  '  vec3 position = (world * vec4(positionStartTime.xyz, 1.0)).xyz;\n' +
   '  float startTime = positionStartTime.w;\n' +
   '  vec3 velocity = (world * vec4(velocityStartSize.xyz,\n' +
   '                                0.)).xyz + worldVelocity;\n' +
@@ -911,7 +911,7 @@ tdl.particles.ParticleEmitter.prototype.createParticles_ = function(
       opt_perParticleParamSetter(ii, parameters);
     }
     var pLifeTime = parameters.lifeTime;
-    var pStartTime = (parameters.startTime === undefined) ?
+    var pStartTime = (parameters.startTime === null) ?
         (ii * parameters.lifeTime / numParticles) : parameters.startTime;
     var pFrameStart =
         parameters.frameStart + plusMinus(parameters.frameStartRange);
