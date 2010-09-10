@@ -429,7 +429,7 @@ function createProgramFromTags(vertexTagId, fragmentTagId, fog) {
     'uniform float fogOffset;\n' +
     'uniform vec4 fogColor;\n';
   var fogCode = '' +
-    'outColor = mix(outColor, fogColor,\n' +
+    'outColor = mix(outColor, vec4(fogColor.rgb, diffuseColor.a),\n' +
     '   clamp(pow((v_position.z / v_position.w), fogPower) * fogMult - fogOffset,0.0,1.0));\n';
   var fs = getScriptText(fragmentTagId)
 
