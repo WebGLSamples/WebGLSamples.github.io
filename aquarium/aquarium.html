@@ -363,8 +363,8 @@ var g_sceneInfo = [
     blend: true,
     group: "seaweed",
     program: [
-      "diffuseVertexShader",
-      "diffuseFragmentShader",
+      "seaweedVertexShader",
+      "seaweedFragmentShader",
     ]
   },
   {
@@ -372,8 +372,8 @@ var g_sceneInfo = [
     blend: true,
     group: "seaweed",
     program: [
-      "diffuseVertexShader",
-      "diffuseFragmentShader",
+      "seaweedVertexShader",
+      "seaweedFragmentShader",
     ]
   },
   {
@@ -830,6 +830,21 @@ function initialize() {
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose};
 
+  // Seaweed uniforms.
+  var seaweedConst = {
+    viewInverse: viewInverse,
+    lightWorldPos: lightWorldPos,
+    lightColor: one4,
+    specular: one4,
+    shininess: 50,
+    specularFactor: 1,
+    ambient: ambient};
+  var seaweedPer = {
+    world: world,
+    viewProjection: viewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose};
+
   // Inner uniforms.
   g.innerConst.viewInverse = viewInverse;
   g.innerConst.lightWorldPos = lightWorldPos;
@@ -899,6 +914,7 @@ function initialize() {
         fast.matrix4.mul(worldViewProjection, world, viewProjection);
         fast.matrix4.inverse(worldInverse, world);
         fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+        perUniforms.time = clock + ii;
         model.draw(perUniforms);
       }
     }
@@ -1006,6 +1022,10 @@ function initialize() {
       g.innerConst.fogMult   = g.globals.fogMult;
       g.innerConst.fogOffset = g.globals.fogOffset;
       g.innerConst.fogColor  = fogColor;
+      seaweedConst.fogPower  = g.globals.fogPower;
+      seaweedConst.fogMult   = g.globals.fogMult;
+      seaweedConst.fogOffset = g.globals.fogOffset;
+      seaweedConst.fogColor  = fogColor;
       fogColor[0] = g.globals.fogRed;
       fogColor[1] = g.globals.fogGreen;
       fogColor[2] = g.globals.fogBlue;
@@ -1078,8 +1098,8 @@ function initialize() {
     }
 
     if (g_sceneGroups.seaweed) {
-      Log("--Draw GlobeInner----------------");
-      DrawGroup(g_sceneGroups.seaweed, g.innerConst, innerPer);
+      Log("--Draw Seaweed----------------");
+      DrawGroup(g_sceneGroups.seaweed, seaweedConst, seaweedPer);
     }
 
     gl.enable(gl.BLEND);
@@ -1618,7 +1638,92 @@ void main() {
   gl_FragColor = lerp(skyColor, reflectColor, r + 0.3);
 }
 </script>
-<!-- ===[ Normal Map Shader ]============================================== -->
+<!-- ===[ Seaweed Shader ]============================================== -->
+<script id="seaweedVertexShader" type="text/something-not-javascript">
+uniform mat4 world;
+uniform mat4 viewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+uniform float time;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+void main() {
+  vec3 toCamera = normalize(viewInverse[3].xyz - world[3].xyz);
+  vec3 yAxis = vec3(0, 1, 0);
+  vec3 xAxis = cross(yAxis, toCamera);
+  vec3 zAxis = cross(xAxis, yAxis);
+
+  mat4 newWorld = mat4(
+      vec4(xAxis, 0),
+      vec4(yAxis, 0),
+      vec4(xAxis, 0),
+      world[3]);
+
+  v_texCoord = texCoord;
+  v_position = position + vec4(
+      sin(time * 0.5) * pow(position.y * 0.07, 2.0) * 1.0,
+      0,
+      0,
+      0);
+  v_position = (viewProjection * newWorld) * v_position;
+  v_normal = (newWorld * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="seaweedFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform vec4 lightColor;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform vec4 ambient;
+uniform sampler2D diffuse;
+uniform vec4 specular;
+uniform float shininess;
+uniform float specularFactor;
+// #fogUniforms
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec4 diffuseColor = texture2D(diffuse, v_texCoord);
+  if (diffuseColor.a < 0.3) {
+    discard;
+  }
+  vec3 normal = normalize(v_normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  vec4 outColor = vec4((
+  lightColor * (diffuseColor * litR.y + diffuseColor * ambient +
+                specular * litR.z * specularFactor)).rgb,
+      diffuseColor.a);
+  // #fogCode
+  gl_FragColor = outColor;
+}
+</script>
+<!-- ===[ Diffuse Map Shader ]============================================== -->
 <script id="diffuseVertexShader" type="text/something-not-javascript">
 uniform mat4 worldViewProjection;
 uniform vec3 lightWorldPos;
