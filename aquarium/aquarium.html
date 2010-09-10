@@ -286,6 +286,7 @@ var g_sceneInfo = [
   {
     name: "EnvironmentBox",
     fog: false,
+    group: "outside",
     program: [
       "diffuseVertexShader",
       "diffuseFragmentShader"
@@ -337,6 +338,7 @@ var g_sceneInfo = [
   {
     name: "Skybox",
     fog: false,
+    group: "outside",
     program: [
       "diffuseVertexShader",
       "diffuseFragmentShader"
@@ -356,6 +358,7 @@ var g_sceneInfo = [
   },
   {
     name: "SupportBeams",
+    group: "outside",
     fog: false
   },
   {
@@ -732,6 +735,7 @@ function setupCountButtons() {
 /**
  * Initializes stuff.
  */
+var P;
 function initialize() {
   math = tdl.math;
   fast = tdl.fast;
@@ -822,7 +826,7 @@ function initialize() {
     lightColor: one4,
     specular: one4,
     shininess: 50,
-    specularFactor: 1,
+    specularFactor: 0,
     ambient: ambient};
   var genericPer = {
     world: world,
@@ -830,6 +834,21 @@ function initialize() {
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose};
 
+  // outside uniforms.
+  var outsideConst = {
+    viewInverse: viewInverse,
+    lightWorldPos: lightWorldPos,
+    lightColor: one4,
+    specular: one4,
+    shininess: 50,
+    specularFactor: 1,
+    ambient: ambient};
+  var outsidePer = {
+    world: world,
+    worldViewProjection: worldViewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose};
+P = outsideConst;
   // Seaweed uniforms.
   var seaweedConst = {
     viewInverse: viewInverse,
@@ -857,7 +876,6 @@ function initialize() {
     worldViewProjection: worldViewProjection,
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose};
-
 
   // Fish uniforms.
   var fishConst = {
@@ -1100,6 +1118,11 @@ function initialize() {
     if (g_sceneGroups.seaweed) {
       Log("--Draw Seaweed----------------");
       DrawGroup(g_sceneGroups.seaweed, seaweedConst, seaweedPer);
+    }
+
+    if (g_sceneGroups.outside) {
+      Log("--Draw outside----------------");
+      DrawGroup(g_sceneGroups.outside, outsideConst, outsidePer);
     }
 
     gl.enable(gl.BLEND);
@@ -1949,7 +1972,7 @@ void main() {
       skyColor,
       lightColor * (diffuseColor * litR.y + diffuseColor * ambient +
                     specular * litR.z * specularFactor * normalSpec.a),
-      reflection.r).rgb,
+      1.0 - reflection.r).rgb,
       diffuseColor.a);
   // #fogCode
   gl_FragColor = outColor;
