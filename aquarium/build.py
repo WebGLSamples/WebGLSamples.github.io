@@ -62,6 +62,7 @@ def main(argv):
     'source_assets/Scenes/EnvironmentBox.ma',
     'source_assets/Scenes/FloorBase_Baked.ma',
     'source_assets/Scenes/FloorCenter.ma',
+    'source_assets/Scenes/GlobeBase.ma',
     'source_assets/Scenes/GlobeInner.ma',
     'source_assets/Scenes/GlobeOuter.ma',
     'source_assets/Scenes/LightRay.ma',

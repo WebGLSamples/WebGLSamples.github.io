@@ -294,6 +294,10 @@ var g_sceneInfo = [
     name: "FloorCenter"
   },
   {
+    name: "GlobeBase",
+    fog: false
+  },
+  {
     name: "GlobeInner",
     group: "inner",
     program: [
@@ -343,6 +347,24 @@ var g_sceneInfo = [
     fog: false
   },
   {
+    name: "SeaweedA",
+    blend: true,
+    group: "seaweed",
+    program: [
+      "diffuseVertexShader",
+      "diffuseFragmentShader",
+    ]
+  },
+  {
+    name: "SeaweedB",
+    blend: true,
+    group: "seaweed",
+    program: [
+      "diffuseVertexShader",
+      "diffuseFragmentShader",
+    ]
+  },
+  {
     name: "TreasureChest"
   }
 ];
@@ -380,6 +402,7 @@ function LogGLCall(functionName, args) {
 }
 
 function getScriptText(id) {
+  tdl.log("loading: ", id);
   var elem = document.getElementById(id);
   if (!elem) {
     throw 'no element: ' + id
@@ -527,6 +550,7 @@ function loadPlacement() {
         var object = objects[ii];
         var scene = g_scenes[object.name];
         var info = g_sceneInfoByName[object.name];
+tdl.log(object.name);
         var groupName = info.group || 'default';
         if (!g_sceneGroups[groupName]) {
           g_sceneGroups[groupName] = [];
@@ -835,6 +859,7 @@ function initialize() {
     for (var ii = 0; ii < numObjects; ++ii) {
       var object = group[ii];
       var scene = g_scenes[object.name];
+      var info = g_sceneInfoByName[object.name];
       if (!scene) {
         g_scenes[object.name] = { missing: true };
         tdl.log("missing scene:", object.name);
@@ -842,6 +867,12 @@ function initialize() {
       }
       if (scene.missing || !scene.loaded) {
         continue;
+      }
+
+      if (info.blend) {
+        gl.enable(gl.BLEND);
+      } else {
+        gl.disable(gl.BLEND);
       }
 
       var models = scene.models;
@@ -976,6 +1007,7 @@ function initialize() {
     // Draw Fishes.
     Log("--Draw Fish---------------------------------------");
 
+    gl.enable(gl.BLEND);
     for (var ff = 0; ff < g_fishTable.length; ++ff) {
       var fishInfo = g_fishTable[ff];
       var fishName = fishInfo.name;
@@ -1031,6 +1063,11 @@ function initialize() {
     if (g_sceneGroups.inner) {
       Log("--Draw GlobeInner----------------");
       DrawGroup(g_sceneGroups.inner, g.innerConst, innerPer);
+    }
+
+    if (g_sceneGroups.seaweed) {
+      Log("--Draw GlobeInner----------------");
+      DrawGroup(g_sceneGroups.seaweed, g.innerConst, innerPer);
     }
 
     gl.enable(gl.BLEND);
@@ -1619,7 +1656,7 @@ vec4 lit(float l ,float h, float m) {
               1.0);
 }
 void main() {
-  vec4 diffuse = texture2D(diffuse, v_texCoord);
+  vec4 diffuseColor = texture2D(diffuse, v_texCoord);
   vec3 normal = normalize(v_normal);
   vec3 surfaceToLight = normalize(v_surfaceToLight);
   vec3 surfaceToView = normalize(v_surfaceToView);
@@ -1627,9 +1664,9 @@ void main() {
   vec4 litR = lit(dot(normal, surfaceToLight),
                     dot(normal, halfVector), shininess);
   vec4 outColor = vec4((
-  lightColor * (diffuse * litR.y + diffuse * ambient +
+  lightColor * (diffuseColor * litR.y + diffuseColor * ambient +
                 specular * litR.z * specularFactor)).rgb,
-      diffuse.a);
+      diffuseColor.a);
   // #fogCode
   gl_FragColor = outColor;
 }
@@ -1693,7 +1730,7 @@ vec4 lit(float l ,float h, float m) {
               1.0);
 }
 void main() {
-  vec4 diffuse = texture2D(diffuse, v_texCoord);
+  vec4 diffuseColor = texture2D(diffuse, v_texCoord);
   mat3 tangentToWorld = mat3(v_tangent,
                              v_binormal,
                              v_normal);
@@ -1708,9 +1745,9 @@ void main() {
   vec4 litR = lit(dot(normal, surfaceToLight),
                     dot(normal, halfVector), shininess);
   vec4 outColor = vec4(
-     (lightColor * (diffuse * litR.y + diffuse * ambient +
+     (lightColor * (diffuseColor * litR.y + diffuseColor * ambient +
                     specular * litR.z * specularFactor * normalSpec.a)).rgb,
-      diffuse.a);
+      diffuseColor.a);
   // #fogCode
   gl_FragColor = outColor;
 }
@@ -1776,7 +1813,7 @@ vec4 lit(float l ,float h, float m) {
               1.0);
 }
 void main() {
-  vec4 diffuse = texture2D(diffuse, v_texCoord);
+  vec4 diffuseColor = texture2D(diffuse, v_texCoord);
   mat3 tangentToWorld = mat3(v_tangent,
                              v_binormal,
                              v_normal);
@@ -1793,10 +1830,10 @@ void main() {
                     dot(normal, halfVector), shininess);
   vec4 outColor = vec4(mix(
       skyColor,
-      lightColor * (diffuse * litR.y + diffuse * ambient +
+      lightColor * (diffuseColor * litR.y + diffuseColor * ambient +
                     specular * litR.z * specularFactor * normalSpec.a),
       reflection.r).rgb,
-      diffuse.a);
+      diffuseColor.a);
   // #fogCode
   gl_FragColor = outColor;
 }
@@ -1864,7 +1901,7 @@ vec4 lit(float l ,float h, float m) {
               1.0);
 }
 void main() {
-  vec4 diffuse = texture2D(diffuse, v_texCoord) +
+  vec4 diffuseColor = texture2D(diffuse, v_texCoord) +
       vec4(tankColorFudge, tankColorFudge, tankColorFudge, 1);
   mat3 tangentToWorld = mat3(v_tangent,
                              v_binormal,
@@ -1883,8 +1920,8 @@ void main() {
 
   vec4 skyColor = textureCube(skybox, refractionVec);
   vec4 outColor = vec4(
-      mix(skyColor * diffuse, diffuse, refraction.r).rgb,
-      diffuse.a);
+      mix(skyColor * diffuseColor, diffuseColor, refraction.r).rgb,
+      diffuseColor.a);
   // #fogCode
   gl_FragColor = outColor;
 }

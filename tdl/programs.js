@@ -141,7 +141,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
     if (!linked) {
       // something went wrong with the link
       var error = gl.getProgramInfoLog (program);
-      testFailed("Error in program linking:" + error);
+      throw("Error in program linking:" + error);
       return false;
     }
     return true;
