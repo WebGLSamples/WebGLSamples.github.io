@@ -1515,7 +1515,7 @@ void main() {
       skyColor,
       lightColor * (diffuseColor * litR.y + diffuseColor * ambient +
                     specular * litR.z * specularFactor * normalSpec.a),
-      reflection.r).rgb,
+      1.0 - reflection.r).rgb,
       diffuseColor.a);
   // #fogCode
   gl_FragColor = outColor;
@@ -1972,7 +1972,7 @@ void main() {
       skyColor,
       lightColor * (diffuseColor * litR.y + diffuseColor * ambient +
                     specular * litR.z * specularFactor * normalSpec.a),
-      reflection.r).rgb,
+      1.0 - reflection.r).rgb,
       diffuseColor.a);
   // #fogCode
   gl_FragColor = outColor;
@@ -2150,7 +2150,7 @@ void main() {
   vec4 reflectColor =
       mix(vec4(skyColor.rgb, bright),
           diffuseColor,
-          (reflection.r));
+          (1.0 - reflection.r));
   float r = abs(dot(surfaceToView, normal));
   gl_FragColor = vec4(mix(
       skyColor,
