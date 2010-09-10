@@ -1492,7 +1492,7 @@ void main() {
       skyColor,
       lightColor * (diffuseColor * litR.y + diffuseColor * ambient +
                     specular * litR.z * specularFactor * normalSpec.a),
-      reflection.r).rgb,
+      1.0 - reflection.r).rgb,
       diffuseColor.a);
   // #fogCode
   gl_FragColor = outColor;
