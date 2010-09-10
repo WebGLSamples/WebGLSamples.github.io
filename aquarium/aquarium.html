@@ -147,6 +147,115 @@ var g_lightRayRotLerp = 0.2;
 var g_lightRayOffset = Math.PI * 2 / g_numLightRays;
 var g_lightRayInfo = [];
 
+var g_viewSettingsIndex = 0;
+var g_viewSettings = [
+  // Inside 1
+  {
+    targetHeight: 63.3,
+    targetRadius: 91.6,
+    eyeHeight: 7.5,
+    eyeRadius: 13.2,
+    eyeSpeed: 0.058,
+    fieldOfView: 82.699,
+    ambientRed: 0.218,
+    ambientGreen: 0.502,
+    ambientBlue: 0.706,
+    fogPower: 16.5,
+    fogMult: 2.02,
+    fogOffset: 0.738,
+    fogRed: 0.338,
+    fogGreen: 0.81,
+    fogBlue: 1,
+    refractionFudge: 0,
+    eta: 1,
+    tankColorFudge: 0.796
+  },
+  // Inside 2
+  {
+    targetHeight: 63.3,
+    targetRadius: 91.6,
+    eyeHeight: 7.5,
+    eyeRadius: 13.2,
+    eyeSpeed: 0.058,
+    fieldOfView: 82.699,
+    ambientRed: 0.122,
+    ambientGreen: 0.426,
+    ambientBlue: 0.614,
+    fogPower: 16.5,
+    fogMult: 2.02,
+    fogOffset: 0.738,
+    fogRed: 0.338,
+    fogGreen: 0.738,
+    fogBlue: 1,
+    refractionFudge: 0,
+    eta: 1,
+    tankColorFudge: 0.796
+  },
+  // Outside 1
+  {
+    targetHeight: 17.1,
+    targetRadius: 69.2,
+    eyeHeight: 59.1,
+    eyeRadius: 124.4,
+    eyeSpeed: 0.058,
+    fieldOfView: 56.923,
+    ambientRed: 0.218,
+    ambientGreen: 0.246,
+    ambientBlue: 0.394,
+    fogPower: 27.1,
+    fogMult: 1.46,
+    fogOffset: 0.53,
+    fogRed: 0.382,
+    fogGreen: 0.602,
+    fogBlue: 1,
+    refractionFudge: 0,
+    eta: 1,
+    tankColorFudge: 1
+  },
+  // Inside Original
+  {
+    targetHeight: 0,
+    targetRadius: 88,
+    eyeHeight: 19,
+    eyeRadius: 60,
+    eyeSpeed: 0.058,
+    fieldOfView: 85,
+    ambientRed: 0.218,
+    ambientGreen: 0.246,
+    ambientBlue: 0.394,
+    fogPower: 16.5,
+    fogMult: 2.02,
+    fogOffset: 0.738,
+    fogRed: 0.338,
+    fogGreen: 0.81,
+    fogBlue: 1,
+    refractionFudge: 0,
+    eta: 1,
+    tankColorFudge: 0.796
+  },
+  // Outside Original
+  {
+    targetHeight: 72,
+    targetRadius: 73,
+    eyeHeight: 7,
+    eyeRadius: 120,
+    eyeSpeed: 0.058,
+    fieldOfView: 85,
+    ambientRed: 0.218,
+    ambientGreen: 0.246,
+    ambientBlue: 0.394,
+    fogPower: 27.1,
+    fogMult: 1.46,
+    fogOffset: 0.53,
+    fogRed: 0.382,
+    fogGreen: 0.602,
+    fogBlue: 1,
+    refractionFudge: 0,
+    eta: 1,
+    tankColorFudge: 1
+  }
+];
+
 var g = {
   globals: {},
   fish: {},
@@ -162,9 +271,9 @@ var g_ui = [
   { obj: 'globals',    name: 'eyeRadius',       value: 60,    max:  200 },
   { obj: 'globals',    name: 'eyeSpeed',        value: 0.06,  max:  1 },
   { obj: 'globals',    name: 'fieldOfView',     value: 85,  max:  179, min: 1},
-  { obj: 'globals',    name: 'ambientRed',      value: 0.35,  max:  1},
-  { obj: 'globals',    name: 'ambientGreen',    value: 0.35,  max:  1},
-  { obj: 'globals',    name: 'ambientBlue',     value: 0.35,  max:  1},
+  { obj: 'globals',    name: 'ambientRed',      value: 0.22,  max:  1},
+  { obj: 'globals',    name: 'ambientGreen',    value: 0.25,  max:  1},
+  { obj: 'globals',    name: 'ambientBlue',     value: 0.39,  max:  1},
   { obj: 'globals',    name: 'fogPower',        value: 14.5,  max:  50},
   { obj: 'globals',    name: 'fogMult',         value: 1.66,  max:  10},
   { obj: 'globals',    name: 'fogOffset',       value: 0.53,  max:  3},
@@ -179,9 +288,9 @@ var g_ui = [
   { obj: 'fish',       name: 'fishXClock',      value: 1,     max:  2},
   { obj: 'fish',       name: 'fishYClock',      value: 0.17,  max:  2},
   { obj: 'fish',       name: 'fishZClock',      value: 1.09,  max:  2},
-  { obj: 'innerConst', name: 'refractionFudge', value: 1.3,   max:  50},
+  { obj: 'innerConst', name: 'refractionFudge', value: 13,    max:  50},
   { obj: 'innerConst', name: 'eta',             value: 1,     max:  1},
-  { obj: 'innerConst', name: 'tankColorFudge',  value: 1,     max:  2}
+  { obj: 'innerConst', name: 'tankColorFudge',  value: 0.8,   max:  2}
 ];
 
 var g_fishTable = [
@@ -672,36 +781,28 @@ function setupSkybox() {
   return new tdl.models.Model(program, arrays, textures);
 }
 
-/**
- * Sets the count
- */
-function setSetting(elem, id) {
-
+function setViewSettings(index) {
   function setGlobal(name, value) {
     $(g_uiWidgets.globals[name]).slider("value", value * 1000);
     g.globals[name] = value;
   }
 
-  function setViewHighlight(elem) {
-    document.getElementById("setSetting6").style.color = "gray";
-    document.getElementById("setSetting7").style.color = "gray";
-    elem.style.color = "red";
+  var viewSettings = g_viewSettings[index];
+  for (var name in viewSettings) {
+    setGlobal(name, viewSettings[name]);
   }
+}
 
+/**
+ * Sets the count
+ */
+function setSetting(elem, id) {
   switch (id) {
-  case 8:
+  case 7:
     break;
   case 6:
-    setViewHighlight(elem);
-    setGlobal("eyeRadius", 60);
-    setGlobal("eyeHeight", 19);
-    setGlobal("targetHeight", 0);
-    break;
-  case 7:
-    setViewHighlight(elem);
-    setGlobal("eyeRadius", 120);
-    setGlobal("eyeHeight", 7);
-    setGlobal("targetHeight", 73);
+    setViewSettings(g_viewSettingsIndex);
+    g_viewSettingsIndex = (g_viewSettingsIndex + 1) % g_viewSettings.length;
     break;
   default:
     g_numSettingElements[id] = elem;
@@ -729,7 +830,7 @@ function setupCountButtons() {
       }}(elem, ii);
   }
   setSetting(document.getElementById("setSetting2"), 2);
-  setSetting(document.getElementById("setSetting6"), 6);
+  setSetting(document.getElementById("setSetting6"), 7);
 }
 
 /**
@@ -1293,7 +1394,7 @@ $(function(){
     uiElem.appendChild(div);
   }
 
-  $('#setSetting8').click(function() {
+  $('#setSetting7').click(function() {
       $("#uiContainer").toggle('slow'); return false; });
   $("#uiContainer").toggle();
 
@@ -1311,9 +1412,8 @@ $(function(){
   <div class="clickable" id="setSetting3">100</div>
   <div class="clickable" id="setSetting4">500</div>
   <div class="clickable" id="setSetting5">1000</div>
-  <div class="clickable" id="setSetting6">Inside</div>
-  <div><span class="clickable" id="setSetting7">Outside</span>
-  <span style="float: right" class="clickable" id="setSetting8">*</span></div>
+  <div><span class="clickable" id="setSetting6">Change View</span>
+  <span style="float: right" class="clickable" id="setSetting7">*</span></div>
 </div>
 <div id="uiContainer">
 <div id="ui"></div>
