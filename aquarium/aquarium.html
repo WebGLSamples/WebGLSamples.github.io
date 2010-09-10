@@ -1087,7 +1087,7 @@ function initialize() {
     bubbleTimer -= elapsedTime * g.globals.speed;
     if (bubbleTimer < 0) {
       bubbleTimer = 2 + Math.random() * 8;
-      var radius = Math.random() * 50;
+      var radius = Math.random() * 25;
       var angle = Math.random() * Math.PI * 2;
       fast.matrix4.translation(
           world,
