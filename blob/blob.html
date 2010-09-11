@@ -106,6 +106,7 @@ canvas.invisible {
 <script type="text/javascript">
 
 tdl.require('tdl.fast');
+tdl.require('tdl.fps');
 tdl.require('tdl.math');
 tdl.require('tdl.primitives');
 tdl.require('tdl.shader');
@@ -147,6 +148,7 @@ var up = new Float32Array([0, 1, 0])
 
 var output = alert
 var curBeat = 0
+  var then = 0.0;
 
 // A couple of simple effects here. The rest are spread out into
 // .js files.
@@ -177,6 +179,8 @@ function BlankEffect(color) {
   }
 }
 
+var g_fpsTimer;           // object to measure frames per second;
+
 function mainloop() {
   var BPM = 60.0;
   var timeStart = 0.0;  // at what time does the beat start?
@@ -186,21 +190,28 @@ function mainloop() {
   var totalFrameCount = 0;
   
   var singleEffect = new MarchingCubesEffect();
+  var fpsElem = document.getElementById("fps");
 
   function render() {
-    var music_time = totalFrameCount / 60.0;
-    if (frameCount == 60) {
-      var FPS = Math.round(frameCount * timeScale)
-      frameCount = 0
-      document.getElementById('fps').innerHTML = (FPS + " fps")
+    var now = (new Date()).getTime() * 0.001;
+    var elapsedTime;
+    if(then == 0.0) {
+      elapsedTime = 0.0;
+    } else {
+      elapsedTime = now - then;
     }
+    then = now;
+    frameCount++;
+    g_fpsTimer.update(elapsedTime);
+    fpsElem.innerHTML = g_fpsTimer.averageFPS;
+    
     var any_rendered = false;
     aspect = canvas.clientWidth / canvas.clientHeight
     // Always pass default framebuffer. might do transitions later and then it's
     // important to have this hook so we can have the effect render to some other fb,
     // and they can still do post process and then restore to the passed fb.
     var framebuffer = backbuffer;
-    singleEffect.render(framebuffer, music_time, music_time, g_numBlobs)
+    singleEffect.render(framebuffer, now, now, g_numBlobs)
     frameCount++;
     totalFrameCount++;
   }
@@ -279,6 +290,7 @@ var g_setSettingElements = [];
 
 window.onload = function() {
   setupCountButtons();
+  g_fpsTimer = new tdl.fps.FPSTimer();
   if (initializeGraphics()) {
     // Kick it off!
     mainloop()
@@ -300,10 +312,6 @@ window.onload = function() {
 </div>
 <div id="viewContainer">
 <canvas id="render_area" width="1024" height="512" style="width: 100%; height: 100%;"></canvas>
-</div>
-<canvas class='invisible' id="texture_area" width="512" height="64"></canvas>
-<div id="controls">
-<span id="beat">(beat)</span>
 </div>
 </body>
 
