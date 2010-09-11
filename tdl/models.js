@@ -55,12 +55,8 @@ tdl.models = tdl.models || {};
  *        gl.TRIANGLES
  */
 tdl.models.Model = function(program, arrays, textures, opt_mode) {
-  buffers = { };
-  for (name in arrays) {
-    var target = (name == 'indices') ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER;
-    var b = new tdl.buffers.Buffer(arrays[name], target);
-    buffers[name] = b;
-  }
+  this.buffers = { };
+  this.setBuffers(arrays);
 
   var textureUnits = { }
   var unit = 0;
@@ -70,10 +66,26 @@ tdl.models.Model = function(program, arrays, textures, opt_mode) {
 
   this.mode = (opt_mode === undefined) ? gl.TRIANGLES : opt_mode;
   this.program = program;
-  this.buffers = buffers;
   this.textures = textures;
   this.textureUnits = textureUnits;
 }
+
+tdl.models.Model.prototype.setBuffer = function(name, array) {
+  var target = (name == 'indices') ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER;
+  b = this.buffers[name];
+  if (!b) {
+    b = new tdl.buffers.Buffer(array, target);
+  } else {
+    b.set(array);
+  }
+  this.buffers[name] = b;
+};
+
+tdl.models.Model.prototype.setBuffers = function(arrays) {
+  for (name in arrays) {
+    this.setBuffer(name, arrays[name]);
+  }
+};
 
 /**
  * Sets up the shared parts of drawing this model. Uses the

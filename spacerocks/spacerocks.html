@@ -143,14 +143,49 @@ function createProgramFromTags(vertexTagId, fragmentTagId) {
 function setupPlanet() {
   var textures = {
     diffuseSampler: tdl.textures.loadTexture('assets/rock-color.png'),
-    bumpSampler: tdl.textures.loadTexture('assets/rock-nmap.png'),
-    heightSampler: tdl.textures.loadTexture('assets/height-map.png')};
+    bumpSampler: tdl.textures.loadTexture('assets/rock-nmap.png')};
+
   var program = createProgramFromTags(
       'planetVertexShader',
       'planetFragmentShader');
   var arrays = tdl.primitives.createSphere(1, 100, 100);
+
   tdl.primitives.addTangentsAndBinormals(arrays);
-  return new tdl.models.Model(program, arrays, textures);
+  var model = new tdl.models.Model(program, arrays, textures);
+  var img = document.createElement('img');
+  img.onload = function() {
+    var canvas = document.createElement('canvas');
+    var width  = img.width;
+    var height = img.height;
+    canvas.width = width;
+		canvas.height = height;
+    var ctx = canvas.getContext("2d");
+		ctx.drawImage(img, 0, 0);
+		var imgData = ctx.getImageData(0, 0, width, height);
+    var pixels = imgData.data;
+
+    function getRed(u, v) {
+      var x = Math.floor(Math.min(u * width, width - 1));
+      var y = Math.floor(Math.min(v * height, height - 1));
+      var r = pixels[(y * width + x) * 4] / 255;
+			return r;
+    }
+
+    for (var ii = 0; ii < arrays.position.numElements; ++ii) {
+      var uv = arrays.texCoord.getElement(ii);
+      var norm = arrays.normal.getElement(ii);
+      var pos = arrays.position.getElement(ii);
+      var h = (1.0 - getRed(uv[0], uv[1]) - 0.5) * 2.0 * 0.03;
+      pos[0] += norm[0] * h;
+      pos[1] += norm[1] * h;
+      pos[2] += norm[2] * h;
+			arrays.position.setElement(ii, pos);
+    }
+		model.setBuffer('position', arrays.position);
+  }
+	img.src = 'assets/height-map.png';
+
+	return model;
 }
 
 /**
@@ -876,7 +911,6 @@ uniform vec3 lightWorldPos;
 uniform mat4 world;
 uniform mat4 viewInverse;
 uniform mat4 worldInverseTranspose;
-uniform sampler2D heightSampler;
 attribute vec4 position;
 attribute vec3 normal;
 attribute vec2 texCoord;
@@ -891,10 +925,7 @@ varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
 void main() {
   v_texCoord = texCoord;
-  float height =
-      (1.0 - texture2D(heightSampler, v_texCoord).x - 0.5) * 2.0 * 0.03;
-  v_position = (worldViewProjection *
-                (position + vec4(normal * vec3(height, height, height), 0.0)));
+  v_position = (worldViewProjection * position);
   v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
   v_surfaceToLight = lightWorldPos - (world * position).xyz;
   v_surfaceToView = (viewInverse[3] - (world * position)).xyz;

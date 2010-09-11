@@ -46,9 +46,9 @@ tdl.buffers = tdl.buffers || {};
 tdl.buffers.Buffer = function(array, opt_target) {
   var target = opt_target || gl.ARRAY_BUFFER;
   var buf = gl.createBuffer();
-  gl.bindBuffer(target, buf);
-  gl.bufferData(target, array.buffer, gl.STATIC_DRAW);
+  this.target = target;
   this.buf = buf;
+  this.set(array);
   this.numComponents_ = array.numComponents;
   this.numElements_ = array.numElements;
   this.totalComponents_ = this.numComponents_ * this.numElements_;
@@ -66,6 +66,11 @@ tdl.buffers.Buffer = function(array, opt_target) {
     throw("unhandled type:" + (typeof array.buffer));
   }
 };
+
+tdl.buffers.Buffer.prototype.set = function(array) {
+  gl.bindBuffer(this.target, this.buf);
+  gl.bufferData(this.target, array.buffer, gl.STATIC_DRAW);
+}
 
 tdl.buffers.Buffer.prototype.type = function() {
   return this.type_;
