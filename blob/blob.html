@@ -83,12 +83,22 @@ canvas.invisible {
   width: 100%;
   height: 100%;
 }
+.fpsContainer {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  color: gray;
+  font-family: sans-serif;
+  background-color: rgba(0,0,0,0.5);
+  border-radius: 10px;
+  padding: 10px;
+}
 </style>
 <script type="text/javascript"
   src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js">
 </script>
 <script type="text/javascript" src="../tdl/base.js"></script>
-<script type="text/javascript" src="flower.js"></script>
 <script type="text/javascript" src="postprocess.js"></script>
 <script type="text/javascript" src="immediate_sim.js"></script>
 <script type="text/javascript" src="marching_cubes_tables.js"></script>
@@ -124,6 +134,7 @@ var backbuffer;
 var post;
 var quad;
 var imm;
+var g_numBlobs;
 // var log = window.console.log
 
 if (!window.Float32Array) {
@@ -166,138 +177,38 @@ function BlankEffect(color) {
   }
 }
 
-// Basic sample effect that actually draws something.
-// Good starting point for new effects.
-function SpinningCubeEffect() {
-  var arrays = tdl.primitives.createCube(1.0)
-  var program = createProgramFromTags("spinning_cube_vs", "spinning_cube_fs")
-  var textures = []
-
-  var proj = new Float32Array(16)
-  var view = new Float32Array(16)
-  var world = new Float32Array(16)
-
-  var viewproj = new Float32Array(16)
-  var worldviewproj = new Float32Array(16)
-
-  var model = new tdl.models.Model(program, arrays, textures);
-
-  var eyePosition = new Float32Array([0, 0, 4])
-  var target = new Float32Array([0, 0, 0])
-
-  var m4 = tdl.fast.matrix4
-
-  m4.lookAt(view, eyePosition, target, up);
-
-  this.render = function(framebuffer, time, global_time) {
-    m4.perspective(proj, tdl.math.degToRad(60), aspect, 0.1, 500);
-    m4.rotationY(world, time)
-    m4.translate(world, [0, Math.sin(time * Math.PI), 0])
-    m4.mul(viewproj, view, proj)
-    m4.mul(worldviewproj, world, viewproj)
-
-    post.begin()
-    
-    gl.clearColor(0.5,0.5,0.5,1)
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-
-    var uniformsConst = { }
-    var uniformsPer = {
-      u_worldviewproj: worldviewproj
-    }
-
-    model.drawPrep(uniformsConst)
-    model.draw(uniformsPer)
-    
-    // Draw a simple triangle sticking out of the cube, to show off the immediate mode simulator.
-    imm.begin(gl.TRIANGLES)
-    imm.pos(0, 0, 0); imm.next()
-    imm.pos(2, 2, 0); imm.next()
-    imm.pos(2, 0, 0); imm.next()
-    imm.end(program)
-    
-    post.end(framebuffer, post.focusBlur, {x: 2, y: 2})
-  }
-}
-
-// Dead simple part scheduler and render initiator.
-// Takes a music <audio> tag as input, used for timing.
-function mainloop(music) {
-  // Repeatedly run render(), attempt to hold 60 but the demo is
-  // framerate independent so we will still keep sync even if we
-  // lose frames.
-  var intervalId = setInterval(render, 1000.0 / 60.0);
-
-  // Fit these to your song.
-  var BPM = 109.0;
+function mainloop() {
+  var BPM = 60.0;
   var timeStart = 0.0;  // at what time does the beat start?
 
   var timeScale = BPM / 60.0;
   var frameCount = 0;
-  var lastTime = 0;
-
-  var singleEffect = null;
-
-  // Uncomment one of these to debug the individual effect.
-  //
-  // singleEffect = new SpinningCubeEffect()
-  // singleEffect = new FlowerEffect()
-  // singleEffect = new MarchingCubesEffect()
-  // singleEffect = new BeatClearEffect([0,1,0])
-  // This is where the demo is sequenced.
-  // Times are in timeScale units.
-  var parts = [
-    {start: 0,  end: 32,  fx: new FlowerEffect()},
-    {start: 32, end: 64,  fx: new MarchingCubesEffect()},
-    {start: 64, end: 128, fx: new BeatClearEffect([0,1,0])},
-    {start: 64, end: 700, fx: new BeatClearEffect([0,1,0])}
-  ]
+  var totalFrameCount = 0;
   
-  // Part that's shown when nothing else is scheduled. Pink is good for debugging.
-  var no_part = new BlankEffect([1, 0, 1])
+  var singleEffect = new MarchingCubesEffect();
 
   function render() {
-    var music_time = (music.currentTime - timeStart) * timeScale;
-
-    // Don't render if time is stopped.
-    if (music_time == lastTime) {
-      return;
-    } else {
-      lastTime = music_time;
-    }
-
-    var beat = Math.floor(music_time)
-    if (beat != curBeat) {
-      curBeat = beat
+    var music_time = totalFrameCount / 60.0;
+    if (frameCount == 60) {
       var FPS = Math.round(frameCount * timeScale)
       frameCount = 0
-      $('#beat').html('<b>' + (curBeat + 0) + ' (' + ((curBeat % 4) + 1) + ":" + (Math.floor(curBeat / 4) + 1) + ')</b> ' + FPS + " fps")
+      document.getElementById('fps').innerHTML = (FPS + " fps")
     }
     var any_rendered = false;
-
     aspect = canvas.clientWidth / canvas.clientHeight
-
     // Always pass default framebuffer. might do transitions later and then it's
     // important to have this hook so we can have the effect render to some other fb,
     // and they can still do post process and then restore to the passed fb.
     var framebuffer = backbuffer;
-
-    if (singleEffect) {
-      singleEffect.render(framebuffer, music_time, music_time)
-    } else {
-      for (var i in parts) {
-        if (music_time >= parts[i].start && music_time < parts[i].end) {
-          parts[i].fx.render(framebuffer, music_time - parts[i].start, music_time);
-          any_rendered = true;
-        }
-      }
-      if (!any_rendered) {
-        no_part.render(framebuffer, music_time);
-      }
-    }
-
+    singleEffect.render(framebuffer, music_time, music_time, g_numBlobs)
     frameCount++;
+    totalFrameCount++;
   }
+
+  // Repeatedly run render(), attempt to hold 60 but the demo is
+  // framerate independent so we will still keep sync even if we
+  // lose frames.
+  var intervalId = setInterval(render, 1000.0 / 60.0);
 }
 
 function initializeGraphics() {
@@ -321,31 +232,77 @@ function initializeGraphics() {
   return true;
 }
 
-$(document).ready(function() {
-  if (initializeGraphics()) {
-    music = document.getElementById('soundtrack');
-    music.volume = 0.13;
-    music.play();
-
-    // Kick it off!
-    mainloop(music)
+function setSetting(elem, id) {
+  switch (id) {
+  case 0:
+  case 1:
+  case 2:
+  case 3:
+    g_numBlobs = Math.pow(10, id);
+    for (var ii = 0; ii < 4; ++ii) {
+      g_setSettingElements[ii].style.color = "gray";
+    }
+    elem.style.color = "red";
+    break;
+/*  case 4:
+    if (g_numSharks) {
+      g_numSharks = 0;
+      elem.style.color = "gray";
+    } else {
+      g_numSharks = 3;
+      elem.style.color = "red";
+    }
+    break;*/
   }
-})
+}
+
+/**
+ * Sets up the count buttons.
+ */
+function setupCountButtons() {
+  for (var ii = 0; ii < 100; ++ii) {
+    var elem = document.getElementById("setSetting" + ii);
+    if (!elem) {
+      break;
+    }
+    g_setSettingElements.push(elem);
+    elem.onclick = function(elem, id) {
+      return function () {
+        setSetting(elem, id);
+      }}(elem, ii);
+  }
+  setSetting(document.getElementById("setSetting1"), 1);
+}
+
+
+var g_setSettingElements = [];
+
+window.onload = function() {
+  setupCountButtons();
+  if (initializeGraphics()) {
+    // Kick it off!
+    mainloop()
+  }
+}
 
 </script>
 
 </head>
 
 <body>
+<div class="fpsContainer">
+  <div class="fps">fps: <span id="fps"></div>
+  <div>Number of Blobs</div>
+  <div id="setSetting0">1</div>
+  <div id="setSetting1">10</div>
+  <div id="setSetting2">100</div>
+  <div id="setSetting3">1000</div>
+</div>
 <div id="viewContainer">
 <canvas id="render_area" width="1024" height="512" style="width: 100%; height: 100%;"></canvas>
 </div>
 <canvas class='invisible' id="texture_area" width="512" height="64"></canvas>
 <div id="controls">
-<audio id="soundtrack" src="music.ogg" controls>
-No support for the audio tag in this browser.
-Get <a href="http://www.google.com/chrome">Google Chrome</a>.
-</audio>
 <span id="beat">(beat)</span>
 </div>
 </body>
@@ -492,19 +449,17 @@ Get <a href="http://www.google.com/chrome">Google Chrome</a>.
   uniform vec4 subtract;
   uniform sampler2D mainSampler;
   void main() {
-     vec4 sum = vec4(0.0);
-  
-     sum += texture2D(mainSampler, v_texCoord - 4.0 * blurSize) * 0.05;
-     sum += texture2D(mainSampler, v_texCoord - 3.0 * blurSize) * 0.09;
-     sum += texture2D(mainSampler, v_texCoord - 2.0 * blurSize) * 0.12;
-     sum += texture2D(mainSampler, v_texCoord - 1.0 * blurSize) * 0.15;
-     sum += texture2D(mainSampler, v_texCoord                 ) * 0.16;
-     sum += texture2D(mainSampler, v_texCoord + 1.0 * blurSize) * 0.15;
-     sum += texture2D(mainSampler, v_texCoord + 2.0 * blurSize) * 0.12;
-     sum += texture2D(mainSampler, v_texCoord + 3.0 * blurSize) * 0.09;
-     sum += texture2D(mainSampler, v_texCoord + 4.0 * blurSize) * 0.05;
-  
-     gl_FragColor = sum - subtract;
+    vec4 sum = vec4(0.0);
+    sum += texture2D(mainSampler, v_texCoord - 4.0 * blurSize) * 0.05;
+    sum += texture2D(mainSampler, v_texCoord - 3.0 * blurSize) * 0.09;
+    sum += texture2D(mainSampler, v_texCoord - 2.0 * blurSize) * 0.12;
+    sum += texture2D(mainSampler, v_texCoord - 1.0 * blurSize) * 0.15;
+    sum += texture2D(mainSampler, v_texCoord                 ) * 0.16;
+    sum += texture2D(mainSampler, v_texCoord + 1.0 * blurSize) * 0.15;
+    sum += texture2D(mainSampler, v_texCoord + 2.0 * blurSize) * 0.12;
+    sum += texture2D(mainSampler, v_texCoord + 3.0 * blurSize) * 0.09;
+    sum += texture2D(mainSampler, v_texCoord + 4.0 * blurSize) * 0.05;
+    gl_FragColor = sum - subtract;
   }
 </script>
 
@@ -549,7 +504,7 @@ Get <a href="http://www.google.com/chrome">Google Chrome</a>.
   varying vec2 v_texCoord;
   uniform sampler2D mainSampler;
   void main() {
-     gl_FragColor = texture2D(mainSampler, v_texCoord);
+    gl_FragColor = texture2D(mainSampler, v_texCoord);
   }
 </script>
 

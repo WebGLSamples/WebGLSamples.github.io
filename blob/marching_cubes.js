@@ -23,7 +23,7 @@ function MarchingCubesEffect() {
   var model = new tdl.models.Model(program, arrays, textures);
 
   var eyePosition = new Float32Array([0, 0, 1.7])
-  var target = new Float32Array([0.3, 0, 0])
+  var target = new Float32Array([-0.3, 0, 0])
 
   // Size of field. 32 is pushing it in Javascript :)
   var size = 36
@@ -194,7 +194,7 @@ function MarchingCubesEffect() {
 
   var firstDraw = true
 
-  this.render = function(framebuffer, time, global_time, num_blobs) {
+  this.render = function(framebuffer, time, global_time, numblobs) {
     m4.perspective(proj, tdl.math.degToRad(60), aspect, 0.1, 500);
     m4.rotationY(world, time * 0.2)
     m4.translate(world, [0, 0*Math.sin(time)*0.5, 0])
@@ -236,12 +236,12 @@ function MarchingCubesEffect() {
         field[i] = 0.0
       }
       // Fill the field with some metaballs.
-      for (var i = 0; i < g_numBlobs; i++) {
-        var ballx = Math.sin(i + 0.3 * time * (1.03 + 0.21 * i)) * 0.27 + 0.5;
+      for (var i = 0; i < numblobs; i++) {
+        var ballx = Math.sin(i + 0.26 * time * (1.03 + Math.cos(0.21 * i))) * 0.27 + 0.5;
         var bally = Math.abs(Math.cos(i + 0.3 * time * (1.22 + 0.1424 * i))) * 0.77; // dip into the floor
-        var ballz = Math.cos(i + 0.3 * time * (0.92 + 0.53 * i)) * 0.27 + 0.5;
+        var ballz = Math.cos(i + 0.32 * time * Math.sin((0.92 + 0.53 * i))) * 0.27 + 0.5;
         var subtract = 12
-        var strength = 1.2
+        var strength = 1.2 / ((Math.sqrt(numblobs)- 1) / 4 + 1)
         addBall(ballx, bally, ballz, strength, subtract)
       }
       addFloor(2, 12)
