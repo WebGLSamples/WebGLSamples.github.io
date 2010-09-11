@@ -122,7 +122,6 @@ var g_fog = true;
 
 var g_fishSetting      = 2;
 var g_numSharks        = 0;
-var g_tailSpeed        = 30;
 var g_tailOffsetMult   = 1;
 var g_endOfDome        = Math.PI / 8;
 var g_tankRadius       = 22;
@@ -259,14 +258,14 @@ var g_ui = [
   { obj: 'globals',    name: 'fogRed',          value: 0.54,  max:  1},
   { obj: 'globals',    name: 'fogGreen',        value: 0.86,  max:  1},
   { obj: 'globals',    name: 'fogBlue',         value: 1.0,   max:  1},
-  { obj: 'fish',       name: 'fishRadius',      value: 50,    max:  200},
-  { obj: 'fish',       name: 'fishHeightRange', value: 16,    max:  50},
-  { obj: 'fish',       name: 'fishHeight',      value: 22,    max:  50},
+  { obj: 'fish',       name: 'fishHeightRange', value: 1,     max:  3},
+  { obj: 'fish',       name: 'fishHeight',      value: 25,    max:  50},
   { obj: 'fish',       name: 'fishSpeed',       value: 0.124, max:  2},
   { obj: 'fish',       name: 'fishOffset',      value: 0.3,   max:  2},
   { obj: 'fish',       name: 'fishXClock',      value: 1,     max:  2},
-  { obj: 'fish',       name: 'fishYClock',      value: 0.17,  max:  2},
-  { obj: 'fish',       name: 'fishZClock',      value: 1.09,  max:  2},
+  { obj: 'fish',       name: 'fishYClock',      value: 0.556, max:  2},
+  { obj: 'fish',       name: 'fishZClock',      value: 1,     max:  2},
+  { obj: 'fish',       name: 'fishTailSpeed',   value: 1,     max:  30},
   { obj: 'innerConst', name: 'refractionFudge', value: 3,     max:  50},
   { obj: 'innerConst', name: 'eta',             value: 1,     max:  1},
   { obj: 'innerConst', name: 'tankColorFudge',  value: 0.8,   max:  2}
@@ -276,6 +275,13 @@ var g_fishTable = [
   {
     name: 'SmallFishA',
     num: [0, 3, 36, 76, 500, 1000, 50],
+    speed: 0.5,
+    speedRange: 2,
+    radius: 30,
+    radiusRange: 15,
+    tailSpeed: 10,
+    heightOffset: 0,
+    heightRange: 16,
     constUniforms: {
       fishLength: 10,
       fishWaveLength: 1,
@@ -285,6 +291,13 @@ var g_fishTable = [
   {
     name: 'MediumFishA',
     num: [0, 3, 6, 10, 0, 0, 10],
+    speed: 0.5,
+    speedRange: 3,
+    radius: 10,
+    radiusRange: 20,
+    tailSpeed: 1,
+    heightOffset: 0,
+    heightRange: 16,
     constUniforms: {
       fishLength: 10,
       fishWaveLength: 1,
@@ -294,6 +307,13 @@ var g_fishTable = [
   {
     name: 'MediumFishB',
     num: [0, 2, 6, 10, 0, 0, 10],
+    speed: 0.5,
+    speedRange: 4,
+    radius: 10,
+    radiusRange: 20,
+    tailSpeed: 3,
+    heightOffset: -8,
+    heightRange: 5,
     constUniforms: {
       fishLength: 10,
       fishWaveLength: 1,
@@ -303,6 +323,13 @@ var g_fishTable = [
   {
     name: 'BigFishA',
     num: [1, 1, 1, 2, 0, 0, 3],
+    speed: 0.5,
+    speedRange: 0.5,
+    radius: 50,
+    radiusRange: 3,
+    tailSpeed: 1.5,
+    heightOffset: 0,
+    heightRange: 16,
     constUniforms: {
       fishLength: 10,
       fishWaveLength: 0.25,
@@ -312,6 +339,13 @@ var g_fishTable = [
   {
     name: 'BigFishB',
     num: [0, 1, 1, 2, 0, 0, 1],
+    speed: 0.5,
+    speedRange: 0.5,
+    radius: 45,
+    radiusRange: 3,
+    tailSpeed: 1,
+    heightOffset: 0,
+    heightRange: 16,
     constUniforms: {
       fishLength: 10,
       fishWaveLength: 0.25,
@@ -1155,23 +1189,32 @@ P = outsideConst;
           fishConst[p] = fishInfo.constUniforms[p];
         }
         fish.drawPrep(fishConst);
-        var fishClock = clock * f.fishSpeed;
+        var fishBaseClock = clock * f.fishSpeed;
+        var fishRadius = fishInfo.radius;
+        var fishRadiusRange = fishInfo.radiusRange;
+        var fishSpeed = fishInfo.speed;
+        var fishSpeedRange = fishInfo.speedRange;
+        var fishTailSpeed = fishInfo.tailSpeed * f.fishTailSpeed;
+        var fishOffset = f.fishOffset;
+        var fishClockSpeed = f.fishSpeed;
+        var fishHeight = f.fishHeight + fishInfo.heightOffset;
+        var fishHeightRange = f.fishHeightRange * fishInfo.heightRange;
         for (var ii = 0; ii < numFish; ++ii) {
-          var fishClock = clock * f.fishSpeed + ii * f.fishOffset;
-          var speed = 0.5 + math.pseudoRandom() * 4;
+          var fishClock = fishBaseClock + ii * fishOffset;
+          var speed = fishSpeed + math.pseudoRandom() * fishSpeedRange;
           var scale = 1.0 + math.pseudoRandom() * 1;
-          var xRadius = 2.0 + pseudoRandom() * f.fishRadius;
-          var yRadius = 2.0 + pseudoRandom() * f.fishHeightRange;
-          var zRadius = 2.0 + pseudoRandom() * f.fishRadius;
+          var xRadius = fishRadius + pseudoRandom() * fishRadiusRange;
+          var yRadius = 2.0 + pseudoRandom() * fishHeightRange;
+          var zRadius = fishRadius + pseudoRandom() * fishRadiusRange;
           var xClock = fishClock * speed * f.fishXClock;
           var yClock = fishClock * speed * f.fishYClock;
           var zClock = fishClock * speed * f.fishZClock;
           var x = Math.sin(xClock) * xRadius;
-          var y = Math.sin(yClock) * yRadius + f.fishHeight;
+          var y = Math.sin(yClock) * yRadius + fishHeight;
           var z = Math.cos(zClock) * zRadius;
-          var nextX = Math.sin(xClock - 0.01) * xRadius;
-          var nextY = Math.sin(yClock - 0.01) * yRadius + f.fishHeight;
-          var nextZ = Math.cos(zClock - 0.01) * zRadius;
+          var nextX = Math.sin(xClock - 0.04) * xRadius;
+          var nextY = Math.sin(yClock - 0.01) * yRadius + fishHeight;
+          var nextZ = Math.cos(zClock - 0.04) * zRadius;
           //colorMult[0] = 0.7 + math.pseudoRandom() * 0.3;
           //colorMult[1] = 0.7 + math.pseudoRandom() * 0.3;
           //colorMult[2] = 0.7 + math.pseudoRandom() * 0.3;
@@ -1184,7 +1227,7 @@ P = outsideConst;
           matInverse(worldInverse, world);
           matTranspose(worldInverseTranspose, worldInverse);
           fishPer.time =
-              (clock + ii * g_tailOffsetMult) * g_tailSpeed * speed * 0.1;
+              (clock + ii * g_tailOffsetMult) * fishTailSpeed * speed;
           fish.draw(fishPer);
         }
       }
