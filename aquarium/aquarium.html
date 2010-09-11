@@ -41,7 +41,7 @@ html, body {
   border: 0px;
   padding: 0px;
   margin: 0px;
-  background-color: red;
+  background-color: black;
 }
 CANVAS {
   background-color: gray;
@@ -278,7 +278,7 @@ var g_fishTable = [
     speed: 0.5,
     speedRange: 2,
     radius: 30,
-    radiusRange: 15,
+    radiusRange: 25,
     tailSpeed: 10,
     heightOffset: 0,
     heightRange: 16,
@@ -962,7 +962,7 @@ function initialize() {
     worldViewProjection: worldViewProjection,
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose};
-P = outsideConst;
+
   // Seaweed uniforms.
   var seaweedConst = {
     viewInverse: viewInverse,
@@ -993,6 +993,7 @@ P = outsideConst;
 
   // Fish uniforms.
   var fishConst = {
+    viewProjection: viewProjection,
     viewInverse: viewInverse,
     lightWorldPos: lightWorldPos,
     lightColor: one4,
@@ -1001,10 +1002,9 @@ P = outsideConst;
     specularFactor: 0.3,
     ambient: ambient};
   var fishPer = {
-    world: world,
-    worldViewProjection: worldViewProjection,
-    worldInverse: worldInverse,
-    worldInverseTranspose: worldInverseTranspose};
+    worldPosition: new Float32Array(3), //[0,0,0],
+    nextPosition: new Float32Array(3), //[0,0,0],
+    scale: 1};
 
   // lightRay uniforms.
   var lightRayConst = {};
@@ -1199,6 +1199,11 @@ P = outsideConst;
         var fishClockSpeed = f.fishSpeed;
         var fishHeight = f.fishHeight + fishInfo.heightOffset;
         var fishHeightRange = f.fishHeightRange * fishInfo.heightRange;
+        var fishXClock = f.fishXClock;
+        var fishYClock = f.fishYClock;
+        var fishZClock = f.fishZClock;
+        var fishPosition = fishPer.worldPosition;
+        var fishNextPosition = fishPer.nextPosition;
         for (var ii = 0; ii < numFish; ++ii) {
           var fishClock = fishBaseClock + ii * fishOffset;
           var speed = fishSpeed + math.pseudoRandom() * fishSpeedRange;
@@ -1206,26 +1211,26 @@ P = outsideConst;
           var xRadius = fishRadius + pseudoRandom() * fishRadiusRange;
           var yRadius = 2.0 + pseudoRandom() * fishHeightRange;
           var zRadius = fishRadius + pseudoRandom() * fishRadiusRange;
-          var xClock = fishClock * speed * f.fishXClock;
-          var yClock = fishClock * speed * f.fishYClock;
-          var zClock = fishClock * speed * f.fishZClock;
-          var x = Math.sin(xClock) * xRadius;
-          var y = Math.sin(yClock) * yRadius + fishHeight;
-          var z = Math.cos(zClock) * zRadius;
-          var nextX = Math.sin(xClock - 0.04) * xRadius;
-          var nextY = Math.sin(yClock - 0.01) * yRadius + fishHeight;
-          var nextZ = Math.cos(zClock - 0.04) * zRadius;
-          //colorMult[0] = 0.7 + math.pseudoRandom() * 0.3;
-          //colorMult[1] = 0.7 + math.pseudoRandom() * 0.3;
-          //colorMult[2] = 0.7 + math.pseudoRandom() * 0.3;
+          var fishSpeedClock = fishClock * speed;
+          var xClock = fishSpeedClock * fishXClock;
+          var yClock = fishSpeedClock * fishYClock;
+          var zClock = fishSpeedClock * fishZClock;
 
-          matMul(world,
-              matScaling(m4t0, [scale, scale, scale]),
-              matCameraLookAt(
-                  m4t1, [x, y, z], [nextX, nextY, nextZ], [0, 1, 0]));
-          matMul(worldViewProjection, world, viewProjection);
-          matInverse(worldInverse, world);
-          matTranspose(worldInverseTranspose, worldInverse);
+          fishPosition[0] = Math.sin(xClock) * xRadius;
+          fishPosition[1] = Math.sin(yClock) * yRadius + fishHeight;
+          fishPosition[2] = Math.cos(zClock) * zRadius;
+          fishNextPosition[0] = Math.sin(xClock - 0.04) * xRadius;
+          fishNextPosition[1] = Math.sin(yClock - 0.01) * yRadius + fishHeight;
+          fishNextPosition[2] = Math.cos(zClock - 0.04) * zRadius;
+          fishPer.scale = scale;
+
+//          matMul(world,
+//              matScaling(m4t0, [scale, scale, scale]),
+//              matCameraLookAt(
+//                  m4t1, [x, y, z], [nextX, nextY, nextZ], [0, 1, 0]));
+//          matMul(worldViewProjection, world, viewProjection);
+//          matInverse(worldInverse, world);
+//          matTranspose(worldInverseTranspose, worldInverse);
           fishPer.time =
               (clock + ii * g_tailOffsetMult) * fishTailSpeed * speed;
           fish.draw(fishPer);
@@ -1494,11 +1499,12 @@ void main() {
 </script>
 <!-- ===[ fishNormalMap Shader ]=========================================== -->
 <script id="fishVertexShader" type="text/something-not-javascript">
-uniform mat4 worldViewProjection;
 uniform vec3 lightWorldPos;
-uniform mat4 world;
 uniform mat4 viewInverse;
-uniform mat4 worldInverseTranspose;
+uniform mat4 viewProjection;
+uniform vec3 worldPosition;
+uniform vec3 nextPosition;
+uniform float scale;
 uniform float time;
 uniform float fishLength;
 uniform float fishWaveLength;
@@ -1516,6 +1522,23 @@ varying vec3 v_normal;
 varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
 void main() {
+  vec3 vz = normalize(worldPosition - nextPosition);
+  vec3 vx = normalize(cross(vec3(0,1,0), vz));
+  vec3 vy = cross(vz, vx);
+  mat4 orientMat = mat4(
+    vec4(vx, 0),
+    vec4(vy, 0),
+    vec4(vz, 0),
+    vec4(worldPosition, 1));
+  mat4 scaleMat = mat4(
+    vec4(scale, 0, 0, 0),
+    vec4(0, scale, 0, 0),
+    vec4(0, 0, scale, 0),
+    vec4(0, 0, 0, 1));
+  mat4 world = orientMat * scaleMat;
+  mat4 worldViewProjection = viewProjection * world;
+  mat4 worldInverseTranspose = world;
+
   v_texCoord = texCoord;
   float mult = position.z > 0.0 ?
       (position.z / fishLength) :
