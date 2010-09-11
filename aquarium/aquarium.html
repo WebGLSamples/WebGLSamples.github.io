@@ -154,7 +154,7 @@ var g_viewSettings = [
     targetRadius: 91.6,
     eyeHeight: 7.5,
     eyeRadius: 13.2,
-    eyeSpeed: 0.058,
+    eyeSpeed: 0.0258,
     fieldOfView: 82.699,
     ambientRed: 0.218,
     ambientGreen: 0.502,
@@ -175,7 +175,7 @@ var g_viewSettings = [
     targetRadius: 69.2,
     eyeHeight: 59.1,
     eyeRadius: 124.4,
-    eyeSpeed: 0.058,
+    eyeSpeed: 0.0258,
     fieldOfView: 56.923,
     ambientRed: 0.218,
     ambientGreen: 0.246,
@@ -196,7 +196,7 @@ var g_viewSettings = [
     targetRadius: 88,
     eyeHeight: 38,
     eyeRadius: 69,
-    eyeSpeed: 0.058,
+    eyeSpeed: 0.0258,
     fieldOfView: 64,
     ambientRed: 0.218,
     ambientGreen: 0.246,
@@ -217,7 +217,7 @@ var g_viewSettings = [
     targetRadius: 73,
     eyeHeight: 3.9,
     eyeRadius: 120,
-    eyeSpeed: 0.058,
+    eyeSpeed: 0.0258,
     fieldOfView: 74,
     ambientRed: 0.218,
     ambientGreen: 0.246,
@@ -1837,7 +1837,7 @@ void main() {
   v_texCoord = texCoord;
   v_position = position + vec4(
       sin(time * 0.5) * pow(position.y * 0.07, 2.0) * 1.0,
-      0,
+      -4,  // TODO(gman): remove this hack
       0,
       0);
   v_position = (viewProjection * newWorld) * v_position;
