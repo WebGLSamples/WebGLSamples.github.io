@@ -16,7 +16,6 @@ function MarchingCubesEffect() {
   var view = new Float32Array(16)
   var world = new Float32Array(16)
 
-
   var worldview = new Float32Array(16)
   var viewproj = new Float32Array(16)
   var worldviewproj = new Float32Array(16)
@@ -203,7 +202,10 @@ function MarchingCubesEffect() {
     m4.mul(worldview, world, view)
     m4.mul(worldviewproj, world, viewproj)
 
+//    post.begin()
+    
     gl.clearColor(0.2,0.15,0.12,1)
+    gl.clearDepth(1.0)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     gl.enable(gl.DEPTH_TEST)
     gl.enable(gl.CULL_FACE)
@@ -265,5 +267,9 @@ function MarchingCubesEffect() {
       }
     }
     imm.end()
+    
+    // post.end(framebuffer, post.radialBlur, {strength: 2, glow: 1.1})
+    // post.end(framebuffer, post.focusBlur, {x: 3, y: 3})
+    // post.end(framebuffer, post.hypnoGlow, {x: 10, y: 10, sub: 0.7})
   }
 }

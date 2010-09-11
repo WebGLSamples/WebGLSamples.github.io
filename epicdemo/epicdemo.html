@@ -49,7 +49,7 @@ coder code? if JS counts.
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <title>WebGL Demo FX</title>
 <style>
-html, body {
+body {
   width: 100%;
   height: 100%;
   border: 0px;
@@ -140,7 +140,7 @@ var curBeat = 0
 // A couple of simple effects here. The rest are spread out into
 // .js files.
 
-// Effect are defined as simple constructor functions that add a
+// Effect are defined as simple constructor functions that add a 
 // .render method to themselves. render() takes three arguments:
 //   framebuffer:   the currently bound framebuffer, so that it can be restored if necessary
 //   time:          time since the effect started running.
@@ -197,7 +197,7 @@ function SpinningCubeEffect() {
     m4.mul(worldviewproj, world, viewproj)
 
     post.begin()
-
+    
     gl.clearColor(0.5,0.5,0.5,1)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
@@ -208,14 +208,14 @@ function SpinningCubeEffect() {
 
     model.drawPrep(uniformsConst)
     model.draw(uniformsPer)
-
+    
     // Draw a simple triangle sticking out of the cube, to show off the immediate mode simulator.
     imm.begin(gl.TRIANGLES)
     imm.pos(0, 0, 0); imm.next()
     imm.pos(2, 2, 0); imm.next()
     imm.pos(2, 0, 0); imm.next()
     imm.end(program)
-
+    
     post.end(framebuffer, post.focusBlur, {x: 2, y: 2})
   }
 }
@@ -252,7 +252,7 @@ function mainloop(music) {
     {start: 64, end: 128, fx: new BeatClearEffect([0,1,0])},
     {start: 64, end: 700, fx: new BeatClearEffect([0,1,0])}
   ]
-
+  
   // Part that's shown when nothing else is scheduled. Pink is good for debugging.
   var no_part = new BlankEffect([1, 0, 1])
 
@@ -276,7 +276,6 @@ function mainloop(music) {
     var any_rendered = false;
 
     aspect = canvas.clientWidth / canvas.clientHeight
-
 
     // Always pass default framebuffer. might do transitions later and then it's
     // important to have this hook so we can have the effect render to some other fb,
@@ -398,7 +397,9 @@ Get <a href="http://www.google.com/chrome">Google Chrome</a>.
     glare = glare*glare;
     vec4 ambient = mix(u_ambientDown, u_ambientUp, (v_normal.y + 1.0)/2.0);
     // Gamma correction approximation (sqrt)
-    gl_FragColor = sqrt(ambient + light * u_lightColor + glare);
+    vec4 finalColor = sqrt(ambient + light * u_lightColor + glare);
+    finalColor.w = 1.0;
+    gl_FragColor = finalColor;
   }
 </script>
 
@@ -488,10 +489,11 @@ Get <a href="http://www.google.com/chrome">Google Chrome</a>.
   #endif
   varying vec2 v_texCoord;
   uniform vec2 blurSize;
+  uniform vec4 subtract;
   uniform sampler2D mainSampler;
   void main() {
      vec4 sum = vec4(0.0);
-
+  
      sum += texture2D(mainSampler, v_texCoord - 4.0 * blurSize) * 0.05;
      sum += texture2D(mainSampler, v_texCoord - 3.0 * blurSize) * 0.09;
      sum += texture2D(mainSampler, v_texCoord - 2.0 * blurSize) * 0.12;
@@ -501,8 +503,8 @@ Get <a href="http://www.google.com/chrome">Google Chrome</a>.
      sum += texture2D(mainSampler, v_texCoord + 2.0 * blurSize) * 0.12;
      sum += texture2D(mainSampler, v_texCoord + 3.0 * blurSize) * 0.09;
      sum += texture2D(mainSampler, v_texCoord + 4.0 * blurSize) * 0.05;
-
-     gl_FragColor = sum * 1.0;
+  
+     gl_FragColor = sum - subtract;
   }
 </script>
 
@@ -530,12 +532,13 @@ Get <a href="http://www.google.com/chrome">Google Chrome</a>.
   varying vec2 v_texCoord0, v_texCoord1, v_texCoord2, v_texCoord3;
   uniform sampler2D mainSampler;
   uniform float amount;
+  uniform float glow;
   void main() {
     vec4 c1 = texture2D(mainSampler, v_texCoord0);
     vec4 c2 = texture2D(mainSampler, v_texCoord1);
     vec4 c3 = texture2D(mainSampler, v_texCoord2);
     vec4 c4 = texture2D(mainSampler, v_texCoord3);
-    gl_FragColor = (c1 + c2 + c3 + c4) / 4.0;
+    gl_FragColor = (c1 + c2 + c3 + c4) * glow / 4.0;
   }
 </script>
 
@@ -547,6 +550,18 @@ Get <a href="http://www.google.com/chrome">Google Chrome</a>.
   uniform sampler2D mainSampler;
   void main() {
      gl_FragColor = texture2D(mainSampler, v_texCoord);
+  }
+</script>
+
+<script id="add_fs" type="text/something-not-javascript">
+  #ifdef GL_ES
+  precision highp float;
+  #endif
+  varying vec2 v_texCoord;
+  uniform sampler2D mainSampler;
+  uniform sampler2D secondSampler;
+  void main() {
+    gl_FragColor = texture2D(mainSampler, v_texCoord) + texture2D(secondSampler, v_texCoord);
   }
 </script>
 

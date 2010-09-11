@@ -51,7 +51,7 @@ function FlowerEffect() {
     model.draw(uniformsPer)
     gl.disable(gl.BLEND);
     
-    // post.end(framebuffer, post.focusBlur, {x: 3, y: 3})
-    post.end(framebuffer, post.radialBlur, {strength: boom4})
+    post.end(framebuffer, post.hypnoGlow, {x: 9, y: 9, sub: 0.2})
+    //post.end(framebuffer, post.radialBlur, {strength: boom4})
   }
 }
