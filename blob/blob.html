@@ -94,6 +94,9 @@ canvas.invisible {
   border-radius: 10px;
   padding: 10px;
 }
+div.title {
+  font-weight: bold; 
+}
 </style>
 <script type="text/javascript"
   src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js">
@@ -127,7 +130,6 @@ function createProgramFromTags(vertexTagId, fragmentTagId) {
 
 var gl;
 var canvas;
-var music;
 var aspect;
 
 // Use this to refer to the backbuffer as if it were another framebuffer
@@ -136,7 +138,7 @@ var post;
 var quad;
 var imm;
 var g_numBlobs;
-// var log = window.console.log
+var g_resolution;
 
 if (!window.Float32Array) {
   // This just makes some errors go away when there is no WebGL.
@@ -148,37 +150,8 @@ var up = new Float32Array([0, 1, 0])
 
 var output = alert
 var curBeat = 0
-  var then = 0.0;
-
-// A couple of simple effects here. The rest are spread out into
-// .js files.
-
-// Effect are defined as simple constructor functions that add a 
-// .render method to themselves. render() takes three arguments:
-//   framebuffer:   the currently bound framebuffer, so that it can be restored if necessary
-//   time:          time since the effect started running.
-//   global_time:   time since the demo started running.
-
-// Example really stupid effect. The time parameter is the time since
-// the effect was scheduled to start.
-function BeatClearEffect(color) {
-  this.render = function(framebuffer, time, global_time) {
-    var t = (time - 0.1)
-    var s = 1-(t % 1)
-    s *= s * s
-    gl.clearColor(color[0] * s, color[1] * s, color[2] * s, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-  }
-}
-
-// Used to make sure we don't leave spaces in the timeline
-function BlankEffect(color) {
-  this.render = function(framebuffer, time, global_time) {
-    gl.clearColor(color[0], color[1], color[2], 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-  }
-}
-
+var then = 0.0;
+var singleEffect = null
 var g_fpsTimer;           // object to measure frames per second;
 
 function mainloop() {
@@ -189,7 +162,6 @@ function mainloop() {
   var frameCount = 0;
   var totalFrameCount = 0;
   
-  var singleEffect = new MarchingCubesEffect();
   var fpsElem = document.getElementById("fps");
 
   function render() {
@@ -255,15 +227,17 @@ function setSetting(elem, id) {
     }
     elem.style.color = "red";
     break;
-/*  case 4:
-    if (g_numSharks) {
-      g_numSharks = 0;
-      elem.style.color = "gray";
-    } else {
-      g_numSharks = 3;
-      elem.style.color = "red";
+  case 4:
+  case 5:
+  case 6:
+  case 7:
+  case 8:
+    var resolution = {"4":16,"5":24,"6":32,"7":40,"8":48}[id]
+    singleEffect = new MarchingCubesEffect(resolution);
+    for (var ii = 4; ii < 9; ii++) {
+      g_setSettingElements[ii].style.color = "gray"
     }
-    break;*/
+    elem.style.color = "red"
   }
 }
 
@@ -283,15 +257,17 @@ function setupCountButtons() {
       }}(elem, ii);
   }
   setSetting(document.getElementById("setSetting1"), 1);
+  setSetting(document.getElementById("setSetting5"), 6);
 }
 
 
 var g_setSettingElements = [];
 
 window.onload = function() {
-  setupCountButtons();
   g_fpsTimer = new tdl.fps.FPSTimer();
   if (initializeGraphics()) {
+    singleEffect = new MarchingCubesEffect(24);
+    setupCountButtons();
     // Kick it off!
     mainloop()
   }
@@ -304,11 +280,17 @@ window.onload = function() {
 <body>
 <div class="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
-  <div>Number of Blobs</div>
+  <div class="title">Number of Blobs</div>
   <div id="setSetting0">1</div>
   <div id="setSetting1">10</div>
   <div id="setSetting2">100</div>
   <div id="setSetting3">1000</div>
+  <div class="title">Resolution</div>
+  <div id="setSetting4">16^3</div>
+  <div id="setSetting5">24^3</div>
+  <div id="setSetting6">32^3</div>
+  <div id="setSetting7">40^3</div>
+  <div id="setSetting8">48^3</div>
 </div>
 <div id="viewContainer">
 <canvas id="render_area" width="1024" height="512" style="width: 100%; height: 100%;"></canvas>

@@ -6,7 +6,7 @@
 //
 // Converted from the standard C implementation that's all over the web.
 
-function MarchingCubesEffect() {
+function MarchingCubesEffect(resolution) {
   var arrays = tdl.primitives.createCube(1.0)
   // var program = createProgramFromTags("spinning_cube_vs", "spinning_cube_fs")
   var program = createProgramFromTags("marching_cube_vs", "marching_cube_fs")
@@ -26,7 +26,7 @@ function MarchingCubesEffect() {
   var target = new Float32Array([-0.3, 0, 0])
 
   // Size of field. 32 is pushing it in Javascript :)
-  var size = 36
+  var size = resolution
   // Deltas
   var delta = 2.0 / size
   var yd = size
