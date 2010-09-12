@@ -714,7 +714,7 @@ void main() {
   vec4 color = mix(darkColor, brightColor, lerp);
 	vec4 randColor = vec4(rand2 * 0.2, rand2 * 0.2 ,rand2 * 0.2, 0);
 	float l = dot(vec3(0.18814417367671946, 0.9407208683835973, 0.28221626051507914),
-                normalize(vec3(0.3, elevationBasis - elevationBasisNext, 0.3)));
+                normalize(vec3(0.06, elevationBasis * elevationRange - elevationBasisNext * elevationRange, 0.06)));
 
   // encode the depth mix amount into the alpha channel
   float depthMix = (clipPosition.z / clipPosition.w + 1.0) * 0.5;
