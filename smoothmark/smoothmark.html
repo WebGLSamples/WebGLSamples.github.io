@@ -52,9 +52,6 @@ canvas {
   padding: 2px;
 }
 </style>
-<script type="text/javascript"
-  src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js">
-</script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.webgl');
@@ -115,11 +112,11 @@ function initializeGraphics() {
   return true;
 }
 
-$(document).ready(function() {
+window.onload = function() {
   if (initializeGraphics()) {
     mainloop()
   }
-})
+}
 
 </script>
 </head>
