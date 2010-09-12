@@ -173,7 +173,7 @@ right_editor  = null
 morph_display = null
 morph_slider  = null
 
-function poplist(list, faces) {
+function populateList(list, faces) {
   var i = 0
   for (var name in faces) {
     list.append("<option value='" + i + "'>" + name + "</option>")
@@ -210,8 +210,8 @@ function animate() {
 }
 
 $(document).ready(function() {
-  poplist($('#left_select'), faces)
-  poplist($('#right_select'), faces)
+  populateList($('#left_select'), faces)
+  populateList($('#right_select'), faces)
   $('#left_select').val(0)
   $('#right_select').val(4)
 

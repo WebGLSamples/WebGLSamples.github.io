@@ -1,3 +1,34 @@
+/*
+ * Copyright 2010, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 // Marching cubes in Javascript
 //
 // Yes, this is madness. But this should test those JS engines!
@@ -6,16 +37,14 @@
 //
 // Converted from the standard C implementation that's all over the web.
 
-function MarchingCubesEffect() {
+function MarchingCubesEffect(resolution) {
   var arrays = tdl.primitives.createCube(1.0)
-  // var program = createProgramFromTags("spinning_cube_vs", "spinning_cube_fs")
   var program = createProgramFromTags("marching_cube_vs", "marching_cube_fs")
   var textures = []
 
   var proj = new Float32Array(16)
   var view = new Float32Array(16)
   var world = new Float32Array(16)
-
 
   var worldview = new Float32Array(16)
   var viewproj = new Float32Array(16)
@@ -24,10 +53,10 @@ function MarchingCubesEffect() {
   var model = new tdl.models.Model(program, arrays, textures);
 
   var eyePosition = new Float32Array([0, 0, 1.7])
-  var target = new Float32Array([0.3, 0, 0])
+  var target = new Float32Array([-0.3, 0, 0])
 
   // Size of field. 32 is pushing it in Javascript :)
-  var size = 36
+  var size = resolution
   // Deltas
   var delta = 2.0 / size
   var yd = size
@@ -195,15 +224,16 @@ function MarchingCubesEffect() {
 
   var firstDraw = true
 
-  this.render = function(framebuffer, time, global_time) {
+  this.render = function(framebuffer, time, numblobs) {
     m4.perspective(proj, tdl.math.degToRad(60), aspect, 0.1, 500);
     m4.rotationY(world, time * 0.2)
     m4.translate(world, [0, 0*Math.sin(time)*0.5, 0])
     m4.mul(viewproj, view, proj)
     m4.mul(worldview, world, view)
     m4.mul(worldviewproj, world, viewproj)
-
+    
     gl.clearColor(0.2,0.15,0.12,1)
+    gl.clearDepth(1.0)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     gl.enable(gl.DEPTH_TEST)
     gl.enable(gl.CULL_FACE)
@@ -234,19 +264,18 @@ function MarchingCubesEffect() {
         field[i] = 0.0
       }
       // Fill the field with some metaballs.
-      for (var i = 0; i < 7; i++) {
-        var ballx = Math.sin(i + 0.3 * time * (1.03 + 0.21 * i)) * 0.27 + 0.5;
-        var bally = Math.abs(Math.cos(i + 0.3 * time * (1.22 + 0.1424 * i))) * 0.77; // dip into the floor
-        var ballz = Math.cos(i + 0.3 * time * (0.92 + 0.53 * i)) * 0.27 + 0.5;
+      for (var i = 0; i < numblobs; i++) {
+        var ballx = Math.sin(i + 1.26 * time * (1.03 + 0.5*Math.cos(0.21 * i))) * 0.27 + 0.5;
+        var bally = Math.abs(Math.cos(i + 1.12 * time * Math.cos(1.22 + 0.1424 * i))) * 0.77; // dip into the floor
+        var ballz = Math.cos(i + 1.32 * time * 0.1*Math.sin((0.92 + 0.53 * i))) * 0.27 + 0.5;
         var subtract = 12
-        var strength = 1.2
+        var strength = 1.2 / ((Math.sqrt(numblobs)- 1) / 4 + 1)
         addBall(ballx, bally, ballz, strength, subtract)
       }
       addFloor(2, 12)
     }
 
     var isol = 80.0
-
     imm.begin(gl.TRIANGLES, program)
 
     // Triangulate. Yeah, this is slow.

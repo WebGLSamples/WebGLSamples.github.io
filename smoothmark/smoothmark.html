@@ -33,7 +33,7 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<title>SmoothMark - Are you smooth?</title>
+<title>WebGL SmoothMark - are you smooth?</title>
 <style>
 html, body {
   width: 100%;
@@ -52,9 +52,6 @@ canvas {
   padding: 2px;
 }
 </style>
-<script type="text/javascript"
-  src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js">
-</script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.webgl');
@@ -70,29 +67,35 @@ function mainloop() {
   // framerate independent so we will still keep sync even if we
   // lose frames.
   var intervalId = setInterval(render, 1000.0 / 60.0);
-  var x1 = -64
-  var x2 = -64 + 704/2
+  
   var frameCount = 0
+  var barw = 64
+  var pixeldelta = 11
+  var w = pixeldelta * 60 - barw
+
+  var x1 = -barw
+  var x2 = -barw + (w+barw)/2
+  
   function render() {
     var time = (new Date()).getTime() * 0.001
-    gl.disable(gl.SCISSOR_TEST)
     gl.clearColor(0, 0, 0, 1.0)
+    gl.scissor(0, 0, w, 480)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     gl.clearColor(1, 1, 1, 1.0)
     gl.enable(gl.SCISSOR_TEST)
     // Draw time based bars
-    gl.scissor(((time+0.5) % 1) * (640 + 64) - 64, 240, 64, 240)
+    gl.scissor(((time+0.5) % 1) * (w + barw) - barw, 240, barw, 240)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-    gl.scissor((time % 1) * (640 + 64) - 64, 240, 64, 240)
+    gl.scissor((time % 1) * (w + barw) - barw, 240, barw, 240)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     // Draw fixed-interval bars
-    gl.scissor(x1, 0, 64, 240)
+    gl.scissor(x1, 0, barw, 240)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-    gl.scissor(x2, 0, 64, 240)
+    gl.scissor(x2, 0, barw, 240)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-    x1 += 11; if (x1 >= 640) x1 -= 640 + 64;
-    x2 += 11; if (x2 >= 640) x2 -= 640 + 64;
+    x1 += pixeldelta; if (x1 >= w) x1 -= w + barw;
+    x2 += pixeldelta; if (x2 >= w) x2 -= w + barw;
    }
 }
 
@@ -109,11 +112,11 @@ function initializeGraphics() {
   return true;
 }
 
-$(document).ready(function() {
+window.onload = function() {
   if (initializeGraphics()) {
     mainloop()
   }
-})
+}
 
 </script>
 </head>
@@ -128,7 +131,8 @@ $(document).ready(function() {
   The white bars should move perfectly smoothly.
   <b>Follow them with your eye.</b> Any jank/jitter = FAIL
   <br>The top bars are timer based, the bottom ones advance a fixed number of pixels per frame.
-  <br>If the bottom bars are jittery, and fall behind the top ones, frames are skipped.
+  <br>If the bottom bars are jittery, frames are skipped or displayed for uneven periods.
+  <br>If the bottom bars slowly fall behind the top ones, the interval timer is inaccurate.
   <br>If the top bars are jittery, the "new Date()" timer is unsmooth or frames
   are skipped.
 </span>
