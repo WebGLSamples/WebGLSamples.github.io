@@ -2,7 +2,6 @@
 
 function randm11() { return Math.random() * 2 - 1; }
 
-// Implicit Euler integration of x decaying exponentially towards target.
 function decayTo(x, target, dt) { return target + (x - target) / (1 + dt); }
 
 function CavesMain() {
@@ -14,6 +13,7 @@ function CavesMain() {
 
   var m4 = tdl.fast.matrix4;
 
+  m4.perspective(proj, tdl.math.degToRad(60), aspect, 0.1, 500);
   m4.identity(world);
   //m4.scaling(world, [0.7, 0.7, 0.7]);
   //m4.translate(world, [-16, -16, -16]);
@@ -153,16 +153,16 @@ function CavesMain() {
     if (keyDown[16]) {  // Shift
       movement = 20;
     }
-    if (keyDown[87]) {  // W
+    if (keyDown[87] || keyDown[38]) {  // W || up
       moveForward = movement;
     }
-    if (keyDown[83]) {  // S
+    if (keyDown[83] || keyDown[40]) {  // S || down
       moveForward = -movement;
     }
-    if (keyDown[65]) {  // A
+    if (keyDown[65] || keyDown[37]) {  // A || left
       moveLeft = movement;
     }
-    if (keyDown[68]) {  // D
+    if (keyDown[68] || keyDown[39]) {  // D || right
       moveLeft = -movement;
     }
     if (keyDown[32]) {  // Space
@@ -207,7 +207,7 @@ function CavesMain() {
   }
 
   this.onKeyDown = function(key) {
-    //console.log(''+key);
+    console.log(''+key);
     keyDown[key] = true;
   }
 
@@ -217,7 +217,6 @@ function CavesMain() {
 
   this.render = function(framebuffer) {
     var target = tdl.math.addVector(eyePos, forward);
-    m4.perspective(proj, tdl.math.degToRad(60), aspect, 0.1, 500);
     m4.lookAt(view, eyePos, target, up);
 
     gl.clearColor(0.4,0.6,0.8,1.0);
