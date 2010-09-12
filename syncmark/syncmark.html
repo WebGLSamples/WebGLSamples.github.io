@@ -44,7 +44,7 @@ html, body {
   background-color: white;
 }
 canvas {
-  background-color: red;
+  background-color: #F0F;
 }
 #instructions {
   background-color: #FFEEBB;
@@ -71,19 +71,21 @@ function mainloop() {
   // framerate independent so we will still keep sync even if we
   // lose frames.
   var intervalId = setInterval(render, 1000.0 / 60.0);
+  
   function render() {
     var time = music.currentTime
-    gl.disable(gl.SCISSOR_TEST)
-    gl.clearColor(0, 0, 0, 1.0)
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-    gl.clearColor(0, (time % 2.0) < 0.5 ? 1 : 0.1, 0, 1.0)
     gl.enable(gl.SCISSOR_TEST)
+    gl.clearColor(0, 0, 0, 1.0)
+    gl.scissor(0, 0, 200, 200)
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+    gl.clearColor(0, (time % 2.0) < 0.5 ? 1 : 0.2, 0, 1.0)
     gl.scissor(50, 50, 100, 100)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
   }
 }
 
 function initializeGraphics() {
+  canvas = document.getElementById('render_area');
   gl = tdl.webgl.setupWebGL("viewContainer", canvas);
   gl = tdl.webgl.create3DContext(canvas)
   if (!gl) {
@@ -96,14 +98,14 @@ function initializeGraphics() {
   return true;
 }
 
-$(document).ready(function() {
+window.onload = function() {
   if (initializeGraphics()) {
-    mainloop()
     music = document.getElementById('soundtrack');
     music.volume = 0.13;
     music.play();
+    mainloop()
   }
-})
+}
 
 </script>
 </head>
