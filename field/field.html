@@ -41,7 +41,7 @@ html, body {
   border: 0px;
   padding: 0px;
   margin: 0px;
-  background-color: red;
+  background-color: dark-red;
   font-family: sans-serif;
 }
 CANVAS {
@@ -61,6 +61,9 @@ CANVAS {
 }
 #ui {
 }
+#advanced {
+  color: gray;
+}
 #fpsContainer {
   position: absolute;
   top: 10px;
@@ -70,6 +73,9 @@ CANVAS {
   background-color: rgba(0,0,0,0.5);
   border-radius: 10px;
   padding: 10px;
+}
+.clickable {
+  cursor: pointer;
 }
 #viewContainer {
   width: 100%;
@@ -117,25 +123,29 @@ var g = {
 
 var g_ui = [
   { obj: 'grassConst', name: 'bladeSpacing',     value: 0.06,  max:  0.5 },
-  { obj: 'grassConst', name: 'bladeWidth',       value: 0.075, max:  0.5 },
+  { obj: 'grassConst', name: 'bladeWidth',       value: 0.019, max:  0.5 },
   { obj: 'grassConst', name: 'topWidth',         value: 0.007, max:  0.5 },
   { obj: 'grassConst', name: 'heightRange',      value: 0.1,   max:  0.5 },
-  { obj: 'grassConst', name: 'xWorldMult',       value: 1.0,   max:  5 },
-  { obj: 'grassConst', name: 'zWorldMult',       value: 1.0,   max:  5 },
-  { obj: 'grassConst', name: 'xTimeMult',        value: 1.0,   max:  5 },
-  { obj: 'grassConst', name: 'zTimeMult',        value: 2.01,  max:  5 },
-  { obj: 'grassConst', name: 'swayRange',        value: 0.2,   max:  1 },
-  { obj: 'grassConst', name: 'elevationPeriodX', value: 1.0,   max:  5 },
-  { obj: 'grassConst', name: 'elevationPeriodZ', value: 1.0,   max:  5 },
-  { obj: 'grassConst', name: 'elevationRange',   value: 0.4,   max:  3 },
-  { obj: 'globals',    name: 'targetHeight',     value: 1,     max:  5 },
+  { obj: 'grassConst', name: 'xWorldMult',       value: 2.45,  max:  5 },
+  { obj: 'grassConst', name: 'zWorldMult',       value: 4.95,  max:  5 },
+  { obj: 'grassConst', name: 'xTimeMult',        value: 2.07,  max:  5 },
+  { obj: 'grassConst', name: 'zTimeMult',        value: 0.94,  max:  5 },
+  { obj: 'grassConst', name: 'swayRange',        value: 0.09,  max:  1 },
+  { obj: 'grassConst', name: 'elevationPeriod1', value: 2.37,  max:  5 },
+  { obj: 'grassConst', name: 'elevationPeriod2', value: 1.63,  max:  5 },
+  { obj: 'grassConst', name: 'elevationPointX',  value: 8.06,  max:  10 },
+  { obj: 'grassConst', name: 'elevationPointZ',  value: 5.02,  max:  10 },
+  { obj: 'grassConst', name: 'elevationRange',   value: 0.2,   max:  3 },
+  { obj: 'grassConst', name: 'rand1Mult',        value: 0.37,  max:  5 },
+  { obj: 'grassConst', name: 'rand2Mult',        value: 2.89,  max:  5 },
+  { obj: 'globals',    name: 'targetHeight',     value: 0.91,  max:  5 },
   { obj: 'globals',    name: 'targetRadius',     value: 1,     max:  5 },
-  { obj: 'globals',    name: 'eyeHeight',        value: 2,     max:  10 },
-  { obj: 'globals',    name: 'eyeRadius',        value: 3,     max:  10 },
+  { obj: 'globals',    name: 'eyeHeight',        value: 2.98,  max:  10 },
+  { obj: 'globals',    name: 'eyeRadius',        value: 5,     max:  20 },
   { obj: 'globals',    name: 'eyeSpeed',         value: 0.1,   max:  1 },
-  { obj: 'dofConst',   name: 'dof',              value: 0.6,   max:  1 },
-  { obj: 'dofConst',   name: 'dofInnerRange',    value: 0.1,   max:  1 },
-  { obj: 'dofConst',   name: 'dofOuterRange',    value: 0.2,   max:  1 },
+  { obj: 'dofConst',   name: 'dof',              value: 0.79,  max:  1 },
+  { obj: 'dofConst',   name: 'dofInnerRange',    value: 0.034, max:  1 },
+  { obj: 'dofConst',   name: 'dofOuterRange',    value: 0.078, max:  1 },
   ];
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
@@ -309,8 +319,12 @@ function setupCountButtons() {
         setCount(elem, count);
       }}(elem, g_grassAmounts[ii]);
   }
-  setCount(document.getElementById('setCount2'),
-           g_grassAmounts[2]);
+  setCount(document.getElementById('setCount2'), g_grassAmounts[2]);
+  //setCount(document.getElementById('setCount3'), g_grassAmounts[3]);
+  $('#advanced').click(function() {
+      $("#uiContainer").toggle('slow'); return false; });
+  $("#uiContainer").toggle();
+
 }
 
 function initialize() {
@@ -396,6 +410,7 @@ function initialize() {
     worldInverseTranspose: worldInverseTranspose};
 
   var frameCount = 0;
+  var eyeClock = 0;
   var intervalId = setInterval(render, 1000.0 / 70.0);
   function render() {
     ++frameCount;
@@ -415,7 +430,7 @@ function initialize() {
     fpsElem.innerHTML = g_fpsTimer.averageFPS;
 
     clock += elapsedTime;
-    var eyeClock = clock * g.globals.eyeSpeed;
+    eyeClock += elapsedTime * g.globals.eyeSpeed;
     eyePosition[0] = Math.sin(eyeClock) * g.globals.eyeRadius;
     eyePosition[1] = g.globals.eyeHeight;
     eyePosition[2] = Math.cos(eyeClock) * g.globals.eyeRadius;
@@ -535,10 +550,10 @@ function getParamId(id) {
   return id.substr(6).replace(/(\w)/, function(m) {return m.toLowerCase() });
 }
 
-function setParam(event, ui, obj) {
+function setParam(event, ui, obj, valueElem) {
   var id = event.target.id;
   var value = ui.value / 1000;
-  tdl.log(id + ": " + value);
+  valueElem.innerHTML = value;
   obj[id] = value;
 }
 
@@ -547,18 +562,26 @@ function getUIValue(obj, id) {
 }
 
 function setupSlider($, elem, ui, obj) {
-  var labelDiv = document.createElement('div');
+  var textDiv = document.createElement('div');
+  var labelDiv = document.createElement('span');
   labelDiv.appendChild(document.createTextNode(ui.name));
+  var valueDiv = document.createElement('span');
+  valueDiv.appendChild(
+      document.createTextNode(getUIValue(obj, ui.name) / 1000));
+  valueDiv.style.position = "absolute";
+  valueDiv.style.right = "10px";
   var sliderDiv = document.createElement('div');
   sliderDiv.id = ui.name;
-  elem.appendChild(labelDiv);
+  textDiv.appendChild(labelDiv);
+  textDiv.appendChild(valueDiv);
+  elem.appendChild(textDiv);
   elem.appendChild(sliderDiv);
   $(sliderDiv).slider({
     range: false,
     step: 1,
     max: ui.max * 1000,
     value: getUIValue(obj, ui.name),
-    slide: function(event, ui) { setParam(event, ui, obj); }
+    slide: function(event, ui) { setParam(event, ui, obj, valueDiv); }
   });
 }
 
@@ -583,10 +606,13 @@ $(function(){
 <div id="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
   <div>Grass</div>
-  <div id="setCount0">1</div>
-  <div id="setCount1">a few</div>
-  <div id="setCount2">many</div>
-  <div id="setCount3">lots</div>
+  <div class="clickable" id="setCount0">1</div>
+  <div class="clickable" id="setCount1">a few</div>
+  <div class="clickable" id="setCount2">many</div>
+  <div>
+	<span  class="clickable" id="setCount3">lots</span>
+  <span style="float: right" class="clickable" id="advanced">*</span>
+  </div>
 </div>
 <div id="uiContainer">
 <div id="ui"></div>
@@ -609,16 +635,25 @@ uniform float xWorldMult;
 uniform float zWorldMult;
 uniform float xTimeMult;
 uniform float zTimeMult;
+uniform float rand1Mult;
+uniform float rand2Mult;
 uniform float swayRange;
-uniform float elevationPeriodX;
-uniform float elevationPeriodZ;
+uniform float elevationPeriod1;
+uniform float elevationPeriod2;
+uniform float elevationPointX;
+uniform float elevationPointZ;
 uniform float elevationRange;
 attribute vec4 position;
 attribute vec4 bladeId;
 varying vec4 v_color;
 
-float lerp1(float r1, float r2, float l) {
-  return r1 + (r2 - r1) * l;
+vec4 brightColor = vec4(175.0 / 255.0, 218.0 / 255.0, 44.0 / 255.0, 1);
+vec4 darkColor = vec4(53.0 / 255.0, 85.0 / 255.0, 7.0 / 255.0, 1);
+
+float circleWave(vec4 center, vec4 position, float period) {
+	vec4 diff = position - center;
+  float dist = sqrt(diff.x * diff.x + diff.z * diff.z);
+  return sin(dist * period);
 }
 
 void main() {
@@ -630,13 +665,14 @@ void main() {
       viewInverse[1],
       viewInverse[2],
      vec4(0,0,0,1));
-  float width = lerp1(bladeWidth, topWidth, lerp);
+  float width = mix(bladeWidth, topWidth, lerp);
   vec4 pt = vm * vec4(
       position.x * width,
       0,
       position.z * width,
       1) +
       vec4(0, position.y, 0, 0);
+
   float xbase = bladeId.x;
   float zbase = bladeId.y;
   float rand1 = bladeId.z;
@@ -651,38 +687,37 @@ void main() {
   float effect = 1.0 - cos(3.14159 * 0.5 * lerp) * 1.0;
   vec4 p = vec4(
       pt.x + xbase * bladeSpacing + xoff * effect + rand1 * bladeSpacing,
-      pt.y + yoff                                 + rand1 * heightRange,
+      pt.y                        + yoff          + rand1 * heightRange,
       pt.z + zbase * bladeSpacing + zoff * effect + rand1 * bladeSpacing,
       1);
+
   vec4 wp = world * p;
-  float elevationBasis = sin(wp.x * elevationPeriodX * wp.z * elevationPeriodZ);
-  float elevationBasis2 = sin((wp.x + bladeSpacing) * elevationPeriodX * (wp.z + bladeSpacing) * elevationPeriodZ);
-  vec3 p0 = vec3(0, elevationBasis * elevationRange, 0);
-  vec3 p1 = vec3(bladeSpacing, elevationBasis2 * elevationRange, bladeSpacing);
-  vec3 dir = normalize(p0 - p1);
-  vec3 perp = cross(dir, vec3(0,1,0));
-  vec3 normal = cross(dir, perp);
+
+	rand1 = mod(rand1 + wp.x * rand1Mult + wp.z * rand2Mult, 1.0);
+	rand2 = mod(rand2 + wp.z * rand1Mult + wp.x * rand2Mult, 1.0);
+	float elevationBasis1 = circleWave(vec4(0,0,0,0), wp, elevationPeriod1);
+	float elevationBasis2 = circleWave(vec4(elevationPointX, 0, elevationPointZ, 0), wp, elevationPeriod2);
+	vec4 nextP = vec4(wp.x + bladeSpacing, wp.y, wp.z + bladeSpacing, 1);
+  float elevationBasis3 = circleWave(vec4(0,0,0,0), nextP, elevationPeriod1);
+  float elevationBasis4 = circleWave(vec4(elevationPointX, 0, elevationPointZ, 0), nextP, elevationPeriod2);
+  float elevationBasis = elevationBasis2 - elevationBasis1;
+  float elevationBasisNext = elevationBasis4 - elevationBasis3;
+
   vec4 clipPosition = worldViewProjection * vec4(
       p.x,
       p.y + elevationBasis * elevationRange,
       p.z,
       1);
   gl_Position = clipPosition;
-  vec3 lightDir = normalize(vec3(1, 3, 2)) * -1.0;
-  float l = dot(lightDir, normal);
-  vec3 color = vec3(
-      0.1 + rand2 * 0.2 + lerp * 0.2,
-      0.1 + (rand2 * 0.4 + 0.4) * lerp,
-      0.1 + rand2 * 0.2 + lerp * 0.2);
+
+  vec4 color = mix(darkColor, brightColor, lerp);
+	vec4 randColor = vec4(rand2 * 0.2, rand2 * 0.2 ,rand2 * 0.2, 0);
+	float l = dot(vec3(0.18814417367671946, 0.9407208683835973, 0.28221626051507914),
+                normalize(vec3(0.3, elevationBasis - elevationBasisNext, 0.3)));
 
   // encode the depth mix amount into the alpha channel
   float depthMix = (clipPosition.z / clipPosition.w + 1.0) * 0.5;
-  v_color = vec4(color * l, depthMix);
-  //v_color = vec4(
-  //    0.0 + 0.0 * mod(xbase * 0.43, 1.0),
-  //    0.5 + 0.5 * mod((xbase + zbase) * 0.21, 1.0),
-  //    0.0 + 0.0 * mod(zbase * 0.69, 1.0),
-  //    1);
+  v_color = vec4((randColor + mix(color, darkColor, l)).xyz, depthMix);
 }
 
 </script>
@@ -751,25 +786,19 @@ uniform sampler2D blurSampler;
 uniform float dof;
 uniform float dofInnerRange;
 uniform float dofOuterRange;
-vec4 lerp4(vec4 a, vec4 b, float l) {
-  return a + (b - a) * l;
-}
-float lerp1(float a, float b, float l) {
-  return a + (b - a) * l;
-}
 void main() {
   vec4 mainColor = texture2D(mainSampler, v_texCoord);
   vec4 blurColor = texture2D(blurSampler, v_texCoord);
   float depth = mainColor.a;
-  float mix = (abs(dof - depth) - dofInnerRange);
+  float mix_ = (abs(dof - depth) - dofInnerRange);
   float mixAmount = 0.0;
   float blurRange = dofOuterRange - dofInnerRange;
-  if (mix > blurRange) {
+  if (mix_ > blurRange) {
     mixAmount = 1.0;
   } else {
-    mixAmount = mix / blurRange;
+    mixAmount = mix_ / blurRange;
   }
-  vec4 color = lerp4(mainColor, blurColor, mixAmount);
+  vec4 color = mix(mainColor, blurColor, mixAmount);
   // Uncomment next line to show depth.
   //color = color * 0.0001 + vec4(mainColor.aaa, 1) * 0.9999;
   // Uncomment next line to show mix amount/
