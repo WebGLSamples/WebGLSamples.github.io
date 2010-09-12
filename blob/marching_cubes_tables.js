@@ -1,8 +1,11 @@
+// These tables are straight from Paul Bourke's page:
+// http://local.wasp.uwa.edu.au/~pbourke/geometry/polygonise/
+// who in turn got them from Cory Gene Bloyd.
+
 if (!window.Int32Array) {
   // This just makes some errors go away when there is no WebGL.
   window.Int32Array = function() { };
 }
-
 
 edgeTable = new Int32Array([
 0x0  , 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
