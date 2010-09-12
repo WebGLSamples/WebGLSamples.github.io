@@ -649,6 +649,7 @@ varying vec4 v_color;
 
 vec4 brightColor = vec4(175.0 / 255.0, 218.0 / 255.0, 44.0 / 255.0, 1);
 vec4 darkColor = vec4(53.0 / 255.0, 85.0 / 255.0, 7.0 / 255.0, 1);
+vec4 darkerColor = vec4(53.0 / 255.0, 85.0 / 255.0, 7.0 / 255.0, 1) * 0.5;
 
 float circleWave(vec4 center, vec4 position, float period) {
 	vec4 diff = position - center;
@@ -717,7 +718,7 @@ void main() {
 
   // encode the depth mix amount into the alpha channel
   float depthMix = (clipPosition.z / clipPosition.w + 1.0) * 0.5;
-  v_color = vec4((randColor + mix(color, darkColor, l)).xyz, depthMix);
+  v_color = vec4((randColor + mix(color, darkerColor, l)).xyz, depthMix);
 }
 
 </script>
