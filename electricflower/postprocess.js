@@ -97,7 +97,6 @@ function PostProcessor(w, h) {
       quad.draw(copyQuadProgram)
       return
     }
-    
     pingpong = [render_fb, bounce_fb]
     to = 1
     from = 0
@@ -105,10 +104,10 @@ function PostProcessor(w, h) {
     var passes = 3
     var amount = params.strength
     radialQuadProgram.use()
+    radialQuadProgram.setUniform("mainSampler", 0)
     for (var i = 0; i < passes; i++) {
       pingpong[to].bind()
       gl.bindTexture(gl.TEXTURE_2D, pingpong[from].texture.texture)
-      radialQuadProgram.setUniform("mainSampler", 0)
       radialQuadProgram.setUniform("amount", amount)
       radialQuadProgram.setUniform("glow", params.glow)
       quad.draw(radialQuadProgram)

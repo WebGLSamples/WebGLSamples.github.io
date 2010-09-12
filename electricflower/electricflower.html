@@ -60,25 +60,6 @@ body {
 canvas {
   background-color: red;
 }
-canvas.invisible {
-  display: none;
-}
-#controls {
-  z-index: 2;
-  position: absolute;
-  left: 10px;
-  bottom: 10px;
-  background-color: #FFEE99;
-  display: table;
-}
-#beat {
-  display: table-cell;
-  font-family: sans-serif;
-  margin: 4px;
-  padding: 4px;
-  border-width: 1px;
-  vertical-align: middle;
-}
 #viewContainer {
   width: 100%;
   height: 100%;
@@ -98,18 +79,12 @@ div.title {
   font-weight: bold; 
 }
 </style>
-<script type="text/javascript"
-  src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js">
-</script>
 <script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript" src="flower.js"></script>
 <script type="text/javascript" src="postprocess.js"></script>
-<script type="text/javascript" src="immediate_sim.js"></script>
-<script type="text/javascript" src="marching_cubes_tables.js"></script>
-<script type="text/javascript" src="marching_cubes.js"></script>
 <script type="text/javascript">
 
 tdl.require('tdl.fast');
-tdl.require('tdl.fps');
 tdl.require('tdl.math');
 tdl.require('tdl.primitives');
 tdl.require('tdl.shader');
@@ -136,62 +111,66 @@ var aspect;
 var backbuffer;
 var post;
 var quad;
-var imm;
-var g_numBlobs;
-var g_resolution;
+var g_postProc;
 
 if (!window.Float32Array) {
   // This just makes some errors go away when there is no WebGL.
   window.Float32Array = function() { };
 }
 
-// Useful global math constants
 var up = new Float32Array([0, 1, 0])
-
 var output = alert
 var curBeat = 0
-var then = 0.0;
-var singleEffect = null
-var g_fpsTimer;           // object to measure frames per second;
+var bootTime = (new Date()).getTime();
 
 function mainloop() {
-  var BPM = 60.0;
-  var timeStart = 0.0;  // at what time does the beat start?
-
-  var timeScale = BPM / 60.0;
-  var frameCount = 0;
-  var totalFrameCount = 0;
-  
-  var fpsElem = document.getElementById("fps");
-
-  function render() {
-    var now = (new Date()).getTime() * 0.001;
-    var elapsedTime;
-    if(then == 0.0) {
-      elapsedTime = 0.0;
-    } else {
-      elapsedTime = now - then;
-    }
-    then = now;
-    frameCount++;
-    g_fpsTimer.update(elapsedTime);
-    fpsElem.innerHTML = g_fpsTimer.averageFPS;
-    
-    var any_rendered = false;
-    aspect = canvas.clientWidth / canvas.clientHeight
-    // Always pass default framebuffer. might do transitions later and then it's
-    // important to have this hook so we can have the effect render to some other fb,
-    // and they can still do post process and then restore to the passed fb.
-    var framebuffer = backbuffer;
-    singleEffect.render(framebuffer, now, now, g_numBlobs)
-    frameCount++;
-    totalFrameCount++;
-  }
-
   // Repeatedly run render(), attempt to hold 60 but the demo is
   // framerate independent so we will still keep sync even if we
   // lose frames.
   var intervalId = setInterval(render, 1000.0 / 60.0);
+  var singleEffect = new FlowerEffect();
+  function render() {
+    var now = ((new Date()).getTime() - bootTime) * 0.001;
+    var music_time = now;
+    aspect = canvas.clientWidth / canvas.clientHeight
+    var framebuffer = backbuffer;
+    singleEffect.render(framebuffer, music_time, g_postProc)
+  }
+}
+
+var g_setSettingElements = [];
+
+function setSetting(elem, id) {
+  switch (id) {
+  case 0:
+  case 1:
+  case 2:
+  case 3:
+    g_postProc = id
+    for (var ii = 0; ii < 4; ++ii) {
+      g_setSettingElements[ii].style.color = "gray"
+    }
+    elem.style.color = "red"
+    break;
+  }
+}
+
+/**
+ * Sets up the count buttons.
+ */
+function setupButtons() {
+  for (var ii = 0; ii < 100; ++ii) {
+    var elem = document.getElementById("setSetting" + ii);
+    if (!elem) {
+      break;
+    }
+    g_setSettingElements.push(elem);
+    elem.onclick = function(elem, id) {
+      return function () {
+        setSetting(elem, id);
+      }}(elem, ii);
+  }
+  setSetting(document.getElementById("setSetting1"), 1);
 }
 
 function initializeGraphics() {
@@ -205,70 +184,17 @@ function initializeGraphics() {
   quad = new QuadDrawer()
   backbuffer = tdl.framebuffers.getBackBuffer(canvas)
   post = new PostProcessor(canvas.width, canvas.height)
-  imm = new ImmSim()
 
   // Set some sane defaults.
   gl.disable(gl.BLEND);
   gl.depthFunc(gl.LEQUAL);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
   return true;
 }
 
-function setSetting(elem, id) {
-  switch (id) {
-  case 0:
-  case 1:
-  case 2:
-  case 3:
-    g_numBlobs = Math.pow(10, id);
-    for (var ii = 0; ii < 4; ++ii) {
-      g_setSettingElements[ii].style.color = "gray";
-    }
-    elem.style.color = "red";
-    break;
-  case 4:
-  case 5:
-  case 6:
-  case 7:
-  case 8:
-    var resolution = {"4":16,"5":24,"6":32,"7":40,"8":48}[id]
-    singleEffect = new MarchingCubesEffect(resolution);
-    for (var ii = 4; ii < 9; ii++) {
-      g_setSettingElements[ii].style.color = "gray"
-    }
-    elem.style.color = "red"
-  }
-}
-
-/**
- * Sets up the count buttons.
- */
-function setupCountButtons() {
-  for (var ii = 0; ii < 100; ++ii) {
-    var elem = document.getElementById("setSetting" + ii);
-    if (!elem) {
-      break;
-    }
-    g_setSettingElements.push(elem);
-    elem.onclick = function(elem, id) {
-      return function () {
-        setSetting(elem, id);
-      }}(elem, ii);
-  }
-  setSetting(document.getElementById("setSetting1"), 1);
-  setSetting(document.getElementById("setSetting5"), 6);
-}
-
-
-var g_setSettingElements = [];
-
 window.onload = function() {
-  g_fpsTimer = new tdl.fps.FPSTimer();
   if (initializeGraphics()) {
-    singleEffect = new MarchingCubesEffect(24);
-    setupCountButtons();
-    // Kick it off!
+    setupButtons()
     mainloop()
   }
 }
@@ -279,25 +205,18 @@ window.onload = function() {
 
 <body>
 <div class="fpsContainer">
-  <div class="fps">fps: <span id="fps"></div>
-  <div class="title">Number of Blobs</div>
-  <div id="setSetting0">1</div>
-  <div id="setSetting1">10</div>
-  <div id="setSetting2">100</div>
-  <div id="setSetting3">1000</div>
-  <div class="title">Resolution</div>
-  <div id="setSetting4">16^3</div>
-  <div id="setSetting5">24^3</div>
-  <div id="setSetting6">32^3</div>
-  <div id="setSetting7">40^3</div>
-  <div id="setSetting8">48^3</div>
+  <div class="title">Postprocessing</div>
+  <div id="setSetting0">None</div>
+  <div id="setSetting1">Glow</div>
+  <div id="setSetting2">Blur</div>
+  <div id="setSetting3">Radial Blur</div>
 </div>
 <div id="viewContainer">
 <canvas id="render_area" width="1024" height="512" style="width: 100%; height: 100%;"></canvas>
 </div>
 </body>
 
-<script id="spinning_cube_fs" type="x-shader/x-fragment">
+<script id="flower_fs" type="x-shader/x-fragment">
   #ifdef GL_ES
   precision highp float;
   #endif
@@ -307,67 +226,53 @@ window.onload = function() {
   }
 </script>
 
-<script id="spinning_cube_vs" type="x-shader/x-vertex">
+<script id="flower_vs" type="x-shader/x-vertex">
   attribute vec3 position;
-  attribute vec3 normal;
   attribute vec2 texCoord;
 
+  uniform vec4 u_color;
+  uniform vec4 u_color2;
   uniform mat4 u_worldviewproj;
-
+  uniform float u_time;
   varying vec4 v_color;
+  varying vec2 v_texCoord;
+
+  vec3 rotateX(vec3 v, float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return vec3(v.x, c * v.y + s * v.z, -s * v.y + c * v.z);
+  }
+  vec3 rotateY(vec3 v, float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return vec3(c * v.x + s * v.z, v.y, -s * v.x + c * v.z);
+  }
+  vec3 rotateZ(vec3 v, float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return vec3(c * v.x + s * v.y, -s * v.x + c * v.y, v.z);
+  }
 
   void main(void) {
-    v_color = vec4(position.x + 0.5, position.y + 0.5, position.z + 0.5, 1.0);
-    gl_Position = u_worldviewproj * vec4(position, 1.0);
+    vec2 tc = texCoord;
+    v_texCoord = tc;
+    v_color = mix(u_color, u_color2, tc.x);
+    v_color *= v_color.w;
+    vec3 pos = rotateZ(rotateX(rotateY(position,
+       -u_time + tc.x*6.1), -u_time * 0.6 + tc.x*8.1), -u_time * 0.7 + tc.x*7.12);
+    // pos.x += sin(u_time - tc.x*3.0);
+    gl_Position = u_worldviewproj * vec4(pos, 1.0);
   }
 </script>
 
-<script id="marching_cube_fs" type="x-shader/x-fragment">
-  #ifdef GL_ES
-  precision highp float;
-  #endif
-  varying vec4 v_color;
-  varying vec3 v_normal;
-  uniform vec4 u_ambientUp;
-  uniform vec4 u_ambientDown;
-  uniform vec3 u_lightDir;
-  uniform vec4 u_lightColor;
-  varying vec3 v_eyeDir;
-  void main(void) {
-    float light = max(0.0, dot(normalize(u_lightDir), v_normal));
-    float glare = max(0.0, dot(v_normal, normalize(v_eyeDir + u_lightDir)));
-    glare = glare*glare;
-    glare = glare*glare;
-    glare = glare*glare;
-    glare = glare*glare;
-    glare = glare*glare;
-    glare = glare*glare;
-    vec4 ambient = mix(u_ambientDown, u_ambientUp, (v_normal.y + 1.0)/2.0);
-    // Gamma correction approximation (sqrt)
-    vec4 finalColor = sqrt(ambient + light * u_lightColor + glare);
-    finalColor.w = 1.0;
-    gl_FragColor = finalColor;
-  }
-</script>
-
-<script id="marching_cube_vs" type="x-shader/x-vertex">
-  attribute vec3 position;
-  attribute vec3 normal;
-  attribute vec2 texCoord;
-
-  uniform mat4 u_worldviewproj;
-  uniform mat4 u_worldview;
-  uniform mat4 u_world;
-
-  varying vec4 v_color;
-  varying vec3 v_normal;
-  varying vec3 v_eyeDir;
-
-  void main(void) {
-    v_color = vec4(position.x + 0.5, position.y + 0.5, position.z + 0.5, 1.0);
-    v_normal = (u_world * vec4(normalize(normal), 0.0)).xyz;
-    v_eyeDir = -normalize((u_worldview * vec4(position, 1.0)).xyz);
-    gl_Position = u_worldviewproj * vec4(position, 1.0);
+<script id="quad_vs" type="text/something-not-javascript">
+  attribute vec4 position;
+  varying vec4 v_position;
+  varying vec2 v_texCoord;
+  void main() {
+    vec2 tc = (position.xy + vec2(1.0, 1.0)) / 2.0;
+    v_texCoord = tc;
+    gl_Position = position;
   }
 </script>
 
@@ -380,17 +285,17 @@ window.onload = function() {
   uniform vec4 subtract;
   uniform sampler2D mainSampler;
   void main() {
-    vec4 sum = vec4(0.0);
-    sum += texture2D(mainSampler, v_texCoord - 4.0 * blurSize) * 0.05;
-    sum += texture2D(mainSampler, v_texCoord - 3.0 * blurSize) * 0.09;
-    sum += texture2D(mainSampler, v_texCoord - 2.0 * blurSize) * 0.12;
-    sum += texture2D(mainSampler, v_texCoord - 1.0 * blurSize) * 0.15;
-    sum += texture2D(mainSampler, v_texCoord                 ) * 0.16;
-    sum += texture2D(mainSampler, v_texCoord + 1.0 * blurSize) * 0.15;
-    sum += texture2D(mainSampler, v_texCoord + 2.0 * blurSize) * 0.12;
-    sum += texture2D(mainSampler, v_texCoord + 3.0 * blurSize) * 0.09;
-    sum += texture2D(mainSampler, v_texCoord + 4.0 * blurSize) * 0.05;
-    gl_FragColor = sum - subtract;
+     vec4 sum = vec4(0.0);
+     sum += texture2D(mainSampler, v_texCoord - 4.0 * blurSize) * 0.05;
+     sum += texture2D(mainSampler, v_texCoord - 3.0 * blurSize) * 0.09;
+     sum += texture2D(mainSampler, v_texCoord - 2.0 * blurSize) * 0.12;
+     sum += texture2D(mainSampler, v_texCoord - 1.0 * blurSize) * 0.15;
+     sum += texture2D(mainSampler, v_texCoord                 ) * 0.16;
+     sum += texture2D(mainSampler, v_texCoord + 1.0 * blurSize) * 0.15;
+     sum += texture2D(mainSampler, v_texCoord + 2.0 * blurSize) * 0.12;
+     sum += texture2D(mainSampler, v_texCoord + 3.0 * blurSize) * 0.09;
+     sum += texture2D(mainSampler, v_texCoord + 4.0 * blurSize) * 0.05;
+     gl_FragColor = sum - subtract;
   }
 </script>
 
