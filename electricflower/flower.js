@@ -67,7 +67,7 @@ function FlowerEffect() {
     
     switch (postproc) {
       case 1:
-        post.end(framebuffer, post.hypnoGlow, {x: 9, y: 9, sub: 0.2});
+        post.end(framebuffer, post.hypnoGlow, {x: 3, y: 3, sub: 0.2});
         break;
       case 2:
         post.end(framebuffer, post.focusBlur, {x: 2, y: 2});
