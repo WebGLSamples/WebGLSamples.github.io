@@ -71,7 +71,7 @@ function FlowerEffect() {
   }
 
   this.render = function(framebuffer, time, postproc) {
-    m4.rotationY(world, time)
+    m4.rotationY(world, time*0.2)
     m4.mul(viewproj, view, proj)
     m4.mul(worldviewproj, world, viewproj)
 
@@ -86,8 +86,8 @@ function FlowerEffect() {
     var boom = 0.0 //0.5 + Math.sin(time)*0.5
     var uniformsConst = {
       u_time: time,
-      u_color: hsv2rgb((time * 0.1) % 1.0, 1.0, 0.1, 1),
-      u_color2: hsv2rgb((time * 0.22124) % 1.0, 1.0, 0.1, 0),
+      u_color: hsv2rgb((time * 0.1) % 1.0, 0.8, 0.1, 1),
+      u_color2: hsv2rgb((time * 0.22124) % 1.0, 0.7, 0.1, 0),
     }
     var uniformsPer = {
       u_worldviewproj: worldviewproj
