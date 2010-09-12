@@ -14,12 +14,14 @@ html, body {
 }
 canvas#render_area {
   background-color: red;
-  margin-left: auto;
-  margin-right: auto;
-}
-#viewContainer {
+  /*
   width: 100%;
   height: 100%;
+  */
+}
+#viewContainer {
+  /*width: 80%;
+  height: 80%;*/
 }
 #info {
   position: absolute;
@@ -149,8 +151,7 @@ $(document).keyup(function(event) {
 
 <body>
 <div id="viewContainer">
-<canvas id="render_area" width="1024" height="1024"
-style="width: 100%; height: 100%;"></canvas>
+<canvas id="render_area" width="1024" height="512"></canvas>
 </div>
 <div id="info">
 Move with W,S,A,D. Shift to increase speed.<br />
