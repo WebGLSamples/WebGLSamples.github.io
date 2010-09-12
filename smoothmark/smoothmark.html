@@ -128,7 +128,8 @@ $(document).ready(function() {
   The white bars should move perfectly smoothly.
   <b>Follow them with your eye.</b> Any jank/jitter = FAIL
   <br>The top bars are timer based, the bottom ones advance a fixed number of pixels per frame.
-  <br>If the bottom bars are jittery, and fall behind the top ones, frames are skipped.
+  <br>If the bottom bars are jittery, frames are skipped or displayed for uneven periods.
+  <br>If the bottom bars slowly fall behind the top ones, the interval timer is inaccurate.
   <br>If the top bars are jittery, the "new Date()" timer is unsmooth or frames
   are skipped.
 </span>
