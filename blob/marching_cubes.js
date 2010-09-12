@@ -8,7 +8,6 @@
 
 function MarchingCubesEffect(resolution) {
   var arrays = tdl.primitives.createCube(1.0)
-  // var program = createProgramFromTags("spinning_cube_vs", "spinning_cube_fs")
   var program = createProgramFromTags("marching_cube_vs", "marching_cube_fs")
   var textures = []
 
@@ -194,15 +193,13 @@ function MarchingCubesEffect(resolution) {
 
   var firstDraw = true
 
-  this.render = function(framebuffer, time, global_time, numblobs) {
+  this.render = function(framebuffer, time, numblobs) {
     m4.perspective(proj, tdl.math.degToRad(60), aspect, 0.1, 500);
     m4.rotationY(world, time * 0.2)
     m4.translate(world, [0, 0*Math.sin(time)*0.5, 0])
     m4.mul(viewproj, view, proj)
     m4.mul(worldview, world, view)
     m4.mul(worldviewproj, world, viewproj)
-
-//    post.begin()
     
     gl.clearColor(0.2,0.15,0.12,1)
     gl.clearDepth(1.0)
@@ -248,7 +245,6 @@ function MarchingCubesEffect(resolution) {
     }
 
     var isol = 80.0
-
     imm.begin(gl.TRIANGLES, program)
 
     // Triangulate. Yeah, this is slow.
@@ -267,9 +263,5 @@ function MarchingCubesEffect(resolution) {
       }
     }
     imm.end()
-    
-    // post.end(framebuffer, post.radialBlur, {strength: 2, glow: 1.1})
-    // post.end(framebuffer, post.focusBlur, {x: 3, y: 3})
-    // post.end(framebuffer, post.hypnoGlow, {x: 10, y: 10, sub: 0.7})
   }
 }

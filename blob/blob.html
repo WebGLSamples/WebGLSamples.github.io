@@ -102,7 +102,6 @@ div.title {
   src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js">
 </script>
 <script type="text/javascript" src="../tdl/base.js"></script>
-<script type="text/javascript" src="postprocess.js"></script>
 <script type="text/javascript" src="immediate_sim.js"></script>
 <script type="text/javascript" src="marching_cubes_tables.js"></script>
 <script type="text/javascript" src="marching_cubes.js"></script>
@@ -134,7 +133,6 @@ var aspect;
 
 // Use this to refer to the backbuffer as if it were another framebuffer
 var backbuffer;
-var post;
 var quad;
 var imm;
 var g_numBlobs;
@@ -177,13 +175,8 @@ function mainloop() {
     g_fpsTimer.update(elapsedTime);
     fpsElem.innerHTML = g_fpsTimer.averageFPS;
     
-    var any_rendered = false;
     aspect = canvas.clientWidth / canvas.clientHeight
-    // Always pass default framebuffer. might do transitions later and then it's
-    // important to have this hook so we can have the effect render to some other fb,
-    // and they can still do post process and then restore to the passed fb.
-    var framebuffer = backbuffer;
-    singleEffect.render(framebuffer, now, now, g_numBlobs)
+    singleEffect.render(null, now, g_numBlobs)
     frameCount++;
     totalFrameCount++;
   }
@@ -202,9 +195,7 @@ function initializeGraphics() {
   }
 
   aspect = canvas.clientWidth / canvas.clientHeight
-  quad = new QuadDrawer()
   backbuffer = tdl.framebuffers.getBackBuffer(canvas)
-  post = new PostProcessor(canvas.width, canvas.height)
   imm = new ImmSim()
 
   // Set some sane defaults.
@@ -259,7 +250,6 @@ function setupCountButtons() {
   setSetting(document.getElementById("setSetting1"), 1);
   setSetting(document.getElementById("setSetting5"), 6);
 }
-
 
 var g_setSettingElements = [];
 
