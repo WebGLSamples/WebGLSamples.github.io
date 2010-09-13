@@ -99,7 +99,6 @@ tdl.webgl.setupWebGL = function(canvasContainerId, opt_canvas) {
 
   // opt_canvas.addEventHandler('webglcontextcreationerror', handleCreationError);
   var context = tdl.webgl.create3DContext(opt_canvas);
-  context = null;
   if (!context) {
     // TODO(gman): fix to official way to detect that it's the user's machine, not the browser.
     var browserStrings = navigator.userAgent.match(/(\w+\/.*? )/g);
