@@ -106,9 +106,11 @@ var g_windowTextures = [];// ..
 //g_debug = true;
 
 var g_eyeSpeed          = 0.1;
-var g_eyeHeight         = 100;
-var g_eyeTarget         = 90;
+var g_eyeHeight         = 50;
+var g_eyeTarget         = 50;
 var g_eyeRadius         = 30;
+var g_widthBasis        = 100;
+var g_heightBasis       = 100;
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -180,9 +182,7 @@ function setupSkybox() {
   return new tdl.models.Model(program, arrays, textures);
 }
 
-var createBuildingCube = function(size) {
-  var k = size / 2;
-
+var createBuildingCube = function(width, height, depth) {
   var cubeFaceIndices = [
     [4, 5, 7, 6],
     [5, 1, 3, 7],
@@ -192,15 +192,19 @@ var createBuildingCube = function(size) {
     [1, 0, 4, 5],
   ];
 
+  var halfWidth = width * 0.5;
+  var halfHeight = height * 0.5;
+  var halfDepth = depth * 0.5;
+
   var cornerVertices = [
-    [-k, -k, -k], // 0 left  back  bottom
-    [+k, -k, -k], // 1 right back  bottom
-    [-k, +k, -k], // 2 left  back  top
-    [+k, +k, -k], // 3 right back  top
-    [-k, -k, +k], // 4 left  front bottom
-    [+k, -k, +k], // 5 right front bottom
-    [-k, +k, +k], // 6 left  front top
-    [+k, +k, +k]  // 7 right front top
+    [-halfWidth, -halfHeight, -halfDepth], // 0 left  back  bottom
+    [+halfWidth, -halfHeight, -halfDepth], // 1 right back  bottom
+    [-halfWidth, +halfHeight, -halfDepth], // 2 left  back  top
+    [+halfWidth, +halfHeight, -halfDepth], // 3 right back  top
+    [-halfWidth, -halfHeight, +halfDepth], // 4 left  front bottom
+    [+halfWidth, -halfHeight, +halfDepth], // 5 right front bottom
+    [-halfWidth, +halfHeight, +halfDepth], // 6 left  front top
+    [+halfWidth, +halfHeight, +halfDepth]  // 7 right front top
   ];
 
   var faceNormals = [
@@ -219,6 +223,15 @@ var createBuildingCube = function(size) {
     [0, 1]
   ];
 
+  var faceUVMult = [
+    [width / g_widthBasis, height / g_heightBasis],
+    [width / g_widthBasis, height / g_heightBasis],
+    [0, 0],
+    [0, 0],
+    [depth / g_widthBasis, height / g_heightBasis],
+    [depth / g_widthBasis, height / g_heightBasis]
+  ];
+
   var numVertices = 6 * 4;
   var positions = new tdl.primitives.AttribBuffer(3, numVertices);
   var normals = new tdl.primitives.AttribBuffer(3, numVertices);
@@ -230,7 +243,7 @@ var createBuildingCube = function(size) {
     for (var v = 0; v < 4; ++v) {
       var position = cornerVertices[faceIndices[v]];
       var normal = faceNormals[f];
-      var uv = uvCoords[v];
+      var uv = [faceUVMult[f][0] * uvCoords[v][0], faceUVMult[f][1] * uvCoords[v][1]];
 
       // Each face needs all four vertices because the normals and texture
       // coordinates are not all the same.
@@ -304,37 +317,30 @@ function createBuildingPyramid(size) {
 /**
  * Sets up a modern building
  */
-function setupModernBuilding(windowTexture) {
+function setupModernBuilding(windowTexture, height) {
   var textures = {
       diffuseSampler: windowTexture};
   var program = createProgramFromTags(
       'buildingVertexShader',
       'buildingFragmentShader');
-  var arrays = createBuildingCube(1);
-  delete arrays.normal;
-  tdl.primitives.reorient(arrays,
-      [1, 0, 0, 0,
-       0, 1, 0, 0,
-       0, 0, 1, 0,
-       0, 0.5, 0, 1]);
   var towers = [];
   var numTowers = 4;
-  var maxHeight = 100;
+  var maxHeight = height;
   for (var ii = 0; ii < numTowers; ++ii) {
     var start = ii == 0 ? 5 : 2;
     var range = ii == 0 ? 3 : 4;
     var height = ii == 0 ? maxHeight : math.randomInt(maxHeight);
-    var width = start + Math.random() * range;
-    var depth = start + Math.random() * range;
-    var x = (Math.random() - 0.5) * (1 - width);
-    var z = (Math.random() - 0.5) * (1 - depth);
-    var tower = tdl.primitives.clone(arrays);
-    tdl.primitives.reorient(
-        tower,
-        [width, 0, 0, 0,
-         0, height, 0, 0,
-         0, 0, depth, 0,
-         x, 0, z, 1]);
+    var width = start + math.randomInt(range);
+    var depth = start + math.randomInt(range);
+    var x = Math.round((Math.random() - 0.5) * (1 - width));
+    var z = Math.round((Math.random() - 0.5) * (1 - depth));
+    var tower = createBuildingCube(width, height, depth);
+    delete tower.normal;
+    tdl.primitives.reorient(tower,
+        [1, 0, 0, 0,
+         0, 1, 0, 0,
+         0, 0, 1, 0,
+         -x * 0.5, height / 2, -z * 0.5, 1]);
     towers.push(tower);
   }
   var arrays = tdl.primitives.concat(towers);
@@ -664,11 +670,14 @@ function initialize() {
   Log("--Setup Skybox---------------------------------------");
   var skybox = setupSkybox();
   Log("--Setup Modern Building---------------------------------------");
-  var modernBuilding = setupModernBuilding(g_windowTextures[0]);
-  Log("--Setup Cylinder Building---------------------------------------");
-  var cylinderBuilding = setupCylinderBuilding(g_windowTextures[0]);
-  Log("--Setup Classic Building---------------------------------------");
-  var classicBuilding = setupClassicBuilding(g_windowTextures[0]);
+  var modernBuilding = setupModernBuilding(g_windowTextures[0], 100);
+  //Log("--Setup Cylinder Building---------------------------------------");
+  //var cylinderBuilding = setupCylinderBuilding(g_windowTextures[0]);
+  //Log("--Setup Classic Building---------------------------------------");
+  //var classicBuilding = setupClassicBuilding(g_windowTextures[0]);
+
+  var cylinderBuilding = setupModernBuilding(g_windowTextures[0], 75);
+  var classicBuilding = setupModernBuilding(g_windowTextures[0], 50);
 
   var then = 0.0;
   var clock = 0.0;
@@ -713,21 +722,21 @@ function initialize() {
   var modernBuildingPer = {
     world: world,
     worldViewProjection: worldViewProjection,
-    texCoordMult: new Float32Array([0.25, 4])};
+    texCoordMult: new Float32Array([1, 1])};
   // Cylinder building uniforms.
   var cylinderBuildingConst = {
     };
   var cylinderBuildingPer = {
     world: world,
     worldViewProjection: worldViewProjection,
-    texCoordMult: new Float32Array([2, 4])};
+    texCoordMult: new Float32Array([1, 1])};
   // Classic building uniforms.
   var classicBuildingConst = {
     };
   var classicBuildingPer = {
     world: world,
     worldViewProjection: worldViewProjection,
-    texCoordMult: new Float32Array([0.25, 2])};
+    texCoordMult: new Float32Array([1, 1])};
 
   var frameCount = 0;
   var intervalId = setInterval(render, 1000.0 / 70.0);
