@@ -101,16 +101,21 @@ var g_setCountElements = [];
 var ctx;                  // 2d context
 var canvas2d;             // 2d canvas
 var g_windowTextures = [];// ..
+var g_blocksAcross = 7;
+var g_buildingsAcrossBlock = 4;
+var g_buildingWidth = 10;
+var g_buildingSpacing = 11;
+var g_roadWidth = 16;
 
 //g_drawOnce = true;
 //g_debug = true;
 
 var g_eyeSpeed          = 0.1;
-var g_eyeHeight         = 50;
-var g_eyeTarget         = 50;
+var g_eyeHeight         = 100;
+var g_eyeTarget         = 90;
 var g_eyeRadius         = 30;
-var g_widthBasis        = 100;
-var g_heightBasis       = 100;
+var g_widthBasis        = 25;
+var g_heightBasis       = 25;
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -149,7 +154,7 @@ function setupGround() {
   var program = createProgramFromTags(
       'constVertexShader',
       'constFragmentShader');
-  var arrays = tdl.primitives.createPlane(1, 1, 1, 1);
+  var arrays = tdl.primitives.createPlane(1, 1, 10, 10);
   delete arrays.normal;
   delete arrays.texCoord;
   return new tdl.models.Model(program, arrays, textures);
@@ -192,9 +197,9 @@ var createBuildingCube = function(width, height, depth) {
     [1, 0, 4, 5],
   ];
 
-  var halfWidth = width * 0.5;
+  var halfWidth  = width  * 0.5;
   var halfHeight = height * 0.5;
-  var halfDepth = depth * 0.5;
+  var halfDepth  = depth  * 0.5;
 
   var cornerVertices = [
     [-halfWidth, -halfHeight, -halfDepth], // 0 left  back  bottom
@@ -223,13 +228,15 @@ var createBuildingCube = function(width, height, depth) {
     [0, 1]
   ];
 
+  var wf = width  / g_widthBasis;
+  var hf = height / g_heightBasis;
   var faceUVMult = [
-    [width / g_widthBasis, height / g_heightBasis],
-    [width / g_widthBasis, height / g_heightBasis],
-    [0, 0],
-    [0, 0],
-    [depth / g_widthBasis, height / g_heightBasis],
-    [depth / g_widthBasis, height / g_heightBasis]
+    [wf, hf],
+    [wf, hf],
+    [wf, hf],
+    [wf, hf],
+    [ 0,  0],
+    [ 0,  0]
   ];
 
   var numVertices = 6 * 4;
@@ -240,11 +247,11 @@ var createBuildingCube = function(width, height, depth) {
 
   for (var f = 0; f < 6; ++f) {
     var faceIndices = cubeFaceIndices[f];
+    var uvMult = faceUVMult[f];
     for (var v = 0; v < 4; ++v) {
       var position = cornerVertices[faceIndices[v]];
       var normal = faceNormals[f];
-      var uv = [faceUVMult[f][0] * uvCoords[v][0], faceUVMult[f][1] * uvCoords[v][1]];
-
+      var uv = [uvMult[0] * uvCoords[v][0], uvMult[1] * uvCoords[v][1]];
       // Each face needs all four vertices because the normals and texture
       // coordinates are not all the same.
       positions.push(position);
@@ -350,32 +357,26 @@ function setupModernBuilding(windowTexture, height) {
 /**
  * Sets up a classic building
  */
-function setupClassicBuilding(windowTexture) {
+function setupClassicBuilding(windowTexture, height) {
   var textures = {
       diffuseSampler: windowTexture};
   var program = createProgramFromTags(
       'buildingVertexShader',
       'buildingFragmentShader');
-  var arrays = createBuildingCube(1);
-  delete arrays.normal;
-  tdl.primitives.reorient(arrays,
-      [1, 0, 0, 0,
-       0, 1, 0, 0,
-       0, 0, 1, 0,
-       0, 0.5, 0, 1]);
   var towers = [];
   var numTowers = 2 + math.randomInt(3);
-  var maxHeight = 100;
+  var maxHeight = height;
   for (var ii = 0; ii < numTowers; ++ii) {
     var width = (1 - ii * 0.1) * 10;
     var height = (1 - (0.5 / (ii + 1))) * maxHeight;
-    var tower = tdl.primitives.clone(arrays);
+    var tower = createBuildingCube(width, height, width);
+    delete tower.normal;
     tdl.primitives.reorient(
         tower,
-        [width, 0, 0, 0,
-         0, height, 0, 0,
-         0, 0, width, 0,
-         0, 0, 0, 1]);
+        [1, 0, 0, 0,
+         0, 1, 0, 0,
+         0, 0, 1, 0,
+         0, height / 2, 0, 1]);
     towers.push(tower);
   }
   var width = (1 - numTowers * 0.1) * 10;
@@ -530,7 +531,7 @@ function createTruncatedConeWithSkips(
 /**
  * Sets up a cylinder building
  */
-function setupCylinderBuilding(windowTexture) {
+function setupCylinderBuilding(windowTexture, height) {
   var textures = {
       diffuseSampler: windowTexture};
   var program = createProgramFromTags(
@@ -539,7 +540,7 @@ function setupCylinderBuilding(windowTexture) {
   var arrays = createTruncatedConeWithSkips(
     5,     // bottomRadius,
     5,     // topRadius,
-    100,   // height,
+    height,// height,
     36,    // radialSubdivisions,
     1,     // verticalSubdivisions,
     4,     // maxNumSkips,
@@ -663,18 +664,26 @@ function initialize() {
 
   createWindowTexture(ctx);
 
-  g_windowTextures[0] = tdl.textures.loadTexture(canvas2d);
+  g_windowTextures[0] = tdl.textures.loadTexture(canvas2d, true);
+//  g_windowTextures[0] = tdl.textures.loadTexture('../tdl/test.png');
+
+  buildings = [];
 
   Log("--Setup Ground---------------------------------------");
   var ground = setupGround();
   Log("--Setup Skybox---------------------------------------");
   var skybox = setupSkybox();
   Log("--Setup Modern Building---------------------------------------");
-  var modernBuilding = setupModernBuilding(g_windowTextures[0], 100);
-  //Log("--Setup Cylinder Building---------------------------------------");
-  //var cylinderBuilding = setupCylinderBuilding(g_windowTextures[0]);
-  //Log("--Setup Classic Building---------------------------------------");
-  //var classicBuilding = setupClassicBuilding(g_windowTextures[0]);
+  for (var ii = 0; ii < 10; ++ii) {
+    buildings.push(setupModernBuilding(g_windowTextures[0],
+                                       math.randomInt(70) + 30));
+    //Log("--Setup Cylinder Building---------------------------------------");
+    buildings.push(setupCylinderBuilding(g_windowTextures[0],
+                                         math.randomInt(70) + 30));
+    //Log("--Setup Classic Building---------------------------------------");
+    buildings.push(setupClassicBuilding(g_windowTextures[0],
+                                        math.randomInt(70) + 30));
+  }
 
   var cylinderBuilding = setupModernBuilding(g_windowTextures[0], 75);
   var classicBuilding = setupModernBuilding(g_windowTextures[0], 50);
@@ -739,6 +748,7 @@ function initialize() {
     texCoordMult: new Float32Array([1, 1])};
 
   var frameCount = 0;
+  var eyeClock = 0;
   var intervalId = setInterval(render, 1000.0 / 70.0);
   function render() {
     ++frameCount;
@@ -758,9 +768,10 @@ function initialize() {
     fpsElem.innerHTML = g_fpsTimer.averageFPS;
 
     clock += elapsedTime;
-    eyePosition[0] = Math.sin(clock * g_eyeSpeed) * g_eyeRadius;
+    eyeClock += elapsedTime * g_eyeSpeed;
+    eyePosition[0] = Math.sin(eyeClock) * g_eyeRadius;
     eyePosition[1] = g_eyeHeight;
-    eyePosition[2] = Math.cos(clock * g_eyeSpeed) * g_eyeRadius;
+    eyePosition[2] = Math.cos(eyeClock) * g_eyeRadius;
     target[1] = g_eyeTarget;
 
     gl.colorMask(true, true, true, true);
@@ -779,7 +790,7 @@ function initialize() {
         math.degToRad(60),
         canvas.clientWidth / canvas.clientHeight,
         1,
-        5000);
+        500000);
     fast.matrix4.lookAt(
         view,
         eyePosition,
@@ -804,8 +815,10 @@ function initialize() {
 //      viewProjection: viewProjection,
 
     Log("--Draw Skybox---------------------------------------");
+    gl.depthMask(false);
     skybox.drawPrep(skyConst);
     skybox.draw(skyPer);
+    gl.depthMask(true);
 
     Log("--Draw Ground---------------------------------------");
     ground.drawPrep(groundConst);
@@ -815,29 +828,56 @@ function initialize() {
     fast.matrix4.transpose(worldInverseTranspose, worldInverse);
     ground.draw(groundPer);
 
-    Log("--Draw Modern Building---------------------------------------");
-    modernBuilding.drawPrep(modernBuildingConst);
-    fast.matrix4.translation(world, [0, 0, 0]),
+    math.resetPseudoRandom();
+    var pseudoRandom = math.pseudoRandom;
+    var numBuildings = buildings.length;
+    var blockWidth = g_buildingSpacing * g_buildingsAcrossBlock + g_roadWidth;
+    // TODO(gman): Merge buildings into blocks.
+    for (var blockZ = 0; blockZ < g_blocksAcross; ++blockZ) {
+      var bz = (blockZ - g_blocksAcross * 0.5) * blockWidth;
+      for (var blockX = 0; blockX < g_blocksAcross; ++blockX) {
+        var bx = (blockX - g_blocksAcross * 0.5) * blockWidth;
+        for (var buildingZ = 0; buildingZ < g_buildingsAcrossBlock; ++buildingZ) {
+          for (var buildingX = 0; buildingX < g_buildingsAcrossBlock; ++buildingX) {
+            var model = buildings[Math.floor(pseudoRandom() * numBuildings)];
+            model.drawPrep(modernBuildingConst);
+    fast.matrix4.translation(
+        world,
+        [bx + buildingZ * g_buildingSpacing,
+         0,
+         bz + buildingX * g_buildingSpacing]),
     fast.matrix4.mul(worldViewProjection, world, viewProjection);
     fast.matrix4.inverse(worldInverse, world);
     fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-    modernBuilding.draw(modernBuildingPer);
+            model.draw(modernBuildingPer);
+          }
+        }
+      }
+    }
 
-    Log("--Draw Cylinder Building---------------------------------------");
-    cylinderBuilding.drawPrep(cylinderBuildingConst);
-    fast.matrix4.translation(world, [11, 0, 0]),
-    fast.matrix4.mul(worldViewProjection, world, viewProjection);
-    fast.matrix4.inverse(worldInverse, world);
-    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-    cylinderBuilding.draw(cylinderBuildingPer);
-
-    Log("--Draw Classic Building---------------------------------------");
-    classicBuilding.drawPrep(classicBuildingConst);
-    fast.matrix4.translation(world, [-11, 0, 0]),
-    fast.matrix4.mul(worldViewProjection, world, viewProjection);
-    fast.matrix4.inverse(worldInverse, world);
-    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-    classicBuilding.draw(classicBuildingPer);
+//    Log("--Draw Modern Building---------------------------------------");
+//    modernBuilding.drawPrep(modernBuildingConst);
+//    fast.matrix4.translation(world, [0, 0, 0]),
+//    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+//    fast.matrix4.inverse(worldInverse, world);
+//    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+//    modernBuilding.draw(modernBuildingPer);
+//
+//    Log("--Draw Cylinder Building---------------------------------------");
+//    cylinderBuilding.drawPrep(cylinderBuildingConst);
+//    fast.matrix4.translation(world, [11, 0, 0]),
+//    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+//    fast.matrix4.inverse(worldInverse, world);
+//    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+//    cylinderBuilding.draw(cylinderBuildingPer);
+//
+//    Log("--Draw Classic Building---------------------------------------");
+//    classicBuilding.drawPrep(classicBuildingConst);
+//    fast.matrix4.translation(world, [-11, 0, 0]),
+//    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+//    fast.matrix4.inverse(worldInverse, world);
+//    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+//    classicBuilding.draw(classicBuildingPer);
 
 
     // Set the alpha to 255.
