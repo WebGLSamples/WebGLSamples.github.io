@@ -64,8 +64,16 @@ tdl.webgl.makeFailHTML = function(msg) {
  * @type {string}
  */
 tdl.webgl.GET_A_WEBGL_BROWSER = '' +
-  'This page requires browser that supports WebGL.<br/>' +
+  'This page requires a browser that supports WebGL.<br/>' +
   '<a href="http://get.webgl.org">Click here to upgrade your browser.</a>';
+
+/**
+ * Mesasge for need better hardware
+ * @type {string}
+ */
+tdl.webgl.NEED_HARDWARE = '' +
+  "It doesn't appear your computer can support WebGL.<br/>" +
+  '<a href="http://get.webgl.org">Click here for more information.</a>';
 
 /**
  * Creates a webgl context and fils out teh
@@ -91,9 +99,32 @@ tdl.webgl.setupWebGL = function(canvasContainerId, opt_canvas) {
 
   // opt_canvas.addEventHandler('webglcontextcreationerror', handleCreationError);
   var context = tdl.webgl.create3DContext(opt_canvas);
+  context = null;
   if (!context) {
-    container.innerHTML = tdl.webgl.makeFailHTML(
-        tdl.webgl.GET_A_WEBGL_BROWSER);
+    // TODO(gman): fix to official way to detect that it's the user's machine, not the browser.
+    var browserStrings = navigator.userAgent.match(/(\w+\/.*? )/g);
+    var browsers = {};
+    try {
+      for (var b = 0; b < browserStrings.length; ++b) {
+        var parts = browserStrings[b].match(/(\w+)/g);
+        var bb = [];
+        for (var ii = 1; ii < parts.length; ++ii) {
+          bb.push(parseInt(parts[ii]));
+        }
+        browsers[parts[0]] = bb;
+      }
+    } catch (e) {
+    }
+    if (browsers.Chrome &&
+        browsers.Chrome[0] > 7 ||
+        (browsers.Chrome[0] == 7 && browsers.Chrome[1] > 0) ||
+        (browsers.Chrome[0] == 7 && browsers.Chrome[1] == 0 && browsers.Chrome[2] >= 521)) {
+      container.innerHTML = tdl.webgl.makeFailHTML(
+          tdl.webgl.NEED_HARDWARE);
+    } else {
+      container.innerHTML = tdl.webgl.makeFailHTML(
+          tdl.webgl.GET_A_WEBGL_BROWSER);
+    }
   }
   return context;
 };
