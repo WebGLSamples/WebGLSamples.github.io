@@ -472,7 +472,7 @@ function computeSphereGridInfo() {
     xOff: xOff,
     yOff: yOff,
     texXBase: texXBase,
-    texYBase: texYBase,
+    texYBase: texYBase
   };
 }
 
@@ -501,7 +501,7 @@ function computeSelection(si, mousePosition, mouseGridPosition) {
 
   var selection = {
     x: mouseGridPosition.x / si.unit.width,
-    y: mouseGridPosition.y / si.unit.height,
+    y: mouseGridPosition.y / si.unit.height
   };
 
   if (sphereSelection) {
@@ -618,18 +618,6 @@ function initialize() {
   math = tdl.math;
   fast = tdl.fast;
   canvas = document.getElementById("canvas");
-  g_fpsTimer = new tdl.fps.FPSTimer();
-  hack();
-
-  canvas.addEventListener("mousedown", handleMouseDown, false);
-  canvas.addEventListener("mousemove", handleMouseMove, false);
-  canvas.addEventListener("mouseup", handleMouseUp, false);
-
-  // Create a canvas 2d for making textures with text.
-  g_canvas2d = document.createElement('canvas');
-  g_canvas2d.width = 256;
-  g_canvas2d.height = 256;
-  g_ctx2d = g_canvas2d.getContext("2d");
 
   gl = tdl.webgl.setupWebGL("viewContainer", canvas);
   if (!gl) {
@@ -639,6 +627,20 @@ function initialize() {
     gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
   }
   //gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
+
+  g_fpsTimer = new tdl.fps.FPSTimer();
+  hack();
+
+  // Create a canvas 2d for making textures with text.
+  g_canvas2d = document.createElement('canvas');
+  g_canvas2d.width = 256;
+  g_canvas2d.height = 256;
+  g_ctx2d = g_canvas2d.getContext("2d");
+
+  canvas.addEventListener("mousedown", handleMouseDown, false);
+  canvas.addEventListener("mousemove", handleMouseMove, false);
+  canvas.addEventListener("mouseup", handleMouseUp, false);
+
 
   var headlines = [
     "China defends dealings with Iran after US pressure",

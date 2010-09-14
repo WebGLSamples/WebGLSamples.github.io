@@ -115,9 +115,9 @@ tdl.webgl.setupWebGL = function(canvasContainerId, opt_canvas) {
     } catch (e) {
     }
     if (browsers.Chrome &&
-        browsers.Chrome[0] > 7 ||
-        (browsers.Chrome[0] == 7 && browsers.Chrome[1] > 0) ||
-        (browsers.Chrome[0] == 7 && browsers.Chrome[1] == 0 && browsers.Chrome[2] >= 521)) {
+        (browsers.Chrome[0] > 7 ||
+         (browsers.Chrome[0] == 7 && browsers.Chrome[1] > 0) ||
+         (browsers.Chrome[0] == 7 && browsers.Chrome[1] == 0 && browsers.Chrome[2] >= 521))) {
       container.innerHTML = tdl.webgl.makeFailHTML(
           tdl.webgl.NEED_HARDWARE);
     } else {

@@ -59,6 +59,7 @@ tdl.framebuffers.BackBuffer.prototype.bind = function() {
     gl.viewport(0, 0, this.width, this.height);
 }
 
+if (Object.prototype.__defineSetter__) {
 tdl.framebuffers.BackBuffer.prototype.__defineGetter__(
     'width',
     function () {
@@ -72,6 +73,7 @@ tdl.framebuffers.BackBuffer.prototype.__defineGetter__(
       return gl.canvas.height;
     }
 );
+}
 
 // Use this where you need to pass in a framebuffer, but you really
 // mean the backbuffer, so that binding it works as expected.

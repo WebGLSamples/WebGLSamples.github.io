@@ -295,7 +295,7 @@ var g_fishTable = [
     constUniforms: {
       fishLength: 10,
       fishWaveLength: 1,
-      fishBendAmount: 2,
+      fishBendAmount: 2
     }
   },
   {
@@ -311,7 +311,7 @@ var g_fishTable = [
     constUniforms: {
       fishLength: 10,
       fishWaveLength: -2,
-      fishBendAmount: 2,
+      fishBendAmount: 2
     }
   },
   {
@@ -327,7 +327,7 @@ var g_fishTable = [
     constUniforms: {
       fishLength: 10,
       fishWaveLength: -2,
-      fishBendAmount: 2,
+      fishBendAmount: 2
     }
   },
   {
@@ -343,7 +343,7 @@ var g_fishTable = [
     constUniforms: {
       fishLength: 10,
       fishWaveLength: -1,
-      fishBendAmount: 0.5,
+      fishBendAmount: 0.5
     }
   },
   {
@@ -359,7 +359,7 @@ var g_fishTable = [
     constUniforms: {
       fishLength: 10,
       fishWaveLength: -0.7,
-      fishBendAmount: 0.3,
+      fishBendAmount: 0.3
     }
   },
 ];
@@ -373,7 +373,7 @@ var g_sceneInfo = [
     program: [
       "fishVertexShader",
       "fishReflectionFragmentShader"
-    ],
+    ]
   },
   {
     name: "MediumFishA",
@@ -1144,7 +1144,7 @@ function initialize() {
     var div = document.createElement('div');
     div.appendChild(document.createTextNode("-" + option.text));
     div.style.color = option.enabled ? "red" : "gray";
-    div.class = "clickable";
+    div.setAttribute('class', "clickable");
 
     function toggle(option, div) {
       return function() {

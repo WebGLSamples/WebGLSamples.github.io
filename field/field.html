@@ -117,11 +117,11 @@ var g_autoSetting = 0;
 //g_debug = true;
 
 var g_grassSettings = [
-  { patchesAcross: 1, },
-  { patchesAcross: 4, },
-  { patchesAcross: 6, },
-  { patchesAcross: 10, },
-  { patchesAcross: 31, },
+  { patchesAcross: 1 },
+  { patchesAcross: 4 },
+  { patchesAcross: 6 },
+  { patchesAcross: 10 },
+  { patchesAcross: 31 }
 ];
 
 var g = {
@@ -301,8 +301,8 @@ function setupSkybox() {
  */
 function setCount(elem, settings) {
   g_autoSet = false;
-	for (var name in settings) {
-		g.globals[name] = settings[name];
+  for (var name in settings) {
+    g.globals[name] = settings[name];
   }
   for (var ii = 0; ii < g_setCountElements.length; ++ii) {
     g_setCountElements[ii].style.color = "black";
@@ -327,9 +327,9 @@ function setupCountButtons() {
     }(elem, g_grassSettings[ii]);
   }
   setCount(document.getElementById('setCount0'), g_grassSettings[0]);
-	g_autoSet = true;
+  g_autoSet = true;
   $('#advanced').click(function() {
-		  g_autoSet = false;
+      g_autoSet = false;
       $("#uiContainer").toggle('slow'); return false; });
   $("#uiContainer").toggle();
 
@@ -438,7 +438,7 @@ function initialize() {
     g_fpsTimer.update(elapsedTime);
     fpsElem.innerHTML = g_fpsTimer.averageFPS;
 
-		if (g_autoSet) {
+    if (g_autoSet) {
       countAdjustClock += elapsedTime;
       if (countAdjustClock > 0.5) {
         if (countAdjustClock > 1.5) {
@@ -452,14 +452,14 @@ function initialize() {
                      g_grassSettings[g_autoSetting]);
             g_autoSet = true;
             var lerp = Math.min(4, Math.max(0, g.globals.patchesAcross - 3)) / 4;
-						g.dofConst.dof = math.lerpScalar(0.742, 0.79, lerp);
-						g.globals.eyeHeight = math.lerpScalar(2.62, 2.98, lerp);
-						g.globals.eyeRadius = math.lerpScalar(3.56, 5, lerp);
-						g.globals.targetHeight = math.lerpScalar(0.1, 0.91, lerp);
+            g.dofConst.dof = math.lerpScalar(0.742, 0.79, lerp);
+            g.globals.eyeHeight = math.lerpScalar(2.62, 2.98, lerp);
+            g.globals.eyeRadius = math.lerpScalar(3.56, 5, lerp);
+            g.globals.targetHeight = math.lerpScalar(0.1, 0.91, lerp);
             countAdjustClock = 0;
           }
         }
-				if (g_autoSetting == g_grassSettings.length) {
+        if (g_autoSetting == g_grassSettings.length) {
           g_autoSet = false;
         }
       }
@@ -647,7 +647,7 @@ $(function(){
   <div class="clickable" id="setCount2">some</div>
   <div class="clickable" id="setCount3">many</div>
   <div>
-	<span  class="clickable" id="setCount4">lots</span>
+  <span  class="clickable" id="setCount4">lots</span>
   <span style="float: right" class="clickable" id="advanced">*</span>
   </div>
 </div>
@@ -689,7 +689,7 @@ vec4 darkColor = vec4(53.0 / 255.0, 85.0 / 255.0, 7.0 / 255.0, 1);
 vec4 darkerColor = vec4(53.0 / 255.0, 85.0 / 255.0, 7.0 / 255.0, 1) * 0.5;
 
 float circleWave(vec4 center, vec4 position, float period) {
-	vec4 diff = position - center;
+  vec4 diff = position - center;
   float dist = sqrt(diff.x * diff.x + diff.z * diff.z);
   return sin(dist * period);
 }
@@ -731,11 +731,11 @@ void main() {
 
   vec4 wp = world * p;
 
-	rand1 = mod(rand1 + wp.x * rand1Mult + wp.z * rand2Mult, 1.0);
-	rand2 = mod(rand2 + wp.z * rand1Mult + wp.x * rand2Mult, 1.0);
-	float elevationBasis1 = circleWave(vec4(0,0,0,0), wp, elevationPeriod1);
-	float elevationBasis2 = circleWave(vec4(elevationPointX, 0, elevationPointZ, 0), wp, elevationPeriod2);
-	vec4 nextP = vec4(wp.x + bladeSpacing, wp.y, wp.z + bladeSpacing, 1);
+  rand1 = mod(rand1 + wp.x * rand1Mult + wp.z * rand2Mult, 1.0);
+  rand2 = mod(rand2 + wp.z * rand1Mult + wp.x * rand2Mult, 1.0);
+  float elevationBasis1 = circleWave(vec4(0,0,0,0), wp, elevationPeriod1);
+  float elevationBasis2 = circleWave(vec4(elevationPointX, 0, elevationPointZ, 0), wp, elevationPeriod2);
+  vec4 nextP = vec4(wp.x + bladeSpacing, wp.y, wp.z + bladeSpacing, 1);
   float elevationBasis3 = circleWave(vec4(0,0,0,0), nextP, elevationPeriod1);
   float elevationBasis4 = circleWave(vec4(elevationPointX, 0, elevationPointZ, 0), nextP, elevationPeriod2);
   float elevationBasis = elevationBasis2 - elevationBasis1;
@@ -749,8 +749,8 @@ void main() {
   gl_Position = clipPosition;
 
   vec4 color = mix(darkColor, brightColor, lerp);
-	vec4 randColor = vec4(rand2 * 0.2, rand2 * 0.2 ,rand2 * 0.2, 0);
-	float l = dot(vec3(0.18814417367671946, 0.9407208683835973, 0.28221626051507914),
+  vec4 randColor = vec4(rand2 * 0.2, rand2 * 0.2 ,rand2 * 0.2, 0);
+  float l = dot(vec3(0.18814417367671946, 0.9407208683835973, 0.28221626051507914),
                 normalize(vec3(0.06, elevationBasis * elevationRange - elevationBasisNext * elevationRange, 0.06)));
 
   // encode the depth mix amount into the alpha channel

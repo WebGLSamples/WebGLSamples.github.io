@@ -78,6 +78,17 @@ goog.typedef = true;
 tdl.global = this;
 
 /**
+ * Some javascripts don't support __defineGetter__ or __defineSetter__
+ * so we define some here so at least we don't get compile errors.
+ * We expect the initialzation code will check and complain. This stubs
+ * are just here to make sure we can actually get to the initialization code.
+ */
+//if (!Object.prototype.__defineSetter__) {
+//  Object.prototype.__defineSetter__ = function() {}
+//  Object.prototype.__defineGetter__ = function() {}
+//}
+//
+/**
  * Flag used to force a function to run in the browser when it is called
  * from V8.
  * @type {boolean}
