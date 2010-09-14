@@ -111,7 +111,7 @@ var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;   // draw just one frame.
 var g_setCountElements = [];
 var g_autoSet = true;
-var g_autoSetting = 1;
+var g_autoSetting = 0;
 
 //g_drawOnce = true;
 //g_debug = true;
@@ -326,7 +326,7 @@ function setupCountButtons() {
       }
     }(elem, g_grassSettings[ii]);
   }
-  setCount(document.getElementById('setCount1'), g_grassSettings[1]);
+  setCount(document.getElementById('setCount0'), g_grassSettings[0]);
 	g_autoSet = true;
   $('#advanced').click(function() {
 		  g_autoSet = false;
