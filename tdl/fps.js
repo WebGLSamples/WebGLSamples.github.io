@@ -55,7 +55,7 @@ tdl.fps.NUM_FRAMES_TO_AVERAGE = 16;
  */
 tdl.fps.FPSTimer = function() {
   // total time spent for last N frames.
-  this.totalTime_ = 0.0;
+  this.totalTime_ = tdl.fps.NUM_FRAMES_TO_AVERAGE;
 
   // elapsed time for last N frames.
   this.timeTable_ = [];
@@ -65,7 +65,7 @@ tdl.fps.FPSTimer = function() {
 
   // Initialize the FPS elapsed time history table.
   for (var tt = 0; tt < tdl.fps.NUM_FRAMES_TO_AVERAGE; ++tt) {
-    this.timeTable_[tt] = 0.0;
+    this.timeTable_[tt] = 1.0;
   }
 };
 

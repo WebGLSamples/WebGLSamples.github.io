@@ -146,6 +146,16 @@ var g_lightRayRotLerp = 0.2;
 var g_lightRayOffset = Math.PI * 2 / g_numLightRays;
 var g_lightRayInfo = [];
 
+var g_options = {
+  normalMaps: { enabled: false, text: 'Normal Maps' },
+  reflection: { enabled: false, text: 'Reflection' },
+  tank:       { enabled: true,  text: 'Tank' },
+  museum:     { enabled: true,  text: 'Museum' },
+  fog:        { enabled: true,  text: 'Fog' },
+  bubbles:    { enabled: true,  text: 'Bubbles' },
+  lightRays:  { enabled: true,  text: 'Light Rays' }
+};
+
 var g_viewSettingsIndex = 0;
 var g_viewSettings = [
   // Inside 1
@@ -685,8 +695,35 @@ Scene.prototype.onload_ = function(data, exception) {
       };
       this.models.push(model);
     }
+    setShaders();
   }
 };
+
+function setShaders() {
+  var name = '';
+  if (!g_options.fog.enabled) {
+    name += 'noFog';
+  }
+  if (!g_options.reflection.enabled) {
+    name += 'noReflection';
+  }
+  if (!g_options.normalMaps.enabled) {
+    name += 'noNormalMaps';
+  }
+  if (name == '') {
+    name = 'default';
+  }
+  for (var sceneName in g_scenes) {
+    var scene = g_scenes[sceneName];
+    var models = scene.models;
+    var numModels = models.length;
+    for (var jj = 0; jj < numModels; ++jj) {
+      var model = models[jj];
+      model.setProgram(model.programs[name]);
+    }
+  }
+}
+
 
 function loadScene(name, opt_programIds, fog) {
   var scene = new Scene(opt_programIds, fog);
@@ -1082,41 +1119,6 @@ function initialize() {
     }
   }
 
-  var options = {
-    normalMaps: { text: 'Normal Maps' },
-    reflection: { text: 'Reflection' },
-    refraction: { text: 'Refraction' },
-    museum:     { text: 'Museum' },
-    fog:        { text: 'Fog' },
-    bubbles:    { text: 'Bubbles' }
-  }
-
-  function setShaders() {
-    var name = '';
-    if (!options.fog.enabled) {
-      name += 'noFog';
-    }
-    if (!options.reflection.enabled) {
-      name += 'noReflection';
-    }
-    if (!options.normalMaps.enabled) {
-      name += 'noNormalMaps';
-    }
-    if (name == '') {
-      name = 'default';
-    }
-tdl.log(name);
-    for (var sceneName in g_scenes) {
-      var scene = g_scenes[sceneName];
-      var models = scene.models;
-      var numModels = models.length;
-      for (var jj = 0; jj < numModels; ++jj) {
-        var model = models[jj];
-        model.setProgram(model.programs[name]);
-      }
-    }
-  }
-
   function toggleOption(option, elem) {
     option.enabled = !option.enabled;
     elem.style.color = option.enabled ? "red" : "gray";
@@ -1127,7 +1129,7 @@ tdl.log(name);
     case 'reflection':
       setShaders();
       break;
-    case 'refraction':
+    case 'tank':
       break;
     case 'fog':
       setShaders();
@@ -1136,20 +1138,23 @@ tdl.log(name);
   }
 
   var optionsContainer = document.getElementById("optionsContainer");
-  for (var name in options) {
-    var option = options[name];
-    option.enabled = true;
+  for (var name in g_options) {
+    var option = g_options[name];
     option.name = name;
     var div = document.createElement('div');
     div.appendChild(document.createTextNode("-" + option.text));
-    div.style.color = "red";
+    div.style.color = option.enabled ? "red" : "gray";
     div.class = "clickable";
-    $(div).click((function(option, div) {
-        return function() {
-          toggleOption(option, div);
-          return false;
-        };
-      }(option, div)));
+
+    function toggle(option, div) {
+      return function() {
+        toggleOption(option, div);
+        return false;
+      };
+    }
+
+    option.toggle = toggle(option, div);
+    $(div).click(option.toggle);
     div.onmousedown = function() { return false; };
     div.onstartselect = function() { return false; };
     optionsContainer.appendChild(div);
@@ -1157,6 +1162,7 @@ tdl.log(name);
 
   var frameCount = 0;
   var eyeClock = 0;
+  var setPretty = true;
   function render() {
     if (g_drawOnce) {
       clearInterval(intervalId);
@@ -1174,6 +1180,13 @@ tdl.log(name);
 
     g_fpsTimer.update(elapsedTime);
     fpsElem.innerHTML = g_fpsTimer.averageFPS;
+
+    // If we are running > 40hz then turn on a few more options.
+    if (setPretty && g_fpsTimer.averageFPS > 40) {
+      setPretty = false;
+      if (!g_options.normalMaps.enabled) { g_options.normalMaps.toggle(); }
+      if (!g_options.reflection.enabled) { g_options.reflection.toggle(); }
+    }
 
     clock += elapsedTime * g.globals.speed;
     eyeClock += elapsedTime * g.globals.eyeSpeed;
@@ -1238,7 +1251,7 @@ tdl.log(name);
 
     // Draw Skybox
     //Log("--Draw Sky---------------------------------------");
-    //if (options.skybox.enabled) {
+    //if (g_options.skybox.enabled) {
     //  gl.depthMask(false);
     //  skybox.drawPrep(skyConst);
     //  skybox.draw(skyPer);
@@ -1343,7 +1356,7 @@ tdl.log(name);
       }
     }
 
-    if (options.refraction.enabled) {
+    if (g_options.tank.enabled) {
     if (g_sceneGroups.inner) {
       Log("--Draw GlobeInner----------------");
       DrawGroup(g_sceneGroups.inner, g.innerConst, innerPer);
@@ -1355,14 +1368,12 @@ tdl.log(name);
       DrawGroup(g_sceneGroups.seaweed, seaweedConst, seaweedPer);
     }
 
-    if (options.museum.enabled) {
+    if (g_options.museum.enabled) {
     if (g_sceneGroups.outside) {
       Log("--Draw outside----------------");
       DrawGroup(g_sceneGroups.outside, outsideConst, outsidePer);
     }
     }
-
-    gl.enable(gl.BLEND);
 
     bubbleTimer -= elapsedTime * g.globals.speed;
     if (bubbleTimer < 0) {
@@ -1379,47 +1390,51 @@ tdl.log(name);
       bubbleIndex = bubbleIndex % g_numBubbleSets;
     }
     fast.matrix4.translation(world, [0, 0, 0]);
-    if (options.bubbles.enabled) {
+    if (g_options.bubbles.enabled) {
       particleSystem.draw(viewProjection, world, viewInverse);
     }
 
+    gl.enable(gl.BLEND);
     gl.disable(gl.CULL_FACE);
-    lightRay.drawPrep(lightRayConst);
-    for (var ii = 0; ii < g_lightRayInfo.length; ++ii) {
-      var info = g_lightRayInfo[ii];
-      var lerp = info.timer / info.duration;
-      var y = Math.max(70, Math.min(120, g_lightRayY + g.globals.eyeHeight));
-      info.timer -= elapsedTime * g.globals.speed;
-      if (info.timer < 0) {
-        initLightRay(info);
+    if (g_options.lightRays.enabled) {
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+      gl.depthMask(false);
+      lightRay.drawPrep(lightRayConst);
+      for (var ii = 0; ii < g_lightRayInfo.length; ++ii) {
+        var info = g_lightRayInfo[ii];
+        var lerp = info.timer / info.duration;
+        var y = Math.max(70, Math.min(120, g_lightRayY + g.globals.eyeHeight));
+        info.timer -= elapsedTime * g.globals.speed;
+        if (info.timer < 0) {
+          initLightRay(info);
+        }
+        fast.matrix4.mul(
+            m4t1,
+            fast.matrix4.rotationZ(m4t0, info.rot + lerp * g_lightRayRotLerp),
+            fast.matrix4.translation(m4t2, [info.x, y, 0])
+        );
+        fast.matrix4.mul(world,
+            fast.matrix4.scaling(m4t0, [10, -100, 10]),
+            m4t1
+        );
+        // compute a view with no rotation
+        fast.matrix4.translation(m4t1, [view[12], view[13], view[14]]);
+        fast.matrix4.mul(m4t0, m4t1, projection);
+        fast.matrix4.mul(worldViewProjection, world, m4t0);
+        lightRayPer.colorMult[3] = Math.sin(lerp * Math.PI);
+        lightRay.draw(lightRayPer);
       }
-      fast.matrix4.mul(
-          m4t1,
-          fast.matrix4.rotationZ(m4t0, info.rot + lerp * g_lightRayRotLerp),
-          fast.matrix4.translation(m4t2, [info.x, y, 0])
-      );
-      fast.matrix4.mul(world,
-          fast.matrix4.scaling(m4t0, [10, -100, 10]),
-          m4t1
-      );
-      // compute a view with no rotation
-      fast.matrix4.translation(m4t1, [view[12], view[13], view[14]]);
-      fast.matrix4.mul(m4t0, m4t1, projection);
-      fast.matrix4.mul(worldViewProjection, world, m4t0);
-      lightRayPer.colorMult[3] = Math.sin(lerp * Math.PI);
-      lightRay.draw(lightRayPer);
     }
 
     gl.depthMask(true);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.blendEquation(gl.FUNC_ADD);
 
-    if (options.refraction.enabled) {
-
-    if (g_sceneGroups.outer) {
-      Log("--Draw GlobeOuter----------------");
-      DrawGroup(g_sceneGroups.outer, g.innerConst, innerPer);
-    }
+    if (g_options.tank.enabled) {
+      if (g_sceneGroups.outer) {
+        Log("--Draw GlobeOuter----------------");
+        DrawGroup(g_sceneGroups.outer, g.innerConst, innerPer);
+      }
     }
 
     //do {
