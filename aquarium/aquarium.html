@@ -1066,7 +1066,8 @@ function initialize() {
   }
 
   var options = {
-    normalMaps: { text: 'Normal Maps' },
+    skybox:         {  text: 'Sky Box' },
+    normalMaps:     {  text: 'Normal Maps' },
     fishReflection: { text: 'Fish Reflection' },
     tankRefraction: { text: 'Tank Refraction' },
     fog:            { text: 'Fog' },
@@ -1220,9 +1221,11 @@ tdl.log(name);
 
     // Draw Skybox
     Log("--Draw Sky---------------------------------------");
-    gl.depthMask(false);
-    skybox.drawPrep(skyConst);
-    skybox.draw(skyPer);
+    if (options.skybox.enabled) {
+      gl.depthMask(false);
+      skybox.drawPrep(skyConst);
+      skybox.draw(skyPer);
+    }
     gl.depthMask(true);
 
     if (g_fog) {
