@@ -446,7 +446,7 @@ function initialize() {
         }
         if (g_fpsTimer.averageFPS > 19) {
           ++g_autoSetting;
-          if (g_autoSetting < g_grassSettings.length)
+          if (g_autoSetting < g_grassSettings.length - 1)
           {
             setCount(g_setCountElements[g_autoSetting],
                      g_grassSettings[g_autoSetting]);
