@@ -48,7 +48,7 @@
 }
 
 #mini .south div { 
-	background: url('../images/colorpicker_images/miniCurr.gif') center center no-repeat; 
+	background: url('../images/miniCurr.gif') center center no-repeat; 
 	position: absolute; 
 	height: 9px; 
 	width: 9px; 

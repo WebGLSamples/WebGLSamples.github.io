@@ -206,8 +206,10 @@ function selectModelIntent(partName)
         break;
     }
 
+/*
     // set the colour picker
-    setColourPickersColour();
+    setColourPickersColour();*/
+
 
     // clear sticker selection
     if (partName != "Sticker") 
