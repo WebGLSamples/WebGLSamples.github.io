@@ -111,9 +111,18 @@ var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;   // draw just one frame.
 var g_setCountElements = [];
 var g_autoSet = true;
+var g_autoSetting = 1;
 
 //g_drawOnce = true;
 //g_debug = true;
+
+var g_grassSettings = [
+  { patchesAcross: 1, },
+  { patchesAcross: 4, },
+  { patchesAcross: 6, },
+  { patchesAcross: 10, },
+  { patchesAcross: 31, },
+];
 
 var g = {
   grassConst: {},
@@ -305,13 +314,6 @@ function setCount(elem, settings) {
  * Sets up the count buttons.
  */
 function setupCountButtons() {
-  var g_grassSettings = [
-    { patchesAcross: 1, },
-    { patchesAcross: 3, },
-    { patchesAcross: 6, },
-    { patchesAcross: 10, },
-		{ patchesAcross: 31, },
-  ];
   for (var ii = 0; ii < g_grassSettings.length; ++ii) {
     var elem = document.getElementById("setCount" + ii);
     if (!elem) {
@@ -443,15 +445,12 @@ function initialize() {
           g_autoSet = false;
         }
         if (g_fpsTimer.averageFPS > 30) {
-          if (g.globals.patchesAcross < 31) {
-            if (g_fpsTimer.averageFPS > 60) {
-              ++g.globals.patchesAcross;
-              ++g.globals.patchesAcross;
-            }
-            if (g_fpsTimer.averageFPS > 45) {
-              ++g.globals.patchesAcross;
-            }
-            ++g.globals.patchesAcross;
+          ++g_autoSetting;
+          if (g_autoSetting < g_grassSettings.length)
+          {
+            setCount(g_setCountElements[g_autoSetting],
+                     g_grassSettings[g_autoSetting]);
+            g_autoSet = true;
             var lerp = Math.min(4, Math.max(0, g.globals.patchesAcross - 3)) / 4;
 						g.dofConst.dof = math.lerpScalar(0.742, 0.79, lerp);
 						g.globals.eyeHeight = math.lerpScalar(2.62, 2.98, lerp);
@@ -459,6 +458,9 @@ function initialize() {
 						g.globals.targetHeight = math.lerpScalar(0.1, 0.91, lerp);
             countAdjustClock = 0;
           }
+        }
+				if (g_autoSetting == g_grassSettings.length) {
+          g_autoSet = false;
         }
       }
     }
