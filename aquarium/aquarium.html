@@ -274,7 +274,7 @@ var g_ui = [
 var g_fishTable = [
   {
     name: 'SmallFishA',
-    num: [0, 3, 36, 76, 500, 1000, 50],
+    num: [0, 3, 36, 76, 206, 500, 1000, 50],
     speed: 1,
     speedRange: 1.5,
     radius: 30,
@@ -290,7 +290,7 @@ var g_fishTable = [
   },
   {
     name: 'MediumFishA',
-    num: [0, 3, 6, 10, 0, 0, 10],
+    num: [0, 3, 6, 10, 20, 0, 0, 10],
     speed: 1,
     speedRange: 2,
     radius: 10,
@@ -306,7 +306,7 @@ var g_fishTable = [
   },
   {
     name: 'MediumFishB',
-    num: [0, 2, 6, 10, 0, 0, 10],
+    num: [0, 2, 6, 10, 20, 0, 0, 10],
     speed: 0.5,
     speedRange: 4,
     radius: 10,
@@ -322,7 +322,7 @@ var g_fishTable = [
   },
   {
     name: 'BigFishA',
-    num: [1, 1, 1, 2, 0, 0, 3],
+    num: [1, 1, 1, 2, 2, 0, 0, 3],
     speed: 0.5,
     speedRange: 0.5,
     radius: 50,
@@ -338,7 +338,7 @@ var g_fishTable = [
   },
   {
     name: 'BigFishB',
-    num: [0, 1, 1, 2, 0, 0, 1],
+    num: [0, 1, 1, 2, 2, 0, 0, 1],
     speed: 0.5,
     speedRange: 0.5,
     radius: 45,
@@ -550,8 +550,10 @@ function getScriptText(id) {
 function createProgramFromTags(
     vertexTagId,
     fragmentTagId, fog,
-    opt_reflection) {
+    opt_reflection,
+    opt_normalMaps) {
   opt_reflection = (opt_reflection === undefined) ? true : opt_reflection;
+  opt_normalMaps = (opt_normalMaps === undefined) ? true : opt_normalMaps;
 
   var fogUniforms = '' +
     'uniform float fogPower;\n' +
@@ -574,7 +576,11 @@ function createProgramFromTags(
     fs = fs.replace(/^.*?\/\/ #reflection\n/gm, "");
   }
 
-  fs = fs.replace(/^.*?\/\/ #noNormalMap\n/gm, "");
+  if (opt_normalMaps) {
+    fs = fs.replace(/^.*?\/\/ #noNormalMap\n/gm, "");
+  } else {
+    fs = fs.replace(/^.*?\/\/ #normalMap\n/gm, "");
+  }
 
   return tdl.programs.loadProgram(
       getScriptText(vertexTagId), fs);
@@ -654,17 +660,28 @@ Scene.prototype.onload_ = function(data, exception) {
         fsId = 'diffuseFragmentShader';
       }
       var program = createProgramFromTags(vsId, fsId, this.fog);
-      var noFogProgram = createProgramFromTags(vsId, fsId, false);
+      var noFog = createProgramFromTags(vsId, fsId, false);
       var noReflection = createProgramFromTags(vsId, fsId, this.fog, false);
       var noFognoReflection = createProgramFromTags(vsId, fsId, false, false);
+      var noNormalMaps = createProgramFromTags(vsId, fsId, this.fog, false);
+      var noFognoNormalMaps =
+          createProgramFromTags(vsId, fsId, false, false);
+      var noReflectionnoNormalMaps =
+          createProgramFromTags(vsId, fsId, this.fog, false, false);
+      var noFognoReflectionnoNormalMaps =
+          createProgramFromTags(vsId, fsId, false, false, false);
 
       tdl.log(this.url, ": ", type);
       var model = new tdl.models.Model(program, arrays, textures);
       model.programs = {
         default: program,
-        noFog: noFogProgram,
+        noFog: noFog,
         noReflection: noReflection,
-        noFognoReflection: noFognoReflection
+        noFognoReflection: noFognoReflection,
+        noNormalMaps: noNormalMaps,
+        noFognoNormalMaps: noFognoNormalMaps,
+        noReflectionnoNormalMaps: noReflectionnoNormalMaps,
+        noFognoReflectionnoNormalMaps: noFognoReflectionnoNormalMaps
       };
       this.models.push(model);
     }
@@ -824,9 +841,9 @@ function setViewSettings(index) {
  */
 function setSetting(elem, id) {
   switch (id) {
-  case 7:
+  case 8:
     break;
-  case 6:
+  case 7:
     setViewSettings(g_viewSettingsIndex);
     g_viewSettingsIndex = (g_viewSettingsIndex + 1) % g_viewSettings.length;
     break;
@@ -856,7 +873,7 @@ function setupCountButtons() {
       }}(elem, ii);
   }
   setSetting(document.getElementById("setSetting2"), 2);
-  setSetting(document.getElementById("setSetting6"), 6);
+  setSetting(document.getElementById("setSetting7"), 7);
 }
 
 /**
@@ -1066,12 +1083,12 @@ function initialize() {
   }
 
   var options = {
-    skybox:         {  text: 'Sky Box' },
-    normalMaps:     {  text: 'Normal Maps' },
-    fishReflection: { text: 'Fish Reflection' },
-    tankRefraction: { text: 'Tank Refraction' },
-    fog:            { text: 'Fog' },
-    bubbles:        { text: 'Bubbles' }
+    normalMaps: { text: 'Normal Maps' },
+    reflection: { text: 'Reflection' },
+    refraction: { text: 'Refraction' },
+    museum:     { text: 'Museum' },
+    fog:        { text: 'Fog' },
+    bubbles:    { text: 'Bubbles' }
   }
 
   function setShaders() {
@@ -1079,7 +1096,7 @@ function initialize() {
     if (!options.fog.enabled) {
       name += 'noFog';
     }
-    if (!options.fishReflection.enabled) {
+    if (!options.reflection.enabled) {
       name += 'noReflection';
     }
     if (!options.normalMaps.enabled) {
@@ -1107,10 +1124,10 @@ tdl.log(name);
     case 'normalMaps':
       setShaders();
       break;
-    case 'fishReflection':
+    case 'reflection':
       setShaders();
       break;
-    case 'tankRefraction':
+    case 'refraction':
       break;
     case 'fog':
       setShaders();
@@ -1172,7 +1189,7 @@ tdl.log(name);
     ambient[2] = g.globals.ambientBlue;
 
     gl.colorMask(true, true, true, true);
-    gl.clearColor(0,0,0,0);
+    gl.clearColor(0,0.8,1,0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
     fast.matrix4.perspective(
@@ -1220,12 +1237,12 @@ tdl.log(name);
     //};
 
     // Draw Skybox
-    Log("--Draw Sky---------------------------------------");
-    if (options.skybox.enabled) {
-      gl.depthMask(false);
-      skybox.drawPrep(skyConst);
-      skybox.draw(skyPer);
-    }
+    //Log("--Draw Sky---------------------------------------");
+    //if (options.skybox.enabled) {
+    //  gl.depthMask(false);
+    //  skybox.drawPrep(skyConst);
+    //  skybox.draw(skyPer);
+    //}
     gl.depthMask(true);
 
     if (g_fog) {
@@ -1326,7 +1343,7 @@ tdl.log(name);
       }
     }
 
-    if (options.tankRefraction.enabled) {
+    if (options.refraction.enabled) {
     if (g_sceneGroups.inner) {
       Log("--Draw GlobeInner----------------");
       DrawGroup(g_sceneGroups.inner, g.innerConst, innerPer);
@@ -1338,7 +1355,7 @@ tdl.log(name);
       DrawGroup(g_sceneGroups.seaweed, seaweedConst, seaweedPer);
     }
 
-    if (options.skybox.enabled) {
+    if (options.museum.enabled) {
     if (g_sceneGroups.outside) {
       Log("--Draw outside----------------");
       DrawGroup(g_sceneGroups.outside, outsideConst, outsidePer);
@@ -1397,7 +1414,7 @@ tdl.log(name);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.blendEquation(gl.FUNC_ADD);
 
-    if (options.tankRefraction.enabled) {
+    if (options.refraction.enabled) {
 
     if (g_sceneGroups.outer) {
       Log("--Draw GlobeOuter----------------");
@@ -1518,8 +1535,9 @@ $(function(){
     uiElem.appendChild(div);
   }
 
-  $('#setSetting7').click(function() {
+  $('#setSetting8').click(function() {
       $("#uiContainer").toggle('slow'); return false; });
+  $("#uiContainer").toggle();
   $('#options').click(function() {
       $("#optionsContainer").toggle(); return false; });
   $("#optionsContainer").toggle();
@@ -1536,10 +1554,11 @@ $(function(){
   <div class="clickable" id="setSetting1">10</div>
   <div class="clickable" id="setSetting2">50</div>
   <div class="clickable" id="setSetting3">100</div>
-  <div class="clickable" id="setSetting4">500</div>
-  <div class="clickable" id="setSetting5">1000</div>
-  <div><span class="clickable" id="setSetting6">Change View</span>
-  <span style="float: right" class="clickable" id="setSetting7">*</span></div>
+  <div class="clickable" id="setSetting4">250</div>
+  <div class="clickable" id="setSetting5">500</div>
+  <div class="clickable" id="setSetting6">1000</div>
+  <div><span class="clickable" id="setSetting7">Change View</span>
+  <span style="float: right" class="clickable" id="setSetting8">*</span></div>
   <div class="clickable" id="options">Options...
   <div id="optionsContainer">
   </div>
@@ -1695,6 +1714,7 @@ void main() {
                              v_binormal,  // #normalMap
                              v_normal);  // #normalMap
   vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);  // #normalMap
+  vec4 normalSpec = vec4(0,0,0,0);  // #noNormalMap
   vec3 tangentNormal = normalSpec.xyz - vec3(0.5, 0.5, 0.5);  // #normalMap
   tangentNormal = normalize(tangentNormal + vec3(0, 0, 2));  // #normalMap
   vec3 normal = (tangentToWorld * tangentNormal);  // #normalMap
@@ -1750,6 +1770,7 @@ void main() {
                              v_binormal,  // #normalMap
                              v_normal);  // #normalMap
   vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);  // #normalMap
+  vec4 normalSpec = vec4(0,0,0,0);  // #noNormalMap
   vec4 reflection = texture2D(reflectionMap, v_texCoord.xy); // #reflection
   vec4 reflection = vec4(0,0,0,0);  // #noReflection
   vec3 tangentNormal = normalSpec.xyz - vec3(0.5, 0.5, 0.5);  // #normalMap
@@ -1934,12 +1955,12 @@ uniform mat4 worldInverseTranspose;
 attribute vec4 position;
 attribute vec3 normal;
 attribute vec2 texCoord;
-attribute vec3 tangent;
-attribute vec3 binormal;
+attribute vec3 tangent;  // #normalMap
+attribute vec3 binormal;  // #normalMap
 varying vec4 v_position;
 varying vec2 v_texCoord;
-varying vec3 v_tangent;
-varying vec3 v_binormal;
+varying vec3 v_tangent;  // #normalMap
+varying vec3 v_binormal;  // #normalMap
 varying vec3 v_normal;
 varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
@@ -1949,8 +1970,8 @@ void main() {
   v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
   v_surfaceToLight = lightWorldPos - (world * position).xyz;
   v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
-  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;
-  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;
+  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;  // #normalMap
+  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;  // #normalMap
   gl_Position = v_position;
 }
 
@@ -1962,8 +1983,8 @@ precision highp float;
 uniform vec4 lightColor;
 varying vec4 v_position;
 varying vec2 v_texCoord;
-varying vec3 v_tangent;
-varying vec3 v_binormal;
+varying vec3 v_tangent;  // #normalMap
+varying vec3 v_binormal;  // #normalMap
 varying vec3 v_normal;
 varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
@@ -1971,7 +1992,7 @@ varying vec3 v_surfaceToView;
 uniform vec4 ambient;
 uniform sampler2D diffuse;
 uniform vec4 specular;
-uniform sampler2D normalMap;
+uniform sampler2D normalMap;  // #normalMap
 uniform float shininess;
 uniform float specularFactor;
 // #fogUniforms
@@ -1984,14 +2005,16 @@ vec4 lit(float l ,float h, float m) {
 }
 void main() {
   vec4 diffuseColor = texture2D(diffuse, v_texCoord);
-  mat3 tangentToWorld = mat3(v_tangent,
-                             v_binormal,
-                             v_normal);
-  vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);
-  vec3 tangentNormal = normalSpec.xyz -
-                                 vec3(0.5, 0.5, 0.5);
-  vec3 normal = (tangentToWorld * tangentNormal);
-  normal = normalize(normal);
+  mat3 tangentToWorld = mat3(v_tangent,  // #normalMap
+                             v_binormal,  // #normalMap
+                             v_normal);  // #normalMap
+  vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);  // #normalMap
+  vec4 normalSpec = vec4(0,0,0,0);  // #noNormalMap
+  vec3 tangentNormal = normalSpec.xyz -  // #normalMap
+                                 vec3(0.5, 0.5, 0.5);  // #normalMap
+  vec3 normal = (tangentToWorld * tangentNormal);  // #normalMap
+  normal = normalize(normal);  // #normalMap
+  vec3 normal = normalize(v_normal);   // #noNormalMap
   vec3 surfaceToLight = normalize(v_surfaceToLight);
   vec3 surfaceToView = normalize(v_surfaceToView);
   vec3 halfVector = normalize(surfaceToLight + surfaceToView);
@@ -2105,8 +2128,8 @@ attribute vec3 tangent;
 attribute vec3 binormal;
 varying vec4 v_position;
 varying vec2 v_texCoord;
-varying vec3 v_tangent;
-varying vec3 v_binormal;
+varying vec3 v_tangent;  // #normalMap
+varying vec3 v_binormal;  // #normalMap
 varying vec3 v_normal;
 varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
@@ -2116,8 +2139,8 @@ void main() {
   v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
   v_surfaceToLight = lightWorldPos - (world * position).xyz;
   v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
-  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;
-  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;
+  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;  // #normalMap
+  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;  // #normalMap
   gl_Position = v_position;
 }
 
@@ -2129,15 +2152,15 @@ precision highp float;
 uniform vec4 lightColor;
 varying vec4 v_position;
 varying vec2 v_texCoord;
-varying vec3 v_tangent;
-varying vec3 v_binormal;
+varying vec3 v_tangent;  // #normalMap
+varying vec3 v_binormal;  // #normalMap
 varying vec3 v_normal;
 varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
 
 uniform sampler2D diffuse;
 uniform vec4 specular;
-uniform sampler2D normalMap;
+uniform sampler2D normalMap;  // #normalMap
 uniform sampler2D reflectionMap;
 uniform samplerCube skybox;
 uniform float shininess;
@@ -2156,15 +2179,17 @@ vec4 lit(float l ,float h, float m) {
 void main() {
   vec4 diffuseColor = texture2D(diffuse, v_texCoord) +
       vec4(tankColorFudge, tankColorFudge, tankColorFudge, 1);
-  mat3 tangentToWorld = mat3(v_tangent,
-                             v_binormal,
-                             v_normal);
-  vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);
+  mat3 tangentToWorld = mat3(v_tangent,  // #normalMap
+                             v_binormal,  // #normalMap
+                             v_normal);  // #normalMap
+  vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);  // #normalMap
+  vec4 normalSpec = vec4(0,0,0,0);  // #noNormalMap
   vec4 refraction = texture2D(reflectionMap, v_texCoord.xy);
-  vec3 tangentNormal = normalSpec.xyz - vec3(0.5, 0.5, 0.5);
-  tangentNormal = normalize(tangentNormal + vec3(0,0,refractionFudge));
-  vec3 normal = (tangentToWorld * tangentNormal);
-  normal = normalize(normal);
+  vec3 tangentNormal = normalSpec.xyz - vec3(0.5, 0.5, 0.5);  // #normalMap
+  tangentNormal = normalize(tangentNormal + vec3(0,0,refractionFudge));  // #normalMap
+  vec3 normal = (tangentToWorld * tangentNormal);  // #normalMap
+  normal = normalize(normal);  // #normalMap
+  vec3 normal = normalize(v_normal);   // #noNormalMap
 
   vec3 surfaceToLight = normalize(v_surfaceToLight);
   vec3 surfaceToView = normalize(v_surfaceToView);
@@ -2199,8 +2224,8 @@ attribute vec3 tangent;
 attribute vec3 binormal;
 varying vec4 v_position;
 varying vec2 v_texCoord;
-varying vec3 v_tangent;
-varying vec3 v_binormal;
+varying vec3 v_tangent;  // #normalMap
+varying vec3 v_binormal;  // #normalMap
 varying vec3 v_normal;
 varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
@@ -2210,8 +2235,8 @@ void main() {
   v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
   v_surfaceToLight = lightWorldPos - (world * position).xyz;
   v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
-  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;
-  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;
+  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;  // #normalMap
+  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;  // #normalMap
   gl_Position = v_position;
 }
 
@@ -2223,15 +2248,15 @@ precision highp float;
 uniform vec4 lightColor;
 varying vec4 v_position;
 varying vec2 v_texCoord;
-varying vec3 v_tangent;
-varying vec3 v_binormal;
+varying vec3 v_tangent;  // #normalMap
+varying vec3 v_binormal;  // #normalMap
 varying vec3 v_normal;
 varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
 
 uniform sampler2D diffuse;
 uniform vec4 specular;
-uniform sampler2D normalMap;
+uniform sampler2D normalMap;  // #normalMap
 uniform sampler2D reflectionMap;
 uniform samplerCube skybox;
 uniform float shininess;
@@ -2245,15 +2270,17 @@ vec4 lit(float l ,float h, float m) {
 }
 void main() {
   vec4 diffuseColor = texture2D(diffuse, v_texCoord);
-  mat3 tangentToWorld = mat3(v_tangent,
-                             v_binormal,
-                             v_normal);
-  vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);
+  mat3 tangentToWorld = mat3(v_tangent,  // #normalMap
+                             v_binormal,  // #normalMap
+                             v_normal);  // #normalMap
+  vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);  // #normalMap
+  vec4 normalSpec = vec4(0,0,0,0);  // #noNormalMap
   vec4 reflection = texture2D(reflectionMap, v_texCoord.xy);
-  vec3 tangentNormal = normalSpec.xyz - vec3(0.5, 0.5, 0.5);
+  vec3 tangentNormal = normalSpec.xyz - vec3(0.5, 0.5, 0.5);  // #normalMap
 //  tangentNormal = normalize(tangentNormal + vec3(0,0,refractionFudge));
-  vec3 normal = (tangentToWorld * tangentNormal);
-  normal = normalize(normal);
+  vec3 normal = (tangentToWorld * tangentNormal);  // #normalMap
+  normal = normalize(normal);  // #normalMap
+  vec3 normal = normalize(v_normal);   // #noNormalMap
 
   vec3 surfaceToLight = normalize(v_surfaceToLight);
   vec3 surfaceToView = normalize(v_surfaceToView);
