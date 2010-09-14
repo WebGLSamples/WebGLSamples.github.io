@@ -1,0 +1,73 @@
+/* PLUGIN */
+
+#mini { 
+	color: #000; 
+	cursor: move; 
+	font-size: 11px; 
+	position: absolute; 
+	margin-top:10px;
+	padding-bottom: 8px; 
+	width: 148px; 
+	height: 155px; 
+	z-index: 100; 
+}
+
+#mini div { margin: 0; padding: 0; }
+
+#mini .north { 
+	color: #999;
+	padding:0px; 
+	width:128px;
+	height:18px;
+	border-top-right-radius: 6px 6px;
+	border-top-left-radius: 6px 6px;
+	margin:0px auto;
+	border:1px solid rgb(40,214,233);
+	border-bottom:0px;
+	background-color:#fff;
+	cursor: pointer; 
+	-moz-user-select: none; 
+	-khtml-user-select: none; 
+	user-select: none; 
+}
+
+#mini .north div:hover { color: #DE83AD; }
+
+#mini .south { 
+	margin: 0px auto;
+	padding:0px;
+	border:1px solid rgb(40,214,233);
+	border-top:0px;
+	cursor: crosshair; 
+	-moz-user-select: none; 
+	-khtml-user-select: none; 
+	user-select: none; 
+	border-bottom-right-radius: 6px 6px;
+	border-bottom-left-radius: 6px 6px;
+	
+}
+
+#mini .south div { 
+	background: url('../images/colorpicker_images/miniCurr.gif') center center no-repeat; 
+	position: absolute; 
+	height: 9px; 
+	width: 9px; 
+	z-index: 101;
+}
+
+#mini .south img { 
+	height: 100%; 
+	width: 100%; 
+	position: relative; 
+	border-bottom-right-radius: 6px 6px;
+	border-bottom-left-radius: 6px 6px;
+}
+
+#mini #mHEX:before {
+/*
+	content: "#";
+*/
+}
+#mini #mHEX { padding: 4px; cursor: text; }
+#mini #mHEX:hover { color: #DE83AD }
+#mini #mSize { float: right; top: -14px; left: 7px; height: 14px; width: 14px; cursor: se-resize }

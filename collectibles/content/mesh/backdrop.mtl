@@ -1,0 +1,14 @@
+newmtl checkerPat
+illum 4
+Kd 0.00 0.00 0.00
+Ka 0.00 0.00 0.00
+Tf 1.00 1.00 1.00
+
+map_Kd  whiteTex.png
+map_Kd2 whiteTex.png
+map_Ks  whiteTex.png
+map_Ks2 whiteTex.png
+
+pickable false
+
+Ni 1.00

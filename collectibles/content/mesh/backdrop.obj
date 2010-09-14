@@ -1,0 +1,22 @@
+# This file uses centimeters as units for non-parametric coordinates.
+
+mtllib backdrop.mtl
+g default
+
+v -25.0  25.0	-3.0  
+v  25.0  25.0	-3.0  
+v  25.0  -25.0	-3.0  
+v  -25.0 -25.0	-3.0  
+
+vt 0.0 0.0
+vt 0.0 1.0
+vt 1.0 1.0
+vt 1.0 0.0
+
+vn 0.0 0.0 1.0
+
+s 1
+g Mesh
+usemtl checkerPat
+f 1/2/1 4/1/1 2/3/1 
+f 2/3/1 4/0/1 3/4/1  

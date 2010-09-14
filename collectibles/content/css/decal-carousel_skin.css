@@ -1,0 +1,118 @@
+.jcarousel-skin-decals .jcarousel-container {
+    -webkit-border-radius: 10px;
+    background: rgba(255,255,255,.15);
+		padding:0px;
+}
+
+.jcarousel-skin-decals .jcarousel-direction-rtl {
+	direction: rtl;
+}
+
+.jcarousel-skin-decals .jcarousel-container-horizontal {
+    width:375px;
+		height:120px;
+		padding:10px;
+}
+
+.jcarousel-skin-decals .jcarousel-container-vertical {
+
+}
+
+.jcarousel-skin-decals .jcarousel-clip {
+
+}
+
+
+.jcarousel-skin-decals .jcarousel-list-horizontal {
+	height:180px;
+}
+
+.jcarousel-skin-decals .jcarousel-clip ul li{
+	height:180px;
+	width:65px;
+	padding:10px 12px;
+}
+
+.jcarousel-skin-decals .jcarousel-clip-vertical {
+
+}
+
+.jcarousel-skin-decals .jcarousel-item {
+
+}
+
+.jcarousel-skin-decals .jcarousel-item-horizontal {
+	margin-left: 0;
+}
+
+.jcarousel-skin-decals .jcarousel-direction-rtl .jcarousel-item-horizontal {
+	margin-left: 10px;
+  margin-right: 0;
+
+}
+
+.jcarousel-skin-decals .jcarousel-item-vertical {
+}
+
+.jcarousel-skin-decals .jcarousel-item-placeholder {
+
+}
+
+
+/**
+ *  horizontal Buttons
+ */
+.jcarousel-skin-decals .jcarousel-next-horizontal, .jcarousel-skin-decals .jcarousel-prev-horizontal {
+    position: absolute;
+    top: 50px;
+    left: -15px;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+		border:2px solid rgba(255,255,255,.5);
+		
+		-webkit-border-radius: 15px;
+		-webkit-box-shadow: rgba(0,0,0,0.25) 5px 5px 5px;
+    background:rgba(0,0,0,.25) url('../images/arrow.png') center center no-repeat;
+		background-size:50%;
+}
+
+.jcarousel-skin-decals .jcarousel-next-horizontal:hover, .jcarousel-skin-decals .jcarousel-prev-horizontal:hover {
+    background-color:rgba(255,255,255,.25);
+		-webkit-box-shadow: rgba(0,0,0,0.25) 5px 5px 5px, rgba(0,0,0,0.25) 2px 2px 2px inset;
+}
+
+.jcarousel-skin-decals .jcarousel-next-horizontal:active {
+	-webkit-box-shadow: rgba(0,0,0,0.25) 2px 2px 5px, rgba(0,0,0,0.25) 3px 3px 5px inset;
+}
+
+.jcarousel-skin-decals .jcarousel-next-disabled-horizontal,
+.jcarousel-skin-decals .jcarousel-next-disabled-horizontal:hover,
+.jcarousel-skin-decals .jcarousel-next-disabled-horizontal:active {
+    cursor: default;
+		-webkit-box-shadow: none;
+		background-color:rgba(255,255,255,.1);
+}
+
+.jcarousel-skin-decals .jcarousel-prev-horizontal {
+    position: absolute;
+    left:390px;
+		-webkit-transform:rotate(180deg);
+
+}
+
+.jcarousel-skin-decals .jcarousel-prev-horizontal:hover {
+
+}
+
+.jcarousel-skin-decals .jcarousel-prev-horizontal:active {
+	-webkit-box-shadow: rgba(0,0,0,0.25) 2px 2px 5px, rgba(0,0,0,0.25) 3px 3px 5px inset;
+}
+
+.jcarousel-skin-decals .jcarousel-prev-disabled-horizontal,
+.jcarousel-skin-decals .jcarousel-prev-disabled-horizontal:hover,
+.jcarousel-skin-decals .jcarousel-prev-disabled-horizontal:active {
+  cursor: default;
+	-webkit-box-shadow: none;
+	background-color:rgba(255,255,255,.1);
+}

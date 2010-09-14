@@ -1,0 +1,202 @@
+/**********************************************************************************************************************************
+ BROWSER RESET STYLES
+ Used for browser normalization
+ **********************************************************************************************************************************/
+
+/* section 1: Reset all browser specific styles */
+
+html {
+    color: #000;
+    background: #999;
+		background-image:url('../images/CustomFigure_bg.jpg');
+		background-repeat:no-repeat;
+		background-position:center top;
+
+/*		background-size:130%;*/
+}
+
+body, div, dl, dt, dd, ul, ol, li, h1, h2, h3, h4, h5, h6, pre, code, form, fieldset, legend, input, textarea, p, blockquote, th, td {
+    margin: 0;
+    padding: 0;
+}
+
+table {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+fieldset, img {
+    border: 0;
+}
+
+address, caption, cite, code, dfn, em, strong, th, var {
+    font-style: normal;
+    font-weight: normal;
+}
+
+li {
+    list-style: none;
+}
+
+caption, th {
+    text-align: left;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-size: 100%;
+    font-weight: normal;
+}
+
+q:before, q:after {
+    content: '';
+}
+
+abbr, acronym {
+    border: 0;
+    font-variant: normal;
+}
+
+/* to preserve line-height and selector appearance */
+sup {
+    vertical-align: text-top;
+}
+
+sub {
+    vertical-align: text-bottom;
+}
+
+input, textarea, select {
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+}
+
+/*to enable resizing for IE*/
+input, textarea, select { *font-size:
+    100%;
+}
+
+/*because legend doesn't inherit in IE */
+legend {
+    color: #000;
+}
+
+
+/* section 2: Give back uniform presentation to browser specific styles reset in section 1 */
+
+a, a:link {
+    color: #3366CC;
+}
+
+a:visited {
+    color: #3366CC;
+}
+
+a:hover, a:active {
+    color: #000000;
+}
+
+abbr, acronym {
+    /*indicating to users that more info is available */
+    border-bottom: 1px dotted #000;
+    cursor: help;
+}
+
+blockquote, ul, ol, dl {
+    /*giving blockquotes and lists room to breath*/
+    margin: 1em;
+}
+
+caption {
+    /*coordinated margin to match cell's padding*/
+    margin-bottom: .5em;
+    /*centered so it doesn't blend in to other content*/
+    text-align: center;
+}
+
+em {
+    /*bringing italics back to the em element*/
+    font-style: italic;
+}
+
+h1 {
+    /*18px */
+    font-size: 138.5%;
+}
+
+h2 {
+    /*16px */
+    font-size: 123.1%;
+}
+
+h3 {
+    /*14px */
+    font-size: 108%;
+}
+
+
+h1, h2, h3 {
+    /* top & bottom margin based on font size */
+    margin: 1em 0;
+}
+
+h1, h2, h3, h4, h5, h6, strong {
+    /*bringing boldness back to headers and the strong element*/
+    font-weight: bold;
+}
+
+ol, ul, dl {
+    /*bringing lists on to the page with breathing room */
+    margin-left: 2em;
+}
+
+ol li {
+    /*giving OL's LIs generated numbers*/
+    list-style: decimal outside;
+}
+
+ul li {
+    /*giving UL's LIs generated disc markers*/
+    list-style: none;
+}
+
+dl dd {
+    /*providing spacing for definition terms*/
+    margin-left: 1em;
+}
+
+th, td {
+    /* padding to make the table readable*/
+    padding: .5em;
+}
+
+th {
+    /*distinguishing table headers from data cells*/
+    font-weight: bold;
+    text-align: center;
+}
+ p {
+ 	display : block;
+	margin-top: 1em;
+	margin-bottom: 1em;	
+ }
+
+
+/* setting a consistent width, 160px;
+ control of type=file still not possible */
+input[type = text], input[type = password], textarea {
+    width: 12.25em;
+    *width: 11.9em;
+}
+
+
+.clearfix:after {
+    content: ".";
+    display: block;
+    height: 0;
+    font-size: 0;
+    clear: both;
+    visibility: hidden;
+}
+
+.clearfix {display: inline-block;}
