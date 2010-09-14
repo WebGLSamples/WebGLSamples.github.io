@@ -48,7 +48,6 @@ function FlowerEffect() {
 
   var m4 = tdl.fast.matrix4
 
-  m4.perspective(proj, tdl.math.degToRad(60), aspect, 0.1, 500);
   m4.lookAt(view, eyePosition, target, up);
 
   // Returns RGBA quad as array.
@@ -71,12 +70,13 @@ function FlowerEffect() {
   }
 
   this.render = function(framebuffer, time, postproc) {
+    m4.perspective(proj, tdl.math.degToRad(60), aspect, 0.1, 500);
     m4.rotationY(world, time*0.2)
     m4.mul(viewproj, view, proj)
     m4.mul(worldviewproj, world, viewproj)
 
     if (postproc != 0) post.begin()
-    
+
     gl.clearColor(0.1, 0.2, 0.3, 1)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     gl.disable(gl.CULL_FACE);
@@ -95,7 +95,7 @@ function FlowerEffect() {
     model.drawPrep(uniformsConst)
     model.draw(uniformsPer)
     gl.disable(gl.BLEND);
-    
+
     switch (postproc) {
       case 1:
         post.end(framebuffer, post.hypnoGlow, {x: 3, y: 3, sub: 0.2});
