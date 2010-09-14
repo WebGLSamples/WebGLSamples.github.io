@@ -1,0 +1,61 @@
+/*###############################################################
+ BROWSER FONT NORMALIZATION STYLES :
+ 
+ Used for fonts normalization across browsers. Sets base font to 11 px.
+ Refer to the mapping below to convert pixel sizes to corresponding em or percentages or pt
+ 
+6px		0.545em	54.5%	5pt
+7px		0.636em	63.6%	5pt
+8px		0.727em	72.7%	6pt
+9px		0.818em	81.8%	7pt
+10px	0.909em	90.9%	8pt
+11px	1em		100%	8pt
+12px	1.091em	109.1%	9pt
+13px	1.182em	118.2%	10pt
+14px	1.273em	127.3%	11pt
+15px	1.364em	136.4%	11pt
+16px	1.455em	145.5%	12pt
+17px	1.545em	154.5%	13pt
+18px	1.636em	163.6%	14pt
+19px	1.727em	172.7%	14pt
+20px	1.818em	181.8%	15pt
+21px	1.909em	190.9%	16pt
+22px	2em		200%	17pt
+23px	2.091em	209.1%	17pt
+24px	2.182em	218.2%	18pt
+
+	* missing mappings in this table can be created using http://pxtoem.com
+############################################################### */
+
+/*
+ * Percents could work for IE, but for backCompat purposes, we are using keywords.
+ * x-small is for IE6/7 quirks mode.  */
+
+body {
+    font: 11px verdana, arial, helvetica, sans-serif;
+    *font-size:x-small; /* for IE */ * font:xx-small; /* for IE in quirks mode */
+}
+
+/**
+ * Nudge down to get to 11px equivalent for these form elements
+ */
+select, input, button, textarea {
+    font: 99% arial, helvetica, clean, sans-serif;
+}
+
+/**
+ * To help tables remember to inherit
+ */
+table {
+    font-size: inherit;
+    font: 100%;
+}
+
+/**
+ * Bump up IE to get to 11px equivalent for these fixed-width elements
+ */
+pre, code, kbd, samp, tt {
+    font-family: monospace;
+    *font-size: 108%;
+    line-height: 100%;
+}

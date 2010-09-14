@@ -1,0 +1,16 @@
+newmtl BaseBody
+illum 4
+Kd 0.90 0.90 0.90
+Ka 0.60 0.60 0.60
+Ks 0.45882 0.38431 0.30588
+map_set1 defaultBody
+map_set2 defaultLeg
+Ni 1.00
+newmtl BaseHead
+illum 4
+Kd 0.90 0.90 0.90
+Ka 0.60 0.60 0.60
+Ks 0.45882 0.38431 0.30588
+map_set1 defaultHead
+map_set2 defaultHair
+Ni 1.00

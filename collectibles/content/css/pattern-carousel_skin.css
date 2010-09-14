@@ -1,0 +1,122 @@
+	.jcarousel-skin-patterns .jcarousel-container {
+    -webkit-border-radius: 10px;
+	background: url('../images/jcarouselBG.png') no-repeat;
+		border:2px solid rgb(0,0,0);
+}
+
+.jcarousel-skin-patterns .jcarousel-direction-rtl {
+	direction: rtl;
+}
+
+.jcarousel-skin-patterns .jcarousel-container-horizontal {
+
+}
+
+.jcarousel-skin-patterns .jcarousel-container-vertical {
+    width: 90px;
+	height: 438px;
+    padding:15px;
+}
+
+.jcarousel-skin-patterns .jcarousel-clip {
+	padding-top:5px;
+}
+.jcarousel-clip {
+	padding-top:10px;
+	top: 10px;
+}
+
+.jcarousel-skin-patterns .jcarousel-clip ul li{
+	
+}
+
+.jcarousel-skin-patterns  {
+    width:  125px;
+    height: 430px;
+}
+.jcarousel-clip-vertical {
+    width:  125px;
+    height: 410px;
+}
+
+.jcarousel-skin-patterns .jcarousel-item {
+
+}
+
+.jcarousel-skin-patterns .jcarousel-item-horizontal {
+	margin-left: 0;
+}
+
+.jcarousel-skin-patterns .jcarousel-direction-rtl .jcarousel-item-horizontal {
+	margin-left: 10px;
+  margin-right: 0;
+}
+
+.jcarousel-skin-patterns .jcarousel-item-vertical {
+    margin-bottom: 20px;
+}
+.jcarousel-skin-patterns {
+    margin-top: 20px;
+}
+
+.jcarousel-skin-patterns .jcarousel-item-placeholder {
+    background: #fff;
+    color: #000;
+}
+
+
+/**
+ *  Vertical Buttons
+ */
+.jcarousel-skin-patterns .jcarousel-next-vertical, .jcarousel-skin-patterns .jcarousel-prev-vertical {
+    position: absolute;
+    bottom: 5px;
+    left: 28px;
+    width: 36px;
+    height: 12px;
+	padding:5px 15px;
+    cursor: pointer;
+		-webkit-border-radius: 12px;
+		-webkit-box-shadow: rgba(0,0,0,0.25) 5px 5px 5px;
+    background:rgba(0,255,255,.50) url('../images/tools.png') -52px -283px no-repeat;
+}
+
+.jcarousel-skin-patterns .jcarousel-next-vertical:hover, .jcarousel-skin-patterns .jcarousel-prev-vertical:hover {
+    background-color:rgba(0,255,255,1);
+		//-webkit-box-shadow: rgba(0,0,0,0.25) 5px 5px 5px, rgba(0,0,0,0.25) 2px 2px 2px inset;
+}
+
+.jcarousel-skin-patterns .jcarousel-next-vertical:active {
+	-webkit-box-shadow: rgba(0,0,0,0.25) 2px 2px 5px, rgba(0,0,0,0.25) 3px 3px 5px inset;
+}
+
+.jcarousel-skin-patterns .jcarousel-next-disabled-vertical,
+.jcarousel-skin-patterns .jcarousel-next-disabled-vertical:hover,
+.jcarousel-skin-patterns .jcarousel-next-disabled-vertical:active {
+    cursor: default;
+		-webkit-box-shadow: none;
+		background-color:rgba(255,255,255,.1);
+}
+
+.jcarousel-skin-patterns .jcarousel-prev-vertical {
+    position: absolute;
+    top: 5px;
+		background-position:4px -283px;
+
+}
+
+.jcarousel-skin-patterns .jcarousel-prev-vertical:hover {
+
+}
+
+.jcarousel-skin-patterns .jcarousel-prev-vertical:active {
+	-webkit-box-shadow: rgba(0,0,0,0.25) 2px 2px 5px, rgba(0,0,0,0.25) 3px 3px 5px inset;
+}
+
+.jcarousel-skin-patterns .jcarousel-prev-disabled-vertical,
+.jcarousel-skin-patterns .jcarousel-prev-disabled-vertical:hover,
+.jcarousel-skin-patterns .jcarousel-prev-disabled-vertical:active {
+  cursor: default;
+	-webkit-box-shadow: none;
+	background-color:rgba(255,255,255,.1);
+}
