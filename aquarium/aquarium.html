@@ -133,7 +133,9 @@ var g_sharkXClock      = 1;
 var g_sharkYClock      = 0.17;
 var g_sharkZClock      = 1;
 var g_numBubbleSets    = 10;
+var g_drawLasers = false;
 var g_bubbleSets = [];
+var g_fishData = [];
 var g_numLightRays = 5;
 var g_lightRayY = 50;
 var g_lightRayDurationMin = 1;
@@ -340,6 +342,10 @@ var g_fishTable = [
     tailSpeed: 1.5,
     heightOffset: 0,
     heightRange: 16,
+    lasers: true,
+    laserRot: 0.05,
+    laserOff: [0, 0.1, 9],
+    laserScale: [0.3, 0.3, 1000],
     constUniforms: {
       fishLength: 10,
       fishWaveLength: -1,
@@ -356,6 +362,10 @@ var g_fishTable = [
     tailSpeed: 1,
     heightOffset: 0,
     heightRange: 16,
+    lasers: true,
+    laserRot: 0.05,
+    laserOff: [0, 0.1, 9],
+    laserScale: [0.3, 0.3, 1000],
     constUniforms: {
       fishLength: 10,
       fishWaveLength: -0.7,
@@ -693,6 +703,7 @@ Scene.prototype.onload_ = function(data, exception) {
         noReflectionnoNormalMaps: noReflectionnoNormalMaps,
         noFognoReflectionnoNormalMaps: noFognoReflectionnoNormalMaps
       };
+      model.extents = arrays.position.computeExtents();
       this.models.push(model);
     }
     setShaders();
@@ -773,6 +784,32 @@ function initLightRay(info) {
   var r = Math.random();
   info.rot = r * g_lightRayRotRange;
   info.x = (r - 0.5) * g_lightRayPosRange;
+}
+
+/**
+ * Setup Laser
+ */
+function setupLaser() {
+  var textures = {
+      colorMap: tdl.textures.loadTexture('static_assets/beam.png')};
+  var program = createProgramFromTags(
+      'laserVertexShader',
+      'laserFragmentShader');
+  var beam1Arrays = tdl.primitives.createPlane(1, 1, 1, 1);
+  delete beam1Arrays.normal;
+  tdl.primitives.reorient(beam1Arrays,
+        math.matrix4.translation([0, 0, 0.5]));
+  var beam2Arrays = tdl.primitives.clone(beam1Arrays);
+  var beam3Arrays = tdl.primitives.clone(beam1Arrays);
+  tdl.primitives.reorient(beam2Arrays,
+        math.matrix4.rotationZ(math.degToRad(120)));
+  tdl.primitives.reorient(beam3Arrays,
+        math.matrix4.rotationZ(math.degToRad(-120)));
+  var arrays = tdl.primitives.concat([
+      beam1Arrays,
+      beam2Arrays,
+      beam3Arrays]);
+  return new tdl.models.Model(program, arrays, textures);
 }
 
 function setupLightRay() {
@@ -940,6 +977,12 @@ function initialize() {
   Log("--Setup Skybox---------------------------------------");
   var skybox = setupSkybox();
   loadScenes();
+  Log("--Setup Laser----------------------------------------");
+  var laser = setupLaser();
+
+  for (var ff = 0; ff < g_fishTable.length; ++ff) {
+    g_fishTable[ff].fishData = [];
+  }
 
   var particleSystem = new tdl.particles.ParticleSystem(
       gl, null, math.pseudoRandom);
@@ -1044,6 +1087,11 @@ function initialize() {
     viewProjection: viewProjection,
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose};
+
+  // Laser uniforms
+  var laserConst = {};
+  var laserPer = {
+    worldViewProjection: worldViewProjection};
 
   // Inner uniforms.
   g.innerConst.viewInverse = viewInverse;
@@ -1352,6 +1400,21 @@ function initialize() {
           fishPer.time =
               (clock + ii * g_tailOffsetMult) * fishTailSpeed * speed;
           fish.draw(fishPer);
+
+          if (g_drawLasers && fishInfo.lasers) {
+            fishInfo.fishData[ii] = {
+              position: [
+                  fishPosition[0],
+                  fishPosition[1],
+                  fishPosition[2]],
+              target: [
+                  fishNextPosition[0],
+                  fishNextPosition[1],
+                  fishNextPosition[2]],
+              scale: scale,
+              time: fishPer.time
+            };
+          }
         }
       }
     }
@@ -1367,6 +1430,57 @@ function initialize() {
       Log("--Draw Seaweed----------------");
       DrawGroup(g_sceneGroups.seaweed, seaweedConst, seaweedPer);
     }
+
+    // Draw Laser
+    if (g_drawLasers) {
+      Log("--Draw Laser---------------------------------------");
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.disable(gl.CULL_FACE);
+      gl.depthMask(false);
+
+      laser.drawPrep(laserConst);
+      var c = 0.5 + (frameCount % 2) + 0.5;
+      laserConst.colorMult = [c * 1, c * 0.1, c * 0.1, c];
+      for (var ff = 0; ff < g_fishTable.length; ++ff) {
+        var fishInfo = g_fishTable[ff];
+        var numFish = fishInfo.num[g_fishSetting];
+        var fishName = fishInfo.name;
+        var scene = g_scenes[fishName];
+        if (scene && scene.loaded && !scene.bad) {
+          for (var ii = 0; ii < numFish; ++ii) {
+            if (fishInfo.lasers) {
+              var data = fishInfo.fishData[ii];
+              var time = data.time;
+              var scale = data.scale;
+              fast.matrix4.mul(world,
+                matScaling(m4t1, [scale, scale, scale]),
+                matCameraLookAt(m4t2, data.position, data.target, [0, 1, 0]));
+              fast.matrix4.mul(
+                  m4t1,
+                  fast.matrix4.scaling(m4t0, fishInfo.laserScale),
+                      fast.matrix4.mul(
+                          m4t2,
+                          fast.matrix4.rotationY(
+                            m4t3, -Math.sin(time) * fishInfo.laserRot),
+                          fast.matrix4.translation(m4t1, fishInfo.laserOff)));
+              fast.matrix4.mul(
+                  world,
+                  m4t1,
+                  world);
+              fast.matrix4.mul(worldViewProjection, world, viewProjection);
+              laser.draw(laserPer);
+            }
+          }
+        }
+      }
+
+      gl.disable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.enable(gl.CULL_FACE);
+      gl.depthMask(true);
+    }
+
 
     if (g_options.museum.enabled) {
     if (g_sceneGroups.outside) {
@@ -1556,7 +1670,11 @@ $(function(){
   $('#options').click(function() {
       $("#optionsContainer").toggle(); return false; });
   $("#optionsContainer").toggle();
-
+  $(document).keypress(function(event) {
+    if (event.keyCode == 'l'.charCodeAt(0)) {
+      g_drawLasers = !g_drawLasers;
+    }
+  });
   initialize();
 });
 </script>
@@ -1623,6 +1741,29 @@ void main() {
 }
 </script>
 <script id="texFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+
+varying vec2 v_texCoord;
+uniform vec4 colorMult;
+uniform sampler2D colorMap;
+void main() {
+  gl_FragColor = texture2D(colorMap, v_texCoord) * colorMult;
+}
+</script>
+<!-- ===[ Laser Shader ]=========================================== -->
+<script id="laserVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+attribute vec2 texCoord;
+varying vec2 v_texCoord;
+uniform mat4 worldViewProjection;
+void main() {
+  v_texCoord = texCoord;
+  gl_Position = (worldViewProjection * position);
+}
+</script>
+<script id="laserFragmentShader" type="text/something-not-javascript">
 #ifdef GL_ES
 precision highp float;
 #endif
