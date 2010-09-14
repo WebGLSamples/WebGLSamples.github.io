@@ -684,7 +684,7 @@ Scene.prototype.onload_ = function(data, exception) {
       tdl.log(this.url, ": ", type);
       var model = new tdl.models.Model(program, arrays, textures);
       model.programs = {
-        default: program,
+        base: program,
         noFog: noFog,
         noReflection: noReflection,
         noFognoReflection: noFognoReflection,
@@ -711,7 +711,7 @@ function setShaders() {
     name += 'noNormalMaps';
   }
   if (name == '') {
-    name = 'default';
+    name = 'base';
   }
   for (var sceneName in g_scenes) {
     var scene = g_scenes[sceneName];
@@ -755,7 +755,7 @@ function loadPlacement() {
         var scene = g_scenes[object.name];
         var info = g_sceneInfoByName[object.name];
 //tdl.log(object.name);
-        var groupName = info.group || 'default';
+        var groupName = info.group || 'base';
         if (!g_sceneGroups[groupName]) {
           g_sceneGroups[groupName] = [];
         }
@@ -1282,8 +1282,8 @@ function initialize() {
     }
 
     // Draw Scene
-    if (g_sceneGroups.default) {
-      DrawGroup(g_sceneGroups.default, genericConst, genericPer);
+    if (g_sceneGroups.base) {
+      DrawGroup(g_sceneGroups.base, genericConst, genericPer);
     }
 
     // Draw Fishes.
@@ -1749,7 +1749,6 @@ void main() {
 }
 </script>
 <!-- ===[ fishReflection Shader ]=========================================== -->
-</script>
 <script id="fishReflectionFragmentShader" type="text/something-not-javascript">
 #ifdef GL_ES
 precision highp float;
