@@ -46,12 +46,14 @@ function camera()
 	this.zoomed = false;
 	this.orbiting = false;
 	this.orbitingVec = new vec2(0.0, 0.0);
+	this.inertialVec = new vec2(0.0, 0.0);
 
 	this.stickers = new Array();
 	this.stickersPos = new Array();
 	this.stickersLookAt = new Array();
 	this.stickerTexture = new Array();
 	this.partZoom = 1.0;
+	
 	
 	this.clearstickers();
 }
@@ -261,8 +263,20 @@ camera.prototype.zoom = function() {
 camera.prototype.mouseLook = function(dt) {
     mousePos = getCursorPos();
 
+    mouseDiff = new vec2(0.0, 0.0);
+
     if (lastMousePos.x == mousePos.x && lastMousePos.y == mousePos.y) {
+        if (this.orbiting) {
+            this.inertialVec.x = mousePos.x - this.inertialVec.x;
+            this.inertialVec.y = mousePos.y - this.inertialVec.y;
+        }
+
         this.orbiting = false;
+        this.inertialVec.x *= 0.8;
+        this.inertialVec.y *= 0.8;
+        mouseDiff.x = this.inertialVec.x;
+        mouseDiff.y = this.inertialVec.y;
+        this.orbitMatrix.load(this.world);
     }
     else {
         if (!this.orbiting) {
@@ -271,41 +285,36 @@ camera.prototype.mouseLook = function(dt) {
             this.orbitingVec.y = mousePos.y;
             this.orbitMatrix.load(this.world);
         }
+        // mouse inertial direction
 
         mouseDiff = new vec2(mousePos.x - this.orbitingVec.x, mousePos.y - this.orbitingVec.y);
 
-        //lastMousePos.x += mouseDiff.x;
-        //lastMousePos.y += mouseDiff.y;
-
-        //        sensitivity = 1.0 / 500.0;
-
-        //      mouseDiff.scale(sensitivity);
-
-        var width = 512.0;
-        var degreesRotatedOverWidth = 180.0
-        // read canvas width
-        var elem = document.getElementById("canvas");
-        if (elem) width = elem.width;
-
-        // rotation in radians.. so need to convert 
-        mouseDiff.scale(3.142 / 180.0);
-        mouseDiff.scale(degreesRotatedOverWidth / width);       // 180degrees movment across canvas width  (need to use canvas.w)
-
-
-        mouseDiffDisplay = new vec2(mouseDiff.x * 180.0, mouseDiff.y * 180.0);
-
-        /* for debugging 
-        if(mouseDiff.x != 0 || mouseDiff.y != 0)
-        document.getElementById("mouse_delta").innerHTML = "mouse delta: [" + mouseDiffDisplay.x + ", " + mouseDiffDisplay.y +"]";
-        */
-        this.world.load(this.orbitMatrix);
-        var camUp = this.world.yAxisCopy();
-        var camRight = this.world.xAxisCopy();
-
-        this.world.rotate(mouseDiff.y * 180 / 3.142, camRight.x, camRight.y, camRight.z);
-        this.world.rotate(-mouseDiff.x * 180 / 3.142, camUp.x, camUp.y, camUp.z);
+        this.inertialVec.x = mousePos.x;
+        this.inertialVec.y = mousePos.y;
     }
 
+    var width = 512.0;
+    var degreesRotatedOverWidth = 180.0
+    // read canvas width
+    var elem = document.getElementById("canvas");
+    if (elem) width = elem.width;
+
+    // rotation in radians.. so need to convert 
+    mouseDiff.scale(3.142 / 180.0);
+    mouseDiff.scale(degreesRotatedOverWidth / width);       // 180degrees movment across canvas width  (need to use canvas.w)
+
+    mouseDiffDisplay = new vec2(mouseDiff.x * 180.0, mouseDiff.y * 180.0);
+
+    /* for debugging 
+    if(mouseDiff.x != 0 || mouseDiff.y != 0)
+    document.getElementById("mouse_delta").innerHTML = "mouse delta: [" + mouseDiffDisplay.x + ", " + mouseDiffDisplay.y +"]";
+    */
+    this.world.load(this.orbitMatrix);
+    var camUp = this.world.yAxisCopy();
+    var camRight = this.world.xAxisCopy();
+
+    this.world.rotate(mouseDiff.y * 180 / 3.142, camRight.x, camRight.y, camRight.z);
+    this.world.rotate(-mouseDiff.x * 180 / 3.142, camUp.x, camUp.y, camUp.z);
 
     this.world.setXAxis(this.world.xAxisCopy().normalized());
     this.world.setYAxis(this.world.yAxisCopy().normalized());
