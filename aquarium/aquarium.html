@@ -1338,9 +1338,11 @@ tdl.log(name);
       DrawGroup(g_sceneGroups.seaweed, seaweedConst, seaweedPer);
     }
 
+    if (options.skybox.enabled) {
     if (g_sceneGroups.outside) {
       Log("--Draw outside----------------");
       DrawGroup(g_sceneGroups.outside, outsideConst, outsidePer);
+    }
     }
 
     gl.enable(gl.BLEND);
