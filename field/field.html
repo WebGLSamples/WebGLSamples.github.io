@@ -110,11 +110,10 @@ var g_logGLCalls = true;  // whether or not to log webgl calls
 var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;   // draw just one frame.
 var g_setCountElements = [];
+var g_autoSet = true;
 
 //g_drawOnce = true;
 //g_debug = true;
-
-var g_numGrass          = 50;
 
 var g = {
   grassConst: {},
@@ -143,6 +142,7 @@ var g_ui = [
   { obj: 'globals',    name: 'eyeHeight',        value: 2.98,  max:  10 },
   { obj: 'globals',    name: 'eyeRadius',        value: 5,     max:  20 },
   { obj: 'globals',    name: 'eyeSpeed',         value: 0.1,   max:  1 },
+  { obj: 'globals',    name: 'patchesAcross',    value: 1,     max:  31 },
   { obj: 'dofConst',   name: 'dof',              value: 0.79,  max:  1 },
   { obj: 'dofConst',   name: 'dofInnerRange',    value: 0.034, max:  1 },
   { obj: 'dofConst',   name: 'dofOuterRange',    value: 0.078, max:  1 },
@@ -290,8 +290,11 @@ function setupSkybox() {
 /**
  * Sets the count
  */
-function setCount(elem, count) {
-  g_numGrass = count;
+function setCount(elem, settings) {
+  g_autoSet = false;
+	for (var name in settings) {
+		g.globals[name] = settings[name];
+  }
   for (var ii = 0; ii < g_setCountElements.length; ++ii) {
     g_setCountElements[ii].style.color = "black";
   }
@@ -302,26 +305,28 @@ function setCount(elem, count) {
  * Sets up the count buttons.
  */
 function setupCountButtons() {
-  var g_grassAmounts = [
-    1,
-    10,
-    100,
-    1000,
+  var g_grassSettings = [
+    { patchesAcross: 1, },
+    { patchesAcross: 3, },
+    { patchesAcross: 6, },
+    { patchesAcross: 10, },
+		{ patchesAcross: 31, },
   ];
-  for (var ii = 0; ii < g_grassAmounts.length; ++ii) {
+  for (var ii = 0; ii < g_grassSettings.length; ++ii) {
     var elem = document.getElementById("setCount" + ii);
     if (!elem) {
       break;
     }
     g_setCountElements.push(elem);
-    elem.onclick = function(elem, count) {
+    elem.onclick = function(elem, settings) {
       return function () {
-        setCount(elem, count);
-      }}(elem, g_grassAmounts[ii]);
+        setCount(elem, settings);
+      }
+    }(elem, g_grassSettings[ii]);
   }
-  setCount(document.getElementById('setCount2'), g_grassAmounts[2]);
-  //setCount(document.getElementById('setCount3'), g_grassAmounts[3]);
+  //setCount(document.getElementById('setCount2'), g_grassSettings[2]);
   $('#advanced').click(function() {
+		  g_autoSet = false;
       $("#uiContainer").toggle('slow'); return false; });
   $("#uiContainer").toggle();
 
@@ -412,6 +417,7 @@ function initialize() {
   var frameCount = 0;
   var eyeClock = 0;
   var intervalId = setInterval(render, 1000.0 / 70.0);
+  var countAdjustClock = 0;
   function render() {
     ++frameCount;
     if (g_drawOnce) {
@@ -428,6 +434,33 @@ function initialize() {
 
     g_fpsTimer.update(elapsedTime);
     fpsElem.innerHTML = g_fpsTimer.averageFPS;
+
+		if (g_autoSet) {
+      countAdjustClock += elapsedTime;
+      if (countAdjustClock > 0.5) {
+        if (countAdjustClock > 1.5) {
+          g_autoSet = false;
+        }
+        if (g_fpsTimer.averageFPS > 20) {
+          if (g.globals.patchesAcross < 31) {
+            if (g_fpsTimer.averageFPS > 60) {
+              ++g.globals.patchesAcross;
+              ++g.globals.patchesAcross;
+            }
+            if (g_fpsTimer.averageFPS > 40) {
+              ++g.globals.patchesAcross;
+            }
+            ++g.globals.patchesAcross;
+            var lerp = Math.min(4, Math.max(0, g.globals.patchesAcross - 3)) / 4;
+						g.dofConst.dof = math.lerpScalar(0.742, 0.79, lerp);
+						g.globals.eyeHeight = math.lerpScalar(2.62, 2.98, lerp);
+						g.globals.eyeRadius = math.lerpScalar(3.56, 5, lerp);
+						g.globals.targetHeight = math.lerpScalar(0.1, 0.91, lerp);
+            countAdjustClock = 0;
+          }
+        }
+      }
+    }
 
     clock += elapsedTime;
     eyeClock += elapsedTime * g.globals.eyeSpeed;
@@ -488,7 +521,7 @@ function initialize() {
     Log("--Draw grass---------------------------------------");
     g.grassConst.time = clock;
     grass.drawPrep(g.grassConst);
-    var across = Math.floor(Math.sqrt(g_numGrass));
+    var across = g.globals.patchesAcross;
     var width = g.grassConst.bladeSpacing * 10;
     var base = width * across * -0.5;
     for (var zz = 0; zz < across; ++zz) {
@@ -608,9 +641,10 @@ $(function(){
   <div>Grass</div>
   <div class="clickable" id="setCount0">1</div>
   <div class="clickable" id="setCount1">a few</div>
-  <div class="clickable" id="setCount2">many</div>
+  <div class="clickable" id="setCount2">some</div>
+  <div class="clickable" id="setCount3">many</div>
   <div>
-	<span  class="clickable" id="setCount3">lots</span>
+	<span  class="clickable" id="setCount4">lots</span>
   <span style="float: right" class="clickable" id="advanced">*</span>
   </div>
 </div>
