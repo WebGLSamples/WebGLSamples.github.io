@@ -65,9 +65,13 @@ tdl.models.Model = function(program, arrays, textures, opt_mode) {
   }
 
   this.mode = (opt_mode === undefined) ? gl.TRIANGLES : opt_mode;
-  this.program = program;
   this.textures = textures;
   this.textureUnits = textureUnits;
+  this.setProgram(program);
+}
+
+tdl.models.Model.prototype.setProgram = function(program) {
+  this.program = program;
 }
 
 tdl.models.Model.prototype.setBuffer = function(name, array) {

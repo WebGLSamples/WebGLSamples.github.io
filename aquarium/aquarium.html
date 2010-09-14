@@ -547,7 +547,12 @@ function getScriptText(id) {
   return elem.text;
 }
 
-function createProgramFromTags(vertexTagId, fragmentTagId, fog) {
+function createProgramFromTags(
+    vertexTagId,
+    fragmentTagId, fog,
+    opt_reflection) {
+  opt_reflection = (opt_reflection === undefined) ? true : opt_reflection;
+
   var fogUniforms = '' +
     'uniform float fogPower;\n' +
     'uniform float fogMult;\n' +
@@ -563,12 +568,20 @@ function createProgramFromTags(vertexTagId, fragmentTagId, fog) {
     fs = fs.replace('// #fogCode', fogCode);
   }
 
+  if (opt_reflection) {
+    fs = fs.replace(/^.*?\/\/ #noReflection\n/gm, "");
+  } else {
+    fs = fs.replace(/^.*?\/\/ #reflection\n/gm, "");
+  }
+
+  fs = fs.replace(/^.*?\/\/ #noNormalMap\n/gm, "");
+
   return tdl.programs.loadProgram(
       getScriptText(vertexTagId), fs);
 }
 
-var Scene = function(opt_program, fog) {
-  this.program = opt_program;
+var Scene = function(opt_programIds, fog) {
+  this.programIds = opt_programIds;
   this.bad = false;
   this.loaded = false;
   this.fog = fog;
@@ -611,13 +624,15 @@ Scene.prototype.onload_ = function(data, exception) {
       // DM+NM
       // DM+NM+RM
       var type;
-      var program;
+      var vsId;
+      var fsId;
       if (!textures.diffuse) {
         throw "missing diffuse texture for: " + this.url;
       }
-      if (this.program) {
+      if (this.programIds) {
         type = "custom";
-        program = this.program;
+        vsId = this.programIds[0];
+        fsId = this.programIds[1];
         // Fix this hack
         textures.skybox = tdl.textures.loadTexture(g_skyBoxUrls);
       } else if (textures.reflectionMap) {
@@ -625,33 +640,39 @@ Scene.prototype.onload_ = function(data, exception) {
           throw "missing normalMap for: " + this.url;
         }
         type = "reflection";
-        program = createProgramFromTags(
-            'reflectionMapVertexShader',
-            'reflectionMapFragmentShader',
-            this.fog);
+        vsId = 'reflectionMapVertexShader';
+        fsId = 'reflectionMapFragmentShader';
         textures.skybox = tdl.textures.loadTexture(g_skyBoxUrls);
 
       } else if (textures.normalMap) {
         type = "normalMap";
-        program = createProgramFromTags(
-            'normalMapVertexShader',
-            'normalMapFragmentShader',
-            this.fog);
+        vsId = 'normalMapVertexShader';
+        fsId = 'normalMapFragmentShader';
       } else {
         type = "diffuse";
-        program = createProgramFromTags(
-            'diffuseVertexShader',
-            'diffuseFragmentShader',
-            this.fog);
+        vsId = 'diffuseVertexShader';
+        fsId = 'diffuseFragmentShader';
       }
+      var program = createProgramFromTags(vsId, fsId, this.fog);
+      var noFogProgram = createProgramFromTags(vsId, fsId, false);
+      var noReflection = createProgramFromTags(vsId, fsId, this.fog, false);
+      var noFognoReflection = createProgramFromTags(vsId, fsId, false, false);
+
       tdl.log(this.url, ": ", type);
-      this.models.push(new tdl.models.Model(program, arrays, textures));
+      var model = new tdl.models.Model(program, arrays, textures);
+      model.programs = {
+        default: program,
+        noFog: noFogProgram,
+        noReflection: noReflection,
+        noFognoReflection: noFognoReflection
+      };
+      this.models.push(model);
     }
   }
 };
 
-function loadScene(name, opt_program, fog) {
-  var scene = new Scene(opt_program, fog);
+function loadScene(name, opt_programIds, fog) {
+  var scene = new Scene(opt_programIds, fog);
   scene.load("assets/" + name + ".js");
   return scene;
 }
@@ -660,15 +681,7 @@ function loadScenes() {
   for (var ii = 0; ii < g_sceneInfo.length; ++ii) {
     var info = g_sceneInfo[ii];
     var fog = (info.fog !== undefined) ? info.fog : true;
-    var program = undefined;
-    if (info.program) {
-      program = createProgramFromTags(
-          info.program[0],
-          info.program[1],
-          fog);
-
-    }
-    g_scenes[info.name] = loadScene(info.name, program, fog);
+    g_scenes[info.name] = loadScene(info.name, info.program, fog);
   }
 }
 
@@ -687,7 +700,7 @@ function loadPlacement() {
         var object = objects[ii];
         var scene = g_scenes[object.name];
         var info = g_sceneInfoByName[object.name];
-tdl.log(object.name);
+//tdl.log(object.name);
         var groupName = info.group || 'default';
         if (!g_sceneGroups[groupName]) {
           g_sceneGroups[groupName] = [];
@@ -1052,6 +1065,78 @@ function initialize() {
     }
   }
 
+  var options = {
+    normalMaps: { text: 'Normal Maps' },
+    fishReflection: { text: 'Fish Reflection' },
+    tankRefraction: { text: 'Tank Refraction' },
+    fog:            { text: 'Fog' },
+    bubbles:        { text: 'Bubbles' }
+  }
+
+  function setShaders() {
+    var name = '';
+    if (!options.fog.enabled) {
+      name += 'noFog';
+    }
+    if (!options.fishReflection.enabled) {
+      name += 'noReflection';
+    }
+    if (!options.normalMaps.enabled) {
+      name += 'noNormalMaps';
+    }
+    if (name == '') {
+      name = 'default';
+    }
+tdl.log(name);
+    for (var sceneName in g_scenes) {
+      var scene = g_scenes[sceneName];
+      var models = scene.models;
+      var numModels = models.length;
+      for (var jj = 0; jj < numModels; ++jj) {
+        var model = models[jj];
+        model.setProgram(model.programs[name]);
+      }
+    }
+  }
+
+  function toggleOption(option, elem) {
+    option.enabled = !option.enabled;
+    elem.style.color = option.enabled ? "red" : "gray";
+    switch (option.name) {
+    case 'normalMaps':
+      setShaders();
+      break;
+    case 'fishReflection':
+      setShaders();
+      break;
+    case 'tankRefraction':
+      break;
+    case 'fog':
+      setShaders();
+      break;
+    }
+  }
+
+  var optionsContainer = document.getElementById("optionsContainer");
+  for (var name in options) {
+    var option = options[name];
+    option.enabled = true;
+    option.name = name;
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode("-" + option.text));
+    div.style.color = "red";
+    div.class = "clickable";
+    $(div).click((function(option, div) {
+        return function() {
+          toggleOption(option, div);
+          return false;
+        };
+      }(option, div)));
+    div.onmousedown = function() { return false; };
+    div.onstartselect = function() { return false; };
+    optionsContainer.appendChild(div);
+  }
+
   var frameCount = 0;
   var eyeClock = 0;
   function render() {
@@ -1238,9 +1323,11 @@ function initialize() {
       }
     }
 
+    if (options.tankRefraction.enabled) {
     if (g_sceneGroups.inner) {
       Log("--Draw GlobeInner----------------");
       DrawGroup(g_sceneGroups.inner, g.innerConst, innerPer);
+    }
     }
 
     if (g_sceneGroups.seaweed) {
@@ -1270,7 +1357,9 @@ function initialize() {
       bubbleIndex = bubbleIndex % g_numBubbleSets;
     }
     fast.matrix4.translation(world, [0, 0, 0]);
-    particleSystem.draw(viewProjection, world, viewInverse);
+    if (options.bubbles.enabled) {
+      particleSystem.draw(viewProjection, world, viewInverse);
+    }
 
     gl.disable(gl.CULL_FACE);
     lightRay.drawPrep(lightRayConst);
@@ -1303,9 +1392,12 @@ function initialize() {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.blendEquation(gl.FUNC_ADD);
 
+    if (options.tankRefraction.enabled) {
+
     if (g_sceneGroups.outer) {
       Log("--Draw GlobeOuter----------------");
       DrawGroup(g_sceneGroups.outer, g.innerConst, innerPer);
+    }
     }
 
     //do {
@@ -1423,7 +1515,9 @@ $(function(){
 
   $('#setSetting7').click(function() {
       $("#uiContainer").toggle('slow'); return false; });
-  $("#uiContainer").toggle();
+  $('#options').click(function() {
+      $("#optionsContainer").toggle(); return false; });
+  $("#optionsContainer").toggle();
 
   initialize();
 });
@@ -1441,6 +1535,10 @@ $(function(){
   <div class="clickable" id="setSetting5">1000</div>
   <div><span class="clickable" id="setSetting6">Change View</span>
   <span style="float: right" class="clickable" id="setSetting7">*</span></div>
+  <div class="clickable" id="options">Options...
+  <div id="optionsContainer">
+  </div>
+  </div>
 </div>
 <div id="uiContainer">
 <div id="ui"></div>
@@ -1512,12 +1610,12 @@ uniform float fishBendAmount;
 attribute vec4 position;
 attribute vec3 normal;
 attribute vec2 texCoord;
-attribute vec3 tangent;
-attribute vec3 binormal;
+attribute vec3 tangent;  // #normalMap
+attribute vec3 binormal;  // #normalMap
 varying vec4 v_position;
 varying vec2 v_texCoord;
-varying vec3 v_tangent;
-varying vec3 v_binormal;
+varying vec3 v_tangent;  // #normalMap
+varying vec3 v_binormal;  // #normalMap
 varying vec3 v_normal;
 varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
@@ -1553,8 +1651,8 @@ void main() {
   v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
   v_surfaceToLight = lightWorldPos - (world * position).xyz;
   v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
-  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;
-  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;
+  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;  // #normalMap
+  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;  // #normalMap
   gl_Position = v_position;
 }
 
@@ -1566,8 +1664,8 @@ precision highp float;
 uniform vec4 lightColor;
 varying vec4 v_position;
 varying vec2 v_texCoord;
-varying vec3 v_tangent;
-varying vec3 v_binormal;
+varying vec3 v_tangent;  // #normalMap
+varying vec3 v_binormal;  // #normalMap
 varying vec3 v_normal;
 varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
@@ -1575,7 +1673,7 @@ varying vec3 v_surfaceToView;
 uniform vec4 ambient;
 uniform sampler2D diffuse;
 uniform vec4 specular;
-uniform sampler2D normalMap;
+uniform sampler2D normalMap;  // #normalMap
 uniform float shininess;
 uniform float specularFactor;
 // #fogUniforms
@@ -1588,14 +1686,15 @@ vec4 lit(float l ,float h, float m) {
 }
 void main() {
   vec4 diffuseColor = texture2D(diffuse, v_texCoord);
-  mat3 tangentToWorld = mat3(v_tangent,
-                             v_binormal,
-                             v_normal);
-  vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);
-  vec3 tangentNormal = normalSpec.xyz - vec3(0.5, 0.5, 0.5);
-  tangentNormal = normalize(tangentNormal + vec3(0, 0, 2));
-  vec3 normal = (tangentToWorld * tangentNormal);
-  normal = normalize(normal);
+  mat3 tangentToWorld = mat3(v_tangent,  // #normalMap
+                             v_binormal,  // #normalMap
+                             v_normal);  // #normalMap
+  vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);  // #normalMap
+  vec3 tangentNormal = normalSpec.xyz - vec3(0.5, 0.5, 0.5);  // #normalMap
+  tangentNormal = normalize(tangentNormal + vec3(0, 0, 2));  // #normalMap
+  vec3 normal = (tangentToWorld * tangentNormal);  // #normalMap
+  normal = normalize(normal);  // #normalMap
+  vec3 normal = normalize(v_normal);   // #noNormalMap
   vec3 surfaceToLight = normalize(v_surfaceToLight);
   vec3 surfaceToView = normalize(v_surfaceToView);
   vec3 halfVector = normalize(surfaceToLight + surfaceToView);
@@ -1618,8 +1717,8 @@ precision highp float;
 uniform vec4 lightColor;
 varying vec4 v_position;
 varying vec2 v_texCoord;
-varying vec3 v_tangent;
-varying vec3 v_binormal;
+varying vec3 v_tangent;  // #normalMap
+varying vec3 v_binormal;  // #normalMap
 varying vec3 v_normal;
 varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
@@ -1628,8 +1727,8 @@ uniform vec4 ambient;
 uniform sampler2D diffuse;
 uniform vec4 specular;
 uniform sampler2D normalMap;
-uniform sampler2D reflectionMap;
-uniform samplerCube skybox;
+uniform sampler2D reflectionMap; // #reflection
+uniform samplerCube skybox; // #reflecton
 uniform float shininess;
 uniform float specularFactor;
 // #fogUniforms
@@ -1642,17 +1741,21 @@ vec4 lit(float l ,float h, float m) {
 }
 void main() {
   vec4 diffuseColor = texture2D(diffuse, v_texCoord);
-  mat3 tangentToWorld = mat3(v_tangent,
-                             v_binormal,
-                             v_normal);
-  vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);
-  vec4 reflection = texture2D(reflectionMap, v_texCoord.xy);
-  vec3 tangentNormal = normalSpec.xyz - vec3(0.5, 0.5, 0.5);
-  vec3 normal = (tangentToWorld * tangentNormal);
-  normal = normalize(normal);
+  mat3 tangentToWorld = mat3(v_tangent,  // #normalMap
+                             v_binormal,  // #normalMap
+                             v_normal);  // #normalMap
+  vec4 normalSpec = texture2D(normalMap, v_texCoord.xy);  // #normalMap
+  vec4 reflection = texture2D(reflectionMap, v_texCoord.xy); // #reflection
+  vec4 reflection = vec4(0,0,0,0);  // #noReflection
+  vec3 tangentNormal = normalSpec.xyz - vec3(0.5, 0.5, 0.5);  // #normalMap
+  vec3 normal = (tangentToWorld * tangentNormal);  // #normalMap
+  normal = normalize(normal);  // #normalMap
+  vec3 normal = normalize(v_normal); // #noNormalMap
   vec3 surfaceToLight = normalize(v_surfaceToLight);
   vec3 surfaceToView = normalize(v_surfaceToView);
-  vec4 skyColor = textureCube(skybox, -reflect(surfaceToView, normal));
+  vec4 skyColor = textureCube(skybox, -reflect(surfaceToView, normal));  // #reflection
+  vec4 skyColor = vec4(0.5,0.5,1,1);  // #noReflection
+
   vec3 halfVector = normalize(surfaceToLight + surfaceToView);
   vec4 litR = lit(dot(normal, surfaceToLight),
                     dot(normal, halfVector), shininess);
@@ -1664,146 +1767,6 @@ void main() {
       diffuseColor.a);
   // #fogCode
   gl_FragColor = outColor;
-}
-</script>
-<!-- ===[ Shark Shader ]============================================== -->
-<script id="sharkVertexShader" type="text/something-not-javascript">
-uniform mat4 worldViewProjection;
-uniform vec3 lightWorldPos;
-uniform mat4 world;
-uniform mat4 viewInverse;
-uniform mat4 worldInverseTranspose;
-uniform float time;
-attribute vec4 position;
-attribute vec3 normal;
-attribute vec2 texCoord;
-attribute vec3 tangent;
-attribute vec3 binormal;
-varying vec4 v_position;
-varying vec2 v_texCoord;
-varying vec3 v_normal;
-varying vec3 v_surfaceToLight;
-varying vec3 v_surfaceToView;
-void main() {
-  v_texCoord = texCoord;
-  float mult = position.z > 0.0 ? (position.z / 10.0) : (-position.z / 20.0);  // 10 = radius.
-  float s = sin(time + mult * 3.0);
-  float a = sign(s);
-  float offset = pow(mult, 2.0) * s * 20.0;
-  v_position = (
-      worldViewProjection *
-      (position +
-       vec4(offset, 0, 0, 0)));
-  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
-  v_surfaceToLight = lightWorldPos - (world * position).xyz;
-  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
-  gl_Position = v_position;
-}
-
-</script>
-<script id="sharkFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision highp float;
-#endif
-uniform vec4 lightColor;
-varying vec4 v_position;
-varying vec2 v_texCoord;
-varying vec3 v_normal;
-varying vec3 v_surfaceToLight;
-varying vec3 v_surfaceToView;
-
-uniform vec4 specular;
-uniform float shininess;
-uniform float specularFactor;
-uniform sampler2D diffuseSampler;
-
-vec4 lit(float l ,float h, float m) {
-  return vec4(1.0,
-              max(l, 0.0),
-              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
-              1.0);
-}
-void main() {
-  vec3 normal = normalize(v_normal);
-  vec4 diffuse = texture2D(
-      diffuseSampler,
-      vec2(v_texCoord.x, normal.y * 0.5 + 0.7));
-  vec3 surfaceToLight = normalize(v_surfaceToLight);
-  vec3 surfaceToView = normalize(v_surfaceToView);
-  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
-  vec4 litR = lit(dot(normal, surfaceToLight),
-                    dot(normal, halfVector), shininess);
-  gl_FragColor = vec4((
-                       lightColor * (diffuse * litR.y +
-                                     specular * litR.z * specularFactor)).rgb,
-                      diffuse.a) * 0.3 + diffuse * 0.7;
-}
-</script>
-<!-- ===[ Glass Shader ]============================================== -->
-<script id="glassVertexShader" type="text/something-not-javascript">
-uniform mat4 worldViewProjection;
-uniform mat4 world;
-uniform mat4 viewInverse;
-uniform mat4 worldInverseTranspose;
-uniform float normMult;
-attribute vec4 position;
-attribute vec3 normal;
-attribute vec2 texCoord;
-attribute vec3 tangent;
-attribute vec3 binormal;
-varying vec4 v_position;
-varying vec2 v_texCoord;
-varying vec3 v_tangent;
-varying vec3 v_binormal;
-varying vec3 v_normal;
-varying vec3 v_surfaceToView;
-void main() {
-  v_texCoord = texCoord;
-  v_position = worldViewProjection * position;
-  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
-  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
-  v_binormal = (worldInverseTranspose * vec4(binormal, 0)).xyz;
-  v_tangent = (worldInverseTranspose * vec4(tangent, 0)).xyz;
-  gl_Position = v_position;
-}
-
-</script>
-<script id="glassFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision highp float;
-#endif
-varying vec4 v_position;
-varying vec2 v_texCoord;
-varying vec3 v_tangent;
-varying vec3 v_binormal;
-varying vec3 v_normal;
-varying vec3 v_surfaceToView;
-
-uniform sampler2D bumpSampler;
-uniform samplerCube skybox;
-
-vec4 lerp(vec4 a, vec4 b, float mix) {
-  return a + (b - a) * vec4(mix, mix, mix, mix);
-}
-void main() {
-  mat3 tangentToWorld = mat3(v_tangent,
-                             v_binormal,
-                             v_normal);
-  vec3 tangentNormal = texture2D(bumpSampler, v_texCoord.xy).xyz -
-                                 vec3(0.5, 0.5, 0.5);
-  tangentNormal = normalize(tangentNormal + vec3(0, 0, 20));
-  vec3 normal = (tangentToWorld * tangentNormal);
-  normal = normalize(normal);
-  vec3 surfaceToView = normalize(v_surfaceToView);
-  vec4 skyColor = textureCube(skybox, -reflect(surfaceToView, normal));
-  float waterAmount = 0.2;
-  vec4 waterColor = vec4(0,0.9,1,1);
-  float fudgeAmount = 1.1;
-  vec3 fudge = skyColor.rgb * vec3(fudgeAmount, fudgeAmount, fudgeAmount);
-  float bright = min(1.0, fudge.r * fudge.g * fudge.b);
-  vec4 reflectColor = lerp(vec4(skyColor.rgb, bright), waterColor, waterAmount);
-  float r = abs(dot(surfaceToView, normal));
-  gl_FragColor = lerp(skyColor, reflectColor, r + 0.3);
 }
 </script>
 <!-- ===[ Seaweed Shader ]============================================== -->
