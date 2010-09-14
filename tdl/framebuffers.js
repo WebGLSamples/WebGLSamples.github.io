@@ -50,15 +50,28 @@ tdl.framebuffers.createFramebuffer = function(width, height, opt_depth) {
 }
 
 tdl.framebuffers.BackBuffer = function(canvas) {
-  this.width = canvas.clientWidth
-  this.height = canvas.clientHeight
-  this.depth = true
-  this.buffer = null
-  this.bind = function() {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null) 
-    gl.viewport(0, 0, this.width, this.height);
-  }
+  this.depth = true;
+  this.buffer = null;
 }
+
+tdl.framebuffers.BackBuffer.prototype.bind = function() {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, this.width, this.height);
+}
+
+tdl.framebuffers.BackBuffer.prototype.__defineGetter__(
+    'width',
+    function () {
+      return gl.canvas.width;
+    }
+);
+
+tdl.framebuffers.BackBuffer.prototype.__defineGetter__(
+    'height',
+    function () {
+      return gl.canvas.height;
+    }
+);
 
 // Use this where you need to pass in a framebuffer, but you really
 // mean the backbuffer, so that binding it works as expected.
@@ -78,9 +91,13 @@ tdl.framebuffers.Framebuffer.prototype.bind = function() {
   gl.viewport(0, 0, this.width, this.height);
 };
 
-tdl.framebuffers.Framebuffer.prototype.unbind = function() {
+tdl.framebuffers.Framebuffer.unbind = function() {
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+}
+
+tdl.framebuffers.Framebuffer.prototype.unbind = function() {
+  tdl.framebuffers.Framebuffer.unbind();
 };
 
 tdl.framebuffers.Framebuffer.prototype.recoverFromLostContext = function() {
