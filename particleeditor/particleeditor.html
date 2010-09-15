@@ -165,7 +165,7 @@ var g_numPoofs          = 20;
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
     if (args[ii] === undefined) {
-      console.error("undefined passed to gl." + functionName + "(" +
+      tdl.error("undefined passed to gl." + functionName + "(" +
                 wd.glFunctionArgsToString(functionName, args) + ")");
     }
   }
