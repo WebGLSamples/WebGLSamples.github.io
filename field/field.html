@@ -444,7 +444,7 @@ function initialize() {
         if (countAdjustClock > 1.5) {
           g_autoSet = false;
         }
-        if (g_fpsTimer.averageFPS > 19) {
+        if (g_fpsTimer.averageFPS > 17) {
           ++g_autoSetting;
           if (g_autoSetting < g_grassSettings.length - 1)
           {
@@ -459,7 +459,7 @@ function initialize() {
             countAdjustClock = 0;
           }
         }
-        if (g_autoSetting == g_grassSettings.length) {
+        if (g_autoSetting >= g_grassSettings.length - 1) {
           g_autoSet = false;
         }
       }

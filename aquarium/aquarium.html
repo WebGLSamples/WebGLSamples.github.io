@@ -33,7 +33,7 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<title>WebGL Aqarium</title>
+<title>WebGL Aquarium</title>
 <style>
 html, body {
   width: 100%;
@@ -124,8 +124,8 @@ var g_fishSetting      = 2;
 var g_numSharks        = 0;
 var g_tailOffsetMult   = 1;
 var g_endOfDome        = Math.PI / 8;
-var g_tankRadius       = 22;
-var g_tankHeight       = 30;
+var g_tankRadius       = 74;
+var g_tankHeight       = 36;
 var g_standHeight      = 25;
 var g_sharkSpeed       = 0.3;
 var g_sharkClockOffset = 17;
@@ -133,7 +133,11 @@ var g_sharkXClock      = 1;
 var g_sharkYClock      = 0.17;
 var g_sharkZClock      = 1;
 var g_numBubbleSets    = 10;
+var g_laserEta = 1.2;
+var g_laserLenFudge = 1;
+var g_drawLasers = false;
 var g_bubbleSets = [];
+var g_fishData = [];
 var g_numLightRays = 5;
 var g_lightRayY = 50;
 var g_lightRayDurationMin = 1;
@@ -340,6 +344,10 @@ var g_fishTable = [
     tailSpeed: 1.5,
     heightOffset: 0,
     heightRange: 16,
+    lasers: true,
+    laserRot: 0.04,
+    laserOff: [0, 0.1, 9],
+    laserScale: [0.3, 0.3, 1000],
     constUniforms: {
       fishLength: 10,
       fishWaveLength: -1,
@@ -356,6 +364,10 @@ var g_fishTable = [
     tailSpeed: 1,
     heightOffset: 0,
     heightRange: 16,
+    lasers: true,
+    laserRot: 0.04,
+    laserOff: [0, -0.3, 9],
+    laserScale: [0.3, 0.3, 1000],
     constUniforms: {
       fishLength: 10,
       fishWaveLength: -0.7,
@@ -557,6 +569,60 @@ function getScriptText(id) {
   return elem.text;
 }
 
+/**
+ * Calculate the intersection of a ray and a sphere
+ *
+ * point1 + mu1 (point2 - point1)
+ * point1 + mu2 (point2 - point1)
+ *
+ * Return undefined.
+ */
+function raySphereIntersection(point1, point2, center, radius) {
+  var kEpsilon = 0.0001;
+  var dp = [
+      point2[0] - point1[0],
+      point2[1] - point1[1],
+      point2[2] - point1[2]];
+  var a = dp[0] * dp[0] +
+          dp[1] * dp[1] +
+          dp[2] * dp[2];
+  var b = 2 * (dp[0] * (point1[0] - center[0]) +
+               dp[1] * (point1[1] - center[1]) +
+               dp[2] * (point1[2] - center[2]));
+  var c = center[0] * center[0] +
+          center[1] * center[1] +
+          center[2] * center[2];
+  c += point1[0] * point1[0] +
+       point1[1] * point1[1] +
+       point1[2] * point1[2];
+  c -= 2 * (center[0] * point1[0] +
+            center[1] * point1[1] +
+            center[2] * point1[2]);
+  c -= radius * radius;
+  var bb4ac = b * b - 4 * a * c;
+  if (Math.abs(a) < kEpsilon || bb4ac < 0) {
+    return;
+  }
+
+  var sq = Math.sqrt(bb4ac);
+  var mu1 = (-b + sq) / (2 * a);
+  var mu2 = (-b - sq) / (2 * a);
+
+  var m = Math.max(mu1, mu2);
+  return math.addVector(point1, math.mulScalarVector(m, dp));
+}
+
+function refract(i, n, eta) {
+  var dotNI = math.dot(n, i);
+  var k = 1.0 - eta * eta * (1.0 - dotNI * dotNI);
+  if (k < 0.0) {
+    return;
+  }
+  return math.subVector(
+      math.mulScalarVector(eta, i),
+      math.mulScalarVector(eta * dotNI + Math.sqrt(k), n));
+}
+
 function createProgramFromTags(
     vertexTagId,
     fragmentTagId, fog,
@@ -693,6 +759,7 @@ Scene.prototype.onload_ = function(data, exception) {
         noReflectionnoNormalMaps: noReflectionnoNormalMaps,
         noFognoReflectionnoNormalMaps: noFognoReflectionnoNormalMaps
       };
+      model.extents = arrays.position.computeExtents();
       this.models.push(model);
     }
     setShaders();
@@ -773,6 +840,32 @@ function initLightRay(info) {
   var r = Math.random();
   info.rot = r * g_lightRayRotRange;
   info.x = (r - 0.5) * g_lightRayPosRange;
+}
+
+/**
+ * Setup Laser
+ */
+function setupLaser() {
+  var textures = {
+      colorMap: tdl.textures.loadTexture('static_assets/beam.png')};
+  var program = createProgramFromTags(
+      'laserVertexShader',
+      'laserFragmentShader');
+  var beam1Arrays = tdl.primitives.createPlane(1, 1, 1, 1);
+  delete beam1Arrays.normal;
+  tdl.primitives.reorient(beam1Arrays,
+        math.matrix4.translation([0, 0, 0.5]));
+  var beam2Arrays = tdl.primitives.clone(beam1Arrays);
+  var beam3Arrays = tdl.primitives.clone(beam1Arrays);
+  tdl.primitives.reorient(beam2Arrays,
+        math.matrix4.rotationZ(math.degToRad(120)));
+  tdl.primitives.reorient(beam3Arrays,
+        math.matrix4.rotationZ(math.degToRad(-120)));
+  var arrays = tdl.primitives.concat([
+      beam1Arrays,
+      beam2Arrays,
+      beam3Arrays]);
+  return new tdl.models.Model(program, arrays, textures);
 }
 
 function setupLightRay() {
@@ -940,6 +1033,12 @@ function initialize() {
   Log("--Setup Skybox---------------------------------------");
   var skybox = setupSkybox();
   loadScenes();
+  Log("--Setup Laser----------------------------------------");
+  var laser = setupLaser();
+
+  for (var ff = 0; ff < g_fishTable.length; ++ff) {
+    g_fishTable[ff].fishData = [];
+  }
 
   var particleSystem = new tdl.particles.ParticleSystem(
       gl, null, math.pseudoRandom);
@@ -1044,6 +1143,11 @@ function initialize() {
     viewProjection: viewProjection,
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose};
+
+  // Laser uniforms
+  var laserConst = {};
+  var laserPer = {
+    worldViewProjection: worldViewProjection};
 
   // Inner uniforms.
   g.innerConst.viewInverse = viewInverse;
@@ -1352,15 +1456,30 @@ function initialize() {
           fishPer.time =
               (clock + ii * g_tailOffsetMult) * fishTailSpeed * speed;
           fish.draw(fishPer);
+
+          if (g_drawLasers && fishInfo.lasers) {
+            fishInfo.fishData[ii] = {
+              position: [
+                  fishPosition[0],
+                  fishPosition[1],
+                  fishPosition[2]],
+              target: [
+                  fishNextPosition[0],
+                  fishNextPosition[1],
+                  fishNextPosition[2]],
+              scale: scale,
+              time: fishPer.time
+            };
+          }
         }
       }
     }
 
     if (g_options.tank.enabled) {
-    if (g_sceneGroups.inner) {
-      Log("--Draw GlobeInner----------------");
-      DrawGroup(g_sceneGroups.inner, g.innerConst, innerPer);
-    }
+      if (g_sceneGroups.inner) {
+        Log("--Draw GlobeInner----------------");
+        DrawGroup(g_sceneGroups.inner, g.innerConst, innerPer);
+      }
     }
 
     if (g_sceneGroups.seaweed) {
@@ -1368,11 +1487,98 @@ function initialize() {
       DrawGroup(g_sceneGroups.seaweed, seaweedConst, seaweedPer);
     }
 
-    if (g_options.museum.enabled) {
-    if (g_sceneGroups.outside) {
-      Log("--Draw outside----------------");
-      DrawGroup(g_sceneGroups.outside, outsideConst, outsidePer);
+    // Draw Lasers
+    if (g_drawLasers) {
+      Log("--Draw Lasers---------------------------------------");
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.disable(gl.CULL_FACE);
+      gl.depthMask(false);
+
+      laser.drawPrep(laserConst);
+      var c = 0.5 + (frameCount % 2) + 0.5;
+      laserConst.colorMult = [c * 1, c * 0.1, c * 0.1, c];
+      for (var ff = 0; ff < g_fishTable.length; ++ff) {
+        var fishInfo = g_fishTable[ff];
+        var numFish = fishInfo.num[g_fishSetting];
+        var fishName = fishInfo.name;
+        var scene = g_scenes[fishName];
+        var center = [0, g_tankHeight, 0];
+        if (scene && scene.loaded && !scene.bad) {
+          var fish = scene.models[0];
+          var mult = fish.extents.max[2] / fishInfo.constUniforms.fishLength;
+          var waveLength = fishInfo.constUniforms.fishWaveLength;
+          var bendAmount = fishInfo.constUniforms.fishBendAmount;
+          for (var ii = 0; ii < numFish; ++ii) {
+            if (fishInfo.lasers) {
+              var data = fishInfo.fishData[ii];
+              var time = data.time;
+              var s = Math.sin(time + mult * waveLength);
+              var scale = data.scale;
+              var offset = mult * mult * s * bendAmount;
+              var off = [offset, fishInfo.laserOff[1], fishInfo.laserOff[2]];
+
+              scale = 1;
+              fast.matrix4.mul(world,
+                fast.matrix4.scaling(m4t1, [scale, scale, scale]),
+                fast.matrix4.cameraLookAt(
+                    m4t2, data.position, data.target, up));
+              fast.matrix4.mul(
+                  m4t2,
+                  fast.matrix4.rotationY(
+                    m4t3, s * fishInfo.laserRot),
+                  fast.matrix4.translation(m4t1, off));
+              fast.matrix4.mul(
+                  world,
+                  m4t2,
+                  world);
+
+              var laserDir = math.normalize([world[8], world[9], world[10]])
+              var point1 = [
+                  world[12],
+                  world[13],
+                  world[14]];
+              var point2 = math.addVector(
+                  point1, math.mulVectorScalar(laserDir, 1000));
+              var intersection = raySphereIntersection(
+                  point1, point2, center, g_tankRadius);
+              if (intersection) {
+                var len = math.length(math.subVector(intersection, point1)) *
+                   g_laserLenFudge;
+                fast.matrix4.mul(
+                    world,
+                    fast.matrix4.scaling(
+                        m4t0,
+                        [fishInfo.laserScale[0],
+                         fishInfo.laserScale[1],
+                         len]),
+                    world);
+                fast.matrix4.mul(worldViewProjection, world, viewProjection);
+                laser.draw(laserPer);
+                var surfaceNorm = math.normalize(intersection);
+                var newDir = refract(
+                    math.negativeVector(laserDir), surfaceNorm, g_laserEta);
+                data.laser = {
+                  position: intersection,
+                  target: math.addVector(intersection, newDir),
+                };
+              }
+            }
+          }
+        }
+      }
+
+      gl.disable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.enable(gl.CULL_FACE);
+      gl.depthMask(true);
     }
+
+    if (g_options.museum.enabled) {
+      if (g_sceneGroups.outside) {
+        Log("--Draw outside----------------");
+        DrawGroup(g_sceneGroups.outside, outsideConst, outsidePer);
+      }
     }
 
     bubbleTimer -= elapsedTime * g.globals.speed;
@@ -1437,49 +1643,60 @@ function initialize() {
       }
     }
 
-    //do {
-    //  err = gl.getError();
-    //  if (err) {
-    //    tdl.log(err.toString(16));
-    //  }
-    //} while (err);
+    // Draw Lasers Outside
+    if (g_drawLasers) {
+      Log("--Draw Lasers Outside---------------------------------------");
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.disable(gl.CULL_FACE);
+      gl.depthMask(false);
 
-//    // Draw Laser
-//    Log("--Draw Laser---------------------------------------");
-//    gl.enable(gl.BLEND);
-//    gl.blendFunc(gl.ONE, gl.ONE);
-//    gl.disable(gl.CULL_FACE);
-//    gl.depthMask(false);
-//
-//    laser.drawPrep(laserConst);
-//    var c = 0.5 + (frameCount % 2) + 0.5;
-//    laserConst.colorMult = [c * 1, c * 0.1, c * 0.1, c];
-//    for (var ii = 0; ii < g_numSharks; ++ii) {
-//      var time = (clock + ii * g_sharkClockOffset) * 3;
-//      fast.matrix4.mul(
-//          m4t1,
-//          fast.matrix4.scaling(m4t0, [0.3 / 6, 0.3 / 6, 1000]),
-//              fast.matrix4.mul(
-//                  m4t2,
-//                  fast.matrix4.rotationY(m4t3, -Math.sin(time) * 0.025),
-//                  fast.matrix4.translation(m4t1, [0, 0.1, 0.5])));
-//      fast.matrix4.mul(
-//          g_beamWorldMats[ii],
-//          m4t1,
-//          g_sharkWorldMats[ii]);
-//      fast.matrix4.copy(world, g_beamWorldMats[ii]);
-//      fast.matrix4.mul(worldViewProjection, world, viewProjection);
-//      laser.draw(laserPer);
-//    }
-//
-//    // Draw light flash
-//    Log("--Draw light flash---------------------------------------");
-//    gl.disable(gl.DEPTH_TEST);
-////    flash.drawPrep(laserConst);
-////    for (var ii = 0; ii < g_numSharks; ++ii) {
-////      flash.draw(laserPer);
-////    }
-//
+      laser.drawPrep(laserConst);
+      for (var ff = 0; ff < g_fishTable.length; ++ff) {
+        var fishInfo = g_fishTable[ff];
+        var numFish = fishInfo.num[g_fishSetting];
+        var fishName = fishInfo.name;
+        var scene = g_scenes[fishName];
+        if (scene && scene.loaded && !scene.bad) {
+          var fish = scene.models[0];
+          for (var ii = 0; ii < numFish; ++ii) {
+            if (fishInfo.lasers) {
+              var data = fishInfo.fishData[ii];
+              var laserInfo = data.laser;
+              fast.matrix4.mul(
+                world,
+                fast.matrix4.scaling(m4t1, [0.5, 0.5, 200]),
+                fast.matrix4.cameraLookAt(
+                    m4t0,
+                    laserInfo.position,
+                    laserInfo.target,
+                    up));
+              fast.matrix4.mul(worldViewProjection, world, viewProjection);
+              laser.draw(laserPer);
+              //for (var jj = 0; jj < 3; ++jj) {
+              //  fast.matrix4.mul(
+              //    world,
+              //    fast.matrix4.axisRotation(
+              //        m4t0,
+              //        math.normalize([
+              //            Math.random() - 0.5,
+              //            Math.random() - 0.5,
+              //            Math.random() - 0.5]),
+              //        Math.random() * Math.PI * 2),
+              //    fast.matrix4.translation(m4t1, laserInfo.position));
+              //  fast.matrix4.mul(worldViewProjection, world, viewProjection);
+              //  laser.draw(laserPer);
+              //}
+            }
+          }
+        }
+      }
+
+      gl.disable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.enable(gl.CULL_FACE);
+      gl.depthMask(true);
+    }
 
     // Set the alpha to 255.
     gl.colorMask(false, false, false, true);
@@ -1556,7 +1773,12 @@ $(function(){
   $('#options').click(function() {
       $("#optionsContainer").toggle(); return false; });
   $("#optionsContainer").toggle();
-
+  $(document).keypress(function(event) {
+    if (event.keyCode == 'l'.charCodeAt(0) ||
+        event.keyCode == 'L'.charCodeAt(0)) {
+      g_drawLasers = !g_drawLasers;
+    }
+  });
   initialize();
 });
 </script>
@@ -1634,6 +1856,29 @@ void main() {
   gl_FragColor = texture2D(colorMap, v_texCoord) * colorMult;
 }
 </script>
+<!-- ===[ Laser Shader ]=========================================== -->
+<script id="laserVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+attribute vec2 texCoord;
+varying vec2 v_texCoord;
+uniform mat4 worldViewProjection;
+void main() {
+  v_texCoord = texCoord;
+  gl_Position = (worldViewProjection * position);
+}
+</script>
+<script id="laserFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+
+varying vec2 v_texCoord;
+uniform vec4 colorMult;
+uniform sampler2D colorMap;
+void main() {
+  gl_FragColor = texture2D(colorMap, v_texCoord) * colorMult;
+}
+</script>
 <!-- ===[ fishNormalMap Shader ]=========================================== -->
 <script id="fishVertexShader" type="text/something-not-javascript">
 uniform vec3 lightWorldPos;
@@ -1677,6 +1922,7 @@ void main() {
   mat4 worldInverseTranspose = world;
 
   v_texCoord = texCoord;
+  // NOTE:If you change this you need to change the laser code to match!
   float mult = position.z > 0.0 ?
       (position.z / fishLength) :
       (-position.z / fishLength * 2.0);
@@ -2322,75 +2568,6 @@ varying vec4 v_position;
 void main() {
   v_position = position;
   gl_Position = position;
-}
-</script>
-<script id="refractSkyboxFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision highp float;
-#endif
-uniform samplerCube skybox;
-uniform mat4 viewProjectionInverse;
-uniform mat4 viewInverse;
-uniform float tankRadiusSquared;
-uniform float tankRadiusInverse;
-uniform float tankRefractionRatio;
-varying vec4 v_position;
-
-void main() {
-  vec4 fragment = viewProjectionInverse * v_position;
-  fragment /= fragment.w;
-  vec3 viewPosition = viewInverse[3].xyz;
-  vec3 viewDirection = normalize(fragment.xyz - viewPosition);
-
-  // Trace ray from camera to tank cylinder. Start with an infinite cylinder.
-  float a = dot(viewDirection.xz, viewDirection.xz);
-  float b = 2.0 * dot(viewPosition.xz, viewDirection.xz);
-  float c = dot(viewPosition.xz, viewPosition.xz) - tankRadiusSquared;
-  float discriminant = b * b - 4.0 * a * c;
-
-  // If the discrimant is negative then the ray does not collide with the tank.
-  if (discriminant < 0.0) {
-    gl_FragColor = textureCube(skybox, viewDirection);
-  } else {
-    // Calculate the near and far collision times and pick the closest.
-    float sqrtDiscrimant = sqrt(discriminant);
-    float inverse2a = 1.0 / (2.0 * a);
-    float tn = (-b - sqrtDiscrimant) * inverse2a;
-    vec3 nearPosition = viewPosition + tn * viewDirection;
-
-    // The surface normal for the sphere is the intersecting position normalized
-    // by dividing by the radius.
-    vec3 nearSurfaceNormal = normalize(vec3(nearPosition.x, 0, nearPosition.z));
-    vec3 nearRefractedDirection = refract(viewDirection, nearSurfaceNormal, 1.0 / tankRefractionRatio);
-
-    // Trace ray from near intersection to tank cylinder.
-    a = dot(nearRefractedDirection.xz, nearRefractedDirection.xz);
-    b = 2.0 * dot(nearPosition.xz, nearRefractedDirection.xz);
-    c = dot(nearPosition.xz, nearPosition.xz) - tankRadiusSquared;
-    discriminant = b * b - 4.0 * a * c;
-
-    // Assume discriminant is not negative because we should have been tracing
-    // through the cylinder. Calculate near and far collision times and pick
-    // far one. Near one should be approximately zero. TODO: optimization here?
-    sqrtDiscrimant = sqrt(discriminant);
-    inverse2a = 1.0 / (2.0 * a);
-    float tf = (-b + sqrtDiscrimant) * inverse2a;
-    vec3 farPosition = nearPosition + tf * nearRefractedDirection;
-
-    // The surface normal for the sphere is the intersecting position normalized
-    // by dividing by the radius.
-    vec3 farSurfaceNormal = normalize(vec3(farPosition.x, 0, farPosition.z));
-    vec3 farRefractedDirection = refract(nearRefractedDirection, -farSurfaceNormal, tankRefractionRatio);
-
-    vec4 externalColor = textureCube(skybox, farRefractedDirection);
-
-    vec4 murkColor = vec4(0.1, 0.11, 0.1, 1.0);
-    float murkVisibilityDistance = 100.0;
-
-    float murkiness = min(1.0, tf / murkVisibilityDistance);
-
-    gl_FragColor = mix(externalColor, murkColor, murkiness);
-  }
 }
 </script>
 <script id="skyboxVertexShader" type="text/something-not-javascript">

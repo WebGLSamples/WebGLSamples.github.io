@@ -207,7 +207,7 @@ function CavesMain() {
   }
 
   this.onKeyDown = function(key) {
-    console.log(''+key);
+    tdl.log(''+key);
     keyDown[key] = true;
   }
 

@@ -1290,6 +1290,8 @@ tdl.fast.matrix4.axisRotation = function(dst, axis, angle) {
   dst[13] = 0;
   dst[14] = 0;
   dst[15] = 1;
+
+  return dst;
 };
 
 /**
