@@ -107,6 +107,9 @@ var g_buildingWidth = 10;
 var g_buildingSpacing = 11;
 var g_roadWidth = 16;
 
+var B;
+var IDX;
+
 //g_drawOnce = true;
 //g_debug = true;
 
@@ -324,12 +327,7 @@ function createBuildingPyramid(size) {
 /**
  * Sets up a modern building
  */
-function setupModernBuilding(windowTexture, height) {
-  var textures = {
-      diffuseSampler: windowTexture};
-  var program = createProgramFromTags(
-      'buildingVertexShader',
-      'buildingFragmentShader');
+function setupModernBuilding(height) {
   var towers = [];
   var numTowers = 4;
   var maxHeight = height;
@@ -350,19 +348,13 @@ function setupModernBuilding(windowTexture, height) {
          -x * 0.5, height / 2, -z * 0.5, 1]);
     towers.push(tower);
   }
-  var arrays = tdl.primitives.concat(towers);
-  return new tdl.models.Model(program, arrays, textures);
+  return tdl.primitives.concat(towers);
 }
 
 /**
  * Sets up a classic building
  */
-function setupClassicBuilding(windowTexture, height) {
-  var textures = {
-      diffuseSampler: windowTexture};
-  var program = createProgramFromTags(
-      'buildingVertexShader',
-      'buildingFragmentShader');
+function setupClassicBuilding(height) {
   var towers = [];
   var numTowers = 2 + math.randomInt(3);
   var maxHeight = height;
@@ -390,8 +382,7 @@ function setupClassicBuilding(windowTexture, height) {
         math.matrix4.scaling([width, height, width]),
         math.matrix4.translation([0, bottom, 0])));
   towers.push(pyramid);
-  var arrays = tdl.primitives.concat(towers);
-  return new tdl.models.Model(program, arrays, textures);
+  return tdl.primitives.concat(towers);
 }
 
 /**
@@ -531,12 +522,7 @@ function createTruncatedConeWithSkips(
 /**
  * Sets up a cylinder building
  */
-function setupCylinderBuilding(windowTexture, height) {
-  var textures = {
-      diffuseSampler: windowTexture};
-  var program = createProgramFromTags(
-      'buildingVertexShader',
-      'buildingFragmentShader');
+function setupCylinderBuilding(height) {
   var arrays = createTruncatedConeWithSkips(
     5,     // bottomRadius,
     5,     // topRadius,
@@ -552,6 +538,96 @@ function setupCylinderBuilding(windowTexture, height) {
        0, 1, 0, 0,
        0, 0, 1, 0,
        0, 50, 0, 1]);
+  return arrays;
+}
+
+function createRandomBuilding(height) {
+  switch (math.randomInt(3)) {
+  case 0:
+    return setupModernBuilding(height);
+  case 1:
+    return setupCylinderBuilding(height);
+  default:
+    return setupClassicBuilding(height);
+  }
+}
+
+function createBlock(windowTexture) {
+  var textures = {
+      diffuseSampler: windowTexture};
+  var program = createProgramFromTags(
+      'buildingVertexShader',
+      'buildingFragmentShader');
+  var buildings = [];
+  for (var xx = 0; xx < g_buildingsAcrossBlock; ++xx) {
+    var arrays = createRandomBuilding(math.randomInt(70) + 30);
+    tdl.primitives.reorient(
+        arrays, math.matrix4.translation([xx * g_buildingSpacing, 0, 0]));
+    buildings.push(arrays);
+    var arrays = createRandomBuilding(math.randomInt(70) + 30);
+    tdl.primitives.reorient(
+        arrays, math.matrix4.translation(
+          [xx * g_buildingSpacing,
+           0,
+           (g_buildingsAcrossBlock - 1) * g_buildingSpacing]));
+    if (xx != 0 && xx != g_buildingsAcrossBlock - 1) {
+      var arrays = createRandomBuilding(math.randomInt(70) + 30);
+      tdl.primitives.reorient(
+          arrays, math.matrix4.translation([0, 0, xx * g_buildingSpacing]));
+      buildings.push(arrays);
+      var arrays = createRandomBuilding(math.randomInt(70) + 30);
+      tdl.primitives.reorient(
+          arrays, math.matrix4.translation(
+            [(g_buildingsAcrossBlock - 1) * g_buildingSpacing,
+             0,
+             xx * g_buildingSpacing]));
+    }
+    buildings.push(arrays);
+  }
+  var arrays = tdl.primitives.concat(buildings);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+function createStreetLights() {
+  var textures = {};
+  var program = createProgramFromTags(
+      'streetLightVertexShader',
+      'streetLightFragmentShader');
+  var arrays = tdl.primitives.createPlane(1, 1, 1, 1);
+  tdl.primitives.reorient(arrays,
+      [1, 0, 0, 0,
+       0, 0, -1, 0,
+       0, 1, 0, 0,
+       0, 0, 0, 1]);
+  delete arrays.normal;
+  delete arrays.texCoord;
+  var numElements = arrays.position.numElements;
+  var lights = [arrays]
+  var across = 10;
+  for (var xx = 1; xx < across; ++xx) {
+    var a2 = tdl.primitives.clone(arrays);
+    lights[xx] = a2;
+  }
+  var arrays = tdl.primitives.concat(lights);
+  var lights = [arrays]
+  for (var zz = 1; zz < across; ++zz) {
+    var a2 = tdl.primitives.clone(arrays);
+    lights[zz] = a2;
+  }
+  var arrays = tdl.primitives.concat(lights);
+  var numLights = across * across;
+  var lightPosition = new tdl.primitives.AttribBuffer(
+      4, numElements * numLights);
+  for (var xx = 0; xx < across; ++xx) {
+    for (var zz = 0; zz < across; ++zz) {
+      var r1 = Math.random();
+      var r2 = Math.random();
+      for (var jj = 0; jj < numElements; ++jj) {
+        lightPosition.push([xx, zz, r1, r2]);
+      }
+    }
+  }
+  arrays.lightPosition = lightPosition;
   return new tdl.models.Model(program, arrays, textures);
 }
 
@@ -667,26 +743,16 @@ function initialize() {
   g_windowTextures[0] = tdl.textures.loadTexture(canvas2d, true);
 //  g_windowTextures[0] = tdl.textures.loadTexture('../tdl/test.png');
 
-  buildings = [];
+  blocks = [];
 
   Log("--Setup Ground---------------------------------------");
   var ground = setupGround();
   Log("--Setup Skybox---------------------------------------");
   var skybox = setupSkybox();
-  Log("--Setup Modern Building---------------------------------------");
-  for (var ii = 0; ii < 10; ++ii) {
-    buildings.push(setupModernBuilding(g_windowTextures[0],
-                                       math.randomInt(70) + 30));
-    //Log("--Setup Cylinder Building---------------------------------------");
-    buildings.push(setupCylinderBuilding(g_windowTextures[0],
-                                         math.randomInt(70) + 30));
-    //Log("--Setup Classic Building---------------------------------------");
-    buildings.push(setupClassicBuilding(g_windowTextures[0],
-                                        math.randomInt(70) + 30));
-  }
-
-  var cylinderBuilding = setupModernBuilding(g_windowTextures[0], 75);
-  var classicBuilding = setupModernBuilding(g_windowTextures[0], 50);
+  Log("--Setup Block---------------------------------------");
+  blocks.push(createBlock(g_windowTextures[0]));
+  Log("--Setup StreetLights---------------------------------------");
+  var streetLights = createStreetLights();
 
   var then = 0.0;
   var clock = 0.0;
@@ -746,6 +812,37 @@ function initialize() {
     world: world,
     worldViewProjection: worldViewProjection,
     texCoordMult: new Float32Array([1, 1])};
+
+  var streetLightsConst = {
+    lightSpacing: g_buildingSpacing,
+    lightSize: 10,
+    };
+  var streetLightsPer = {
+    world: world,
+    worldViewProjection: worldViewProjection,
+    viewInverse: viewInverse};
+
+  var pseudoRandom = math.pseudoRandom;
+  var numBlocks = blocks.length;
+  var blockWidth = g_buildingSpacing * g_buildingsAcrossBlock + g_roadWidth;
+  var blockInfo = [];
+  math.resetPseudoRandom();
+  for (var blockZ = 0; blockZ < g_blocksAcross; ++blockZ) {
+    var row = [];
+    blockInfo[blockZ] = row;
+    var bz = (blockZ - g_blocksAcross * 0.5) * blockWidth;
+    for (var blockX = 0; blockX < g_blocksAcross; ++blockX) {
+      var bx = (blockX - g_blocksAcross * 0.5) * blockWidth;
+      var index = Math.floor(pseudoRandom() * numBlocks);
+      var model = blocks[index];
+      var w = new Float32Array(16);
+      fast.matrix4.translation(w, [bx, 0, bz]),
+      row[blockX] = {
+        model: model,
+        world: w
+      };
+    }
+  }
 
   var frameCount = 0;
   var eyeClock = 0;
@@ -828,30 +925,30 @@ function initialize() {
     fast.matrix4.transpose(worldInverseTranspose, worldInverse);
     ground.draw(groundPer);
 
-    math.resetPseudoRandom();
-    var pseudoRandom = math.pseudoRandom;
-    var numBuildings = buildings.length;
-    var blockWidth = g_buildingSpacing * g_buildingsAcrossBlock + g_roadWidth;
-    // TODO(gman): Merge buildings into blocks.
+    Log("--Draw Blocks---------------------------------------");
     for (var blockZ = 0; blockZ < g_blocksAcross; ++blockZ) {
-      var bz = (blockZ - g_blocksAcross * 0.5) * blockWidth;
+      var row = blockInfo[blockZ];
       for (var blockX = 0; blockX < g_blocksAcross; ++blockX) {
-        var bx = (blockX - g_blocksAcross * 0.5) * blockWidth;
-        for (var buildingZ = 0; buildingZ < g_buildingsAcrossBlock; ++buildingZ) {
-          for (var buildingX = 0; buildingX < g_buildingsAcrossBlock; ++buildingX) {
-            var model = buildings[Math.floor(pseudoRandom() * numBuildings)];
-            model.drawPrep(modernBuildingConst);
-    fast.matrix4.translation(
-        world,
-        [bx + buildingZ * g_buildingSpacing,
-         0,
-         bz + buildingX * g_buildingSpacing]),
-    fast.matrix4.mul(worldViewProjection, world, viewProjection);
-    fast.matrix4.inverse(worldInverse, world);
-    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
-            model.draw(modernBuildingPer);
-          }
-        }
+        var info = row[blockX];
+        var model = info.model;
+        model.drawPrep(modernBuildingConst);
+        fast.matrix4.copy(world, info.world);
+        fast.matrix4.mul(worldViewProjection, world, viewProjection);
+        fast.matrix4.inverse(worldInverse, world);
+       // model.draw(modernBuildingPer);
+      }
+    }
+
+    Log("--Draw Street Lights---------------------------------------");
+    streetLights.drawPrep(streetLightsConst);
+    for (var blockZ = 0; blockZ < g_blocksAcross; ++blockZ) {
+      var row = blockInfo[blockZ];
+      for (var blockX = 0; blockX < g_blocksAcross; ++blockX) {
+        var info = row[blockX];
+        fast.matrix4.copy(world, info.world);
+        fast.matrix4.mul(worldViewProjection, world, viewProjection);
+        fast.matrix4.inverse(worldInverse, world);
+        streetLights.draw(streetLightsPer);
       }
     }
 
@@ -1004,6 +1101,52 @@ uniform sampler2D diffuseSampler;
 void main() {
   vec4 diffuse = texture2D(diffuseSampler, v_texCoord);
   gl_FragColor = diffuse;
+}
+</script>
+<script id="streetLightVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform float lightSpacing;
+uniform float lightSize;
+attribute vec4 position;
+attribute vec4 lightPosition;
+varying vec4 v_color;
+
+void main() {
+  mat4 vm = mat4(
+      viewInverse[0],
+      viewInverse[1],
+      viewInverse[2],
+     vec4(0,0,0,1));
+  vec4 pt = vm * vec4(
+      position.x * lightSize,
+      0,
+      position.z * lightSize,
+      1) +
+      vec4(0, position.y, 0, 0);
+
+  float xbase = lightPosition.x;
+  float zbase = lightPosition.y;
+  vec4 p = vec4(
+      pt.x + xbase * lightSpacing,
+      pt.y                       ,
+      pt.z + zbase * lightSpacing,
+      1);
+
+  gl_Position = worldViewProjection * p;
+  v_color = vec4(1, 0, 0, 1);
+}
+
+</script>
+<script id="streetLightFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+varying vec4 v_color;
+
+void main() {
+  gl_FragColor = v_color;
 }
 </script>
 <!-- ===[ SkyBox ]============================================== -->
