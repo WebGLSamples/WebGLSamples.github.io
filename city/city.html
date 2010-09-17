@@ -101,11 +101,15 @@ var g_setCountElements = [];
 var ctx;                  // 2d context
 var canvas2d;             // 2d canvas
 var g_windowTextures = [];// ..
-var g_blocksAcross = 7;
-var g_buildingsAcrossBlock = 4;
+var g_blocksAcross = 10;
+var g_lightsPerBlock = 10;
+var g_buildingsAcrossBlock = 8;
 var g_buildingWidth = 10;
 var g_buildingSpacing = 11;
 var g_roadWidth = 16;
+var g_blockWidth = g_buildingSpacing * g_buildingsAcrossBlock + g_roadWidth;
+var g_worldWidth = g_blockWidth * g_blocksAcross;
+var g_lightOffset = -8; //g_buildingWidth * 0.5;
 
 var B;
 var IDX;
@@ -113,10 +117,10 @@ var IDX;
 //g_drawOnce = true;
 //g_debug = true;
 
-var g_eyeSpeed          = 0.1;
-var g_eyeHeight         = 100;
-var g_eyeTarget         = 90;
-var g_eyeRadius         = 30;
+var g_eyeSpeed          = 0.01;
+var g_eyeHeight         = 120;
+var g_eyeTarget         = -100;
+var g_eyeRadius         = 600;
 var g_widthBasis        = 25;
 var g_heightBasis       = 25;
 
@@ -157,7 +161,15 @@ function setupGround() {
   var program = createProgramFromTags(
       'constVertexShader',
       'constFragmentShader');
-  var arrays = tdl.primitives.createPlane(1, 1, 10, 10);
+  var arrays = tdl.primitives.createPlane(
+      g_worldWidth, g_worldWidth, 10, 10);
+  var offset = (g_buildingWidth + g_roadWidth) * -0.5
+  tdl.primitives.reorient(arrays,
+      [1, 0, 0, 0,
+       0, 1, 0, 0,
+       0, 0, 1, 0,
+       offset, 0, offset, 1]);
+
   delete arrays.normal;
   delete arrays.texCoord;
   return new tdl.models.Model(program, arrays, textures);
@@ -337,6 +349,8 @@ function setupModernBuilding(height) {
     var height = ii == 0 ? maxHeight : math.randomInt(maxHeight);
     var width = start + math.randomInt(range);
     var depth = start + math.randomInt(range);
+		width = 10;
+		depth = 10;
     var x = Math.round((Math.random() - 0.5) * (1 - width));
     var z = Math.round((Math.random() - 0.5) * (1 - depth));
     var tower = createBuildingCube(width, height, depth);
@@ -473,7 +487,7 @@ function createTruncatedConeWithSkips(
       y = 0;
       v = 1;
       ringRadius = bottomRadius;
-    } else if (yy > verticalSubdivisions) {
+    } else if (yy >= verticalSubdivisions) {
       y = height;
       v = 1;
       ringRadius = topRadius;
@@ -570,6 +584,7 @@ function createBlock(windowTexture) {
           [xx * g_buildingSpacing,
            0,
            (g_buildingsAcrossBlock - 1) * g_buildingSpacing]));
+    buildings.push(arrays);
     if (xx != 0 && xx != g_buildingsAcrossBlock - 1) {
       var arrays = createRandomBuilding(math.randomInt(70) + 30);
       tdl.primitives.reorient(
@@ -581,8 +596,8 @@ function createBlock(windowTexture) {
             [(g_buildingsAcrossBlock - 1) * g_buildingSpacing,
              0,
              xx * g_buildingSpacing]));
+      buildings.push(arrays);
     }
-    buildings.push(arrays);
   }
   var arrays = tdl.primitives.concat(buildings);
   return new tdl.models.Model(program, arrays, textures);
@@ -593,7 +608,7 @@ function createStreetLights() {
   var program = createProgramFromTags(
       'streetLightVertexShader',
       'streetLightFragmentShader');
-  var arrays = tdl.primitives.createPlane(1, 1, 1, 1);
+  var arrays = tdl.primitives.createPlane(1, 1, 2, 2);
   tdl.primitives.reorient(arrays,
       [1, 0, 0, 0,
        0, 0, -1, 0,
@@ -602,30 +617,30 @@ function createStreetLights() {
   delete arrays.normal;
   delete arrays.texCoord;
   var numElements = arrays.position.numElements;
-  var lights = [arrays]
-  var across = 10;
-  for (var xx = 1; xx < across; ++xx) {
-    var a2 = tdl.primitives.clone(arrays);
-    lights[xx] = a2;
+  var lights = [];
+  var across = g_lightsPerBlock;
+  for (var xx = 0; xx < across; ++xx) {
+		for (var ii = 0; ii < 4; ++ii) {
+      var a2 = tdl.primitives.clone(arrays);
+      lights.push(a2);
+    }
   }
   var arrays = tdl.primitives.concat(lights);
-  var lights = [arrays]
-  for (var zz = 1; zz < across; ++zz) {
-    var a2 = tdl.primitives.clone(arrays);
-    lights[zz] = a2;
-  }
-  var arrays = tdl.primitives.concat(lights);
-  var numLights = across * across;
+  var numLights = across * 4;
   var lightPosition = new tdl.primitives.AttribBuffer(
       4, numElements * numLights);
   for (var xx = 0; xx < across; ++xx) {
-    for (var zz = 0; zz < across; ++zz) {
+		function addLight(x, y) {
       var r1 = Math.random();
       var r2 = Math.random();
       for (var jj = 0; jj < numElements; ++jj) {
-        lightPosition.push([xx, zz, r1, r2]);
+        lightPosition.push([x, y, r1, r2]);
       }
     }
+		addLight(xx + 1, 0);
+		addLight(xx + 1, across + 1);
+		addLight(0, xx + 1);
+		addLight(across + 1, xx + 1);
   }
   arrays.lightPosition = lightPosition;
   return new tdl.models.Model(program, arrays, textures);
@@ -814,32 +829,38 @@ function initialize() {
     texCoordMult: new Float32Array([1, 1])};
 
   var streetLightsConst = {
-    lightSpacing: g_buildingSpacing,
-    lightSize: 10,
+    viewInverse: viewInverse,
+    lightSpacing: (g_buildingSpacing * g_buildingsAcrossBlock) / g_lightsPerBlock,
+    lightSize: 4,
     };
   var streetLightsPer = {
     world: world,
-    worldViewProjection: worldViewProjection,
-    viewInverse: viewInverse};
+    worldViewProjection: worldViewProjection};
 
   var pseudoRandom = math.pseudoRandom;
   var numBlocks = blocks.length;
-  var blockWidth = g_buildingSpacing * g_buildingsAcrossBlock + g_roadWidth;
   var blockInfo = [];
   math.resetPseudoRandom();
   for (var blockZ = 0; blockZ < g_blocksAcross; ++blockZ) {
     var row = [];
     blockInfo[blockZ] = row;
-    var bz = (blockZ - g_blocksAcross * 0.5) * blockWidth;
+    var bz = (blockZ - g_blocksAcross * 0.5) * g_blockWidth;
     for (var blockX = 0; blockX < g_blocksAcross; ++blockX) {
-      var bx = (blockX - g_blocksAcross * 0.5) * blockWidth;
+      var bx = (blockX - g_blocksAcross * 0.5) * g_blockWidth;
       var index = Math.floor(pseudoRandom() * numBlocks);
       var model = blocks[index];
       var w = new Float32Array(16);
+      var lw = new Float32Array(16);
       fast.matrix4.translation(w, [bx, 0, bz]),
+      fast.matrix4.translation(
+          lw,
+          [bx + g_buildingWidth * 0.5,
+           1,
+           bz + g_buildingWidth * 0.5]),
       row[blockX] = {
         model: model,
-        world: w
+        world: w,
+        lightWorld: lw
       };
     }
   }
@@ -870,6 +891,22 @@ function initialize() {
     eyePosition[1] = g_eyeHeight;
     eyePosition[2] = Math.cos(eyeClock) * g_eyeRadius;
     target[1] = g_eyeTarget;
+
+    for (var blockZ = 0; blockZ < g_blocksAcross; ++blockZ) {
+      var row = blockInfo[blockZ];
+      var bz = (blockZ - g_blocksAcross * 0.5) * g_blockWidth;
+      for (var blockX = 0; blockX < g_blocksAcross; ++blockX) {
+        var info = row[blockX];
+        var bx = (blockX - g_blocksAcross * 0.5) * g_blockWidth;
+        var index = Math.floor(pseudoRandom() * numBlocks);
+        var model = blocks[index];
+        fast.matrix4.translation(
+            info.lightWorld,
+            [bx + g_lightOffset,
+             1,
+             bz + g_lightOffset]);
+      }
+    }
 
     gl.colorMask(true, true, true, true);
     gl.depthMask(true);
@@ -926,28 +963,34 @@ function initialize() {
     ground.draw(groundPer);
 
     Log("--Draw Blocks---------------------------------------");
+    var oldModel = null;
     for (var blockZ = 0; blockZ < g_blocksAcross; ++blockZ) {
       var row = blockInfo[blockZ];
       for (var blockX = 0; blockX < g_blocksAcross; ++blockX) {
         var info = row[blockX];
         var model = info.model;
-        model.drawPrep(modernBuildingConst);
+				if (model != oldModel) {
+					oldModel = model;
+          model.drawPrep(modernBuildingConst);
+        }
         fast.matrix4.copy(world, info.world);
         fast.matrix4.mul(worldViewProjection, world, viewProjection);
         fast.matrix4.inverse(worldInverse, world);
-       // model.draw(modernBuildingPer);
+        model.draw(modernBuildingPer);
       }
     }
 
     Log("--Draw Street Lights---------------------------------------");
+    gl.disable(gl.CULL_FACE);
+    gl.enable(gl.BLEND);
+    gl.depthMask(false);
     streetLights.drawPrep(streetLightsConst);
     for (var blockZ = 0; blockZ < g_blocksAcross; ++blockZ) {
       var row = blockInfo[blockZ];
       for (var blockX = 0; blockX < g_blocksAcross; ++blockX) {
         var info = row[blockX];
-        fast.matrix4.copy(world, info.world);
+        fast.matrix4.copy(world, info.lightWorld);
         fast.matrix4.mul(worldViewProjection, world, viewProjection);
-        fast.matrix4.inverse(worldInverse, world);
         streetLights.draw(streetLightsPer);
       }
     }
@@ -1016,7 +1059,7 @@ void main() {
 precision highp float;
 #endif
 void main() {
-  gl_FragColor = vec4(1, 1, 0, 1);
+  gl_FragColor = vec4(0, 0, 0, 1);
 }
 </script>
 <!--- DiffusePoint -->
@@ -1073,7 +1116,7 @@ void main() {
   gl_FragColor = vec4((diffuse * litR.y).rgb, diffuse.a);
 }
 </script>
-<!--- building -->
+<!-- ===[ Building ]============================================== -->
 <script id="buildingVertexShader" type="text/something-not-javascript">
 uniform mat4 worldViewProjection;
 uniform mat4 world;
@@ -1103,6 +1146,7 @@ void main() {
   gl_FragColor = diffuse;
 }
 </script>
+<!-- ===[ Street Light ]============================================== -->
 <script id="streetLightVertexShader" type="text/something-not-javascript">
 uniform mat4 worldViewProjection;
 uniform mat4 world;
@@ -1114,28 +1158,22 @@ attribute vec4 lightPosition;
 varying vec4 v_color;
 
 void main() {
-  mat4 vm = mat4(
-      viewInverse[0],
-      viewInverse[1],
-      viewInverse[2],
-     vec4(0,0,0,1));
-  vec4 pt = vm * vec4(
-      position.x * lightSize,
-      0,
-      position.z * lightSize,
-      1) +
-      vec4(0, position.y, 0, 0);
-
+  vec3 basisX = viewInverse[0].xyz;
+  vec3 basisZ = viewInverse[1].xyz;
+  vec3 subLocalPosition = vec3(
+      basisX * position.x + basisZ * position.y) * lightSize;
   float xbase = lightPosition.x;
   float zbase = lightPosition.y;
-  vec4 p = vec4(
-      pt.x + xbase * lightSpacing,
-      pt.y                       ,
-      pt.z + zbase * lightSpacing,
+  vec4 localPosition = vec4(
+      subLocalPosition.x + xbase * lightSpacing,
+      subLocalPosition.y                       ,
+      subLocalPosition.z + zbase * lightSpacing,
       1);
 
-  gl_Position = worldViewProjection * p;
-  v_color = vec4(1, 0, 0, 1);
+  gl_Position = worldViewProjection * localPosition;
+	float d = length(position.xy * 2.0);
+	float intensity = 1.0 - d;
+  v_color = vec4(1, 1, 1, intensity);
 }
 
 </script>
