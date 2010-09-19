@@ -93,30 +93,35 @@ function initializeGraphics() {
 }
 
 var caves = null;
+var timeLastLoop, timeLastEvent;
+
+function mainLoop() {
+  var timeNow = (new Date()).getTime() * 0.001;
+  var timeDelta = timeNow - timeLastLoop;
+  timeLastLoop = timeNow;
+
+  aspect = canvas.clientWidth / canvas.clientHeight;
+
+  caves.tick(timeDelta);
+  caves.render(backbuffer);
+
+  if (timeNow - timeLastEvent < 300) {
+    setTimeout(mainLoop, 0);
+  } else {
+    // No user interaction for a while, slow down tick rate.
+    setTimeout(mainLoop, 1000);
+  }
+}
 
 $(document).ready(function() {
   if (!initializeGraphics()) {
-  return;
+    return;
   }
 
   caves = new CavesMain();
+  timeLastLoop = timeLastEvent = (new Date()).getTime() * 0.001;
 
-  var time_then = (new Date()).getTime() * 0.001;
-
-  function render() {
-    var time_now = (new Date()).getTime() * 0.001;
-    var time_delta = time_now - time_then;
-    time_then = time_now;
-
-    aspect = canvas.clientWidth / canvas.clientHeight;
-
-    caves.tick(time_delta);
-    caves.render(backbuffer);
-
-    setTimeout(render, 20);
-  }
-
-  setTimeout(render, 20);
+  mainLoop();
 })
 
 $(document).mousemove(function(event) {
@@ -125,30 +130,35 @@ $(document).mousemove(function(event) {
     var x = event.pageX - offset.left;
     var y = event.pageY - offset.top;
     caves.onMouseMove(x, y);
+    timeLastEvent = timeLastLoop;
   }
 })
 
 $(document).mousedown(function(event) {
   if (caves !== null) {
     caves.onMouseDown(event.which);
+    timeLastEvent = timeLastLoop;
   }
 })
 
 $(document).mouseup(function(event) {
   if (caves !== null) {
     caves.onMouseUp(event.which);
+    timeLastEvent = timeLastLoop;
   }
 })
 
 $(document).keydown(function(event) {
   if (caves !== null) {
     caves.onKeyDown(event.which);
+    timeLastEvent = timeLastLoop;
   }
 })
 
 $(document).keyup(function(event) {
   if (caves !== null) {
     caves.onKeyUp(event.which);
+    timeLastEvent = timeLastLoop;
   }
 })
 

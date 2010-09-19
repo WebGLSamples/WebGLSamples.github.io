@@ -15,8 +15,6 @@ function CavesMain() {
 
   m4.perspective(proj, tdl.math.degToRad(60), aspect, 0.1, 500);
   m4.identity(world);
-  //m4.scaling(world, [0.7, 0.7, 0.7]);
-  //m4.translate(world, [-16, -16, -16]);
 
   var size = 96;
   var tree = new field.FieldNode(0, 0, 0, size, 24+1);
@@ -25,7 +23,6 @@ function CavesMain() {
 
   var eyePos = new Float32Array([size/2,size/2,size*1.1]);
   var eyePosVel = new Float32Array([0, 0, 0]);
-  //var eyeRotTheta = 0, eyeRotPhi = Math.PI/2;
   var eyeRotTheta = 0, eyeRotPhi = 2.6;
 
   var forward = new Float32Array([20, 0, 0]);
@@ -34,7 +31,9 @@ function CavesMain() {
 
   var time = 0;
 
-  var mouseX = 0, mouseY = 0;
+  var centerX = canvas.clientWidth / 2;
+  var centerY = canvas.clientHeight / 2;
+  var mouseX = centerX, mouseY = centerY;
   var laserDist = 0, nextCutDist = 0;
 
   function addBall(ballx, bally, ballz, radius) {
@@ -132,10 +131,9 @@ function CavesMain() {
     time_delta = Math.min(time_delta, 0.1);
     time += time_delta;
     var orbit = 1.1;
-    //eyePos = new Float32Array([Math.cos(time)*orbit, Math.sin(time)*orbit, 0.3]);
     var mvX, mvY;
-    mvX = Math.min(Math.max(mouseX - canvas.clientWidth / 2, -200), 200);
-    mvY = Math.min(Math.max(mouseY - canvas.clientHeight / 2, -200), 200);
+    mvX = Math.min(Math.max(mouseX - centerX, -200), 200);
+    mvY = Math.min(Math.max(mouseY - centerY, -200), 200);
     mvX = Math.pow(mvX / 60, 3);
     mvY = Math.pow(mvY / 60, 3);
     eyeRotTheta = (eyeRotTheta - mvX * time_delta * 0.1) % (Math.PI * 2);
@@ -207,7 +205,7 @@ function CavesMain() {
   }
 
   this.onKeyDown = function(key) {
-    tdl.log(''+key);
+    //tdl.log(''+key);
     keyDown[key] = true;
   }
 
