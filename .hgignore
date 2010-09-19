@@ -8,4 +8,5 @@ temp
 .mayaSwatches
 *.pyc
 *.orig
-
+.DS_Store
+.project
