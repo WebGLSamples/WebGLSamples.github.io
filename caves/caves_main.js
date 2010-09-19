@@ -130,15 +130,18 @@ function CavesMain() {
   this.tick = function(time_delta) {
     time_delta = Math.min(time_delta, 0.1);
     time += time_delta;
-    var orbit = 1.1;
-    var mvX, mvY;
-    mvX = Math.min(Math.max(mouseX - centerX, -200), 200);
-    mvY = Math.min(Math.max(mouseY - centerY, -200), 200);
-    mvX = Math.pow(mvX / 60, 3);
-    mvY = Math.pow(mvY / 60, 3);
-    eyeRotTheta = (eyeRotTheta - mvX * time_delta * 0.1) % (Math.PI * 2);
-    eyeRotPhi += mvY * time_delta * 0.1;
-    eyeRotPhi = Math.min(Math.max(eyeRotPhi, 0.1), Math.PI-0.1);
+    var relX = mouseX - centerX;
+    var relY = mouseY - centerY;
+    var dist = Math.sqrt(relX * relX + relY * relY);
+    if (dist > 0) {
+      var turn_rate = Math.pow(Math.min(dist, 200.0) / 200.0, 3) * (time_delta * 3);
+      var multiplier = turn_rate / dist;
+      relX *= multiplier;
+      relY *= multiplier;
+      
+      eyeRotTheta = (eyeRotTheta - relX) % (Math.PI * 2);
+      eyeRotPhi = Math.min(Math.max(eyeRotPhi + relY, 0.1), Math.PI-0.1);
+    }
     forward[0] = Math.cos(eyeRotTheta) * Math.sin(eyeRotPhi);
     forward[1] = Math.sin(eyeRotTheta) * Math.sin(eyeRotPhi);
     forward[2] = Math.cos(eyeRotPhi);
