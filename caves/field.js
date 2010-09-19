@@ -17,16 +17,22 @@ field.NodeState = {
  * A FieldNode is a cube of field space.
  * 
  * If not subdivided, this.value represents the value within the whole cube.
- * size and blockSize must be powers of two.
  * 
  * minX,Y,Z define one corner of cube. size is the length of the cube edges.
+ *
+ * @param minX Minimum X coordinate of this node. 
+ * @param minY Minimum Y coordinate of this node. 
+ * @param minZ Minimum Z coordinate of this node. 
+ * @param size Total size of field. Must be a power of two.
+ * @param blockSize Size of each block of field data to allocate.
  */
 field.FieldNode = function(minX, minY, minZ, size, blockSize) {
   this.minX = minX;
   this.minY = minY;
   this.minZ = minZ;
   this.size = size;
-  
+
+  // The center point of this node.
   this.midX = this.minX + this.size * 0.5;
   this.midY = this.minY + this.size * 0.5;
   this.midZ = this.minZ + this.size * 0.5;
