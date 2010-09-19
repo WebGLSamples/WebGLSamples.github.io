@@ -1,6 +1,8 @@
 
 
+function rand01() { return Math.random(); }
 function randm11() { return Math.random() * 2 - 1; }
+function rand_range(min, max) { return min + Math.random() * (max - min); }
 
 function decayTo(x, target, dt) { return target + (x - target) / (1 + dt); }
 
@@ -36,13 +38,23 @@ function CavesMain() {
   var mouseX = centerX, mouseY = centerY;
   var laserDist = 0, nextCutDist = 0;
 
-  function addBall(ballx, bally, ballz, radius) {
-    var min_x = Math.max(Math.floor(ballx - radius), 1);
-    var max_x = Math.min(Math.ceil(ballx + radius), size);
-    var min_y = Math.max(Math.floor(bally - radius), 1);
-    var max_y = Math.min(Math.ceil(bally + radius), size);
-    var min_z = Math.max(Math.floor(ballz - radius), 1);
-    var max_z = Math.min(Math.ceil(ballz + radius), size);
+  function addBall(ballx, bally, ballz, radius, modifyEdges) {
+    var min_x, max_x, min_y, max_y, min_z, max_z;
+    if (modifyEdges) {
+      min_x = Math.max(Math.floor(ballx - radius), 0);
+      max_x = Math.min(Math.ceil(ballx + radius), size + 1);
+      min_y = Math.max(Math.floor(bally - radius), 0);
+      max_y = Math.min(Math.ceil(bally + radius), size + 1);
+      min_z = Math.max(Math.floor(ballz - radius), 0);
+      max_z = Math.min(Math.ceil(ballz + radius), size + 1);
+    } else {
+      min_x = Math.max(Math.floor(ballx - radius), 1);
+      max_x = Math.min(Math.ceil(ballx + radius), size);
+      min_y = Math.max(Math.floor(bally - radius), 1);
+      max_y = Math.min(Math.ceil(bally + radius), size);
+      min_z = Math.max(Math.floor(ballz - radius), 1);
+      max_z = Math.min(Math.ceil(ballz + radius), size);
+    }
     function uniform(node) {
       // TODO(libra): intersect sphere with cube to avoid unnecessary splits.
       // TODO(libra): just set value if this is an interior cube
@@ -118,13 +130,23 @@ function CavesMain() {
   }
 
   addFloor(size - 0);
-  var radius = 7.0;
+  var radius = 25.0;
+  // Cut top surface.
+  for (var i = 0; i < 100; ++i) {
+    var ballx = rand01() * (size + radius * 4) - radius * 2;
+    var bally = rand01() * (size + radius * 4) - radius * 2;
+    var ballz = size + rand_range(0.3, 0.8) * radius;
+    addBall(ballx, bally, ballz, radius, true);
+  }
+  // Add some random deep balls to find while digging!
+  radius = 7.0;
   for (var i = 0; i < 25; ++i) {
     var ballx = randm11() * size/3 + size/2;
     var bally = randm11() * size/3 + size/2;
     var ballz = randm11() * size*0.1 + size*0.8;
     addBall(ballx, bally, ballz, radius);
   }
+  // Calculate initial geometry.
   cubes.update();
 
   this.tick = function(time_delta) {
