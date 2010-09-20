@@ -135,7 +135,6 @@ var g_sharkZClock      = 1;
 var g_numBubbleSets    = 10;
 var g_laserEta = 1.2;
 var g_laserLenFudge = 1;
-var g_drawLasers = false;
 var g_bubbleSets = [];
 var g_fishData = [];
 var g_numLightRays = 5;
@@ -149,18 +148,8 @@ var g_lightRayRotRange = 1.0;
 var g_lightRayRotLerp = 0.2;
 var g_lightRayOffset = Math.PI * 2 / g_numLightRays;
 var g_lightRayInfo = [];
-
-var g_options = {
-  normalMaps: { enabled: false, text: 'Normal Maps' },
-  reflection: { enabled: false, text: 'Reflection' },
-  tank:       { enabled: true,  text: 'Tank' },
-  museum:     { enabled: true,  text: 'Museum' },
-  fog:        { enabled: true,  text: 'Fog' },
-  bubbles:    { enabled: true,  text: 'Bubbles' },
-  lightRays:  { enabled: true,  text: 'Light Rays' }
-};
-
 var g_viewSettingsIndex = 0;
+
 var g_viewSettings = [
   // Inside 1
   {
@@ -249,9 +238,22 @@ var g_viewSettings = [
 ];
 
 var g = {
-  globals: {},
+  globals: {
+    drawLasers: false,
+    mode: 'normal',
+  },
   fish: {},
-  innerConst: {}};
+  innerConst: {},
+  options: {
+    normalMaps: { enabled: false, text: 'Normal Maps' },
+    reflection: { enabled: false, text: 'Reflection' },
+    tank:       { enabled: true,  text: 'Tank' },
+    museum:     { enabled: true,  text: 'Museum' },
+    fog:        { enabled: true,  text: 'Fog' },
+    bubbles:    { enabled: true,  text: 'Bubbles' },
+    lightRays:  { enabled: true,  text: 'Light Rays' }
+  }
+};
 
 var g_uiWidgets = {};
 
@@ -768,13 +770,13 @@ Scene.prototype.onload_ = function(data, exception) {
 
 function setShaders() {
   var name = '';
-  if (!g_options.fog.enabled) {
+  if (!g.options.fog.enabled) {
     name += 'noFog';
   }
-  if (!g_options.reflection.enabled) {
+  if (!g.options.reflection.enabled) {
     name += 'noReflection';
   }
-  if (!g_options.normalMaps.enabled) {
+  if (!g.options.normalMaps.enabled) {
     name += 'noNormalMaps';
   }
   if (name == '') {
@@ -1242,8 +1244,8 @@ function initialize() {
   }
 
   var optionsContainer = document.getElementById("optionsContainer");
-  for (var name in g_options) {
-    var option = g_options[name];
+  for (var name in g.options) {
+    var option = g.options[name];
     option.name = name;
     var div = document.createElement('div');
     div.appendChild(document.createTextNode("-" + option.text));
@@ -1267,6 +1269,13 @@ function initialize() {
   var frameCount = 0;
   var eyeClock = 0;
   var setPretty = true;
+
+  var now = (new Date()).getTime() * 0.001;
+  if (g.globals.mode != 'normal') {
+    clock = now;
+    eyeClock = now;
+  }
+
   function render() {
     if (g_drawOnce) {
       clearInterval(intervalId);
@@ -1288,8 +1297,8 @@ function initialize() {
     // If we are running > 40hz then turn on a few more options.
     if (setPretty && g_fpsTimer.averageFPS > 40) {
       setPretty = false;
-      if (!g_options.normalMaps.enabled) { g_options.normalMaps.toggle(); }
-      if (!g_options.reflection.enabled) { g_options.reflection.toggle(); }
+      if (!g.options.normalMaps.enabled) { g.options.normalMaps.toggle(); }
+      if (!g.options.reflection.enabled) { g.options.reflection.toggle(); }
     }
 
     clock += elapsedTime * g.globals.speed;
@@ -1355,7 +1364,7 @@ function initialize() {
 
     // Draw Skybox
     //Log("--Draw Sky---------------------------------------");
-    //if (g_options.skybox.enabled) {
+    //if (g.options.skybox.enabled) {
     //  gl.depthMask(false);
     //  skybox.drawPrep(skyConst);
     //  skybox.draw(skyPer);
@@ -1457,7 +1466,7 @@ function initialize() {
               (clock + ii * g_tailOffsetMult) * fishTailSpeed * speed;
           fish.draw(fishPer);
 
-          if (g_drawLasers && fishInfo.lasers) {
+          if (g.drawLasers && fishInfo.lasers) {
             fishInfo.fishData[ii] = {
               position: [
                   fishPosition[0],
@@ -1475,7 +1484,7 @@ function initialize() {
       }
     }
 
-    if (g_options.tank.enabled) {
+    if (g.options.tank.enabled) {
       if (g_sceneGroups.inner) {
         Log("--Draw GlobeInner----------------");
         DrawGroup(g_sceneGroups.inner, g.innerConst, innerPer);
@@ -1488,7 +1497,7 @@ function initialize() {
     }
 
     // Draw Lasers
-    if (g_drawLasers) {
+    if (g.drawLasers) {
       Log("--Draw Lasers---------------------------------------");
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE);
@@ -1574,7 +1583,7 @@ function initialize() {
       gl.depthMask(true);
     }
 
-    if (g_options.museum.enabled) {
+    if (g.options.museum.enabled) {
       if (g_sceneGroups.outside) {
         Log("--Draw outside----------------");
         DrawGroup(g_sceneGroups.outside, outsideConst, outsidePer);
@@ -1596,13 +1605,13 @@ function initialize() {
       bubbleIndex = bubbleIndex % g_numBubbleSets;
     }
     fast.matrix4.translation(world, [0, 0, 0]);
-    if (g_options.bubbles.enabled) {
+    if (g.options.bubbles.enabled) {
       particleSystem.draw(viewProjection, world, viewInverse);
     }
 
     gl.enable(gl.BLEND);
     gl.disable(gl.CULL_FACE);
-    if (g_options.lightRays.enabled) {
+    if (g.options.lightRays.enabled) {
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
       gl.depthMask(false);
       lightRay.drawPrep(lightRayConst);
@@ -1636,7 +1645,7 @@ function initialize() {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.blendEquation(gl.FUNC_ADD);
 
-    if (g_options.tank.enabled) {
+    if (g.options.tank.enabled) {
       if (g_sceneGroups.outer) {
         Log("--Draw GlobeOuter----------------");
         DrawGroup(g_sceneGroups.outer, g.innerConst, innerPer);
@@ -1644,7 +1653,7 @@ function initialize() {
     }
 
     // Draw Lasers Outside
-    if (g_drawLasers) {
+    if (g.drawLasers) {
       Log("--Draw Lasers Outside---------------------------------------");
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE);
@@ -1756,6 +1765,20 @@ function setupSlider($, elem, ui, obj) {
   });
 }
 
+function applySettings(obj, opt_dst) {
+ var dst = opt_dst || g;
+ for (var name in obj) {
+   var value = obj[name];
+   if (typeof value == 'object') {
+     applySettings(value, dst[name]);
+     tdl.log("apply->: ", name);
+   } else {
+     tdl.log("apply: ", name, "=", value);
+     dst[name] = value;
+   }
+ }
+}
+
 $(function(){
   var uiElem = document.getElementById('ui');
   for (var ii = 0; ii < g_ui.length; ++ii) {
@@ -1767,6 +1790,34 @@ $(function(){
     uiElem.appendChild(div);
   }
 
+  try {
+    var s = window.location.href;
+    var q = s.indexOf("?");
+    var query = s.substr(q + 1);
+    tdl.log("query:", query);
+    var pairs = query.split("&");
+    tdl.log("pairs:", pairs.length);
+    for (var ii = 0; ii < pairs.length; ++ii) {
+      var keyValue = pairs[ii].split("=");
+      var key = keyValue[0];
+      var value = decodeURI(keyValue[1]);
+      tdl.log(ii, ":", key, "=", value);
+      switch (key) {
+      case 'settings':
+        tdl.log(value);
+        var obj = eval("(" + value + ")");
+        tdl.log("obj:", obj);
+        applySettings(obj);
+        break;
+      }
+    }
+  } catch (e) {
+    tdl.error(e);
+    return;
+  }
+//  return;
+
+
   $('#setSetting8').click(function() {
       $("#uiContainer").toggle('slow'); return false; });
   $("#uiContainer").toggle();
@@ -1776,7 +1827,7 @@ $(function(){
   $(document).keypress(function(event) {
     if (event.keyCode == 'l'.charCodeAt(0) ||
         event.keyCode == 'L'.charCodeAt(0)) {
-      g_drawLasers = !g_drawLasers;
+      g.drawLasers = !g.drawLasers;
     }
   });
   initialize();
