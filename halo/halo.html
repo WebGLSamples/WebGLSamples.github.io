@@ -28,13 +28,14 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
-<!DOCTYPE html 
+<!DOCTYPE html
     PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 
 <html>
     <head>
         <title>Halo</title>
+        <script type="text/javascript" src="../tdl/base.js"></script>
         <script type="text/javascript" src="voronoi.js"></script>
         <script type="text/javascript" src="halo.js"></script>
         <style type="text/css">
@@ -49,7 +50,7 @@
             }
         </style>
     </head>
-    <body>
+    <body id="viewContainer">
         <canvas id="c"></canvas>
         <script id="halo_vertex" type="x-glsl-shader/x-fragment">
             attribute highp vec2 position;

@@ -28,6 +28,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+tdl.require('tdl.webgl');
 
 var gl = null;
 
@@ -992,11 +993,12 @@ var resize = function() {
 
 var main = function() {
     var canvas = document.getElementById("c");
-    gl = canvas.getContext('webgl');
-    if (!gl)
-        gl = canvas.getContext('experimental-webgl');
+    // I hope you don't mind. This is just so all of these demos have
+    // one place to handle WebGL not available since the spec is being updated
+    // for how to report that and distinguish between the browser doesn't have
+    // WebGL vs the hardware/drivers/etc is not up to it.
+    gl = tdl.webgl.setupWebGL("viewContainer", canvas);
     if (!gl) {
-        canvas.parentElement.innerHTML = "Unable to initialize WebGL.";
         return;
     }
 
@@ -1021,7 +1023,8 @@ var main = function() {
         }
     });
 }
-window.addEventListener("load", main, false);
+// changed to work in IE so we can at least report the need WebGL
+window.onload = main
 
 })();
 
