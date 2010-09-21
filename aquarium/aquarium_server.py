@@ -74,6 +74,9 @@ class MyHandler(BaseHTTPRequestHandler):
             g_clients[id] = True
             g_clientsThatNeedUpdates[id] = True
             data = g_allData
+          if 'new' in kv:
+            data = g_allData
+            g_clientsThatNeedUpdates[id] = True
           self.send_response(200)
           self.send_header('Access-Control-Allow-Origin', '*')
           self.send_header('Content-type',  'application/json')
@@ -81,11 +84,14 @@ class MyHandler(BaseHTTPRequestHandler):
           # if this client has not received the data yet send it.
           if id in g_clientsThatNeedUpdates:
             del g_clientsThatNeedUpdates[id]
-            self.wfile.write(json.dumps(data))
+            js = json.dumps(data)
+            Log("js: ", js)
+            self.wfile.write(js)
             # if there are not more clients that need data delete the data.
             if len(g_clientsThatNeedUpdates) == 0:
               g_newData = {}
           else:
+            Log("send empty")
             self.wfile.write(json.dumps({}))
         else:
           self.send_error(

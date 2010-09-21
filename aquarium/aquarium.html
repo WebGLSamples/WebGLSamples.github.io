@@ -1033,16 +1033,22 @@ function DumpObj(obj, opt_prefix) {
   }
 }
 
-function GetData() {
+function GetData(opt_new) {
   var url = "http://" + g.net.server + "?id=" + g.net.id + "&cmd=get";
+	if (opt_new) {
+		url += "&new=1";
+  }
   tdl.io.loadJSON(
       url,
       function(obj, exception) {
         g_getCount++;
-        tdl.log("--[", g_getCount, "]-------------");
         if (exception) {
           tdl.log("EXCEPTION: ", exception);
         } else {
+					for (var p in obj) {
+            tdl.log("--[", g_getCount, "]-------------");
+            break;
+          }
           applySettings(obj);
         }
         setTimeout(GetData, g.net.timeout);
@@ -1338,7 +1344,7 @@ function initialize() {
     g.net.server = server;
 
     if (g_slave) {
-      GetData();
+      GetData(true);
     }
   }
 
