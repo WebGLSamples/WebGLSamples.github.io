@@ -242,11 +242,12 @@ var g_viewSettings = [
 
 var g = {
   globals: {
-		fishSetting: 2,
+    fishSetting: 2,
     drawLasers: false
   },
   net: {
-    timeout: 3000
+    timeout: 3000,
+    fovMult: 1
   },
   fish: {},
   innerConst: {},
@@ -291,6 +292,11 @@ var g_ui = [
   { obj: 'innerConst', name: 'refractionFudge', value: 3,     max:  50},
   { obj: 'innerConst', name: 'eta',             value: 1,     max:  1.2},
   { obj: 'innerConst', name: 'tankColorFudge',  value: 0.8,   max:  2}
+];
+
+var g_netUI = [
+  { obj: 'net',    name: 'timeout',     value: 3000,  max:  3000},
+  { obj: 'net',    name: 'fovMult',     value: 1,     max:  2}
 ];
 
 var g_fishTable = [
@@ -969,7 +975,7 @@ function setViewSettings(index) {
   }
 
   var viewSettings = g_viewSettings[index];
-	applySettings({globals: viewSettings})
+  applySettings({globals: viewSettings})
 }
 
 function advanceViewSettings() {
@@ -985,11 +991,11 @@ function setSetting(elem, id) {
   case 8:
     break;
   case 7:
-		advanceViewSettings();
+    advanceViewSettings();
     break;
   default:
     g_numSettingElements[id] = elem;
-		applySettings({globals:{fishSetting:id}});
+    applySettings({globals:{fishSetting:id}});
     for (var otherElem in g_numSettingElements) {
       g_numSettingElements[otherElem].style.color = "gray";
     }
@@ -1035,8 +1041,8 @@ function DumpObj(obj, opt_prefix) {
 
 function GetData(opt_new) {
   var url = "http://" + g.net.server + "?id=" + g.net.id + "&cmd=get";
-	if (opt_new) {
-		url += "&new=1";
+  if (opt_new) {
+    url += "&new=1";
   }
   tdl.io.loadJSON(
       url,
@@ -1045,7 +1051,7 @@ function GetData(opt_new) {
         if (exception) {
           tdl.log("EXCEPTION: ", exception);
         } else {
-					for (var p in obj) {
+          for (var p in obj) {
             tdl.log("--[", g_getCount, "]-------------");
             break;
           }
@@ -1374,7 +1380,7 @@ function initialize() {
       if (!g.options.reflection.enabled) { g.options.reflection.toggle(); }
     }
 
-		if (g_sync) {
+    if (g_sync) {
       clock = now * g.globals.speed;
       eyeClock = now * g.globals.eyeSpeed;
     } else {
@@ -1403,13 +1409,22 @@ function initialize() {
         canvas.clientWidth / canvas.clientHeight,
         1,
         25000);
-    fast.matrix4.lookAt(
-        view,
+    fast.matrix4.cameraLookAt(
+        viewInverse,
         eyePosition,
         target,
         up);
+    if (g_slave) {
+      // compute X fov from y fov
+      var fovy = g.globals.fieldOfView;
+      var fovx = Math.atan(
+          Math.tan(fovy * 0.5) * canvas.clientWidth / canvas.clientHeight) * 2;
+      fast.matrix4.rotationY(
+          m4t0, g.net.id * g.globals.fieldOfView * g.net.fovMult);
+      fast.matrix4.mul(viewInverse, viewInverse, m4t0);
+    }
+    fast.matrix4.inverse(view, viewInverse);
     fast.matrix4.mul(viewProjection, view, projection);
-    fast.matrix4.inverse(viewInverse, view);
     fast.matrix4.inverse(viewProjectionInverse, viewProjection);
 
     fast.matrix4.copy(skyView, view);
@@ -1810,9 +1825,9 @@ function setParam(event, qui, ui, obj, valueElem) {
   valueElem.innerHTML = value;
   var inner = {}
   var settings = {};
-	settings[ui.obj] = inner;
-	inner[ui.name] = value;
-	applySettings(settings);
+  settings[ui.obj] = inner;
+  inner[ui.name] = value;
+  applySettings(settings);
 }
 
 function getUIValue(obj, id) {
@@ -1864,7 +1879,7 @@ function applySettingsInside(obj, dst) {
 function applySettings(obj) {
  applySettingsInside(obj, g);
  if (g_sync && !g_slave) {
-	 PutData(obj);
+   PutData(obj);
  }
 }
 
@@ -1882,7 +1897,7 @@ function AddUI(uiObj) {
 
 $(function(){
 
-	AddUI(g_ui);
+  AddUI(g_ui);
 
   try {
     var s = window.location.href;
@@ -1910,15 +1925,12 @@ $(function(){
     return;
   }
 
-	if (g.net.id !== undefined) {
-		g_sync = true;
-		if (g.net.id != 0) {
-			g_slave = true
+  if (g.net.id !== undefined) {
+    g_sync = true;
+    if (g.net.id != 0) {
+      g_slave = true
     } else {
-      AddUI([
-         { obj: 'net',    name: 'timeout',     value: 3000,  max:  3000},
-         { obj: 'net',    name: 'fovMult',     value: 1,     max:  2}
-       ]);
+      AddUI(g_netUI);
     }
   }
 
@@ -1937,7 +1949,7 @@ $(function(){
           event.keyCode == 'L'.charCodeAt(0)) {
         applySettings({drawLasers: !g.drawLasers});
       } else if (event.keyCode == ' '.charCodeAt(0)) {
-				advanceViewSettings();
+        advanceViewSettings();
       }
     });
   }
