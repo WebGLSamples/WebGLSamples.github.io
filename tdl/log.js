@@ -75,3 +75,20 @@ tdl.error = function() {
   }
 };
 
+tdl.dump = function(obj, opt_prefix) {
+  opt_prefix = opt_prefix || "";
+  if (typeof obj == 'object') {
+    if (obj.length !== undefined) {
+      for (var ii = 0; ii < obj.length; ++ii) {
+        tdl.dump(obj[ii], opt_prefix + "[" + ii + "]");
+      }
+    } else {
+      for (var name in obj) {
+        tdl.dump(obj[name], opt_prefix + "." + name);
+      }
+    }
+  } else {
+    tdl.log(opt_prefix, ": ", obj);
+  }
+}
+

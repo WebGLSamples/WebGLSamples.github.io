@@ -43,6 +43,10 @@ class MyHandler(BaseHTTPRequestHandler):
         obj[name] = value
 
   def AddData(self, js):
+    global g_newData
+    global g_allData
+    global g_clients
+    global g_clientsThatNeedUpdates
     # mark all known clients as needing to be updated
     for id in g_clients:
       g_clientsThatNeedUpdates[id] = True
@@ -51,9 +55,12 @@ class MyHandler(BaseHTTPRequestHandler):
     self.AddToObj(js, g_allData)
 
   def do_GET(self):
-    global Gcount
+    global g_newData
+    global g_allData
+    global g_clients
+    global g_clientsThatNeedUpdates
     Log("GET:", self.path)
-    query = urlparse.urlparse(self.path)[4]
+    (protocol, domain, path, params, query, fragment) = urlparse.urlparse(self.path)
     kv = cgi.parse_qs(query)
     try:
       if 'cmd' in kv:
@@ -88,7 +95,7 @@ class MyHandler(BaseHTTPRequestHandler):
       else:
         #for header in self.headers.headers:
         #  print "header:", header
-        filename = os.curdir + os.sep + self.path
+        filename = os.curdir + os.sep + path
         Log("read:", filename)
         f = open(filename, "rb") #self.path has /test.html
         #note that this potentially makes every file on your computer
@@ -100,10 +107,12 @@ class MyHandler(BaseHTTPRequestHandler):
           ctype = 'image/png'
         elif filename.endswith(".js"):
           ctype = 'application/javascript'
+        elif filename.endswith(".css"):
+          ctype = 'text/css'
 
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Content-type',  'text/html')
+        self.send_header('Content-type', ctype)
         self.end_headers()
         self.wfile.write(f.read())
         f.close()
@@ -121,6 +130,7 @@ class MyHandler(BaseHTTPRequestHandler):
 
 
   def do_POST(self):
+    global g_newData
     Log("POST: start")
     ctype = self.headers.getheader('content-type')
     Log("Ctype:", ctype)

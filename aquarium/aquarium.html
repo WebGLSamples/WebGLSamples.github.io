@@ -116,11 +116,12 @@ var g_beamWorldMats = [];
 var g_scenes = {};  // each of the models
 var g_sceneGroups = {};  // the placement of the models
 var g_fog = true;
+var g_sync = false;
+var g_slave = false;
 
 //g_debug = true;
 //g_drawOnce = true;
 
-var g_fishSetting      = 2;
 var g_numSharks        = 0;
 var g_tailOffsetMult   = 1;
 var g_endOfDome        = Math.PI / 8;
@@ -150,6 +151,7 @@ var g_lightRayOffset = Math.PI * 2 / g_numLightRays;
 var g_lightRayInfo = [];
 var g_viewSettingsIndex = 0;
 var g_getCount = 0;
+var g_putCount = 0;
 
 var g_viewSettings = [
   // Inside 1
@@ -240,10 +242,10 @@ var g_viewSettings = [
 
 var g = {
   globals: {
+		fishSetting: 2,
     drawLasers: false
   },
   net: {
-    mode: 'normal',
     timeout: 3000
   },
   fish: {},
@@ -967,9 +969,7 @@ function setViewSettings(index) {
   }
 
   var viewSettings = g_viewSettings[index];
-  for (var name in viewSettings) {
-    setGlobal(name, viewSettings[name]);
-  }
+	applySettings({globals: viewSettings})
 }
 
 /**
@@ -985,7 +985,7 @@ function setSetting(elem, id) {
     break;
   default:
     g_numSettingElements[id] = elem;
-    g_fishSetting = id;
+		applySettings({globals:{fishSetting:id}});
     for (var otherElem in g_numSettingElements) {
       g_numSettingElements[otherElem].style.color = "gray";
     }
@@ -1012,6 +1012,23 @@ function setupCountButtons() {
   setSetting(document.getElementById("setSetting7"), 7);
 }
 
+function DumpObj(obj, opt_prefix) {
+  opt_prefix = opt_prefix || "";
+  if (typeof obj == 'object') {
+    if (obj.length !== undefined) {
+      for (var ii = 0; ii < obj.length; ++ii) {
+        DumpObj(obj[ii], opt_prefix + "[" + ii + "]");
+      }
+    } else {
+      for (var name in obj) {
+        DumpObj(obj[name], opt_prefix + "." + name);
+      }
+    }
+  } else {
+    tdl.log(opt_prefix, ": ", obj);
+  }
+}
+
 function GetData() {
   var url = "http://" + g.net.server + "?id=" + g.net.id + "&cmd=get";
   tdl.io.loadJSON(
@@ -1026,6 +1043,22 @@ function GetData() {
         }
         setTimeout(GetData, g.net.timeout);
       });
+}
+
+function PutData(data) {
+  var url = "http://" + g.net.server + "?cmd=put";
+  tdl.io.sendJSON(
+    url,
+    data,
+    function (obj, exception) {
+        g_putCount++;
+        tdl.log("--[", g_putCount, "]-------------");
+        if (exception) {
+          tdl.log("EXCEPTION: ", exception);
+        } else {
+          DumpObj(obj);
+        }
+    });
 }
 
 /**
@@ -1245,8 +1278,10 @@ function initialize() {
     }
   }
 
-  function toggleOption(option, elem) {
-    option.enabled = !option.enabled;
+  function toggleOption(name, option, elem) {
+    var options = { };
+    options[name] = {enabled:!option.enabled};
+    applySettings({options:options});
     elem.style.color = option.enabled ? "red" : "gray";
     switch (option.name) {
     case 'normalMaps':
@@ -1272,14 +1307,14 @@ function initialize() {
     div.style.color = option.enabled ? "red" : "gray";
     div.setAttribute('class', "clickable");
 
-    function toggle(option, div) {
+    function toggle(name, option, div) {
       return function() {
-        toggleOption(option, div);
+        toggleOption(name, option, div);
         return false;
       };
     }
 
-    option.toggle = toggle(option, div);
+    option.toggle = toggle(name, option, div);
     $(div).click(option.toggle);
     div.onmousedown = function() { return false; };
     div.onstartselect = function() { return false; };
@@ -1291,17 +1326,18 @@ function initialize() {
   var setPretty = true;
 
   var now = (new Date()).getTime() * 0.001;
-  if (g.net.mode != 'normal') {
+  if (g_sync) {
     clock = now;
     eyeClock = now;
     var server = window.location.href.match(/\/\/(.*?)\//)[1];
     tdl.log("server:", server);
     g.net.server = server;
+
+    if (g_slave) {
+      GetData();
+    }
   }
 
-  if (g.net.mode == 'slave') {
-    GetData();
-  }
 
   function render() {
     if (g_drawOnce) {
@@ -1328,8 +1364,14 @@ function initialize() {
       if (!g.options.reflection.enabled) { g.options.reflection.toggle(); }
     }
 
-    clock += elapsedTime * g.globals.speed;
-    eyeClock += elapsedTime * g.globals.eyeSpeed;
+		if (g_sync) {
+      clock = now * g.globals.speed;
+      eyeClock = now * g.globals.eyeSpeed;
+    } else {
+      // we have our own clock.
+      clock += elapsedTime * g.globals.speed;
+      eyeClock += elapsedTime * g.globals.eyeSpeed;
+    }
     eyePosition[0] = Math.sin(eyeClock) * g.globals.eyeRadius;
     eyePosition[1] = g.globals.eyeHeight;
     eyePosition[2] = Math.cos(eyeClock) * g.globals.eyeRadius;
@@ -1433,7 +1475,7 @@ function initialize() {
     for (var ff = 0; ff < g_fishTable.length; ++ff) {
       var fishInfo = g_fishTable[ff];
       var fishName = fishInfo.name;
-      var numFish = fishInfo.num[g_fishSetting];
+      var numFish = fishInfo.num[g.globals.fishSetting];
       var matMul = fast.matrix4.mul;
       var matInverse = fast.matrix4.inverse;
       var matScaling = fast.matrix4.scaling;
@@ -1536,7 +1578,7 @@ function initialize() {
       laserConst.colorMult = [c * 1, c * 0.1, c * 0.1, c];
       for (var ff = 0; ff < g_fishTable.length; ++ff) {
         var fishInfo = g_fishTable[ff];
-        var numFish = fishInfo.num[g_fishSetting];
+        var numFish = fishInfo.num[g.globals.fishSetting];
         var fishName = fishInfo.name;
         var scene = g_scenes[fishName];
         var center = [0, g_tankHeight, 0];
@@ -1690,7 +1732,7 @@ function initialize() {
       laser.drawPrep(laserConst);
       for (var ff = 0; ff < g_fishTable.length; ++ff) {
         var fishInfo = g_fishTable[ff];
-        var numFish = fishInfo.num[g_fishSetting];
+        var numFish = fishInfo.num[g.globals.fishSetting];
         var fishName = fishInfo.name;
         var scene = g_scenes[fishName];
         if (scene && scene.loaded && !scene.bad) {
@@ -1752,11 +1794,15 @@ function getParamId(id) {
   return id.substr(6).replace(/(\w)/, function(m) {return m.toLowerCase() });
 }
 
-function setParam(event, ui, obj, valueElem) {
+function setParam(event, qui, ui, obj, valueElem) {
   var id = event.target.id;
-  var value = ui.value / 1000;
+  var value = qui.value / 1000;
   valueElem.innerHTML = value;
-  obj[id] = value;
+  var inner = {}
+  var settings = {};
+	settings[ui.obj] = inner;
+	inner[ui.name] = value;
+	applySettings(settings);
 }
 
 function getUIValue(obj, id) {
@@ -1788,21 +1834,27 @@ function setupSlider($, elem, ui, obj) {
     max: ui.max * 1000,
     min: ui.min || 0,
     value: getUIValue(obj, ui.name),
-    slide: function(event, ui) { setParam(event, ui, obj, valueDiv); }
+    slide: function(event, qui) { setParam(event, qui, ui, obj, valueDiv); }
   });
 }
 
-function applySettings(obj, opt_dst) {
- var dst = opt_dst || g;
- for (var name in obj) {
-   var value = obj[name];
-   if (typeof value == 'object') {
-     applySettings(value, dst[name]);
-     tdl.log("apply->: ", name);
-   } else {
-     tdl.log("apply: ", name, "=", value);
-     dst[name] = value;
-   }
+function applySettingsInside(obj, dst) {
+  for (var name in obj) {
+    var value = obj[name];
+    if (typeof value == 'object') {
+      applySettingsInside(value, dst[name]);
+      tdl.log("apply->: ", name);
+    } else {
+      tdl.log("apply: ", name, "=", value);
+      dst[name] = value;
+    }
+  }
+}
+
+function applySettings(obj) {
+ applySettingsInside(obj, g);
+ if (g_sync && !g_slave) {
+	 PutData(obj);
  }
 }
 
@@ -1842,8 +1894,13 @@ $(function(){
     tdl.error(e);
     return;
   }
-//  return;
 
+	if (g.net.id !== undefined) {
+		g_sync = true;
+		if (g.net.id != 0) {
+			g_slave = true
+    }
+  }
 
   $('#setSetting8').click(function() {
       $("#uiContainer").toggle('slow'); return false; });
@@ -1851,12 +1908,18 @@ $(function(){
   $('#options').click(function() {
       $("#optionsContainer").toggle(); return false; });
   $("#optionsContainer").toggle();
-  $(document).keypress(function(event) {
-    if (event.keyCode == 'l'.charCodeAt(0) ||
-        event.keyCode == 'L'.charCodeAt(0)) {
-      g.drawLasers = !g.drawLasers;
-    }
-  });
+
+  if (g_slave) {
+    $('#topUI').hide();
+  } else {
+    $(document).keypress(function(event) {
+      if (event.keyCode == 'l'.charCodeAt(0) ||
+          event.keyCode == 'L'.charCodeAt(0)) {
+        applySettings({drawLasers: !g.drawLasers});
+      }
+    });
+  }
+
   initialize();
 });
 </script>
@@ -1864,6 +1927,7 @@ $(function(){
 <body>
 <div class="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
+  <div id="topUI">
   <div>Number of Fish</div>
   <div class="clickable" id="setSetting0">1</div>
   <div class="clickable" id="setSetting1">10</div>
@@ -1876,6 +1940,7 @@ $(function(){
   <span style="float: right" class="clickable" id="setSetting8">*</span></div>
   <div class="clickable" id="options">Options...
   <div id="optionsContainer">
+  </div>
   </div>
   </div>
 </div>
