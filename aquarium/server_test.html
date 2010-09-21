@@ -40,9 +40,27 @@ function GetData() {
       });
 }
 
+function PutData() {
+  var a = { foobar: { speed: count }};
+  tdl.io.sendJSON(
+    "http://localhost:8080?cmd=put",
+    a,
+    function (obj, exception) {
+        count++;
+        tdl.log("--[", count, "]-------------");
+        if (exception) {
+          tdl.log("EXCEPTION: ", exception);
+        } else {
+          DumpObj(obj);
+        }
+        setTimeout(PutData, 3000);
+    });
+}
+
 function init() {
   tdl.log("--start--");
-  GetData();
+  // GetData();
+  PutData();
 }
 </script>
 </body>

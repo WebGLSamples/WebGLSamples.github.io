@@ -13,10 +13,15 @@ import os.path
 import sys
 import re
 import urlparse
+import json
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from optparse import OptionParser
 
 verbose = False
+g_newData = {}  # newest data
+g_allData = {}  # all data since we started
+g_clients = {}  # ids of clients
+g_clientsThatNeedUpdates = {}  # keys for clients the need data.
 
 def Log(*args):
   if verbose:
@@ -27,66 +32,118 @@ class MyHandler(BaseHTTPRequestHandler):
   def __init__(self, *args):
     BaseHTTPRequestHandler.__init__(self, *args)
 
+  def AddToObj(self, js, obj):
+    for name in js:
+      value = js[name]
+      if type(value) is dict:
+        if not name in obj:
+          obj[name] = {}
+        self.AddToObj(value, obj[name])
+      else:
+        obj[name] = value
+
+  def AddData(self, js):
+    # mark all known clients as needing to be updated
+    for id in g_clients:
+      g_clientsThatNeedUpdates[id] = True
+    # add the data to both the new data and all data
+    self.AddToObj(js, g_newData)
+    self.AddToObj(js, g_allData)
+
   def do_GET(self):
     global Gcount
+    Log("GET:", self.path)
     query = urlparse.urlparse(self.path)[4]
     kv = cgi.parse_qs(query)
-    id = kv['id'][0]
     try:
-      if kv['cmd'][0] == 'get':
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Content-type',  'text/html')
-        self.end_headers()
-        self.wfile.write("{\"globals\":{\"speed\":%s}}" % id)
-      elif self.path.endswith(".html"):
+      if 'cmd' in kv:
+        cmd = kv['cmd'][0]
+        Log("CMD:", cmd)
+        if cmd == 'get':
+          id = kv['id'][0]
+          data = g_newData
+          # if this is a new client, record it and send it all the data
+          if not id in g_clients:
+            g_clients[id] = True
+            g_clientsThatNeedUpdates[id] = True
+            data = g_allData
+          self.send_response(200)
+          self.send_header('Access-Control-Allow-Origin', '*')
+          self.send_header('Content-type',  'application/json')
+          self.end_headers()
+          # if this client has not received the data yet send it.
+          if id in g_clientsThatNeedUpdates:
+            del g_clientsThatNeedUpdates[id]
+            self.wfile.write(json.dumps(data))
+            # if there are not more clients that need data delete the data.
+            if len(g_clientsThatNeedUpdates) == 0:
+              g_newData = {}
+          else:
+            self.wfile.write(json.dumps({}))
+        else:
+          self.send_error(
+              500,'Error unknown cmd: %s for url %s' % (cmd, self.path))
+
+      # serve files.
+      else:
+        #for header in self.headers.headers:
+        #  print "header:", header
         filename = os.curdir + os.sep + self.path
-        Log("GET:", filename)
-        f = open(filename) #self.path has /test.html
+        Log("read:", filename)
+        f = open(filename, "rb") #self.path has /test.html
         #note that this potentially makes every file on your computer
         #readable by the internet
+        ctype = 'text/html'
+        if filename.endswith(".jpg"):
+          ctype = 'image/jpeg'
+        elif filename.endswith(".png"):
+          ctype = 'image/png'
+        elif filename.endswith(".js"):
+          ctype = 'application/javascript'
 
         self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Content-type',  'text/html')
         self.end_headers()
         self.wfile.write(f.read())
         f.close()
         return
-      elif self.path.endswith(".esp"):   #our dynamic content
-        self.send_response(200)
-        self.send_header('Content-type',  'text/html')
-        self.end_headers()
-        self.wfile.write("hey, today is the" + str(time.localtime()[7]))
-        self.wfile.write(" day in the year " + str(time.localtime()[0]))
-        return
-      else:
-        Log("foo")
-      return
 
     except IOError:
       self.send_error(500,'Error: %s' % self.path)
 
 
+  def do_OPTIONS(self):
+    Log("OPTIONS: start")
+    self.send_error(501,'Not Implemented')
+    #self.send_header('Allow', 'OPTIONS,POST')
+    #self.end_headers()
+
+
   def do_POST(self):
-    global rootnode
-    try:
-      ctype, pdict = cgi.parse_header(self.headers.getheader('content-type'))
-      Log("POST: ctype=", ctype, " pdict=", pdict)
-      if ctype == 'multipart/form-data':
-        query=cgi.parse_multipart(self.rfile, pdict)
-      self.send_response(301)
+    Log("POST: start")
+    ctype = self.headers.getheader('content-type')
+    Log("Ctype:", ctype)
+    data = self.rfile.read(int(self.headers['Content-Length']))
+    Log("data:", data)
+    js = json.loads(data)
+    self.AddData(js)
+    print "g_data:", g_newData
+    self.send_response(200)
+    self.send_header('Access-Control-Allow-Origin', '*')
+    self.send_header('Content-type',  'application/json')
+    self.end_headers()
+    self.wfile.write("{\"status\":\"ok\"}")
+    Log("sent post response")
 
-      self.end_headers()
-      upfilecontent = query.get('upfile')
-      print "filecontent", upfilecontent[0]
-      self.wfile.write("<HTML>POST OK.<BR><BR>");
-      self.wfile.write(upfilecontent[0]);
-
-    except :
-      pass
 
 def main(argv):
   global verbose
+
+  if sys.version < '2.6':
+     print 'Need at least python 2.6!!!'
+     sys.exit(1)
+
   parser = OptionParser()
   parser.add_option(
       "-p", "--port", type="int", default=80,
@@ -97,6 +154,9 @@ def main(argv):
 
   (options, args) = parser.parse_args(args=argv)
   verbose = options.verbose
+
+  os.chdir("..")
+  print "Serving from: ", os.getcwd()
 
   try:
     server = HTTPServer(('', options.port), MyHandler)
