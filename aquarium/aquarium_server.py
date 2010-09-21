@@ -155,6 +155,15 @@ def main(argv):
   (options, args) = parser.parse_args(args=argv)
   verbose = options.verbose
 
+  server = "localhost"
+  port = ""
+  if options.port != 80:
+    port = ":%d" % options.port
+  msg = ("Start Browser with:" +
+    'http://%s%s/aquarium/aquarium.html?settings={"net":{"id":<id>}}' %
+    (server, port))
+  print msg
+
   os.chdir("..")
   print "Serving from: ", os.getcwd()
 

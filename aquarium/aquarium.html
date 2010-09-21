@@ -149,6 +149,7 @@ var g_lightRayRotLerp = 0.2;
 var g_lightRayOffset = Math.PI * 2 / g_numLightRays;
 var g_lightRayInfo = [];
 var g_viewSettingsIndex = 0;
+var g_getCount = 0;
 
 var g_viewSettings = [
   // Inside 1
@@ -239,8 +240,11 @@ var g_viewSettings = [
 
 var g = {
   globals: {
-    drawLasers: false,
+    drawLasers: false
+  },
+  net: {
     mode: 'normal',
+    timeout: 3000
   },
   fish: {},
   innerConst: {},
@@ -1008,6 +1012,22 @@ function setupCountButtons() {
   setSetting(document.getElementById("setSetting7"), 7);
 }
 
+function GetData() {
+  var url = "http://" + g.net.server + "?id=" + g.net.id + "&cmd=get";
+  tdl.io.loadJSON(
+      url,
+      function(obj, exception) {
+        g_getCount++;
+        tdl.log("--[", g_getCount, "]-------------");
+        if (exception) {
+          tdl.log("EXCEPTION: ", exception);
+        } else {
+          applySettings(obj);
+        }
+        setTimeout(GetData, g.net.timeout);
+      });
+}
+
 /**
  * Initializes stuff.
  */
@@ -1271,9 +1291,16 @@ function initialize() {
   var setPretty = true;
 
   var now = (new Date()).getTime() * 0.001;
-  if (g.globals.mode != 'normal') {
+  if (g.net.mode != 'normal') {
     clock = now;
     eyeClock = now;
+    var server = window.location.href.match(/\/\/(.*?)\//)[1];
+    tdl.log("server:", server);
+    g.net.server = server;
+  }
+
+  if (g.net.mode == 'slave') {
+    GetData();
   }
 
   function render() {
