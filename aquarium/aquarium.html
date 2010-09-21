@@ -289,7 +289,7 @@ var g_ui = [
   { obj: 'fish',       name: 'fishZClock',      value: 1,     max:  2},
   { obj: 'fish',       name: 'fishTailSpeed',   value: 1,     max:  30},
   { obj: 'innerConst', name: 'refractionFudge', value: 3,     max:  50},
-  { obj: 'innerConst', name: 'eta',             value: 1,     max:  1},
+  { obj: 'innerConst', name: 'eta',             value: 1,     max:  1.2},
   { obj: 'innerConst', name: 'tankColorFudge',  value: 0.8,   max:  2}
 ];
 
@@ -972,6 +972,11 @@ function setViewSettings(index) {
 	applySettings({globals: viewSettings})
 }
 
+function advanceViewSettings() {
+  setViewSettings(g_viewSettingsIndex);
+  g_viewSettingsIndex = (g_viewSettingsIndex + 1) % g_viewSettings.length;
+}
+
 /**
  * Sets the count
  */
@@ -980,8 +985,7 @@ function setSetting(elem, id) {
   case 8:
     break;
   case 7:
-    setViewSettings(g_viewSettingsIndex);
-    g_viewSettingsIndex = (g_viewSettingsIndex + 1) % g_viewSettings.length;
+		advanceViewSettings();
     break;
   default:
     g_numSettingElements[id] = elem;
@@ -1858,16 +1862,21 @@ function applySettings(obj) {
  }
 }
 
-$(function(){
+function AddUI(uiObj) {
   var uiElem = document.getElementById('ui');
-  for (var ii = 0; ii < g_ui.length; ++ii) {
-    var ui = g_ui[ii];
+  for (var ii = 0; ii < uiObj.length; ++ii) {
+    var ui = uiObj[ii];
     var obj = g[ui.obj];
     obj[ui.name] = ui.value;
     var div = document.createElement('div');
     setupSlider($, div, ui, obj);
     uiElem.appendChild(div);
   }
+}
+
+$(function(){
+
+	AddUI(g_ui);
 
   try {
     var s = window.location.href;
@@ -1899,6 +1908,11 @@ $(function(){
 		g_sync = true;
 		if (g.net.id != 0) {
 			g_slave = true
+    } else {
+      AddUI([
+         { obj: 'net',    name: 'timeout',     value: 3000,  max:  3000},
+         { obj: 'net',    name: 'fovMult',     value: 1,     max:  2}
+       ]);
     }
   }
 
@@ -1916,6 +1930,8 @@ $(function(){
       if (event.keyCode == 'l'.charCodeAt(0) ||
           event.keyCode == 'L'.charCodeAt(0)) {
         applySettings({drawLasers: !g.drawLasers});
+      } else if (event.keyCode == ' '.charCodeAt(0)) {
+				advanceViewSettings();
       }
     });
   }
