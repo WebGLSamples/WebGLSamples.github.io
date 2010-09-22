@@ -14,6 +14,7 @@ import sys
 import re
 import urlparse
 import json
+import socket
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from optparse import OptionParser
 
@@ -160,32 +161,36 @@ def main(argv):
      print 'Need at least python 2.6!!!'
      sys.exit(1)
 
+  address = socket.gethostname()
+
   parser = OptionParser()
   parser.add_option(
       "-p", "--port", type="int", default=80,
       help="port to bind do. Default = 80")
+  parser.add_option(
+      "-a", "--address", default=address,
+      help=("address to bind do. Default = %s" % address))
   parser.add_option(
       "-v", "--verbose", action="store_true", default=False,
       help="prints more output.")
 
   (options, args) = parser.parse_args(args=argv)
   verbose = options.verbose
-
-  server = "localhost"
+ 
   port = ""
   if options.port != 80:
     port = ":%d" % options.port
   msg = ("Start Browser with:" +
     'http://%s%s/aquarium/aquarium.html?settings={"net":{"id":<id>}}' %
-    (server, port))
+    (options.address, port))
   print msg
 
   os.chdir("..")
   print "Serving from: ", os.getcwd()
 
   try:
-    server = HTTPServer(('', options.port), MyHandler)
-    print 'started httpserver on port %d...' % options.port
+    server = HTTPServer((options.address, options.port), MyHandler)
+    print 'started httpserver on %s:%d...' % (options.address, options.port)
     server.serve_forever()
   except KeyboardInterrupt:
     print '^C received, shutting down server'
