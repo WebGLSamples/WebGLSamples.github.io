@@ -1097,6 +1097,8 @@ function initialize() {
 
   setupCountButtons();
 
+  var maxViewportDims = gl.getParameter(gl.MAX_VIEWPORT_DIMS);
+
   gl.enable(gl.DEPTH_TEST);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
@@ -1354,7 +1356,44 @@ function initialize() {
     }
   }
 
+  function setCanvasSize(canvas, newWidth, newHeight) {
+    var changed = false;
+    if (newWidth != canvas.width) {
+      canvas.width = newWidth;
+      changed = true;
+      tdl.log("new canvas width:", newWidth);
+    }
+    if (newHeight != canvas.height) {
+      canvas.height = newHeight;
+      changed = true;
+      tdl.log("new canvas height:", newHeight);
+    }
+    if (changed) {
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+    return changed;
+  }
 
+  function increaseCanvasSize(canvas) {
+//tdl.log(canvas.width, canvas.clientWidth, canvas.width / canvas.clientWidth);
+//tdl.log(canvas.height, canvas.clientHeight, canvas.height / canvas.clientHeight);
+    var newWidth = Math.min(maxViewportDims[0],
+        canvas.width * ((canvas.clientWidth / canvas.width > 1.2) ? 2 : 1));
+    var newHeight = Math.min(maxViewportDims[1],
+        canvas.height * ((canvas.clientHeight / canvas.height > 1.2) ? 2 : 1));
+    return setCanvasSize(canvas, newWidth, newHeight);
+  }
+
+  function decreaseCanvasSize(canvas) {
+    var newWidth = Math.max(512,
+        canvas.width * ((canvas.clientWidth / canvas.width < 0.5) ? 0.5 : 1));
+    var newHeight = Math.max(512,
+        canvas.height * ((canvas.clientHeight / canvas.height < 0.5) ? 0.5 :
+                         1));
+    return setCanvasSize(canvas, newWidth, newHeight);
+  }
+
+  var checkResTimer = 2;
   function render() {
     if (g_drawOnce) {
       clearInterval(intervalId);
@@ -1378,6 +1417,20 @@ function initialize() {
       setPretty = false;
       if (!g.options.normalMaps.enabled) { g.options.normalMaps.toggle(); }
       if (!g.options.reflection.enabled) { g.options.reflection.toggle(); }
+    }
+
+    // See if we should increase/decrease the rendering resolution
+    checkResTimer -= elapsedTime;
+    if (checkResTimer < 0) {
+      if (g_fpsTimer.averageFPS > 35) {
+        if (increaseCanvasSize(canvas)) {
+          checkResTimer = 2;
+        }
+      } else if (g_fpsTimer.averageFPS < 15) {
+        if (decreaseCanvasSize(canvas)) {
+          checkResTimer = 2;
+        }
+      }
     }
 
     if (g_sync) {
