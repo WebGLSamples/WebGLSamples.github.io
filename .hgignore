@@ -6,6 +6,9 @@ syntax: glob
 *.bak
 temp
 .mayaSwatches
+.git
+.svn
+.git*
 *.pyc
 *.orig
 .DS_Store

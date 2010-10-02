@@ -85,6 +85,7 @@ CANVAS {
 <link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
+<script type="text/javascript" src="../socket.io/socket.io.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
@@ -118,6 +119,7 @@ var g_sceneGroups = {};  // the placement of the models
 var g_fog = true;
 var g_sync = false;
 var g_slave = false;
+var g_socket;
 
 //g_debug = true;
 //g_drawOnce = true;
@@ -247,7 +249,8 @@ var g = {
   },
   net: {
     timeout: 3000,
-    fovMult: 1
+    fovMult: 1,
+    port: 8080
   },
   fish: {},
   innerConst: {},
@@ -975,7 +978,7 @@ function setViewSettings(index) {
   }
 
   var viewSettings = g_viewSettings[index];
-  applySettings({globals: viewSettings})
+  sendSettings({globals: viewSettings})
 }
 
 function advanceViewSettings() {
@@ -995,7 +998,7 @@ function setSetting(elem, id) {
     break;
   default:
     g_numSettingElements[id] = elem;
-    applySettings({globals:{fishSetting:id}});
+    sendSettings({globals:{fishSetting:id}});
     for (var otherElem in g_numSettingElements) {
       g_numSettingElements[otherElem].style.color = "gray";
     }
@@ -1040,41 +1043,25 @@ function DumpObj(obj, opt_prefix) {
 }
 
 function GetData(opt_new) {
-  var url = "http://" + g.net.server + "?id=" + g.net.id + "&cmd=get";
-  if (opt_new) {
-    url += "&new=1";
-  }
-  tdl.io.loadJSON(
-      url,
-      function(obj, exception) {
-        g_getCount++;
-        if (exception) {
-          tdl.log("EXCEPTION: ", exception);
-        } else {
-          for (var p in obj) {
-            tdl.log("--[", g_getCount, "]-------------");
-            break;
-          }
-          applySettings(obj);
-        }
-        setTimeout(GetData, g.net.timeout);
-      });
+  g_socket = new io.Socket(null, {
+      port: g.net.port,
+      transports: ['websocket']});
+  g_socket.connect();
+  g_socket.on('message', function(obj) {
+      g_getCount++;
+      tdl.log("--GET:[", g_getCount, "]-------------");
+      DumpObj(obj);
+      applySettings(obj);
+  });
 }
 
 function PutData(data) {
-  var url = "http://" + g.net.server + "?cmd=put";
-  tdl.io.sendJSON(
-    url,
-    data,
-    function (obj, exception) {
-        g_putCount++;
-        tdl.log("--[", g_putCount, "]-------------");
-        if (exception) {
-          tdl.log("EXCEPTION: ", exception);
-        } else {
-          DumpObj(obj);
-        }
-    });
+  if (g_socket) {
+    g_putCount++;
+    tdl.log("--PUT:[", g_putCount, "]-------------");
+    DumpObj(data);
+    g_socket.send(data);
+  }
 }
 
 /**
@@ -1297,7 +1284,7 @@ function initialize() {
   function toggleOption(name, option, elem) {
     var options = { };
     options[name] = {enabled:!option.enabled};
-    applySettings({options:options});
+    sendSettings({options:options});
     elem.style.color = option.enabled ? "red" : "gray";
     switch (option.name) {
     case 'normalMaps':
@@ -1349,9 +1336,7 @@ function initialize() {
     tdl.log("server:", server);
     g.net.server = server;
 
-    if (g_slave) {
-      GetData(true);
-    }
+    GetData(true);
   }
 
 
@@ -1420,8 +1405,8 @@ function initialize() {
       var fovx = Math.atan(
           Math.tan(fovy * 0.5) * canvas.clientWidth / canvas.clientHeight) * 2;
       fast.matrix4.rotationY(
-          m4t0, g.net.id * g.globals.fieldOfView * g.net.fovMult);
-      fast.matrix4.mul(viewInverse, viewInverse, m4t0);
+          m4t0, -g.net.id * g.globals.fieldOfView * g.net.fovMult);
+      fast.matrix4.mul(viewInverse, m4t0, viewInverse);
     }
     fast.matrix4.inverse(view, viewInverse);
     fast.matrix4.mul(viewProjection, view, projection);
@@ -1827,7 +1812,7 @@ function setParam(event, qui, ui, obj, valueElem) {
   var settings = {};
   settings[ui.obj] = inner;
   inner[ui.name] = value;
-  applySettings(settings);
+  sendSettings(settings);
 }
 
 function getUIValue(obj, id) {
@@ -1877,10 +1862,17 @@ function applySettingsInside(obj, dst) {
 }
 
 function applySettings(obj) {
- applySettingsInside(obj, g);
- if (g_sync && !g_slave) {
-   PutData(obj);
- }
+  applySettingsInside(obj, g);
+}
+
+function sendSettings(obj) {
+  if (g_sync) {
+    if (!g_slave) {
+      PutData(obj);
+    }
+  } else {
+    applySettings(obj);
+  }
 }
 
 function AddUI(uiObj) {
@@ -1916,7 +1908,7 @@ $(function(){
         tdl.log(value);
         var obj = eval("(" + value + ")");
         tdl.log("obj:", obj);
-        applySettings(obj);
+        sendSettings(obj);
         break;
       }
     }
@@ -1947,7 +1939,7 @@ $(function(){
     $(document).keypress(function(event) {
       if (event.keyCode == 'l'.charCodeAt(0) ||
           event.keyCode == 'L'.charCodeAt(0)) {
-        applySettings({drawLasers: !g.drawLasers});
+        sendSettings({drawLasers: !g.drawLasers});
       } else if (event.keyCode == ' '.charCodeAt(0)) {
         advanceViewSettings();
       }
