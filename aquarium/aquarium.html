@@ -1454,11 +1454,11 @@ function initialize() {
         up);
     if (g_slave) {
       // compute X fov from y fov
-      var fovy = g.globals.fieldOfView;
+      var fovy = math.degToRad(g.globals.fieldOfView);
       var fovx = Math.atan(
           Math.tan(fovy * 0.5) * canvas.clientWidth / canvas.clientHeight) * 2;
       fast.matrix4.rotationY(
-          m4t0, -g.net.id * g.globals.fieldOfView * g.net.fovMult);
+          m4t0, g.net.id * fovx * -g.net.fovMult);
       fast.matrix4.mul(viewInverse, m4t0, viewInverse);
     }
     fast.matrix4.inverse(view, viewInverse);
