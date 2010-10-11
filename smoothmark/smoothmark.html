@@ -52,7 +52,7 @@ canvas {
   padding: 2px;
 }
 </style>
-<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript" src="../tdl/tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.webgl');
 
@@ -67,7 +67,7 @@ function mainloop() {
   // framerate independent so we will still keep sync even if we
   // lose frames.
   var intervalId = setInterval(render, 1000.0 / 60.0);
-  
+
   var frameCount = 0
   var barw = 64
   var pixeldelta = 11
@@ -75,7 +75,7 @@ function mainloop() {
 
   var x1 = -barw
   var x2 = -barw + (w+barw)/2
-  
+
   function render() {
     var time = (new Date()).getTime() * 0.001
     gl.clearColor(0, 0, 0, 1.0)

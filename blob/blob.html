@@ -95,10 +95,10 @@ canvas.invisible {
   padding: 10px;
 }
 div.title {
-  font-weight: bold; 
+  font-weight: bold;
 }
 </style>
-<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript" src="../tdl/tdl/base.js"></script>
 <script type="text/javascript" src="immediate_sim.js"></script>
 <script type="text/javascript" src="marching_cubes_tables.js"></script>
 <script type="text/javascript" src="marching_cubes.js"></script>
@@ -156,7 +156,7 @@ function mainloop() {
   var timeScale = BPM / 60.0;
   var frameCount = 0;
   var totalFrameCount = 0;
-  
+
   var fpsElem = document.getElementById("fps");
 
   function render() {
@@ -171,7 +171,7 @@ function mainloop() {
     frameCount++;
     g_fpsTimer.update(elapsedTime);
     fpsElem.innerHTML = g_fpsTimer.averageFPS;
-    
+
     aspect = canvas.clientWidth / canvas.clientHeight
     singleEffect.render(null, now, g_numBlobs)
     frameCount++;

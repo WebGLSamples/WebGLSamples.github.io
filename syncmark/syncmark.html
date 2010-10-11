@@ -52,7 +52,7 @@ canvas {
   padding: 4px;
 }
 </style>
-<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript" src="../tdl/tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.webgl');
 
@@ -68,7 +68,7 @@ function mainloop() {
   // framerate independent so we will still keep sync even if we
   // lose frames.
   var intervalId = setInterval(render, 1000.0 / 60.0);
-  
+
   function render() {
     var time = music.currentTime
     gl.enable(gl.SCISSOR_TEST)
