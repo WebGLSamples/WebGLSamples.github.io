@@ -89,6 +89,7 @@ send404 = function(res){
   res.end();
 };
 
+sys.print("Listening on port: " + g.port + "\n");
 server.listen(g.port);
 
 // socket.io, I choose you
