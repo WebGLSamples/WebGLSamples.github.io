@@ -3,16 +3,21 @@
 BASEURL=$1
 GUSER=lg
 GADDRESS=lg1
-GPORT=8000
+GPORT=8080
 GDOMAIN=$GADDRESS:$GPORT
 GURL=$BASEURL?settings=
-SCRIPTDIR=`dirname $0`
+CWD=`pwd`
+RELSCRIPTDIR=`dirname $0`
+cd $RELSCRIPTDIR
+SCRIPTDIR=`pwd`
+cd $CWD
 
 function doit {
-  ssh -x $GUSER@$1 "$SCRIPTDIR/start-chrome-on-one-machine.sh $GDOMAIN $GURL $2}}" &
+  ssh -x $GUSER@$1 "export DISPLAY=:0.0 ; ~/chrome/chrome-linux/chrome --dkiosk --no-first-run --enable-webl --enable-accelerated-compositing http://$GDOMAIN/$GURL{\\\"net\\\":{\\\"id\\\":$2}}" &
 }
 
-node $SCRIPTDIR/../server.js --port $GPORT --address $GADDRESS
+cd $SCRIPTDIR/../..
+node $SCRIPTDIR/../server.js --port $GPORT &
 doit lg1 0 
 doit lg2 1
 doit lg3 2

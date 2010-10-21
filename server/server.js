@@ -1,3 +1,8 @@
+g = {
+    port: 8080
+};
+
+
 function extension(path) {
   var m = path.match(/\.[^\.]+$/);
   return m ? m[0] : "";
@@ -40,16 +45,32 @@ var http = require('http'),
     fs = require('fs'),
     io = require('../socket.io/'),
     sys = require('sys'),
+    path = require('path'),
+    querystring = require('querystring');
+
+for (var ii = 2; ii < process.argv.length; ++ii) {
+    var flag = process.argv[ii];
+    //sys.print("" + ii + ":" + flag + "\n");
+    switch (flag) {
+    case '-h':
+    case '--help':
+	sys.print(
+        "--help: this message\n" +
+        "--port: port. Default 8080\n");
+    process.exit(0);
+    case '--port':
+	g.port = parseInt(process.argv[++ii]);
+	//sys.print("port: " + g.port + "\n");
+	break;
+    }
+}
 
 server = http.createServer(function(req, res){
   // your normal server code
-  var path = url.parse(req.url).pathname;
-  if (path == '/') {
-    path = 'aquarium/aquarium.html'
-  }
-  var fullPath = __dirname.substr(0, __dirname.length - 9) + path;
+  var filePath = querystring.unescape(url.parse(req.url).pathname);
+  var fullPath = path.join(process.cwd(), filePath);
   sys.print("path: " + fullPath + "\n");
-  var mimeType = getMimeType(path);
+  var mimeType = getMimeType(fullPath);
   if (mimeType) {
     fs.readFile(fullPath, function(err, data){
       if (err) {
@@ -68,7 +89,7 @@ send404 = function(res){
   res.end();
 };
 
-server.listen(8080);
+server.listen(g.port);
 
 // socket.io, I choose you
 // simplest chat application evar
