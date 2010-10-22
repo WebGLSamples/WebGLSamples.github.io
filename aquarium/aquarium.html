@@ -240,7 +240,7 @@ var g_viewSettings = [
     eta: 1,
     tankColorFudge: 1
   },
-  // Center for LG 
+  // Center for LG
   {
     targetHeight: 24,
     targetRadius: 73,
@@ -261,7 +261,7 @@ var g_viewSettings = [
     eta: 1,
     tankColorFudge: 0.8
   },
-  // Outside for LG 
+  // Outside for LG
   {
     targetHeight: 20,
     targetRadius: 127,
@@ -1637,7 +1637,8 @@ function initialize() {
 //          matInverse(worldInverse, world);
 //          matTranspose(worldInverseTranspose, worldInverse);
           fishPer.time =
-              (clock + ii * g_tailOffsetMult) * fishTailSpeed * speed;
+              ((clock + ii * g_tailOffsetMult) * fishTailSpeed * speed) %
+              (Math.PI * 2);
           fish.draw(fishPer);
 
           if (g.drawLasers && fishInfo.lasers) {
