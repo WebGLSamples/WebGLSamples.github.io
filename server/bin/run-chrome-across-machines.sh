@@ -3,7 +3,7 @@
 BASEURL=$1
 GUSER=lg
 GADDRESS=lg1
-GPORT=8080
+GPORT=3128
 GDOMAIN=$GADDRESS:$GPORT
 GURL=$BASEURL?settings=
 CWD=`pwd`
@@ -13,7 +13,7 @@ SCRIPTDIR=`pwd`
 cd $CWD
 
 function doit {
-  ssh -x $GUSER@$1 "export DISPLAY=:0.0 ; ~/chrome/chrome-linux/chrome --dkiosk --no-first-run --enable-webl --enable-accelerated-compositing http://$GDOMAIN/$GURL{\\\"net\\\":{\\\"id\\\":$2}}" &
+  ssh -x $GUSER@$1 "export DISPLAY=:0.0 ; ~/chrome/chrome-linux/chrome --kiosk --no-first-run --enable-webl --enable-accelerated-compositing http://$GDOMAIN/$GURL{\\\"net\\\":{\\\"id\\\":$2\,\\\"port\\\":$GPORT}}" &
 }
 
 cd $SCRIPTDIR/../..
