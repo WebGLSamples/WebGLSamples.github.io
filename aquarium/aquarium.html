@@ -239,6 +239,48 @@ var g_viewSettings = [
     refractionFudge: 3,
     eta: 1,
     tankColorFudge: 1
+  },
+  // Center for LG 
+  {
+    targetHeight: 24,
+    targetRadius: 73,
+    eyeHeight: 24,
+    eyeRadius: 0,
+    eyeSpeed: 0.06,
+    fieldOfView: 60,
+    ambientRed: 0.22,
+    ambientGreen: 0.25,
+    ambientBlue: 0.39,
+    fogPower: 14.5,
+    fogMult: 1.66,
+    fogOffset: 0.53,
+    fogRed: 0.54,
+    fogGreen: 0.86,
+    fogBlue: 1,
+    refractionFudge: 3,
+    eta: 1,
+    tankColorFudge: 0.8
+  },
+  // Outside for LG 
+  {
+    targetHeight: 20,
+    targetRadius: 127,
+    eyeHeight: 39.9,
+    eyeRadius: 124,
+    eyeSpeed: 0.06,
+    fieldOfView: 24,
+    ambientRed: 0.22,
+    ambientGreen: 0.25,
+    ambientBlue: 0.39,
+    fogPower: 27.1,
+    fogMult: 1.46,
+    fogOffset: 0.53,
+    fogRed: 0.382,
+    fogGreen: 0.602,
+    fogBlue: 1,
+    refractionFudge: 3,
+    eta: 1,
+    tankColorFudge: 1
   }
 ];
 
@@ -249,7 +291,7 @@ var g = {
   },
   net: {
     timeout: 3000,
-    fovMult: 1,
+    fovMult: 1.1,
     port: 8080
   },
   fish: {},
@@ -1972,6 +2014,7 @@ $(function(){
 
   if (g.net.id !== undefined) {
     g_sync = true;
+    g.globals.fishSetting = 4;
     if (g.net.id != 0) {
       g_slave = true
     } else {
