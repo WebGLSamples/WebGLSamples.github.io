@@ -81,6 +81,17 @@ CANVAS {
   width: 100%;
   height: 100%;
 }
+#msgContainer {
+  z-index: 10;
+  position: absolute;
+  bottom: 20px;
+  left: 10px;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  font-size: xx-small;
+  border-radius: 10px;
+  padding: 10px;
+}
 </style>
 <link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
@@ -1932,12 +1943,14 @@ $(function(){
 
   g_syncManager = new tdl.sync.SyncManager(g);
 
+  $("#msgContainer").hide();
   if (g.net.id !== undefined) {
     g_sync = true;
     g.globals.fishSetting = 4;
     if (g.net.id != 0) {
       g_slave = true
     } else {
+      $("#msgContainer").show();
       AddUI(g_netUI);
     }
   }
@@ -1992,6 +2005,7 @@ $(function(){
 <div id="viewContainer">
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </div>
+<div id="msgContainer">100% HTM5, WebGL and JavaScript. 8 machines running Chrome using WebSockets, node.js and sockio.io to stay in sync.</div>
 </body>
 <!--
 <script id="constVertexShader" type="text/something-not-javascript">
