@@ -1076,7 +1076,12 @@ function setupCountButtons() {
         setSetting(elem, id);
       }}(elem, ii);
   }
-  setSetting(document.getElementById("setSetting2"), 2);
+
+  if (g_sync) {
+    setSetting(document.getElementById("setSetting4"), 4);
+  } else {
+    setSetting(document.getElementById("setSetting2"), 2);
+  }
   setSetting(document.getElementById("setSetting7"), 7);
 }
 

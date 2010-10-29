@@ -71,7 +71,7 @@ tdl.sync.SyncManager = function(settings) {
     for (var ii = 0; ii < pairs.length; ++ii) {
       var keyValue = pairs[ii].split("=");
       var key = keyValue[0];
-      var value = decodeURI(keyValue[1]);
+      var value = decodeURIComponent(keyValue[1]);
       tdl.log(ii, ":", key, "=", value);
       switch (key) {
       case 'settings':
