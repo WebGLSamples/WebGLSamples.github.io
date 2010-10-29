@@ -1943,7 +1943,12 @@ $(function(){
 
   g_syncManager = new tdl.sync.SyncManager(g);
 
-  $("#msgContainer").hide();
+  if (g.net.msg && g.net.msg.length) {
+    $("#msgContainer").append(g.net.msg);
+  } else {
+    $("#msgContainer").hide();
+  }
+
   if (g.net.id !== undefined) {
     g_sync = true;
     g.globals.fishSetting = 4;
@@ -2005,7 +2010,7 @@ $(function(){
 <div id="viewContainer">
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </div>
-<div id="msgContainer">100% HTM5, WebGL and JavaScript. 8 machines running Chrome using WebSockets, node.js and sockio.io to stay in sync.</div>
+<div id="msgContainer"></div>
 </body>
 <!--
 <script id="constVertexShader" type="text/something-not-javascript">
