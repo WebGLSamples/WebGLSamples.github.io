@@ -1,0 +1,70 @@
+<html>
+<head>
+<title>WebGL Sync Server Notes</title>
+<style>
+BODY {
+  font-family: sans-serif;
+}
+PRE {
+  background-color: #ccc;
+  margin-left: 4em;
+  margin-right: 4em;
+}
+</style>
+</head>
+<body>
+<h1>The WebGL Samples Sync Server</h1>
+<h2>Description</h2>
+<p>This is a very simple server written entirely in JavaScript using <a href="http://nodejs.org">node.js</a>. It serves the resources to the browser like a normal webserver as well as provides a WebSocket based server to keep various settings in sync across machines. The WebSocket parts of the code are implemented using <a href="http://socket.io">socket.io</a>.
+<h2>Starting the server</h2>
+The server is meant to be run from the root folder of the samples. Assuming the samples were installed with:</p>
+<pre>
+cd
+hg clone https://webglsamples.googlecode.com/hg/ webglsamples
+</pre>
+<p>You would run the server with:</p>
+<pre>
+cd ~/webglsamples
+node server/server.js --port 8080
+</pre>
+<p>or any open port. At that point you can run any of the samples by going to http://address_of_server:8080/path_to_sample. For example if you are running a browser on the same machine you should be able to go to http://localhost:8080/aquarium/aquarium.html.</p>
+<h2>Syncing</h2>
+<p>Usage for syncing settings is fairly straight forward. Using tdl.sync, create a SyncManager</p>
+<pre>
+&lt;script type="text/javascript" src="../socket.io/socket.io.js"&gt;&lt;/script&gt;
+&lt;script type="text/javascript" src="../tdl/base.js"&gt;&lt;/script&gt;
+&lt;script type="text/javascript"&gt;
+tdl.require('tdl.sync');
+
+var objectToKeepInSync = {};
+g_syncManager = new tdl.sync.SyncManager(objectToKeepInSync);
+g_syncManager.init(serverURL, port, slave);
+</pre>
+<p>where <i>objectToKeepInSync</i> is a JavaScript object that will contain the various settings you want to keep in sync. <i>slave</i> is a true if this browser instance is a slave or false if it is the master.</p>
+<p>After that you can send settings with SyncManager.setSettings(settings). Example:</p>
+<pre>
+g_syncManager.setSettings({
+    foo: { a: 123, b: "hello" },
+    bar: { d: 4.5 },
+    baf: 789
+  });
+</pre>
+<p>Those settings will automatically propogate to all browsers so inspecting objectsToKeepInSync will show that for example objectToKeepInSync.foo.b == "hello"</p>
+<p>Note that if you do not call SyncManager.init then settings will be set locally only which means you don't have to change any code for a synced vs local version.
+<h2>Working Example</h2>
+<p><a href="../aquarium/README.html">The Aquarium uses this syncing method for a working example</a>.</p>
+<h2>Running the Aquarium on Liquid Galaxy</h2>
+<p>If you have <a href="http://liquid-galaxy.googlecode..com/">a Liquid Galaxy setup</a>, assuming the files in <a href="http://code.google.com/p/liquid-galaxy/source/browse/#svn/trunk/gnu_linux/home/lg/bin">trunk/gnu_linux/home/lg/bin</a> are in your path, and assuming you have <a href="http://www.khronos.org/webgl/wiki/Getting_a_WebGL_Implementation">Chrome unzipped</a> in ~/chrome/chrome-linux, you can run the aquarium with</p>
+<pre>
+~/webglsamples/server/bin/run-aquarium.sh
+</pre>
+You can kill the aquarium with
+<pre>
+~/webglsamples/server/bin/kill-app.sh
+</pre>
+<p><a href="http://code.google.com/p/webglsamples/source/browse/server/bin/run-aquarium.sh">run-aquarium.sh</a> just passes the URL of the page to <a href="http://code.google.com/p/webglsamples/source/browse/server/bin/run-chrome-across-machines.sh">run-chrome-across-machines.sh</a>
+ which first launches node.js on the main machine and then launches chrome across the 8 LG machines. <a href="http://code.google.com/p/webglsamples/source/browse/server/bin/kill-app.sh">kill.app.sh</a> kills node.js and chrome across machines.</p>
+</body>
+</html>
+
+
