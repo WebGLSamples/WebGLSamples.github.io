@@ -81,10 +81,22 @@ CANVAS {
   width: 100%;
   height: 100%;
 }
+#msgContainer {
+  z-index: 10;
+  position: absolute;
+  bottom: 20px;
+  left: 10px;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  font-size: xx-small;
+  border-radius: 10px;
+  padding: 10px;
+}
 </style>
 <link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
+<!-- Note: Socket IO is served from the socket io based server -->
 <script type="text/javascript" src="../socket.io/socket.io.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
@@ -99,6 +111,7 @@ tdl.require('tdl.models');
 tdl.require('tdl.particles');
 tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
+tdl.require('tdl.sync');
 tdl.require('tdl.textures');
 tdl.require('tdl.webgl');
 
@@ -118,9 +131,9 @@ var g_beamWorldMats = [];
 var g_scenes = {};  // each of the models
 var g_sceneGroups = {};  // the placement of the models
 var g_fog = true;
+var g_syncManager;
 var g_sync = false;
 var g_slave = false;
-var g_socket;
 
 //g_debug = true;
 //g_drawOnce = true;
@@ -1024,7 +1037,7 @@ function setViewSettings(index) {
   }
 
   var viewSettings = g_viewSettings[index];
-  sendSettings({globals: viewSettings})
+  setSettings({globals: viewSettings})
 }
 
 function advanceViewSettings() {
@@ -1044,7 +1057,7 @@ function setSetting(elem, id) {
     break;
   default:
     g_numSettingElements[id] = elem;
-    sendSettings({globals:{fishSetting:id}});
+    setSettings({globals:{fishSetting:id}});
     for (var otherElem in g_numSettingElements) {
       g_numSettingElements[otherElem].style.color = "gray";
     }
@@ -1067,47 +1080,13 @@ function setupCountButtons() {
         setSetting(elem, id);
       }}(elem, ii);
   }
-  setSetting(document.getElementById("setSetting2"), 2);
-  setSetting(document.getElementById("setSetting7"), 7);
-}
 
-function DumpObj(obj, opt_prefix) {
-  opt_prefix = opt_prefix || "";
-  if (typeof obj == 'object') {
-    if (obj.length !== undefined) {
-      for (var ii = 0; ii < obj.length; ++ii) {
-        DumpObj(obj[ii], opt_prefix + "[" + ii + "]");
-      }
-    } else {
-      for (var name in obj) {
-        DumpObj(obj[name], opt_prefix + "." + name);
-      }
-    }
+  if (g_sync) {
+    setSetting(document.getElementById("setSetting4"), 4);
   } else {
-    tdl.log(opt_prefix, ": ", obj);
+    setSetting(document.getElementById("setSetting2"), 2);
   }
-}
-
-function GetData(opt_new) {
-  g_socket = new io.Socket(null, {
-      port: g.net.port,
-      transports: ['websocket']});
-  g_socket.connect();
-  g_socket.on('message', function(obj) {
-      g_getCount++;
-      tdl.log("--GET:[", g_getCount, "]-------------");
-      DumpObj(obj);
-      applySettings(obj);
-  });
-}
-
-function PutData(data) {
-  if (g_socket) {
-    g_putCount++;
-    tdl.log("--PUT:[", g_putCount, "]-------------");
-    DumpObj(data);
-    g_socket.send(data);
-  }
+  setSetting(document.getElementById("setSetting7"), 7);
 }
 
 /**
@@ -1332,7 +1311,7 @@ function initialize() {
   function toggleOption(name, option, elem) {
     var options = { };
     options[name] = {enabled:!option.enabled};
-    sendSettings({options:options});
+    setSettings({options:options});
     elem.style.color = option.enabled ? "red" : "gray";
     switch (option.name) {
     case 'normalMaps':
@@ -1384,9 +1363,11 @@ function initialize() {
     var server = window.location.href.match(/\/\/(.*?)\//)[1];
     tdl.log("server:", server);
     g.net.server = server;
-
-    GetData(true);
-    setViewSettings(g_viewSettingsIndex);
+    g_syncManager.init(g.net.server, g.net.port, g_slave);
+    if (!g_slave) {
+      g_viewSettingsIndex = 4;
+      setViewSettings(g_viewSettingsIndex);
+    }
   }
 
   function setCanvasSize(canvas, newWidth, newHeight) {
@@ -1928,7 +1909,7 @@ function setParam(event, qui, ui, obj, valueElem) {
   var settings = {};
   settings[ui.obj] = inner;
   inner[ui.name] = value;
-  sendSettings(settings);
+  setSettings(settings);
 }
 
 function getUIValue(obj, id) {
@@ -1964,33 +1945,6 @@ function setupSlider($, elem, ui, obj) {
   });
 }
 
-function applySettingsInside(obj, dst) {
-  for (var name in obj) {
-    var value = obj[name];
-    if (typeof value == 'object') {
-      applySettingsInside(value, dst[name]);
-      tdl.log("apply->: ", name);
-    } else {
-      tdl.log("apply: ", name, "=", value);
-      dst[name] = value;
-    }
-  }
-}
-
-function applySettings(obj) {
-  applySettingsInside(obj, g);
-}
-
-function sendSettings(obj) {
-  if (g_sync) {
-    if (!g_slave) {
-      PutData(obj);
-    }
-  } else {
-    applySettings(obj);
-  }
-}
-
 function AddUI(uiObj) {
   var uiElem = document.getElementById('ui');
   for (var ii = 0; ii < uiObj.length; ++ii) {
@@ -2003,43 +1957,29 @@ function AddUI(uiObj) {
   }
 }
 
+function setSettings(settings) {
+  g_syncManager.setSettings(settings);
+}
+
 $(function(){
 
   AddUI(g_ui);
 
-  try {
-    var s = window.location.href;
-    var q = s.indexOf("?");
-    var query = s.substr(q + 1);
-    tdl.log("query:", query);
-    var pairs = query.split("&");
-    tdl.log("pairs:", pairs.length);
-    for (var ii = 0; ii < pairs.length; ++ii) {
-      var keyValue = pairs[ii].split("=");
-      var key = keyValue[0];
-      var value = decodeURI(keyValue[1]);
-      tdl.log(ii, ":", key, "=", value);
-      switch (key) {
-      case 'settings':
-        tdl.log(value);
-        var obj = eval("(" + value + ")");
-        tdl.log("obj:", obj);
-        sendSettings(obj);
-        break;
-      }
-    }
-  } catch (e) {
-    tdl.error(e);
-    return;
+  g_syncManager = new tdl.sync.SyncManager(g);
+
+  if (g.net.msg && g.net.msg.length) {
+    $("#msgContainer").append(g.net.msg);
+  } else {
+    $("#msgContainer").hide();
   }
 
   if (g.net.id !== undefined) {
     g_sync = true;
     g.globals.fishSetting = 4;
-    g_viewSettingsIndex = 3;
     if (g.net.id != 0) {
       g_slave = true
     } else {
+      $("#msgContainer").show();
       AddUI(g_netUI);
     }
   }
@@ -2057,7 +1997,7 @@ $(function(){
     $(document).keypress(function(event) {
       if (event.keyCode == 'l'.charCodeAt(0) ||
           event.keyCode == 'L'.charCodeAt(0)) {
-        sendSettings({drawLasers: !g.drawLasers});
+        setSettings({drawLasers: !g.drawLasers});
       } else if (event.keyCode == ' '.charCodeAt(0)) {
         advanceViewSettings();
       }
@@ -2094,6 +2034,7 @@ $(function(){
 <div id="viewContainer">
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </div>
+<div id="msgContainer"></div>
 </body>
 <!--
 <script id="constVertexShader" type="text/something-not-javascript">

@@ -63,7 +63,7 @@ tdl.string.startsWith = function(haystack, needle) {
 };
 
 /**
- * Wrapped logging function.
+ * Converts a non-homogenious array into a string.
  * @param {!Array.<*>} args Args to turn into a string
  */
 tdl.string.argsToString = function(args) {
@@ -95,5 +95,33 @@ tdl.string.argsToString = function(args) {
   return strs.join("");
 };
 
+/**
+ * Converts an object into a string. Similar to JSON.stringify but just used
+ * for debugging.
+ */
+tdl.string.objToString = function(obj, opt_prefix) {
+  var strs = [];
+
+  function objToString(obj, opt_prefix) {
+    opt_prefix = opt_prefix || "";
+    if (typeof obj == 'object') {
+      if (obj.length !== undefined) {
+        for (var ii = 0; ii < obj.length; ++ii) {
+          objToString(obj[ii], opt_prefix + "[" + ii + "]");
+        }
+      } else {
+        for (var name in obj) {
+          objToString(obj[name], opt_prefix + "." + name);
+        }
+      }
+    } else {
+      strs.push(tdl.string.argsToString([opt_prefix, ": ", obj]));
+    }
+  }
+
+  objToString(obj);
+
+  return strs.join("\n");
+};
 
 

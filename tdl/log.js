@@ -75,3 +75,14 @@ tdl.error = function() {
   }
 };
 
+/**
+ * Dumps an object to the console.
+ *
+ * @param {!Object} obj Object to dump.
+ * @param {string} opt_prefix string to prefix each value with.
+ */
+tdl.dumpObj = function(obj, opt_prefix) {
+  tdl.log(tdl.string.objToString(obj, opt_prefix));
+};
+
+
