@@ -89,6 +89,7 @@ CANVAS {
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
+tdl.require('tdl.clock');
 tdl.require('tdl.fast');
 tdl.require('tdl.fps');
 tdl.require('tdl.io');
@@ -292,6 +293,8 @@ var g = {
   net: {
     timeout: 3000,
     fovMult: 1.1,
+    offsetMult: 1.0,
+    offset: [0, 0, 0],
     port: 8080
   },
   fish: {},
@@ -341,7 +344,8 @@ var g_ui = [
 
 var g_netUI = [
   { obj: 'net',    name: 'timeout',     value: 3000,  max:  3000},
-  { obj: 'net',    name: 'fovMult',     value: 1,     max:  2}
+  { obj: 'net',    name: 'fovMult',     value: 1,     max:  2},
+  { obj: 'net',    name: 'offsetMult',  value: 1,     max:  2}
 ];
 
 var g_fishTable = [
@@ -1372,7 +1376,8 @@ function initialize() {
   var eyeClock = 0;
   var setPretty = true;
 
-  var now = (new Date()).getTime() * 0.001;
+  var theClock = tdl.clock.createClock(g_sync ? 10 : undefined);
+  var now = theClock.getTime();
   if (g_sync) {
     clock = now;
     eyeClock = now;
@@ -1426,7 +1431,7 @@ function initialize() {
     if (g_drawOnce) {
       clearInterval(intervalId);
     }
-    var now = (new Date()).getTime() * 0.001;
+    var now = theClock.getTime();
     var elapsedTime;
     if(then == 0.0) {
       elapsedTime = 0.0;
@@ -1484,12 +1489,26 @@ function initialize() {
     gl.clearColor(0,0.8,1,0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
-    fast.matrix4.perspective(
-        projection,
-        math.degToRad(g.globals.fieldOfView),
-        canvas.clientWidth / canvas.clientHeight,
-        1,
-        25000);
+    var near = 1;
+    var far = 25000;
+    var aspect = canvas.clientWidth / canvas.clientHeight;
+    var top = Math.tan(math.degToRad(g.globals.fieldOfView) * 0.5) * near;
+    var bottom = -top;
+    var left = aspect * bottom;
+    var right = aspect * top;
+    var width = Math.abs(right - left);
+    var height = Math.abs(top - bottom);
+    var xOff = width * g.net.offset[0] * g.net.offsetMult;
+    var yOff = height * g.net.offset[1] * g.net.offsetMult;
+    fast.matrix4.frustum(
+      projection,
+      left + xOff,
+      right + xOff,
+      bottom + yOff,
+      top + yOff,
+      near,
+      far);
+
     fast.matrix4.cameraLookAt(
         viewInverse,
         eyePosition,

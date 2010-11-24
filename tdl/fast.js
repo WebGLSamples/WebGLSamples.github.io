@@ -1043,6 +1043,48 @@ tdl.fast.matrix4.ortho = function(dst, left, right, bottom, top, near, far) {
 }
 
 /**
+ * Computes a 4-by-4 perspective transformation matrix given the left, right,
+ * top, bottom, near and far clipping planes. The arguments define a frustum
+ * extending in the negative z direction. The arguments near and far are the
+ * distances to the near and far clipping planes. Note that near and far are not
+ * z coordinates, but rather they are distances along the negative z-axis. The
+ * matrix generated sends the viewing frustum to the unit box. We assume a unit
+ * box extending from -1 to 1 in the x and y dimensions and from 0 to 1 in the z
+ * dimension.
+ * @param {number} left The x coordinate of the left plane of the box.
+ * @param {number} right The x coordinate of the right plane of the box.
+ * @param {number} bottom The y coordinate of the bottom plane of the box.
+ * @param {number} top The y coordinate of the right plane of the box.
+ * @param {number} near The negative z coordinate of the near plane of the box.
+ * @param {number} far The negative z coordinate of the far plane of the box.
+ * @return {!tdl.math.Matrix4} The perspective projection matrix.
+ */
+tdl.fast.matrix4.frustum = function(dst, left, right, bottom, top, near, far) {
+  var dx = (right - left);
+  var dy = (top - bottom);
+  var dz = (near - far);
+
+  dst[ 0] = 2 * near / dx;
+  dst[ 1] = 0;
+  dst[ 2] = 0;
+  dst[ 3] = 0;
+  dst[ 4] = 0;
+  dst[ 5] = 2 * near / dy;
+  dst[ 6] = 0;
+  dst[ 7] = 0;
+  dst[ 8] = (left + right) / dx;
+  dst[ 9] = (top + bottom) / dy;
+  dst[10] = far / dz;
+  dst[11] = -1;
+  dst[12] = 0;
+  dst[13] = 0;
+  dst[14] = near * far / dz;
+  dst[15] = 0;
+
+  return dst;
+};
+
+/**
  * Computes a 4-by-4 look-at transformation.  The transformation generated is
  * an orthogonal rotation matrix with translation component.  The translation
  * component sends the eye to the origin.  The rotation component sends the

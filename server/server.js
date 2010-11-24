@@ -54,33 +54,70 @@ for (var ii = 2; ii < process.argv.length; ++ii) {
     switch (flag) {
     case '-h':
     case '--help':
-	sys.print(
+  sys.print(
         "--help: this message\n" +
         "--port: port. Default 8080\n");
     process.exit(0);
     case '--port':
-	g.port = parseInt(process.argv[++ii]);
-	//sys.print("port: " + g.port + "\n");
-	break;
+  g.port = parseInt(process.argv[++ii]);
+  //sys.print("port: " + g.port + "\n");
+  break;
     }
 }
 
+
+function postHandler(request, callback) {
+  var query_ = { };
+  var content_ = '';
+
+  request.addListener('data', function(chunk) {
+    content_ += chunk;
+  });
+
+  request.addListener('end', function() {
+    query_ = JSON.parse(content_);
+    callback(query_);
+  });
+}
+
+function sendJSONResponse(res, object) {
+  res.writeHead(200, {'Content-Type': 'application/json'});
+  res.write(JSON.stringify(object), 'utf8');
+  res.end();
+}
+
+
 server = http.createServer(function(req, res){
+sys.print("req: " + req.method + '\n');
   // your normal server code
-  var filePath = querystring.unescape(url.parse(req.url).pathname);
-  var fullPath = path.join(process.cwd(), filePath);
-  sys.print("path: " + fullPath + "\n");
-  var mimeType = getMimeType(fullPath);
-  if (mimeType) {
-    fs.readFile(fullPath, function(err, data){
-      if (err) {
-        return send404(res);
+  if (req.method == "POST") {
+    postHandler(req, function(query) {
+sys.print("query: " + JSON.stringify(query) + '\n');
+      switch (query.cmd) {
+      case 'time':
+        sendJSONResponse(res, { time: (new Date()).getTime() * 0.001 });
+        break;
+      default:
+        send404(res);
+        break;
       }
-      res.writeHead(200, {'Content-Type': mimeType})
-      res.write(data, 'utf8');
-      res.end();
     });
-  } else send404(res);
+  } else {
+    var filePath = querystring.unescape(url.parse(req.url).pathname);
+    var fullPath = path.join(process.cwd(), filePath);
+    sys.print("path: " + fullPath + "\n");
+    var mimeType = getMimeType(fullPath);
+    if (mimeType) {
+      fs.readFile(fullPath, function(err, data){
+        if (err) {
+          return send404(res);
+        }
+        res.writeHead(200, {'Content-Type': mimeType})
+        res.write(data, 'utf8');
+        res.end();
+      });
+    } else send404(res);
+  }
 }),
 
 send404 = function(res){
