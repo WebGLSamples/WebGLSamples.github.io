@@ -1,5 +1,6 @@
 g = {
-    port: 8080
+    port: 8080,
+    screenshotCount: 0
 };
 
 
@@ -86,6 +87,24 @@ function sendJSONResponse(res, object) {
   res.end();
 }
 
+function startsWith(str, start) {
+  return (str.length >= start.length &&
+          str.substr(0, start.length) == start);
+}
+
+function saveScreenshotFromDataURL(dataURL) {
+  var EXPECTED_HEADER = "data:image/png;base64,";
+  if (startsWith(dataURL, EXPECTED_HEADER)) {
+    var filename = "screenshot-" + (g.screenshotCount++) + ".png";
+    fs.writeFile(
+        filename,
+        dataURL.substr(
+            EXPECTED_HEADER.length,
+            dataURL.length - EXPECTED_HEADER.length),
+        'base64');
+    sys.print("Saved Screenshot: " + filename + "\n");
+  }
+}
 
 server = http.createServer(function(req, res){
 sys.print("req: " + req.method + '\n');
@@ -96,6 +115,10 @@ sys.print("query: " + JSON.stringify(query) + '\n');
       switch (query.cmd) {
       case 'time':
         sendJSONResponse(res, { time: (new Date()).getTime() * 0.001 });
+        break;
+      case 'screenshot':
+        saveScreenshotFromDataURL(query.dataURL);
+        sendJSONResponse(res, { ok: true });
         break;
       default:
         send404(res);

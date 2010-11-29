@@ -2,6 +2,7 @@ tdl.require('tdl.fast');
 tdl.require('tdl.io');
 tdl.require('tdl.log');
 tdl.require('tdl.math');
+tdl.require('tdl.screenshot');
 tdl.require('tdl.sync');
 
 // globals
@@ -450,6 +451,10 @@ $(function(){
         setSettings({drawLasers: !g.drawLasers});
       } else if (event.keyCode == ' '.charCodeAt(0)) {
         advanceViewSettings();
+      } else if (event.keyCode == 's'.charCodeAt(0) ||
+                 event.keyCode == 'S'.charCodeAt(0)) {
+        tdl.screenshot.takeScreenshot(
+          document.getElementById("canvas"));
       }
     });
   }
