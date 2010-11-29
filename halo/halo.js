@@ -77,7 +77,7 @@ var Shader = function(vertexId, fragmentId) {
 
     gl.linkProgram(this._program);
     if (!gl.getProgramParameter(this._program, gl.LINK_STATUS)) {
-        console.log("prgoramInfoLog:", gl.getProgramInfoLog(this._program));
+        tdl.log("prgoramInfoLog:", gl.getProgramInfoLog(this._program));
         gl.deleteProgram(this._program);
         throw "Program " + vertexId + ", " + fragmentId + " didn't link."
     }
@@ -101,7 +101,7 @@ Shader.prototype = {
         gl.compileShader(shader);
 
         if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-            console.log(gl.getShaderInfoLog(shader));
+            tdl.log(gl.getShaderInfoLog(shader));
             gl.deleteShader(shader);
             throw "Shader " + shaderId + " didn't compile.";
         }
@@ -207,7 +207,7 @@ TimeLog.prototype = {
         return this.events.length > 0;
     },
     log: function() {
-        console.log('Time log');
+        tdl.log('Time log');
         for (var i = 1; i < this.events.length; i++) {
             var last_times = this.times[this.events[i - 1]],
                 current_times = this.times[this.events[i]];
@@ -216,7 +216,7 @@ TimeLog.prototype = {
                 average += current_times[j] - last_times[j];
             }
             average /= last_times.length;
-            console.log(this.events[i], average, 'ms');
+            tdl.log(this.events[i], average, 'ms');
         }
     },
     samples: function() {
@@ -283,7 +283,7 @@ Animator.prototype = {
         }
         trick = this.tricks[this.trickList[trickNum]];
 
-        // console.log('starting trick', this.trickList[trickNum]);
+        // tdl.log('starting trick', this.trickList[trickNum]);
         this.running[trickNum] = true;
         trick.start(now);
     }
@@ -356,7 +356,7 @@ Animation.prototype = {
                 this.left;
         }
         if (this.obj[this.property] === undefined) {
-            console.log(this);
+            tdl.log(this);
         }
         return this.state == 2;
     }
