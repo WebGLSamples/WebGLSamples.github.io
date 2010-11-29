@@ -1,0 +1,158 @@
+<!--
+ * Copyright 2009, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+  "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Canvas2D FPS Test</title>
+<style>
+html, body {
+  width: 100%;
+  height: 100%;
+  border: 0px;
+  padding: 0px;
+  margin: 0px;
+  background-color: blue;
+}
+CANVAS {
+  background-color: gray;
+  cursor: pointer;
+  -webkit-user-select:none;
+  -moz-user-select:none;
+  user-select:none;
+}
+#uiContainer {
+  z-index: 2;
+  padding: 1em;
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  width: 250px;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  font-size: xx-small;
+}
+#ui {
+}
+#fpsContainer {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  color: white;
+  font-family: sans-serif;
+}
+#viewContainer {
+  width: 100%;
+  height: 100%;
+}
+</style>
+<link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
+<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript">
+tdl.require('tdl.fast');
+tdl.require('tdl.fps');
+tdl.require('tdl.log');
+tdl.require('tdl.math');
+
+// globals
+var canvas;               // the canvas
+var math;                 // the math lib.
+var fast;                 // the fast math lib.
+var g_fpsTimer;           // object to measure frames per second;
+var g_debug = false;      // whether or not to debug.
+var g_drawOnce = false;   // draw just one frame.
+
+//g_drawOnce = true;
+//g_debug = true;
+
+function initialize() {
+  math = tdl.math;
+  fast = tdl.fast;
+  canvas = document.getElementById("canvas");
+
+  ctx = canvas.getContext("2d");
+
+  g_fpsTimer = new tdl.fps.FPSTimer();
+
+  var then = 0.0;
+  var clock = 0.0;
+  var fpsElem = document.getElementById("fps");
+
+  var frameCount = 0;
+  var intervalId = setInterval(render, 1);
+  function render() {
+    ++frameCount;
+    if (g_drawOnce) {
+      clearInterval(intervalId);
+    }
+    var now = (new Date()).getTime() * 0.001;
+    var elapsedTime;
+    if(then == 0.0) {
+      elapsedTime = 0.0;
+    } else {
+      elapsedTime = now - then;
+    }
+    then = now;
+
+    g_fpsTimer.update(elapsedTime);
+    fpsElem.innerHTML = g_fpsTimer.averageFPS;
+
+    clock += elapsedTime;
+
+    ctx.fillStyle = "rgb(" + Math.floor(frameCount % 60 / 60 * 255) + ", 0, 0)";
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+    // turn off logging after 1 frame.
+    g_logGLCalls = false;
+  }
+  return true;
+}
+
+$(function(){
+  initialize();
+});
+</script>
+</head>
+<body>
+<div id="fpsContainer">
+  <div class="fps">fps: <span id="fps"></div>
+</div>
+<div id="viewContainer">
+<canvas id="canvas" style="width: 100%; height: 100%;"></canvas>
+</div>
+</body>
+</html>
+
+
