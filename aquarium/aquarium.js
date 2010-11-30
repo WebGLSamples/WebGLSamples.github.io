@@ -61,6 +61,42 @@ var g_lightRayRotLerp = 0.2;
 var g_lightRayOffset = Math.PI * 2 / g_numLightRays;
 var g_lightRayInfo = [];
 
+var g_ui = [
+  { obj: 'globals',    name: 'speed',           value: 1,     max:  4 },
+  { obj: 'globals',    name: 'targetHeight',    value: 0,     max:  150 },
+  { obj: 'globals',    name: 'targetRadius',    value: 88,    max:  200 },
+  { obj: 'globals',    name: 'eyeHeight',       value: 19,    max:  150 },
+  { obj: 'globals',    name: 'eyeRadius',       value: 60,    max:  200 },
+  { obj: 'globals',    name: 'eyeSpeed',        value: 0.06,  max:  1 },
+  { obj: 'globals',    name: 'fieldOfView',     value: 85,  max:  179, min: 1},
+  { obj: 'globals',    name: 'ambientRed',      value: 0.22,  max:  1},
+  { obj: 'globals',    name: 'ambientGreen',    value: 0.25,  max:  1},
+  { obj: 'globals',    name: 'ambientBlue',     value: 0.39,  max:  1},
+  { obj: 'globals',    name: 'fogPower',        value: 14.5,  max:  50},
+  { obj: 'globals',    name: 'fogMult',         value: 1.66,  max:  10},
+  { obj: 'globals',    name: 'fogOffset',       value: 0.53,  max:  3},
+  { obj: 'globals',    name: 'fogRed',          value: 0.54,  max:  1},
+  { obj: 'globals',    name: 'fogGreen',        value: 0.86,  max:  1},
+  { obj: 'globals',    name: 'fogBlue',         value: 1.0,   max:  1},
+  { obj: 'fish',       name: 'fishHeightRange', value: 1,     max:  3},
+  { obj: 'fish',       name: 'fishHeight',      value: 25,    max:  50},
+  { obj: 'fish',       name: 'fishSpeed',       value: 0.124, max:  2},
+  { obj: 'fish',       name: 'fishOffset',      value: 0.52,  max:  2},
+  { obj: 'fish',       name: 'fishXClock',      value: 1,     max:  2},
+  { obj: 'fish',       name: 'fishYClock',      value: 0.556, max:  2},
+  { obj: 'fish',       name: 'fishZClock',      value: 1,     max:  2},
+  { obj: 'fish',       name: 'fishTailSpeed',   value: 1,     max:  30},
+  { obj: 'innerConst', name: 'refractionFudge', value: 3,     max:  50},
+  { obj: 'innerConst', name: 'eta',             value: 1,     max:  1.2},
+  { obj: 'innerConst', name: 'tankColorFudge',  value: 0.8,   max:  2}
+];
+
+var g_netUI = [
+  { obj: 'net',    name: 'timeout',     value: 3000,  max:  3000},
+  { obj: 'net',    name: 'fovMult',     value: 1,     max:  2},
+  { obj: 'net',    name: 'offsetMult',  value: 1,     max:  2}
+];
+
 var g_fishTable = [
   {
     name: 'SmallFishA',
@@ -991,6 +1027,7 @@ function initialize() {
     }
   }
 
+  initUIStuff();
   initializeCommon();
 
   var frameCount = 0;
@@ -1528,5 +1565,133 @@ function initialize() {
   return true;
 }
 
+/**
+ * Sets up the count buttons.
+ */
+function setupCountButtons() {
+  for (var ii = 0; ii < 100; ++ii) {
+    var elem = document.getElementById("setSetting" + ii);
+    if (!elem) {
+      break;
+    }
+    g_setSettingElements.push(elem);
+    elem.onclick = function(elem, id) {
+      return function () {
+        setSetting(elem, id);
+      }}(elem, ii);
+  }
+
+  if (g_sync) {
+    setSetting(document.getElementById("setSetting4"), 4);
+  } else {
+    setSetting(document.getElementById("setSetting2"), 2);
+  }
+  setSetting(document.getElementById("setSetting7"), 7);
+}
+
+function initUIStuff() {
+  setupCountButtons();
+
+  function toggleOption(name, option, elem) {
+    var options = { };
+    options[name] = {enabled:!option.enabled};
+    setSettings({options:options});
+    elem.style.color = option.enabled ? "red" : "gray";
+    switch (option.name) {
+    case 'normalMaps':
+      setShaders();
+      break;
+    case 'reflection':
+      setShaders();
+      break;
+    case 'tank':
+      break;
+    case 'fog':
+      setShaders();
+      break;
+    }
+  }
+
+  var optionsContainer = document.getElementById("optionsContainer");
+  for (var name in g.options) {
+    var option = g.options[name];
+    option.name = name;
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode("-" + option.text));
+    div.style.color = option.enabled ? "red" : "gray";
+    div.setAttribute('class', "clickable");
+
+    function toggle(name, option, div) {
+      return function() {
+        toggleOption(name, option, div);
+        return false;
+      };
+    }
+
+    option.toggle = toggle(name, option, div);
+    $(div).click(option.toggle);
+    div.onmousedown = function() { return false; };
+    div.onstartselect = function() { return false; };
+    optionsContainer.appendChild(div);
+  }
+}
+
+$(function(){
+  AddUI(g_ui);
+
+  g_syncManager = new tdl.sync.SyncManager(g);
+
+  if (g.win && g.win.resize) {
+    var width = screen.availWidth;
+    var height = screen.availHeight;
+    window.moveTo(0, 0);
+    window.resizeTo(width, height);
+    tdl.log("w", width, "h", height);
+  }
+
+  if (g.net.msg && g.net.msg.length) {
+    $("#msgContainer").append(g.net.msg);
+  } else {
+    $("#msgContainer").hide();
+  }
+
+  if (g.net.id !== undefined) {
+    g_sync = true;
+    g.globals.fishSetting = 4;
+    if (g.net.id != 0) {
+      g_slave = true
+    } else {
+      if (g.net.ui !== false) {
+        AddUI(g_netUI);
+        $("#msgContainer").show();
+      }
+    }
+  }
+
+  $('#setSetting8').click(function() {
+      $("#uiContainer").toggle('slow'); return false; });
+  $("#uiContainer").toggle();
+  $('#options').click(function() {
+      $("#optionsContainer").toggle(); return false; });
+  $("#optionsContainer").toggle();
+
+  if (g_slave || g.net.ui === false) {
+    $('#topUI').hide();
+  } else {
+    $(document).keypress(function(event) {
+      if (event.keyCode == 'l'.charCodeAt(0) ||
+          event.keyCode == 'L'.charCodeAt(0)) {
+        setSettings({drawLasers: !g.drawLasers});
+      } else if (event.keyCode == ' '.charCodeAt(0)) {
+        advanceViewSettings();
+      } else if (event.keyCode == 's'.charCodeAt(0) ||
+                 event.keyCode == 'S'.charCodeAt(0)) {
+        tdl.screenshot.takeScreenshot(
+          document.getElementById("canvas"));
+      }
+    });
+  }
+  initialize();
+});
 
 

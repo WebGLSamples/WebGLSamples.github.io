@@ -121,10 +121,15 @@ tdl.sync.SyncManager.prototype.applySettings_ = function(obj, dst) {
   for (var name in obj) {
     var value = obj[name];
     if (typeof value == 'object') {
-      this.applySettings_(value, dst[name]);
-      //tdl.log("apply->: ", name);
+      tdl.log("apply->: ", name);
+      var newDst = dst[name];
+      if (!newDst) {
+        newDst = {};
+        dst[name] = newDst;
+      }
+      this.applySettings_(value, newDst);
     } else {
-      //tdl.log("apply: ", name, "=", value);
+      tdl.log("apply: ", name, "=", value);
       dst[name] = value;
     }
   }
