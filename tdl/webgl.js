@@ -80,7 +80,7 @@ tdl.webgl.NEED_HARDWARE = '' +
  * @param {string} canvasContainerId id of container of th
  *        canvas.
  */
-tdl.webgl.setupWebGL = function(canvasContainerId, opt_canvas) {
+tdl.webgl.setupWebGL = function(canvasContainerId, opt_canvas, opt_attribs) {
   var container = document.getElementById(canvasContainerId);
   var context;
   if (!opt_canvas) {
@@ -98,7 +98,7 @@ tdl.webgl.setupWebGL = function(canvasContainerId, opt_canvas) {
   };
 
   // opt_canvas.addEventHandler('webglcontextcreationerror', handleCreationError);
-  var context = tdl.webgl.create3DContext(opt_canvas);
+  var context = tdl.webgl.create3DContext(opt_canvas, opt_attribs);
   if (!context) {
     // TODO(gman): fix to official way to detect that it's the user's machine, not the browser.
     var browserStrings = navigator.userAgent.match(/(\w+\/.*? )/g);
@@ -134,12 +134,12 @@ tdl.webgl.setupWebGL = function(canvasContainerId, opt_canvas) {
  *     from. If one is not passed in one will be created.
  * @return {!WebGLContext} The created context.
  */
-tdl.webgl.create3DContext = function(canvas) {
+tdl.webgl.create3DContext = function(canvas, opt_attribs) {
   var names = ["webgl", "experimental-webgl", "webkit-3d", "moz-webgl"];
   var context = null;
   for (var ii = 0; ii < names.length; ++ii) {
     try {
-      context = canvas.getContext(names[ii]);
+      context = canvas.getContext(names[ii], opt_attribs);
     } catch(e) {}
     if (context) {
       break;

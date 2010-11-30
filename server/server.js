@@ -111,7 +111,7 @@ sys.print("req: " + req.method + '\n');
   // your normal server code
   if (req.method == "POST") {
     postHandler(req, function(query) {
-sys.print("query: " + JSON.stringify(query) + '\n');
+      sys.print("query: " + query.cmd + '\n');
       switch (query.cmd) {
       case 'time':
         sendJSONResponse(res, { time: (new Date()).getTime() * 0.001 });
