@@ -16,17 +16,17 @@ cd $CWD
 #lg-sudo-bg ntpdate -u pool.ntp.org
 
 function doit {
-  ssh -x $GUSER@$1 "export DISPLAY=:0.0 ; ~/chrome/chrome-linux/chrome --kiosk --no-first-run --enable-webl --enable-accelerated-compositing http://$GDOMAIN/$GURL{\\\"net\\\":{\\\"id\\\":$2\,\\\"port\\\":$GPORT\,\\\"msg\\\":\\\"$3\\\"}}" &
+  ssh -x $GUSER@$1 "export DISPLAY=:0.0 ; ~/chrome/chrome-linux/chrome --kiosk --no-first-run --enable-webl --enable-accelerated-compositing http://$GDOMAIN/$GURL{\\\"net\\\":{\\\"ui\\\":1,\\\"sync\\\":true,\\\"slave\\\":$4,\\\"rotYMult\\\":$2\,\\\"port\\\":$GPORT\,\\\"msg\\\":\\\"$5\\\"}}" &
 }
 
 cd $SCRIPTDIR/../..
 node $SCRIPTDIR/../server.js --port $GPORT &
-doit lg1 0 "$GMSG"
-doit lg2 1 ""
-doit lg3 2 ""
-doit lg4 3 ""
-doit lg5 4 ""
-doit lg6 -3 ""
-doit lg7 -2 ""
-doit lg8 -1 ""
+doit lg1 0  true  false "$GMSG"
+doit lg2 1  false true  ""
+doit lg3 2  false true  ""
+doit lg4 3  false true  ""
+doit lg5 4  false true  ""
+doit lg6 -3 false true  ""
+doit lg7 -2 false true  ""
+doit lg8 -1 false true  ""
 

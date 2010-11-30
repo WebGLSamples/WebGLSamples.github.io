@@ -803,7 +803,7 @@ function setupCountButtons() {
       }}(elem, ii);
   }
 
-  if (g_sync) {
+  if (g.net.sync) {
     setSetting(document.getElementById("setSetting4"), 4);
   } else {
     setSetting(document.getElementById("setSetting2"), 2);
@@ -1034,9 +1034,9 @@ function initialize() {
   var eyeClock = 0;
   var setPretty = true;
 
-  var theClock = tdl.clock.createClock(g_sync ? 10 : undefined);
+  var theClock = tdl.clock.createClock(g.net.sync ? 10 : undefined);
   var now = theClock.getTime();
-  if (g_sync) {
+  if (g.net.sync) {
     clock = now;
     eyeClock = now;
   }
@@ -1118,7 +1118,7 @@ function initialize() {
       }
     }
 
-    if (g_sync) {
+    if (g.net.sync) {
       clock = now * g.globals.speed;
       eyeClock = now * g.globals.eyeSpeed;
     } else {
@@ -1166,13 +1166,13 @@ function initialize() {
         eyePosition,
         target,
         up);
-    if (g_slave) {
+    if (g.net.slave) {
       // compute X fov from y fov
       var fovy = math.degToRad(g.globals.fieldOfView);
       var fovx = Math.atan(
           Math.tan(fovy * 0.5) * canvas.clientWidth / canvas.clientHeight) * 2;
       fast.matrix4.rotationY(
-          m4t0, g.net.id * fovx * -g.net.fovMult);
+          m4t0, g.net.rotYMult * fovx * -g.net.fovMult);
       fast.matrix4.mul(viewInverse, m4t0, viewInverse);
     }
     fast.matrix4.inverse(view, viewInverse);
@@ -1416,7 +1416,8 @@ function initialize() {
                     math.negativeVector(laserDir), surfaceNorm, g_laserEta);
                 data.laser = {
                   position: intersection,
-                  target: math.addVector(intersection, newDir),
+                  target: newDir ? math.addVector(intersection, newDir) :
+                                   undefined
                 };
               }
             }
@@ -1519,30 +1520,33 @@ function initialize() {
             if (fishInfo.lasers) {
               var data = fishInfo.fishData[ii];
               var laserInfo = data.laser;
-              fast.matrix4.mul(
-                world,
-                fast.matrix4.scaling(m4t1, [0.5, 0.5, 200]),
-                fast.matrix4.cameraLookAt(
-                    m4t0,
-                    laserInfo.position,
-                    laserInfo.target,
-                    up));
-              fast.matrix4.mul(worldViewProjection, world, viewProjection);
-              laser.draw(laserPer);
-              //for (var jj = 0; jj < 3; ++jj) {
-              //  fast.matrix4.mul(
-              //    world,
-              //    fast.matrix4.axisRotation(
-              //        m4t0,
-              //        math.normalize([
-              //            Math.random() - 0.5,
-              //            Math.random() - 0.5,
-              //            Math.random() - 0.5]),
-              //        Math.random() * Math.PI * 2),
-              //    fast.matrix4.translation(m4t1, laserInfo.position));
-              //  fast.matrix4.mul(worldViewProjection, world, viewProjection);
-              //  laser.draw(laserPer);
-              //}
+              if (laserInfo.target) {
+                fast.matrix4.mul(
+                  world,
+                  fast.matrix4.scaling(m4t1, [0.5, 0.5, 200]),
+                  fast.matrix4.cameraLookAt(
+                      m4t0,
+                      laserInfo.position,
+                      laserInfo.target,
+                      up));
+                fast.matrix4.mul(worldViewProjection, world, viewProjection);
+                laser.draw(laserPer);
+                //for (var jj = 0; jj < 3; ++jj) {
+                //  fast.matrix4.mul(
+                //    world,
+                //    fast.matrix4.axisRotation(
+                //        m4t0,
+                //        math.normalize([
+                //            Math.random() - 0.5,
+                //            Math.random() - 0.5,
+                //            Math.random() - 0.5]),
+                //        Math.random() * Math.PI * 2),
+                //    fast.matrix4.translation(m4t1, laserInfo.position));
+                //  fast.matrix4.mul(
+                //      worldViewProjection, world, viewProjection);
+                //  laser.draw(laserPer);
+                //}
+              }
             }
           }
         }
@@ -1581,7 +1585,7 @@ function setupCountButtons() {
       }}(elem, ii);
   }
 
-  if (g_sync) {
+  if (g.net.sync) {
     setSetting(document.getElementById("setSetting4"), 4);
   } else {
     setSetting(document.getElementById("setSetting2"), 2);
@@ -1655,16 +1659,11 @@ $(function(){
     $("#msgContainer").hide();
   }
 
-  if (g.net.id !== undefined) {
-    g_sync = true;
+  if (g.net.sync) {
     g.globals.fishSetting = 4;
-    if (g.net.id != 0) {
-      g_slave = true
-    } else {
-      if (g.net.ui !== false) {
-        AddUI(g_netUI);
-        $("#msgContainer").show();
-      }
+    if (g.net.ui !== false) {
+      AddUI(g_netUI);
+      $("#msgContainer").show();
     }
   }
 
@@ -1675,7 +1674,7 @@ $(function(){
       $("#optionsContainer").toggle(); return false; });
   $("#optionsContainer").toggle();
 
-  if (g_slave || g.net.ui === false) {
+  if (g.net.ui === false) {
     $('#topUI').hide();
   } else {
     $(document).keypress(function(event) {

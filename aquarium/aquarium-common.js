@@ -9,8 +9,6 @@ tdl.require('tdl.sync');
 var math;                 // the math lib.
 var fast;                 // the fast math lib.
 var g_syncManager;
-var g_sync = false;
-var g_slave = false;
 
 var g_viewSettingsIndex = 0;
 var g_getCount = 0;
@@ -153,6 +151,7 @@ var g = {
   net: {
     timeout: 3000,
     fovMult: 1.1,
+    rotYMult: 0,
     offsetMult: 1.0,
     offset: [0, 0, 0],
     port: 8080
@@ -198,8 +197,12 @@ function setViewSettings(index) {
 }
 
 function advanceViewSettings() {
-  setViewSettings(g_viewSettingsIndex);
   g_viewSettingsIndex = (g_viewSettingsIndex + 1) % g_viewSettings.length;
+  setViewSettings(g_viewSettingsIndex);
+}
+
+function resetViewSettings() {
+  setViewSettings(g_viewSettingsIndex);
 }
 
 /**
@@ -226,12 +229,12 @@ function setSetting(elem, id) {
  * Initializes stuff.
  */
 function initializeCommon() {
-  if (g_sync) {
+  if (g.net.sync) {
     var server = window.location.href.match(/\/\/(.*?)\//)[1];
     tdl.log("server:", server);
     g.net.server = server;
-    g_syncManager.init(g.net.server, g.net.port, g_slave);
-    if (!g_slave) {
+    g_syncManager.init(g.net.server, g.net.port, g.net.slave);
+    if (!g.net.slave) {
       g_viewSettingsIndex = 4;
       setViewSettings(g_viewSettingsIndex);
     }

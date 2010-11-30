@@ -34,9 +34,12 @@ function initialize() {
 
 
 $(function(){
-  g.net.id = 0;
+  g.net.sync = true;
 
   AddUI(g_ui);
+  $("#reset").button().click(function() {
+    resetViewSettings();
+  });
   $("#changeView").button().click(function() {
     advanceViewSettings();
   });
@@ -51,8 +54,6 @@ $(function(){
   });
 
   g_syncManager = new tdl.sync.SyncManager(g);
-
-  g_sync = true;
 
   initialize();
 });
