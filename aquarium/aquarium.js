@@ -1687,6 +1687,9 @@ $(function(){
                  event.keyCode == 'S'.charCodeAt(0)) {
         tdl.screenshot.takeScreenshot(
           document.getElementById("canvas"));
+      } else if (event.keyCode == 'h'.charCodeAt(0) ||
+                 event.keyCode == 'H'.charCodeAt(0)) {
+        $('#topUI').toggle();
       }
     });
   }
