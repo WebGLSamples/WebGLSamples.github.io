@@ -55,10 +55,11 @@ tdl.sync = tdl.sync || {};
  * @param {!Object} settings The object that contains the settings you
  *     want kept in sync.
  */
-tdl.sync.SyncManager = function(settings) {
+tdl.sync.SyncManager = function(settings, opt_callback) {
   this.settings = settings;
   this.putCount = 0;
   this.getCount = 0;
+  this.callback = opt_callback || function() {};
 
   // This probably should not be here.
   try {
@@ -121,7 +122,7 @@ tdl.sync.SyncManager.prototype.applySettings_ = function(obj, dst) {
   for (var name in obj) {
     var value = obj[name];
     if (typeof value == 'object') {
-      tdl.log("apply->: ", name);
+      //tdl.log("apply->: ", name);
       var newDst = dst[name];
       if (!newDst) {
         newDst = {};
@@ -129,7 +130,7 @@ tdl.sync.SyncManager.prototype.applySettings_ = function(obj, dst) {
       }
       this.applySettings_(value, newDst);
     } else {
-      tdl.log("apply: ", name, "=", value);
+      //tdl.log("apply: ", name, "=", value);
       dst[name] = value;
     }
   }
@@ -155,6 +156,7 @@ tdl.sync.SyncManager.prototype.setSettings = function(settings) {
     }
   } else {
     this.applySettings_(settings, this.settings);
+    this.callback(settings);
   }
 };
 

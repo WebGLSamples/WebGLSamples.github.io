@@ -1643,7 +1643,7 @@ function initUIStuff() {
 $(function(){
   AddUI(g_ui);
 
-  g_syncManager = new tdl.sync.SyncManager(g);
+  g_syncManager = new tdl.sync.SyncManager(g, updateUI);
 
   if (g.win && g.win.resize) {
     var width = screen.availWidth;

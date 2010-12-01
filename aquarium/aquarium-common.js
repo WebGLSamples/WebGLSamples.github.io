@@ -186,6 +186,31 @@ function getScriptText(id) {
   return elem.text;
 }
 
+function updateUI(settings) {
+  function updateUIInner(obj, dst) {
+    for (var name in obj) {
+      var value = obj[name];
+      if (typeof value == 'object') {
+        var newDst = dst[name];
+        if (newDst) {
+          updateUIInner(value, newDst);
+        }
+      } else {
+        var elem = dst[name];
+        if (elem) {
+          var newValue = Math.floor(value * 1000);
+          var oldValue = $(elem).slider("value");
+          if (newValue != oldValue) {
+            //tdl.log("set:", oldValue, newValue);
+            $(elem).slider("value", newValue);
+          }
+        }
+      }
+    }
+  }
+  updateUIInner(settings, g_uiWidgets);
+}
+
 function setViewSettings(index) {
   function setGlobal(name, value) {
     $(g_uiWidgets.globals[name]).slider("value", value * 1000);

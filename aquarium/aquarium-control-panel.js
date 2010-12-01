@@ -12,12 +12,12 @@ var g_setSettingElements = [];
 var g_numSettingElements = {};
 
 var g_ui = [
-  { obj: 'globals', label: 'Target Height',       name: 'targetHeight',    value: 0,     max:  150 },
-  { obj: 'globals', label: 'Camera Height',       name: 'eyeHeight',       value: 19,    max:  150 },
-  { obj: 'globals', label: 'Camera Orbit Radius', name: 'eyeRadius',       value: 60,    max:  200 },
-  { obj: 'globals', label: 'Field Of View',       name: 'fieldOfView',     value: 85,    max:  120, min: 1},
-  { obj: 'globals', label: 'Fog Edge Sharpness',  name: 'fogPower',        value: 14.5,  max:  50},
-  { obj: 'globals', label: 'Fog Amount',          name: 'fogMult',         value: 1.66,  max:  10},
+  { obj: 'globals', label: 'Look Down - Up',               name: 'targetHeight',    value: 0,     max:  150 },
+  { obj: 'globals', label: 'Move Donw - Up',               name: 'eyeHeight',       value: 19,    max:  150 },
+  { obj: 'globals', label: 'Distance from Center of Tank', name: 'eyeRadius',       value: 60,    max:  200 },
+  { obj: 'globals', label: 'Field Of View',                name: 'fieldOfView',     value: 85,    max:  120, min: 1},
+  { obj: 'globals', label: 'Fog Edge Sharpness',           name: 'fogPower',        value: 14.5,  max:  50},
+  { obj: 'globals', label: 'Fog Amount',                   name: 'fogMult',         value: 1.66,  max:  10},
 ];
 
 /**
@@ -53,7 +53,7 @@ $(function(){
     setSettings({globals:{ fishSetting: 6}});
   });
 
-  g_syncManager = new tdl.sync.SyncManager(g);
+  g_syncManager = new tdl.sync.SyncManager(g, updateUI);
 
   var div = document.getElementById("contentOuter");
   div.onmousedown = function() { return false; };
