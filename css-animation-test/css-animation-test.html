@@ -10,7 +10,7 @@
   border: 2px solid black;
 }
 </style>
-This is a test of CSS animation.
+This is a test of CSS animation showing that CSS animation change layout.
 <div
   style="
     text-align:center;
@@ -30,18 +30,54 @@ This is a test of CSS animation.
 This <span class="b1">div will change size</span> causing various things <span class="b2">to adjust their layout</span> when clicked.
   <img src="http://www.google.com/intl/en/images/logos/chrome_logo.gif">
 </div>
-This is a test of CSS animation.
+<hr/>
+This is a test of CSS animation showing that JavaScript can check values during a CSS animation.
 <div
+  id="rot"
   style="
-    -webkit-transform: rotateY(10);
-    -webkit-transition: all 1000ms linear;
+    -webkit-transition: all 10000ms linear;
+	width: 300px;
+	background-color: #8af;
+	text-align: center;
+	left: 0px;
+	position: relative;
+	font-size: xx-large;
   "
   onclick="
     window.foo2 = window.foo2 ? false : true;
-    this.style.transform = window.foo2 ? 'rotateY(10)' : 'rotateY(170)';
+    this.style.width = window.foo2 ? '500px' : '300px';
+    this.style.left = window.foo2 ? '100px' : '0px';
+    this.style.fontSize = window.foo2 ? 'xx-small' : 'xx-large';
   "
 >
-This should rotate
+This should scale and slide when clicked.
 </div>
+<div>Log:</div>
+<div id="log" style="height: 20em; overflow: auto;">
+<script>
+window.onload = main;
+var rot;
+var log;
+var count = 0;
+var oldValue;
+function main() {
+  rot = document.getElementById("rot");
+  log = document.getElementById("log")
+  setInterval(printCSSValue, 1000);
+}
+function addLog(msg) {
+  var div = document.createElement("div");
+  div.appendChild(document.createTextNode(msg));
+  log.appendChild(div);
+}
+function printCSSValue() {
+  var newValue = "offsetLeft: " + rot.offsetLeft + ", clientWidth: " + rot.clientWidth + ", clientHeight: " + rot.clientHeight;
+  if (newValue != oldValue) {
+    ++count;
+	oldValue = newValue;
+	addLog(count + ": " + newValue);
+  }
+}
+</script>
 </body>
 </html>
