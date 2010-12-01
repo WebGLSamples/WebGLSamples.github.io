@@ -106,9 +106,10 @@ tdl.sync.SyncManager.prototype.init = function(server, port, slave) {
   this.socket.connect();
   this.socket.on('message', function(obj) {
     ++that.getCount;
-    tdl.log("--GET:[", g_getCount, "]-------------");
-    tdl.dumpObj(obj);
+    //tdl.log("--GET:[", g_getCount, "]-------------");
+    //tdl.dumpObj(obj);
     that.applySettings_(obj, that.settings);
+    that.callback(obj);
   });
 };
 
@@ -149,8 +150,8 @@ tdl.sync.SyncManager.prototype.setSettings = function(settings) {
     if (!this.slave) {
       if (this.socket) {
         ++this.putCount;
-        tdl.log("--PUT:[", this.putCount, "]-------------");
-        tdl.dumpObj(settings);
+        //tdl.log("--PUT:[", this.putCount, "]-------------");
+        //tdl.dumpObj(settings);
         this.socket.send(settings);
       }
     }
