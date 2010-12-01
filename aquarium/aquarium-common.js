@@ -150,7 +150,7 @@ var g = {
   },
   net: {
     timeout: 3000,
-    fovMult: 1.1,
+    fovMult: 1.21,
     rotYMult: 0,
     offsetMult: 1.0,
     offset: [0, 0, 0],

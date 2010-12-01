@@ -93,7 +93,7 @@ var g_ui = [
 
 var g_netUI = [
   { obj: 'net',    name: 'timeout',     value: 3000,  max:  3000},
-  { obj: 'net',    name: 'fovMult',     value: 1,     max:  2},
+  { obj: 'net',    name: 'fovMult',     value: 1.21,  max:  2},
   { obj: 'net',    name: 'offsetMult',  value: 1,     max:  2}
 ];
 
