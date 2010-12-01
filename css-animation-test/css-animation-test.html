@@ -31,5 +31,17 @@ This <span class="b1">div will change size</span> causing various things <span c
   <img src="http://www.google.com/intl/en/images/logos/chrome_logo.gif">
 </div>
 This is a test of CSS animation.
+<div
+  style="
+    -webkit-transform: rotateY(10);
+    -webkit-transition: all 1000ms linear;
+  "
+  onclick="
+    window.foo2 = window.foo2 ? false : true;
+    this.style.transform = window.foo2 ? 'rotateY(10)' : 'rotateY(170)';
+  "
+>
+This should rotate
+</div>
 </body>
 </html>
