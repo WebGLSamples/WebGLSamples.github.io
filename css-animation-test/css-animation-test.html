@@ -1,0 +1,35 @@
+<html>
+<body>
+<style>
+.b1 {
+  background-color: red;
+  border: 2px solid black;
+}
+.b2 {
+  background-color: blue;
+  border: 2px solid black;
+}
+</style>
+This is a test of CSS animation.
+<div
+  style="
+    text-align:center;
+    margin-left:auto;
+    margin-right:auto;
+    background-color:maroon;
+    color:white;
+    -webkit-transition: all 2000ms linear;
+    border:10px solid black;
+    width: 800px;
+  "
+  onclick="
+    window.foo = window.foo ? false : true;
+    this.style.width= window.foo ? '150px' : '800px';
+  "
+>
+This <span class="b1">div will change size</span> causing various things <span class="b2">to adjust their layout</span> when clicked.
+  <img src="http://www.google.com/intl/en/images/logos/chrome_logo.gif">
+</div>
+This is a test of CSS animation.
+</body>
+</html>
