@@ -55,6 +55,10 @@ $(function(){
 
   g_syncManager = new tdl.sync.SyncManager(g);
 
+  var div = document.getElementById("contentOuter");
+  div.onmousedown = function() { return false; };
+  div.onstartselect = function() { return false; };
+
   initialize();
 });
 
