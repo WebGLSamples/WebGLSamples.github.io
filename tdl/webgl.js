@@ -429,46 +429,54 @@ tdl.webgl.makeDebugContext = function(ctx, opt_onErrorFunc, opt_onFunc) {
  */
 tdl.webgl.requestAnimationFrame = function(element, callback) {
   if (!tdl.webgl.requestAnimationFrameImpl_) {
-    var impl;
-    if (element.requestAnimationFrame) {
-      impl = function(element, callback) {
-        element.requestAnimationFrame(callback);
-      };
-      tdl.log("using element.requestAnimationFrame");
-    } else if (element.webkitRequestAnimationFrame) {
-      impl = function(element, callback) {
-        element.webkitRequestAnimationFrame(callback);
-      };
-      tdl.log("using element.webkitRequestAnimationFrame");
-    } else if (element.mozRequestAnimationFrame) {
-      impl = function(element, callback) {
-        element.mozRequestAnimationFrame(callback);
-      };
-      tdl.log("using element.mozRequestAnimationFrame");
-    } else if (window.mozRequestAnimationFrame) {
-      impl = function(element, callback) {
-        window.mozRequestAnimationFrame(function(timeStamp) {
-          callback({timeStamp: timeStamp});
-        });
-      };
-      tdl.log("using window.mozRequestAnimationFrame");
-    } else if (window.requestAnimationFrame) {
-      impl = function(element, callback) {
-        window.requestAnimationFrame(callback);
-      };
-      tdl.log("using window.mozRequestAnimationFrame");
-    } else {
-      impl = function(element, callback) {
-         window.setTimeout(function() {
-             var now = (new Date()).getTime();
-             callback({timeStamp: now});
-           }, 1000 / 70);
-      };
+    tdl.webgl.requestAnimationFrameImpl_ = function() {
+      var objects = [element, window];
+      var functionNames = [
+        "webkitRequestAnimationFrame",
+        "mozRequestAnimationFrame",
+        "operaRequestAnimationFrame",
+        "requestAnimationFrame"
+      ];
+      var functions = [
+        function (name) {
+          return function(element, callback) {
+            element[name].call(element, callback);
+          };
+        },
+        function (name) {
+          return function(element, callback) {
+            window[name].call(window, callback);
+          };
+        }
+      ];
+      for (var ii = 0; ii < objects.length; ++ii) {
+        var obj = objects[ii];
+        for (var jj = 0; jj < functionNames.length; ++jj) {
+          var functionName = functionNames[jj];
+          if (obj[functionName]) {
+            tdl.log("using ", functionName);
+            return functions[ii](functionName);
+          }
+        }
+      }
       tdl.log("using window.setTimeout");
-    }
-    tdl.webgl.requestAnimationFrameImpl_ = impl;
+      return function(element, callback) {
+           window.setTimeout(function() {
+               var now = (new Date()).getTime();
+               callback(now);
+             }, 1000 / 70);
+        };
+    }();
   }
-  tdl.webgl.requestAnimationFrameImpl_(element, callback);
+
+  tdl.webgl.requestAnimationFrameImpl_(element, function (callback) {
+        return function (arg) {
+          if (arg.timeStamp) {
+            callback(arg);
+          }
+          callback({timeStamp: arg});
+        }
+      }(callback));
 };
 
 
