@@ -349,8 +349,8 @@ function setupModernBuilding(height) {
     var height = ii == 0 ? maxHeight : math.randomInt(maxHeight);
     var width = start + math.randomInt(range);
     var depth = start + math.randomInt(range);
-		width = 10;
-		depth = 10;
+    width = 10;
+    depth = 10;
     var x = Math.round((Math.random() - 0.5) * (1 - width));
     var z = Math.round((Math.random() - 0.5) * (1 - depth));
     var tower = createBuildingCube(width, height, depth);
@@ -620,7 +620,7 @@ function createStreetLights() {
   var lights = [];
   var across = g_lightsPerBlock;
   for (var xx = 0; xx < across; ++xx) {
-		for (var ii = 0; ii < 4; ++ii) {
+    for (var ii = 0; ii < 4; ++ii) {
       var a2 = tdl.primitives.clone(arrays);
       lights.push(a2);
     }
@@ -630,17 +630,17 @@ function createStreetLights() {
   var lightPosition = new tdl.primitives.AttribBuffer(
       4, numElements * numLights);
   for (var xx = 0; xx < across; ++xx) {
-		function addLight(x, y) {
+    function addLight(x, y) {
       var r1 = Math.random();
       var r2 = Math.random();
       for (var jj = 0; jj < numElements; ++jj) {
         lightPosition.push([x, y, r1, r2]);
       }
     }
-		addLight(xx + 1, 0);
-		addLight(xx + 1, across + 1);
-		addLight(0, xx + 1);
-		addLight(across + 1, xx + 1);
+    addLight(xx + 1, 0);
+    addLight(xx + 1, across + 1);
+    addLight(0, xx + 1);
+    addLight(across + 1, xx + 1);
   }
   arrays.lightPosition = lightPosition;
   return new tdl.models.Model(program, arrays, textures);
@@ -867,11 +867,14 @@ function initialize() {
 
   var frameCount = 0;
   var eyeClock = 0;
+
+  tdl.webgl.requestAnimationFrame(canvas, render);
+
   var intervalId = setInterval(render, 1000.0 / 70.0);
   function render() {
     ++frameCount;
-    if (g_drawOnce) {
-      clearInterval(intervalId);
+    if (!g_drawOnce) {
+      tdl.webgl.requestAnimationFrame(canvas, render);
     }
     var now = (new Date()).getTime() * 0.001;
     var elapsedTime;
@@ -969,8 +972,8 @@ function initialize() {
       for (var blockX = 0; blockX < g_blocksAcross; ++blockX) {
         var info = row[blockX];
         var model = info.model;
-				if (model != oldModel) {
-					oldModel = model;
+        if (model != oldModel) {
+          oldModel = model;
           model.drawPrep(modernBuildingConst);
         }
         fast.matrix4.copy(world, info.world);
@@ -1171,8 +1174,8 @@ void main() {
       1);
 
   gl_Position = worldViewProjection * localPosition;
-	float d = length(position.xy * 2.0);
-	float intensity = 1.0 - d;
+  float d = length(position.xy * 2.0);
+  float intensity = 1.0 - d;
   v_color = vec4(1, 1, 1, intensity);
 }
 

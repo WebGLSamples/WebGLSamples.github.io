@@ -158,17 +158,17 @@ function setupPlanet() {
     var width  = img.width;
     var height = img.height;
     canvas.width = width;
-		canvas.height = height;
+    canvas.height = height;
     var ctx = canvas.getContext("2d");
-		ctx.drawImage(img, 0, 0);
-		var imgData = ctx.getImageData(0, 0, width, height);
+    ctx.drawImage(img, 0, 0);
+    var imgData = ctx.getImageData(0, 0, width, height);
     var pixels = imgData.data;
 
     function getRed(u, v) {
       var x = Math.floor(Math.min(u * width, width - 1));
       var y = Math.floor(Math.min(v * height, height - 1));
       var r = pixels[(y * width + x) * 4] / 255;
-			return r;
+      return r;
     }
 
     for (var ii = 0; ii < arrays.position.numElements; ++ii) {
@@ -179,13 +179,13 @@ function setupPlanet() {
       pos[0] += norm[0] * h;
       pos[1] += norm[1] * h;
       pos[2] += norm[2] * h;
-			arrays.position.setElement(ii, pos);
+      arrays.position.setElement(ii, pos);
     }
-		model.setBuffer('position', arrays.position);
+    model.setBuffer('position', arrays.position);
   }
-	img.src = 'assets/height-map.png';
+  img.src = 'assets/height-map.png';
 
-	return model;
+  return model;
 }
 
 /**
@@ -594,11 +594,11 @@ function initialize() {
   }
 
   var frameCount = 0;
-  var intervalId = setInterval(render, 1000.0 / 70.0);
+  tdl.webgl.requestAnimationFrame(canvas, render);
   function render() {
     ++frameCount;
-    if (g_drawOnce) {
-      clearInterval(intervalId);
+    if (!g_drawOnce) {
+      tdl.webgl.requestAnimationFrame(canvas, render);
     }
     var now = (new Date()).getTime() * 0.001;
     var elapsedTime;

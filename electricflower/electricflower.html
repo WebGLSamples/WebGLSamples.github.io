@@ -127,9 +127,10 @@ function mainloop() {
   // Repeatedly run render(), attempt to hold 60 but the demo is
   // framerate independent so we will still keep sync even if we
   // lose frames.
-  var intervalId = setInterval(render, 1000.0 / 60.0);
+  tdl.webgl.requestAnimationFrame(canvas, render);
   var singleEffect = new FlowerEffect();
   function render() {
+    tdl.webgl.requestAnimationFrame(canvas, render);
     var now = ((new Date()).getTime() - bootTime) * 0.001;
     var music_time = now;
     aspect = canvas.clientWidth / canvas.clientHeight

@@ -856,7 +856,6 @@ function initialize() {
   var clock = 0.0;
   var fpsElem = document.getElementById("fps");
 
-  var intervalId = setInterval(render, 1000.0 / 70.0);
   var projection = new Float32Array(16);
   var view = new Float32Array(16);
   var world = new Float32Array(16);
@@ -1079,9 +1078,12 @@ function initialize() {
   }
 
   var checkResTimer = 2;
+
+  tdl.webgl.requestAnimationFrame(canvas, render);
+
   function render() {
-    if (g_drawOnce) {
-      clearInterval(intervalId);
+    if (!g_drawOnce) {
+      tdl.webgl.requestAnimationFrame(canvas, render);
     }
     var now = theClock.getTime();
     var elapsedTime;

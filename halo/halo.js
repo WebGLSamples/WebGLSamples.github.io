@@ -1010,18 +1010,18 @@ var main = function() {
 
     // This must be done after resize.
     master.preanimate();
-
-    var interval = window.setInterval(function() {
+    tdl.webgl.requestAnimationFrame(canvas, render);
+    function render () {
         var ok = false;
         try {
             master.drawClosure();
             ok = true;
         } finally {
-            if (!ok) {
-                window.clearInterval(interval);
+            if (ok) {
+              tdl.webgl.requestAnimationFrame(canvas, render);
             }
         }
-    });
+    };
 }
 // changed to work in IE so we can at least report the need WebGL
 window.onload = main

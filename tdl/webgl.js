@@ -420,3 +420,43 @@ tdl.webgl.makeDebugContext = function(ctx, opt_onErrorFunc, opt_onFunc) {
   return wrapper;
 };
 
+tdl.webgl.requestAnimationFrame = function(element, callback) {
+  if (!tdl.webgl.requestAnimationFrameImpl_) {
+    var impl;
+    if (element.requestAnimationFrame) {
+      impl = function(element, callback) {
+        element.requestAnimationFrame(callback);
+      };
+      tdl.log("using element.requestAnimationFrame");
+    } else if (element.webkitRequestAnimationFrame) {
+      impl = function(element, callback) {
+        element.webkitRequestAnimationFrame(callback);
+      };
+      tdl.log("using element.webkitRequestAnimationFrame");
+    } else if (element.mozRequestAnimationFrame) {
+      impl = function(element, callback) {
+        element.mozRequestAnimationFrame(callback);
+      };
+      tdl.log("using element.mozRequestAnimationFrame");
+    } else if (window.mozRequestAnimationFrame) {
+      impl = function(element, callback) {
+        window.mozRequestAnimationFrame(callback);
+      };
+      tdl.log("using window.mozRequestAnimationFrame");
+    } else if (window.requestAnimationFrame) {
+      impl = function(element, callback) {
+        window.requestAnimationFrame(callback);
+      };
+      tdl.log("using window.mozRequestAnimationFrame");
+    } else {
+      impl = function(element, callback) {
+         window.setTimeout(callback, 1000 / 70);
+      };
+      tdl.log("using window.setTimeout");
+    }
+    tdl.webgl.requestAnimationFrameImpl_ = impl;
+  }
+  tdl.webgl.requestAnimationFrameImpl_(element, callback);
+};
+
+

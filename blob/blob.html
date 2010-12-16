@@ -160,6 +160,7 @@ function mainloop() {
   var fpsElem = document.getElementById("fps");
 
   function render() {
+    tdl.webgl.requestAnimationFrame(canvas, render);
     var now = (new Date()).getTime() * 0.001;
     var elapsedTime;
     if(then == 0.0) {
@@ -181,7 +182,7 @@ function mainloop() {
   // Repeatedly run render(), attempt to hold 60 but the demo is
   // framerate independent so we will still keep sync even if we
   // lose frames.
-  var intervalId = setInterval(render, 1000.0 / 60.0);
+  tdl.webgl.requestAnimationFrame(canvas, render);
 }
 
 function initializeGraphics() {

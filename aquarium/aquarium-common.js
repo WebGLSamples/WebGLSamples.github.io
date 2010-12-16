@@ -178,7 +178,7 @@ function Log(msg) {
 }
 
 function getScriptText(id) {
-  tdl.log("loading: ", id);
+  //tdl.log("loading: ", id);
   var elem = document.getElementById(id);
   if (!elem) {
     throw 'no element: ' + id
