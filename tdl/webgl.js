@@ -420,6 +420,13 @@ tdl.webgl.makeDebugContext = function(ctx, opt_onErrorFunc, opt_onFunc) {
   return wrapper;
 };
 
+/**
+ * Provides requestAnimationFrame in a cross browser
+ * way.
+ * @param {!Element} element Element to request an animation frame for.
+ * @param {function(RequestAnimationEvent): void} callback. Callback that will
+ *        be called when a frame is ready.
+ */
 tdl.webgl.requestAnimationFrame = function(element, callback) {
   if (!tdl.webgl.requestAnimationFrameImpl_) {
     var impl;
@@ -440,7 +447,9 @@ tdl.webgl.requestAnimationFrame = function(element, callback) {
       tdl.log("using element.mozRequestAnimationFrame");
     } else if (window.mozRequestAnimationFrame) {
       impl = function(element, callback) {
-        window.mozRequestAnimationFrame(callback);
+        window.mozRequestAnimationFrame(function(timeStamp) {
+          callback({timeStamp: timeStamp});
+        });
       };
       tdl.log("using window.mozRequestAnimationFrame");
     } else if (window.requestAnimationFrame) {
@@ -450,7 +459,10 @@ tdl.webgl.requestAnimationFrame = function(element, callback) {
       tdl.log("using window.mozRequestAnimationFrame");
     } else {
       impl = function(element, callback) {
-         window.setTimeout(callback, 1000 / 70);
+         window.setTimeout(function() {
+             var now = (new Date()).getTime();
+             callback({timeStamp: now});
+           }, 1000 / 70);
       };
       tdl.log("using window.setTimeout");
     }

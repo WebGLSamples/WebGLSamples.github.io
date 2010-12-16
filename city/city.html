@@ -869,14 +869,12 @@ function initialize() {
   var eyeClock = 0;
 
   tdl.webgl.requestAnimationFrame(canvas, render);
-
-  var intervalId = setInterval(render, 1000.0 / 70.0);
-  function render() {
+  function render(event) {
     ++frameCount;
     if (!g_drawOnce) {
       tdl.webgl.requestAnimationFrame(canvas, render);
     }
-    var now = (new Date()).getTime() * 0.001;
+    var now = event.timeStamp * 0.001;
     var elapsedTime;
     if(then == 0.0) {
       elapsedTime = 0.0;
