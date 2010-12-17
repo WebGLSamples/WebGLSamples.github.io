@@ -121,22 +121,22 @@ if (!window.Float32Array) {
 var up = new Float32Array([0, 1, 0])
 var output = alert
 var curBeat = 0
-var bootTime = (new Date()).getTime();
 
 function mainloop() {
   // Repeatedly run render(), attempt to hold 60 but the demo is
   // framerate independent so we will still keep sync even if we
   // lose frames.
-  tdl.webgl.requestAnimationFrame(canvas, render);
+  var bootTime = tdl.webgl.animationTime();
   var singleEffect = new FlowerEffect();
   function render() {
     tdl.webgl.requestAnimationFrame(canvas, render);
-    var now = ((new Date()).getTime() - bootTime) * 0.001;
+    var now = (tdl.webgl.animationTime() - bootTime) * 0.001;
     var music_time = now;
     aspect = canvas.clientWidth / canvas.clientHeight
     var framebuffer = backbuffer;
     singleEffect.render(framebuffer, music_time, g_postProc)
   }
+  render();
 }
 
 var g_setSettingElements = [];
@@ -176,7 +176,7 @@ function setupButtons() {
 
 function initializeGraphics() {
   canvas = document.getElementById('render_area');
-  gl = tdl.webgl.setupWebGL("viewContainer", canvas);
+  gl = tdl.webgl.setupWebGL(canvas);
   if (!gl) {
     return false;
   }

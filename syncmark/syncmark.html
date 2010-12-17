@@ -67,8 +67,6 @@ function mainloop() {
   // Repeatedly run render(), attempt to hold 60 but the demo is
   // framerate independent so we will still keep sync even if we
   // lose frames.
-  tdl.webgl.requestAnimationFrame(canvas, render);
-
   function render() {
     tdl.webgl.requestAnimationFrame(canvas, render);
     var time = music.currentTime
@@ -80,11 +78,12 @@ function mainloop() {
     gl.scissor(50, 50, 100, 100)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
   }
+  render();
 }
 
 function initializeGraphics() {
   canvas = document.getElementById('render_area');
-  gl = tdl.webgl.setupWebGL("viewContainer", canvas);
+  gl = tdl.webgl.setupWebGL(canvas);
   gl = tdl.webgl.create3DContext(canvas)
   if (!gl) {
     return false;

@@ -429,7 +429,7 @@ function initialize() {
 
   setupCountButtons();
 
-  gl = tdl.webgl.setupWebGL("viewContainer", canvas);
+  gl = tdl.webgl.setupWebGL(canvas);
   if (!gl) {
     return false;
   }
@@ -594,13 +594,12 @@ function initialize() {
   }
 
   var frameCount = 0;
-  tdl.webgl.requestAnimationFrame(canvas, render);
   function render() {
     ++frameCount;
     if (!g_drawOnce) {
       tdl.webgl.requestAnimationFrame(canvas, render);
     }
-    var now = (new Date()).getTime() * 0.001;
+    var now = tdl.webgl.animationTime() * 0.001;
     var elapsedTime;
     if(then == 0.0) {
       elapsedTime = 0.0;
@@ -811,6 +810,7 @@ function initialize() {
     // turn off logging after 1 frame.
     g_logGLCalls = false;
   }
+  render();
   return true;
 }
 </script>

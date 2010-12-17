@@ -997,7 +997,7 @@ var main = function() {
     // one place to handle WebGL not available since the spec is being updated
     // for how to report that and distinguish between the browser doesn't have
     // WebGL vs the hardware/drivers/etc is not up to it.
-    gl = tdl.webgl.setupWebGL("viewContainer", canvas);
+    gl = tdl.webgl.setupWebGL(canvas);
     if (!gl) {
         return;
     }
@@ -1010,7 +1010,6 @@ var main = function() {
 
     // This must be done after resize.
     master.preanimate();
-    tdl.webgl.requestAnimationFrame(canvas, render);
     function render () {
         var ok = false;
         try {
@@ -1022,6 +1021,7 @@ var main = function() {
             }
         }
     };
+    render();
 }
 // changed to work in IE so we can at least report the need WebGL
 window.onload = main

@@ -139,7 +139,7 @@ function initialize() {
   fast = tdl.fast;
   canvas = document.getElementById("canvas");
 
-  gl = tdl.webgl.setupWebGL("viewContainer", canvas);
+  gl = tdl.webgl.setupWebGL(canvas);
   if (!gl) {
     return false;
   }

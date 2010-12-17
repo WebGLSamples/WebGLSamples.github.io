@@ -76,53 +76,42 @@ tdl.webgl.NEED_HARDWARE = '' +
   '<a href="http://get.webgl.org">Click here for more information.</a>';
 
 /**
- * Creates a webgl context and fils out teh
- * @param {string} canvasContainerId id of container of th
- *        canvas.
+ * Creates a webgl context.
  */
-tdl.webgl.setupWebGL = function(canvasContainerId, opt_canvas, opt_attribs) {
-  var container = document.getElementById(canvasContainerId);
-  var context;
-  if (!opt_canvas) {
-    opt_canvas = container.getElementsByTagName("canvas")[0];
-  }
-  if (!opt_canvas) {
-    // this browser doesn't support the canvas tag at all. Not even 2d.
-    container.innerHTML = tdl.webgl.makeFailHTML(
-        tdl.webgl.GET_A_WEBGL_BROWSER);
-    return;
-  }
-
+tdl.webgl.setupWebGL = function(canvas, opt_attribs, opt_onError) {
   function handleCreationError() {
     // TODO(gman): Set error based on why creation failed.
   };
 
   // opt_canvas.addEventHandler('webglcontextcreationerror', handleCreationError);
-  var context = tdl.webgl.create3DContext(opt_canvas, opt_attribs);
+  var context = tdl.webgl.create3DContext(canvas, opt_attribs);
   if (!context) {
-    // TODO(gman): fix to official way to detect that it's the user's machine, not the browser.
-    var browserStrings = navigator.userAgent.match(/(\w+\/.*? )/g);
-    var browsers = {};
-    try {
-      for (var b = 0; b < browserStrings.length; ++b) {
-        var parts = browserStrings[b].match(/(\w+)/g);
-        var bb = [];
-        for (var ii = 1; ii < parts.length; ++ii) {
-          bb.push(parseInt(parts[ii]));
+    var container = canvas.parentNode;
+    if (container) {
+      // TODO(gman): fix to official way to detect that it's the user's machine, not the browser.
+      var browserStrings = navigator.userAgent.match(/(\w+\/.*? )/g);
+      var browsers = {};
+      try {
+        for (var b = 0; b < browserStrings.length; ++b) {
+          var parts = browserStrings[b].match(/(\w+)/g);
+          var bb = [];
+          for (var ii = 1; ii < parts.length; ++ii) {
+            bb.push(parseInt(parts[ii]));
+          }
+          browsers[parts[0]] = bb;
         }
-        browsers[parts[0]] = bb;
+      } catch (e) {
       }
-    } catch (e) {
-    }
-    if (browsers.Chrome &&
-        (browsers.Chrome[0] > 7 ||
-         (browsers.Chrome[0] == 7 && browsers.Chrome[1] > 0) ||
-         (browsers.Chrome[0] == 7 && browsers.Chrome[1] == 0 && browsers.Chrome[2] >= 521))) {
-      container.innerHTML = tdl.webgl.makeFailHTML(
-          tdl.webgl.NEED_HARDWARE);
-    } else {
-      container.innerHTML = tdl.webgl.makeFailHTML(
-          tdl.webgl.GET_A_WEBGL_BROWSER);
+      if (browsers.Chrome &&
+          (browsers.Chrome[0] > 7 ||
+           (browsers.Chrome[0] == 7 && browsers.Chrome[1] > 0) ||
+           (browsers.Chrome[0] == 7 && browsers.Chrome[1] == 0 && browsers.Chrome[2] >= 521))) {
+        container.innerHTML = tdl.webgl.makeFailHTML(
+            tdl.webgl.NEED_HARDWARE);
+      } else {
+        container.innerHTML = tdl.webgl.makeFailHTML(
+            tdl.webgl.GET_A_WEBGL_BROWSER);
+      }
     }
   }
   return context;
@@ -420,6 +409,34 @@ tdl.webgl.makeDebugContext = function(ctx, opt_onErrorFunc, opt_onFunc) {
   return wrapper;
 };
 
+tdl.webgl.animationTime = function() {
+  if (!tdl.webgl.getAnimationTimeImpl_) {
+    tdl.webgl.getAnimationTimeImpl_ = function() {
+      var attribNames = [
+        "animationTime",
+        "webkitAnimationTime",
+        "mozAnimationTime",
+        "operaAnimationTime",
+        "msAnimationTime"
+      ];
+      for (var ii = 0; ii < attribNames.length; ++ii) {
+        var name = attribNames[ii];
+        if (window[name]) {
+          tdl.log("using window." + name);
+          return function() {
+            return window[name];
+          };
+        }
+      }
+      tdl.log("using Date.getTime");
+      return function() {
+        return (new Date()).getTime();
+      }
+    }();
+  }
+  return tdl.webgl.getAnimationTimeImpl_();
+};
+
 /**
  * Provides requestAnimationFrame in a cross browser
  * way.
@@ -432,6 +449,7 @@ tdl.webgl.requestAnimationFrame = function(element, callback) {
     tdl.webgl.requestAnimationFrameImpl_ = function() {
       var objects = [element, window];
       var functionNames = [
+        "requestAnimationFrame",
         "webkitRequestAnimationFrame",
         "mozRequestAnimationFrame",
         "operaRequestAnimationFrame",
@@ -461,22 +479,12 @@ tdl.webgl.requestAnimationFrame = function(element, callback) {
       }
       tdl.log("using window.setTimeout");
       return function(element, callback) {
-           window.setTimeout(function() {
-               var now = (new Date()).getTime();
-               callback(now);
-             }, 1000 / 70);
+           window.setTimeout(callback, 1000 / 70);
         };
     }();
   }
 
-  tdl.webgl.requestAnimationFrameImpl_(element, function (callback) {
-        return function (arg) {
-          if (arg.timeStamp) {
-            callback(arg);
-          }
-          callback({timeStamp: arg});
-        }
-      }(callback));
+  tdl.webgl.requestAnimationFrameImpl_(element, callback)
 };
 
 

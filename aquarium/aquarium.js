@@ -820,7 +820,7 @@ function initialize() {
   canvas = document.getElementById("canvas");
 
   g_fpsTimer = new tdl.fps.FPSTimer();
-  gl = tdl.webgl.setupWebGL("viewContainer", canvas);
+  gl = tdl.webgl.setupWebGL(canvas);
   if (!gl) {
     return false;
   }
@@ -1078,8 +1078,6 @@ function initialize() {
   }
 
   var checkResTimer = 2;
-
-  tdl.webgl.requestAnimationFrame(canvas, render);
 
   function render() {
     if (!g_drawOnce) {
@@ -1568,6 +1566,7 @@ function initialize() {
     // turn off logging after 1 frame.
     g_logGLCalls = false;
   }
+  render();
   return true;
 }
 

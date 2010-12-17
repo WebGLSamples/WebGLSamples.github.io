@@ -1,10 +1,10 @@
 /*
 Copyright (c) 2010 Human Engines Inc. All rights reserved.
- 
+
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
 met:
- 
+
    * Redistributions of source code must retain the above copyright
 notice, this list of conditions and the following disclaimer.
 
@@ -12,7 +12,7 @@ notice, this list of conditions and the following disclaimer.
 copyright notice, this list of conditions and the following disclaimer
 in the documentation and/or other materials provided with the
 distribution.
- 
+
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -59,40 +59,40 @@ g_IntentText            = ["None", "Skin", "Face", "Hair", "Body", "Legs", "Stic
 
 function tick()
 {
-	draw(gl);
-	mouse = new vec2(0,0);
-	mouse = getCursorPos();
-	/* debug 
-	document.getElementById("mouse_state").innerHTML = "Mouse Status: down [" + g_mouseDown + "], pos [" + mouse.x + ", " + mouse.y + "]";
-	
-	document.getElementById("dbg_intent").innerHTML = "Intent:" + g_IntentText[g_IntentSelected];
-	if(g_activeModel == null)
-		document.getElementById("dbg_model").innerHTML = "Model: None";
-	else
-		document.getElementById("dbg_model").innerHTML = "Model:" + g_activeModel;
+  draw(gl);
+  mouse = new vec2(0,0);
+  mouse = getCursorPos();
+  /* debug
+  document.getElementById("mouse_state").innerHTML = "Mouse Status: down [" + g_mouseDown + "], pos [" + mouse.x + ", " + mouse.y + "]";
+
+  document.getElementById("dbg_intent").innerHTML = "Intent:" + g_IntentText[g_IntentSelected];
+  if(g_activeModel == null)
+    document.getElementById("dbg_model").innerHTML = "Model: None";
+  else
+    document.getElementById("dbg_model").innerHTML = "Model:" + g_activeModel;
     */
 }
 
 function preload()
 {
-	gl = preinit();
+  gl = preinit();
 }
 
 function start()
 {
-	// call back functions
-	document.onkeydown = inputKB;
-	element = document.getElementById("pageContainer");
-	element.onmousemove = function(e)
-	{
-		updateCursorPos(e, g_mouseDown);
-	}
-	element.onmouseup = function(e)
-	{
-	    g_mouseDown = false; 
-	    return mouseUp(e);
-	}
-	init();
-	framerate = new Framerate("fps");
-	setInterval("tick()", 25);
+  // call back functions
+  document.onkeydown = inputKB;
+  element = document.getElementById("pageContainer");
+  element.onmousemove = function(e)
+  {
+    updateCursorPos(e, g_mouseDown);
+  }
+  element.onmouseup = function(e)
+  {
+      g_mouseDown = false;
+      return mouseUp(e);
+  }
+  init();
+  framerate = new Framerate("fps");
+  setInterval("tick()", 25);
 }

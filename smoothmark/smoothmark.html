@@ -101,7 +101,7 @@ function mainloop() {
 
 function initializeGraphics() {
   canvas = document.getElementById('render_area');
-  gl = tdl.webgl.setupWebGL("viewContainer", canvas);
+  gl = tdl.webgl.setupWebGL(canvas);
   if (!gl) {
     return false;
   }

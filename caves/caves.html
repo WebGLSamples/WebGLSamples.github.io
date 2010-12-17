@@ -76,7 +76,7 @@ var backbuffer;
 
 function initializeGraphics() {
   canvas = document.getElementById('render_area');
-  gl = tdl.webgl.setupWebGL("viewContainer", canvas);
+  gl = tdl.webgl.setupWebGL(canvas);
   if (!gl) {
   return false;
   }
@@ -169,7 +169,7 @@ $(document).keyup(function(event) {
 <body>
 <div id="centerer">
 <div id="viewContainer">
-	<canvas id="render_area" width="1024" height="512"></canvas>
+  <canvas id="render_area" width="1024" height="512"></canvas>
 </div>
 </div>
 <div id="info">
