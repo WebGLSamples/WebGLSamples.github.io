@@ -73,19 +73,20 @@ tdl.webgl.GET_A_WEBGL_BROWSER = '' +
  */
 tdl.webgl.OTHER_PROBLEM = '' +
   "It does not appear your computer supports WebGL.<br/>" +
-  '<a href="http://get.webgl.org/troubleshooting">Click here for more information.</a>';
+  '<a href="http://get.webgl.org/troubleshooting/">Click here for more information.</a>';
 
 /**
  * Creates a webgl context.
+ * @param {Element} canvas. The canvas element to create a
+ *     context from.
+ * @param {WebGLContextCreationAttirbutes} opt_attribs Any
+ *     creation attributes you want to pass in.
+ * @param {function:(msg)} opt_onError An function to call
+ *     if there is an error during creation.
+ * @return {!WebGLRenderingContext} The created context.
  */
 tdl.webgl.setupWebGL = function(canvas, opt_attribs, opt_onError) {
   function handleCreationError(msg) {
-    if (opt_onError) {
-      opt_onError(msg)
-      return;
-    }
-
-    // TODO(gman): Set error based on why creation failed.
     var container = canvas.parentNode;
     if (container) {
       var str = window.WebGLRenderingContext ?
@@ -98,16 +99,17 @@ tdl.webgl.setupWebGL = function(canvas, opt_attribs, opt_onError) {
     }
   };
 
-  // opt_canvas.addEventHandler('webglcontextcreationerror', handleCreationError);
+  opt_onError = opt_onError || handleCreationError;
+
   if (canvas.addEventListener) {
     canvas.addEventListener("webglcontextcreationerror", function(event) {
-          handleCreationError(event.statusMessage);
+          opt_onError(event.statusMessage);
         }, false);
   }
   var context = tdl.webgl.create3DContext(canvas, opt_attribs);
   if (!context) {
     if (!window.WebGLRenderingContext) {
-      handleCreationError( "");
+      opt_onError("");
     }
   }
   return context;
@@ -117,7 +119,7 @@ tdl.webgl.setupWebGL = function(canvas, opt_attribs, opt_onError) {
  * Creates a webgl context.
  * @param {!Canvas} canvas The canvas tag to get context
  *     from. If one is not passed in one will be created.
- * @return {!WebGLContext} The created context.
+ * @return {!WebGLRenderingContext} The created context.
  */
 tdl.webgl.create3DContext = function(canvas, opt_attribs) {
   var names = ["webgl", "experimental-webgl", "webkit-3d", "moz-webgl"];
@@ -405,6 +407,10 @@ tdl.webgl.makeDebugContext = function(ctx, opt_onErrorFunc, opt_onFunc) {
   return wrapper;
 };
 
+/**
+ * Returns the animationTime in a cross browser way.
+ * @return {number} The current animationTime
+ */
 tdl.webgl.animationTime = function() {
   if (!tdl.webgl.getAnimationTimeImpl_) {
     tdl.webgl.getAnimationTimeImpl_ = function() {
