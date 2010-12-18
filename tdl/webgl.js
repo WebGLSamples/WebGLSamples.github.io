@@ -71,47 +71,43 @@ tdl.webgl.GET_A_WEBGL_BROWSER = '' +
  * Mesasge for need better hardware
  * @type {string}
  */
-tdl.webgl.NEED_HARDWARE = '' +
-  "It doesn't appear your computer can support WebGL.<br/>" +
-  '<a href="http://get.webgl.org">Click here for more information.</a>';
+tdl.webgl.OTHER_PROBLEM = '' +
+  "It does not appear your computer supports WebGL.<br/>" +
+  '<a href="http://get.webgl.org/troubleshooting">Click here for more information.</a>';
 
 /**
  * Creates a webgl context.
  */
 tdl.webgl.setupWebGL = function(canvas, opt_attribs, opt_onError) {
-  function handleCreationError() {
+  function handleCreationError(msg) {
+    if (opt_onError) {
+      opt_onError(msg)
+      return;
+    }
+
     // TODO(gman): Set error based on why creation failed.
+    var container = canvas.parentNode;
+    if (container) {
+      var str = window.WebGLRenderingContext ?
+           tdl.webgl.OTHER_PROBLEM :
+           tdl.webgl.GET_A_WEBGL_BROWSER;
+      if (msg) {
+        str += "<br/><br/>Status: " + msg;
+      }
+      container.innerHTML = tdl.webgl.makeFailHTML(str);
+    }
   };
 
   // opt_canvas.addEventHandler('webglcontextcreationerror', handleCreationError);
+  if (canvas.addEventListener) {
+    canvas.addEventListener("webglcontextcreationerror", function(event) {
+          handleCreationError(event.statusMessage);
+        }, false);
+  }
   var context = tdl.webgl.create3DContext(canvas, opt_attribs);
   if (!context) {
-    var container = canvas.parentNode;
-    if (container) {
-      // TODO(gman): fix to official way to detect that it's the user's machine, not the browser.
-      var browserStrings = navigator.userAgent.match(/(\w+\/.*? )/g);
-      var browsers = {};
-      try {
-        for (var b = 0; b < browserStrings.length; ++b) {
-          var parts = browserStrings[b].match(/(\w+)/g);
-          var bb = [];
-          for (var ii = 1; ii < parts.length; ++ii) {
-            bb.push(parseInt(parts[ii]));
-          }
-          browsers[parts[0]] = bb;
-        }
-      } catch (e) {
-      }
-      if (browsers.Chrome &&
-          (browsers.Chrome[0] > 7 ||
-           (browsers.Chrome[0] == 7 && browsers.Chrome[1] > 0) ||
-           (browsers.Chrome[0] == 7 && browsers.Chrome[1] == 0 && browsers.Chrome[2] >= 521))) {
-        container.innerHTML = tdl.webgl.makeFailHTML(
-            tdl.webgl.NEED_HARDWARE);
-      } else {
-        container.innerHTML = tdl.webgl.makeFailHTML(
-            tdl.webgl.GET_A_WEBGL_BROWSER);
-      }
+    if (!window.WebGLRenderingContext) {
+      handleCreationError( "");
     }
   }
   return context;
