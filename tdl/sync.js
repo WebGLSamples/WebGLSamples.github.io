@@ -31,7 +31,7 @@
 
 
 /**
- * @fileoverview This file contains objects to sync app  settings across
+ * @fileoverview This file contains objects to sync app settings across
  * browsers.
  */
 
@@ -39,6 +39,7 @@ tdl.provide('tdl.sync');
 
 tdl.require('tdl.log');
 tdl.require('tdl.io');
+tdl.require('tdl.misc');
 
 /**
  * A module for sync.
@@ -62,31 +63,7 @@ tdl.sync.SyncManager = function(settings, opt_callback) {
   this.callback = opt_callback || function() {};
 
   // This probably should not be here.
-  try {
-    var s = window.location.href;
-    var q = s.indexOf("?");
-    var query = s.substr(q + 1);
-    tdl.log("query:", query);
-    var pairs = query.split("&");
-    tdl.log("pairs:", pairs.length);
-    for (var ii = 0; ii < pairs.length; ++ii) {
-      var keyValue = pairs[ii].split("=");
-      var key = keyValue[0];
-      var value = decodeURIComponent(keyValue[1]);
-      tdl.log(ii, ":", key, "=", value);
-      switch (key) {
-      case 'settings':
-        tdl.log(value);
-        var obj = eval("(" + value + ")");
-        tdl.log("obj:", obj);
-        this.setSettings(obj);
-        break;
-      }
-    }
-  } catch (e) {
-    tdl.error(e);
-    return;
-  }
+  tdl.misc.applyUrlSettings(settings);
 }
 
 /**
@@ -108,33 +85,9 @@ tdl.sync.SyncManager.prototype.init = function(server, port, slave) {
     ++that.getCount;
     //tdl.log("--GET:[", g_getCount, "]-------------");
     //tdl.dumpObj(obj);
-    that.applySettings_(obj, that.settings);
+    tdl.misc.copyProperties(obj, that.settings);
     that.callback(obj);
   });
-};
-
-/**
- * Applies settings recursively
- * @private
- * @param {!Object} obj Object with new settings.
- * @param {!Object} dst Object to receive new settings.
- */
-tdl.sync.SyncManager.prototype.applySettings_ = function(obj, dst) {
-  for (var name in obj) {
-    var value = obj[name];
-    if (typeof value == 'object') {
-      //tdl.log("apply->: ", name);
-      var newDst = dst[name];
-      if (!newDst) {
-        newDst = {};
-        dst[name] = newDst;
-      }
-      this.applySettings_(value, newDst);
-    } else {
-      //tdl.log("apply: ", name, "=", value);
-      dst[name] = value;
-    }
-  }
 };
 
 /**
@@ -156,7 +109,7 @@ tdl.sync.SyncManager.prototype.setSettings = function(settings) {
       }
     }
   } else {
-    this.applySettings_(settings, this.settings);
+    tdl.misc.copyProperties(settings, this.settings);
     this.callback(settings);
   }
 };
