@@ -114,7 +114,7 @@ var g_autoSet = true;
 var g_autoSetting = 0;
 
 //g_drawOnce = true;
-//g_debug = true;
+g_debug = true;
 
 var g_eyeSpeed          = 0.5;
 var g_eyeHeight         = 2;
@@ -179,6 +179,15 @@ function setupSphere() {
   return new tdl.models.Model(program, arrays, textures);
 }
 
+function setupEnvSphere(texture) {
+  var textures = {envMap: texture};
+  var program = createProgramFromTags(
+      'envVertexShader',
+      'envFragmentShader');
+  var arrays = tdl.primitives.createSphere(0.4, 10, 12);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
 function initialize() {
   math = tdl.math;
   fast = tdl.fast;
@@ -193,11 +202,14 @@ function initialize() {
     gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
   }
 
+  var cubeFBO = tdl.framebuffers.createCubeFramebuffer(256, true);
 //  var mainFBO = tdl.framebuffers.createFramebuffer(canvas.width, canvas.height, true);
 //  var horizontalBlurFBO = tdl.framebuffers.createFramebuffer(canvas.width / 4, canvas.height);
 //  var verticalBlurFBO = tdl.framebuffers.createFramebuffer(canvas.width / 4, canvas.height / 4);
-  Log("--Setup Grass---------------------------------------");
+  Log("--Setup Sphere---------------------------------------");
   var sphere = setupSphere();
+  Log("--Setup Env Sphere---------------------------------------");
+  var envSphere = setupEnvSphere(cubeFBO.texture);
 //  Log("--Setup Skybox---------------------------------------");
 //  var skybox = setupSkybox();
 //  Log("--Setup HorizontalBlurPlane---------------------------------------");
@@ -251,6 +263,15 @@ function initialize() {
     specularFactor: 0.2};
   var spherePer = {
     lightColor: new Float32Array([0,0,0,1]),
+    world: world,
+    worldViewProjection: worldViewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose};
+
+  // env sphere uniforms.
+  var envSphereConst = {
+    viewInverse: viewInverse};
+  var envSpherePer = {
     world: world,
     worldViewProjection: worldViewProjection,
     worldInverse: worldInverse,
@@ -356,7 +377,25 @@ function initialize() {
         }
       }
     }
-    drawSpheres();
+
+    for (var ff = 0; ff < 6; ++ff) {
+      cubeFBO.bind(ff);
+      gl.colorMask(true, true, true, true);
+      gl.depthMask(true);
+      gl.clearColor(0,0,1,0);
+      gl.clearDepth(1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+      drawSpheres();
+    }
+    cubeFBO.unbind();
+
+    envSphere.drawPrep(envSphereConst);
+    fast.matrix4.identity(world);
+    fast.matrix4.mul(worldViewProjection, world, viewProjection);
+    fast.matrix4.inverse(worldInverse, world);
+    fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+    envSphere.draw(envSpherePer);
+
 
 //    // Draw to horizontal blur fbo.
 //    horizontalBlurFBO.bind();
@@ -481,6 +520,45 @@ void main() {
   gl_FragColor = vec4((
   lightColor * (litR.y + specular * litR.z * specularFactor)).rgb,
       1.0);
+}
+</script>
+<!-- ===[ Env Shader ]============================================== -->
+<script id="envVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToView;
+void main() {
+  v_texCoord = texCoord;
+  v_position = worldViewProjection * position;
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="envFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToView;
+
+uniform samplerCube envMap;
+
+void main() {
+  vec3 normal = normalize(v_normal);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  gl_FragColor = textureCube(envMap, -reflect(surfaceToView, normal));
 }
 </script>
 </html>

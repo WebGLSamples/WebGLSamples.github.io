@@ -307,19 +307,24 @@ tdl.textures.CubeMap = function(urls) {
   this.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   this.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   this.faces = [];
-  this.numUrls = urls.length;
-  var that = this;
-  for (var ff = 0; ff < urls.length; ++ff) {
-    var face = { };
-    this.faces[ff] = face;
-    var img = document.createElement('img');
-    face.img = img;
-    img.onload = function(faceIndex) {
-      return function() {
-        that.updateTexture(faceIndex);
-      }
-    } (ff);
-    img.src = urls[ff];
+  if (urls.length) {
+    this.numUrls = 0;
+    this.size = urls;
+  } else {
+    this.numUrls = urls.length;
+    var that = this;
+    for (var ff = 0; ff < urls.length; ++ff) {
+      var face = { };
+      this.faces[ff] = face;
+      var img = document.createElement('img');
+      face.img = img;
+      img.onload = function(faceIndex) {
+        return function() {
+          that.updateTexture(faceIndex);
+        }
+      } (ff);
+      img.src = urls[ff];
+    }
   }
   this.uploadTextures();
 };
@@ -346,38 +351,45 @@ tdl.textures.CubeMap.prototype.uploadTextures = function() {
   var allFacesLoaded = this.loaded();
   var faceTargets = tdl.textures.CubeMap.faceTargets;
   for (var faceIndex = 0; faceIndex < 6; ++faceIndex) {
-    var face = this.faces[Math.min(this.faces.length - 1, faceIndex)];
+    var uploaded = false;
     var target = faceTargets[faceIndex];
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.texture);
-    if (allFacesLoaded) {
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-      if (this.faces.length == 6) {
-        gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, face.img);
-      } else {
-        var canvas = document.createElement('canvas');
-        var width = face.img.width / 4;
-        var height = face.img.height / 3;
-        canvas.width = width;
-        canvas.height = height;
-        var ctx = canvas.getContext("2d");
-        var sx = tdl.textures.CubeMap.offsets[faceIndex][0] * width;
-        var sy = tdl.textures.CubeMap.offsets[faceIndex][1] * height;
-        ctx.drawImage(face.img, sx, sy, width, height, 0, 0, width, height);
-        gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+    if (this.faces.length) {
+      var face = this.faces[Math.min(this.faces.length - 1, faceIndex)];
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.texture);
+      if (allFacesLoaded) {
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        if (this.faces.length == 6) {
+          gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, face.img);
+        } else {
+          var canvas = document.createElement('canvas');
+          var width = face.img.width / 4;
+          var height = face.img.height / 3;
+          canvas.width = width;
+          canvas.height = height;
+          var ctx = canvas.getContext("2d");
+          var sx = tdl.textures.CubeMap.offsets[faceIndex][0] * width;
+          var sy = tdl.textures.CubeMap.offsets[faceIndex][1] * height;
+          ctx.drawImage(face.img, sx, sy, width, height, 0, 0, width, height);
+          gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+        }
+        uploaded = true;
       }
-    } else {
+    }
+    if (!uploaded) {
       var pixel = new Uint8Array([100,100,255,255]);
       gl.texImage2D(target, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
     }
   }
-  var faceImg = this.faces[0].img;
   var genMips = false;
-  if (this.faces.length == 6) {
-    genMips = tdl.textures.isPowerOf2(faceImg.width) &&
-              tdl.textures.isPowerOf2(faceImg.height);
-  } else {
-    genMips = tdl.textures.isPowerOf2(faceImg.width / 4) &&
-              tdl.textures.isPowerOf2(faceImg.height / 3);
+  if (this.faces.length) {
+    var faceImg = this.faces[0].img;
+    if (this.faces.length == 6) {
+      genMips = tdl.textures.isPowerOf2(faceImg.width) &&
+                tdl.textures.isPowerOf2(faceImg.height);
+    } else {
+      genMips = tdl.textures.isPowerOf2(faceImg.width / 4) &&
+                tdl.textures.isPowerOf2(faceImg.height / 3);
+    }
   }
   if (genMips) {
     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
