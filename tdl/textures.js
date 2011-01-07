@@ -307,7 +307,7 @@ tdl.textures.CubeMap = function(urls) {
   this.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   this.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   this.faces = [];
-  if (urls.length) {
+  if (!urls.length) {
     this.numUrls = 0;
     this.size = urls;
   } else {
