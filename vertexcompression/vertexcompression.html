@@ -92,7 +92,7 @@ var g_drawOnce = false;   // draw just one frame.
 
 var g_eyeSpeed          = 0.0;
 var g_eyeHeight         = 2;
-var g_eyeRadius         = 9;
+var g_eyeRadius         = 19;
 var g_speed             = 0.2;
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
@@ -184,39 +184,39 @@ function setup32BytePerVertexModel(decoder) {
 function setup16BytePerVertexModel(decoder) {
   for (var ii = -0x7000; ii <= 0x7000; ii += 0x1000) {
     var v = decoder.getInt16();
-		tdl.log(ii, v);
+    tdl.log(ii, v);
   }
 
   var numVertices = decoder.getUint16();
   var numTriangles = decoder.getUint16();
 
-	tdl.log("num verts: ", numVertices);
-	tdl.log("num tris : ", numTriangles);
+  tdl.log("num verts: ", numVertices);
+  tdl.log("num tris : ", numTriangles);
 
   var positions = new tdl.primitives.AttribBuffer(3, numVertices , 'Int16Array');
   var normals = new tdl.primitives.AttribBuffer(3, numVertices , 'Int16Array');
   var uvs = new tdl.primitives.AttribBuffer(2, numVertices , 'Uint16Array');
   var indices = new tdl.primitives.AttribBuffer(3, numTriangles, 'Uint16Array');
 
-	for (var ii = 0; ii < numVertices; ++ii) {
-		positions.setElement(ii, [decoder.getInt16(), decoder.getInt16(), decoder.getInt16()]);
+  for (var ii = 0; ii < numVertices; ++ii) {
+    positions.setElement(ii, [decoder.getInt16(), decoder.getInt16(), decoder.getInt16()]);
     if (ii < 10) {
       var v = positions.getElement(ii);
       tdl.log("p", ii, v[0] / 0x7fff, v[1] / 0x7fff, v[2] / 0x7fff);
     }
   }
   for (var ii = 0; ii < numVertices; ++ii) {
-		normals.setElement(ii, [decoder.getInt16(), decoder.getInt16(), decoder.getInt16()]);
+    normals.setElement(ii, [decoder.getInt16(), decoder.getInt16(), decoder.getInt16()]);
     if (ii < 10) {
       var v = normals.getElement(ii);
       tdl.log("n", ii, v[0] / 0x7fff, v[1] / 0x7fff, v[2] / 0x7fff);
     }
   }
   for (var ii = 0; ii < numVertices; ++ii) {
-		uvs.setElement(ii, [decoder.getUint16(), decoder.getUint16()]);
+    uvs.setElement(ii, [decoder.getUint16(), decoder.getUint16()]);
   }
-	for (var ii = 0; ii < numTriangles; ++ii) {
-		indices.setElement(ii, [decoder.getUint16(), decoder.getUint16(), decoder.getUint16()]);
+  for (var ii = 0; ii < numTriangles; ++ii) {
+    indices.setElement(ii, [decoder.getUint16(), decoder.getUint16(), decoder.getUint16()]);
   }
 
   var textures = {
@@ -225,7 +225,7 @@ function setup16BytePerVertexModel(decoder) {
       'sphereVertexShader',
       'sphereFragmentShader');
   var arrays = {
-		position: positions,
+    position: positions,
     normal: normals,
     texCoord: uvs,
     indices: indices};
@@ -237,17 +237,17 @@ function setup9BytePerVertexModel(decoder) {
   var numVertices = decoder.getUint16();
   var numTriangles = decoder.getUint16();
 
-	tdl.log("num verts: ", numVertices);
-	tdl.log("num tris : ", numTriangles);
+  tdl.log("num verts: ", numVertices);
+  tdl.log("num tris : ", numTriangles);
 
   var positions = new tdl.primitives.AttribBuffer(3, numVertices , 'Float32Array');
   var normals = new tdl.primitives.AttribBuffer(3, numVertices , 'Int8Array');
   var uvs = new tdl.primitives.AttribBuffer(2, numVertices , 'Uint8Array');
   var indices = new tdl.primitives.AttribBuffer(3, numTriangles, 'Uint16Array');
 
-	for (var ii = 0; ii < numVertices; ++ii) {
+  for (var ii = 0; ii < numVertices; ++ii) {
     var v = decoder.getUint32();
-		positions.setElement(ii, [
+    positions.setElement(ii, [
                          (v >> 21) / 0x7FF,
                          ((v >> 11) & 0x3FF) / 0x3FF,
                          (v & 0x7FF) / 0x7FF]);
@@ -257,21 +257,21 @@ function setup9BytePerVertexModel(decoder) {
     }
   }
   for (var ii = 0; ii < numVertices; ++ii) {
-		normals.setElement(ii, [decoder.getInt8(), decoder.getInt8(), decoder.getInt8()]);
+    normals.setElement(ii, [decoder.getInt8(), decoder.getInt8(), decoder.getInt8()]);
     if (ii < 10) {
       var v = normals.getElement(ii);
       tdl.log("n", ii, v[0] / 0x7f, v[1] / 0x7f, v[2] / 0x7f);
     }
   }
   for (var ii = 0; ii < numVertices; ++ii) {
-		uvs.setElement(ii, [decoder.getUint8(), decoder.getUint8()]);
+    uvs.setElement(ii, [decoder.getUint8(), decoder.getUint8()]);
   }
-	if (numVertices % 2) {
-		tdl.log("eat one");
-		decoder.getUint8();
+  if (numVertices % 2) {
+    tdl.log("eat one");
+    decoder.getUint8();
   }
-	for (var ii = 0; ii < numTriangles; ++ii) {
-		indices.setElement(ii, [decoder.getUint16(), decoder.getUint16(), decoder.getUint16()]);
+  for (var ii = 0; ii < numTriangles; ++ii) {
+    indices.setElement(ii, [decoder.getUint16(), decoder.getUint16(), decoder.getUint16()]);
     if (ii < 10) {
       var v = indices.getElement(ii);
       tdl.log("i", ii, v[0], v[1], v[2]);
@@ -284,7 +284,7 @@ function setup9BytePerVertexModel(decoder) {
       'sphereVertexShader',
       'sphereFragmentShader');
   var arrays = {
-		position: positions,
+    position: positions,
     normal: normals,
     texCoord: uvs,
     indices: indices};
@@ -308,44 +308,35 @@ function initialize() {
 
   Log("--Setup Sphere---------------------------------------");
   var sphere = setupSphere();
-  var models = [sphere, sphere];
+  var models = [sphere, sphere, sphere, sphere, sphere, sphere];
 
-	if (false) {
-		tdl.log("h1");
-    tdl.io.loadArrayBuffer("bytes16.bin", function(buf, exception) {
-      if (exception) {
-        alert(exception);
-      } else {
-        tdl.io.loadTextFile("bytes16.utf8", function(str, exception) {
-            if (exception) {
-              alert(exception);
-            } else {
-							tdl.log(buf);
-							tdl.log(buf.byteLength);
-              var numValues = buf.byteLength / 2;
-              var bin = new tdl.io.ArrayBufferDecoder(buf);
-              var utf = new tdl.io.UTF8Decoder(str);
-							for (var ii = 0; ii < numValues; ++ii) {
-                var b = bin.getInt16();
-                var u = utf.getInt16();
-								if (b != u) {
-									tdl.error(ii, b, u);
-									break;
-                }
-              }
-							tdl.log("--done--", numValues);
-            }
-          });
-      }
-    });
-  }
-	if (false) {
-    tdl.io.loadArrayBuffer("bytes16.bin", function(buf, exception) {
+  if (true) {
+    tdl.io.loadTextFile("bytes16.utf8", function(buf, exception) {
         if (exception) {
           alert(exception);
         } else {
           models[0] = setup16BytePerVertexModel(
+              new tdl.io.UTF8Decoder(buf));
+        }
+      });
+  }
+  if (true) {
+    tdl.io.loadArrayBuffer("bytes16.bin", function(buf, exception) {
+        if (exception) {
+          alert(exception);
+        } else {
+          models[3] = setup16BytePerVertexModel(
               new tdl.io.ArrayBufferDecoder(buf));
+        }
+      });
+  }
+  if (true) {
+    tdl.io.loadTextFile("bytes9.utf8", function(str, exception) {
+        if (exception) {
+          alert(exception);
+        } else {
+          models[1] = setup9BytePerVertexModel(
+              new tdl.io.UTF8Decoder(str));
         }
       });
   }
@@ -354,28 +345,28 @@ function initialize() {
         if (exception) {
           alert(exception);
         } else {
-          models[1] = setup9BytePerVertexModel(
+          models[4] = setup9BytePerVertexModel(
               new tdl.io.ArrayBufferDecoder(buf));
         }
       });
   }
-	if (false) {
-    tdl.io.loadTextFile("bytes16.utf8", function(str, exception) {
-        if (exception) {
-          alert(exception);
-        } else {
-          models[0] = setup16BytePerVertexModel(
-              new tdl.io.UTF8Decoder(str));
-        }
-      });
-  }
-	if (false) {
+  if (true) {
     tdl.io.loadTextFile("bytes32.utf8", function(str, exception) {
         if (exception) {
           alert(exception);
         } else {
-          models[0] = setup32BytePerVertexModel(
+          models[2] = setup32BytePerVertexModel(
               new tdl.io.UTF8Decoder(str));
+        }
+      });
+  }
+  if (true) {
+    tdl.io.loadArrayBuffer("bytes32.bin", function(str, exception) {
+        if (exception) {
+          alert(exception);
+        } else {
+          models[5] = setup32BytePerVertexModel(
+              new tdl.io.ArrayBufferDecoder(str));
         }
       });
   }
@@ -448,19 +439,12 @@ function initialize() {
     eyePosition[1] = g_eyeHeight;
     eyePosition[2] = Math.cos(clock * g_eyeSpeed) * g_eyeRadius;
 
-    gl.colorMask(true, true, true, true);
-    gl.depthMask(true);
-    gl.clearColor(0,0,0,0);
-    gl.clearDepth(1);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
-
-    gl.enable(gl.CULL_FACE);
-    gl.enable(gl.DEPTH_TEST);
-
+    var pWidth = canvas.clientWidth / 3;
+    var pHeight = canvas.clientHeight / 2;
     fast.matrix4.perspective(
         projection,
         math.degToRad(60),
-        canvas.clientWidth / canvas.clientHeight,
+        pWidth / pHeight,
         1,
         5000);
     fast.matrix4.lookAt(
@@ -482,21 +466,36 @@ function initialize() {
     fast.addVector(lightWorldPos, lightWorldPos, v3t1);
     fast.addVector(lightWorldPos, lightWorldPos, v3t2);
 
-//      view: view,
-//      projection: projection,
-//      viewProjection: viewProjection,
+    gl.enable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.SCISSOR_TEST);
 
-    Log("--Draw model---------------------------------------");
-    var lightColor = modelPer.lightColor;
-    var numModels = models.length;
-		for (var ii = 0; ii < numModels; ++ii) {
+    for (var ii = 0; ii < 6; ++ii) {
+      var vx = ii % 3;
+      var vy = Math.floor(ii / 3);
+      var vWidth = Math.floor(canvas.width / 3);
+      var vHeight = Math.floor(canvas.height / 2);
+      gl.viewport(vWidth * vx, vHeight * vy, vWidth, vHeight);
+      gl.scissor(vWidth * vx, vHeight * vy, vWidth - 1, vHeight - 1);
+      gl.colorMask(true, true, true, true);
+      gl.depthMask(true);
+      gl.clearColor(0,0,1,1);
+      gl.clearDepth(1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+  //      view: view,
+  //      projection: projection,
+  //      viewProjection: viewProjection,
+
+      Log("--Draw model---------------------------------------");
+      var lightColor = modelPer.lightColor;
       var model = models[ii];
-			if (!model) {
-				continue;
+      if (!model) {
+        continue;
       }
       model.drawPrep(modelConst);
       fast.matrix4.rotationY(m4t0, clock * g_speed);
-      fast.matrix4.translation(m4t1, [(ii * 2 - numModels * 0.5) * 1]);
+      fast.matrix4.translation(m4t1, [0, 0, 0]);
       fast.matrix4.mul(world, m4t0, m4t1);
       fast.matrix4.mul(worldViewProjection, world, viewProjection);
       fast.matrix4.inverse(worldInverse, world);
@@ -505,6 +504,7 @@ function initialize() {
     }
 
     // Set the alpha to 255.
+    gl.disable(gl.SCISSOR_TEST);
     gl.colorMask(false, false, false, true);
     gl.clearColor(0,0,0,1);
     gl.clear(gl.COLOR_BUFFER_BIT);

@@ -445,28 +445,28 @@ tdl.io.Decoder = function() {
 
 tdl.io.Decoder.prototype.getInt16 = function() {
   var v = this.getUint16();
-	if (v > 0x7fff) {
-		v = v - 0x10000;
+  if (v > 0x7fff) {
+    v = v - 0x10000;
   }
-	return v;
+  return v;
 };
 
 tdl.io.Decoder.prototype.getInt8 = function() {
   var v = this.getUint8();
-	if (v > 0x7f) {
-		v = v - 0x100;
+  if (v > 0x7f) {
+    v = v - 0x100;
   }
-	return v;
+  return v;
 };
 
 tdl.io.Decoder.prototype.getInt16Float = function() {
   var v = this.getInt16();
-	return v / 0x7FFF;
+  return v / 0x7FFF;
 };
 
 tdl.io.Decoder.prototype.getUint16Float = function() {
   var v = this.getUint16();
-	return v / 0xFFFF;
+  return v / 0xFFFF;
 };
 
 tdl.io.Decoder.prototype.getUint32 = function() {
@@ -477,14 +477,15 @@ tdl.io.Decoder.prototype.getUint32 = function() {
 };
 
 tdl.io.Decoder.prototype.getFloat = function() {
-	var l = getUint16();
-  var h = getUint16();
-	this.uint16_[0] = l;
-	this.uint16_[1] = h;
+  var l = this.getUint16();
+  var h = this.getUint16();
+  this.uint16_[0] = l;
+  this.uint16_[1] = h;
   return this.float_[0];
 };
 
 tdl.io.UTF8Decoder = function(str) {
+  tdl.io.Decoder.call(this);
   this.str_ = str;
   this.ndx_ = 0;
 };
@@ -498,6 +499,7 @@ tdl.io.UTF8Decoder.prototype.getUint16 = function() {
 
 
 tdl.io.ArrayBufferDecoder = function(buf) {
+  tdl.io.Decoder.call(this);
   this.buf_ = new Uint8Array(buf);
   this.ndx_ = 0;
 };
