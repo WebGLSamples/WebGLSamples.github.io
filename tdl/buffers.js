@@ -54,14 +54,19 @@ tdl.buffers.Buffer = function(array, opt_target) {
   this.totalComponents_ = this.numComponents_ * this.numElements_;
   if (array.buffer instanceof Float32Array) {
     this.type_ = gl.FLOAT;
+    this.normalize_ = false;
   } else if (array.buffer instanceof Uint8Array) {
     this.type_ = gl.UNSIGNED_BYTE;
+    this.normalize_ = true;
   } else if (array.buffer instanceof Int8Array) {
     this.type_ = gl._BYTE;
+    this.normalize_ = true;
   } else if (array.buffer instanceof Uint16Array) {
     this.type_ = gl.UNSIGNED_SHORT;
+    this.normalize_ = true;
   } else if (array.buffer instanceof Int16Array) {
     this.type_ = gl.SHORT;
+    this.normalize_ = true;
   } else {
     throw("unhandled type:" + (typeof array.buffer));
   }
@@ -95,6 +100,10 @@ tdl.buffers.Buffer.prototype.buffer = function() {
 tdl.buffers.Buffer.prototype.stride = function() {
   return 0;
 };
+
+tdl.buffers.Buffer.prototype.normalize = function() {
+  return this.normalize_;
+}
 
 tdl.buffers.Buffer.prototype.offset = function() {
   return 0;

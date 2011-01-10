@@ -178,7 +178,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
         gl.bindBuffer(gl.ARRAY_BUFFER, b.buffer());
         gl.enableVertexAttribArray(index);
         gl.vertexAttribPointer(
-            index, b.numComponents(), b.type(), false, b.stride(), b.offset());
+            index, b.numComponents(), b.type(), b.normalize(), b.stride(), b.offset());
       };
   }
 

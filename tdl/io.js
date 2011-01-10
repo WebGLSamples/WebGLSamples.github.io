@@ -263,7 +263,7 @@ tdl.io.loadTextFile = function(url, callback) {
   if (window.XMLHttpRequest) {
     request = new XMLHttpRequest();
     if (request.overrideMimeType) {
-      request.overrideMimeType('text/plain');
+      request.overrideMimeType('text/plain; charset=utf-8');
     }
   } else if (window.ActiveXObject) {
     request = new ActiveXObject('MSXML2.XMLHTTP.3.0');
@@ -288,6 +288,49 @@ tdl.io.loadTextFile = function(url, callback) {
     }
   };
   request.onreadystatechange = finish;
+  request.send(null);
+  return loadInfo;
+};
+
+/**
+ * Loads a file from an external file. This function is
+ * asynchronous.
+ * @param {string} url The url of the external file.
+ * @param {function(string, *): void} callback A callback passed the loaded
+ *     ArrayBuffer and an exception which will be null on
+ *     success.
+ * @return {!tdl.io.LoadInfo} A LoadInfo to track progress.
+ */
+tdl.io.loadArrayBuffer = function(url, callback) {
+  var error = 'loadArrayBuffer failed to load url "' + url + '"';
+  var request;
+  if (window.XMLHttpRequest) {
+    request = new XMLHttpRequest();
+  } else {
+    throw 'XMLHttpRequest is disabled';
+  }
+  var loadInfo = tdl.io.createLoadInfo(request, false);
+  request.open('GET', url, true);
+  var finish = function() {
+    if (request.readyState == 4) {
+      var text = '';
+      // HTTP reports success with a 200 status. The file protocol reports
+      // success with zero. HTTP does not use zero as a status code (they
+      // start at 100).
+      // https://developer.mozilla.org/En/Using_XMLHttpRequest
+      var success = request.status == 200 || request.status == 0;
+      if (success) {
+        arrayBuffer = request.response;
+      }
+      loadInfo.finish();
+      callback(arrayBuffer, success ? null : 'could not load: ' + url);
+    }
+  };
+  request.onreadystatechange = finish;
+  if (request.responseType === undefined) {
+    throw 'no support for binary files';
+  }
+  request.responseType = "arraybuffer";
   request.send(null);
   return loadInfo;
 };
@@ -394,4 +437,78 @@ tdl.io.sendJSON = function(url, jsonObject, callback) {
   return loadInfo;
 };
 
+tdl.io.Decoder = function() {
+  var buf = new ArrayBuffer(4);
+  this.float_ = new Float32Array(buf);
+  this.uint16_ = new Uint16Array(buf);
+};
+
+tdl.io.Decoder.prototype.getInt16 = function() {
+  var v = this.getUint16();
+	if (v > 0x7fff) {
+		v = v - 0x10000;
+  }
+	return v;
+};
+
+tdl.io.Decoder.prototype.getInt8 = function() {
+  var v = this.getUint8();
+	if (v > 0x7f) {
+		v = v - 0x100;
+  }
+	return v;
+};
+
+tdl.io.Decoder.prototype.getInt16Float = function() {
+  var v = this.getInt16();
+	return v / 0x7FFF;
+};
+
+tdl.io.Decoder.prototype.getUint16Float = function() {
+  var v = this.getUint16();
+	return v / 0xFFFF;
+};
+
+tdl.io.Decoder.prototype.getUint32 = function() {
+  return this.getUint8() +
+         (this.getUint8() << 8) +
+         (this.getUint8() << 16) +
+         (this.getUint8() << 24);
+};
+
+tdl.io.Decoder.prototype.getFloat = function() {
+	var l = getUint16();
+  var h = getUint16();
+	this.uint16_[0] = l;
+	this.uint16_[1] = h;
+  return this.float_[0];
+};
+
+tdl.io.UTF8Decoder = function(str) {
+  this.str_ = str;
+  this.ndx_ = 0;
+};
+
+tdl.base.inherit(tdl.io.UTF8Decoder, tdl.io.Decoder);
+
+tdl.io.UTF8Decoder.prototype.getUint16 = function() {
+  var word = this.str_.charCodeAt(this.ndx_++);
+  return ((word >> 1) ^ ((word & 1) << 15));
+};
+
+
+tdl.io.ArrayBufferDecoder = function(buf) {
+  this.buf_ = new Uint8Array(buf);
+  this.ndx_ = 0;
+};
+
+tdl.base.inherit(tdl.io.ArrayBufferDecoder, tdl.io.Decoder);
+
+tdl.io.ArrayBufferDecoder.prototype.getUint8 = function() {
+  return this.buf_[this.ndx_++];
+}
+
+tdl.io.ArrayBufferDecoder.prototype.getUint16 = function() {
+  return this.getUint8() + (this.getUint8() << 8);
+};
 
