@@ -5,7 +5,16 @@
 
 #include <assert.h>
 #include <math.h>
+#if !defined(_MSC_VER)
 #include <stdint.h>
+#else
+typedef signed char int8_t;
+typedef unsigned char uint8_t;
+typedef short int16_t;
+typedef unsigned short uint16_t;
+typedef int int32_t;
+typedef unsigned int uint32_t;
+#endif
 #include <stdio.h>
 #include <algorithm>
 #include <map>
@@ -69,7 +78,8 @@ void quantize(
     const float* min_values,
     const float* ranges,
     float mult,
-    std::vector<int16_t>* out) {
+    std::vector<int16_t>* out,
+    bool check = false) {
   if (values.empty()) {
     return;
   }
@@ -77,6 +87,11 @@ void quantize(
   for (size_t ii = 0; ii < values.size(); ii += numComponents) {
     for (size_t cc = 0; cc < numComponents; ++cc) {
       float value = (values[ii + cc] - min_values[cc]) / ranges[cc] * mult;
+      if (check) {
+        if (value < 0 || value > mult) {
+          printf("bad value: %d, %f %f\n", static_cast<int>(ii), value, mult);
+        }
+      }
       out->push_back(static_cast<int16_t>(value));
     }
   }
@@ -104,14 +119,21 @@ void compressTo8(const std::vector<int16_t>& values, std::vector<int16_t>* out) 
     if (ii + 1 < values.size()) {
       v1 = values[ii + 1];
     }
-    uint16_t v = (static_cast<uint32_t>(v0 << 0)) |
-                 (static_cast<uint32_t>(v1 << 8)) ;
+    uint16_t v = (static_cast<uint32_t>((v0 << 0) & 0x00FF)) |
+                 (static_cast<uint32_t>((v1 << 8) & 0xFF00)) ;
     out->push_back(v);
   }
 }
 
+void addFloats(
+    const float* start, const float* end, std::vector<int16_t>* data) {
+  const int16_t* s = reinterpret_cast<const int16_t*>(start);
+  const int16_t* e = reinterpret_cast<const int16_t*>(end);
+  data->insert(data->end(), s, e);
+}
+
 uint16_t ZigZag(uint16_t v) {
-  return (v << 1) ^ (v >> 15);
+  return (v << 1) | (v >> 15);
 }
 
 void write16BitAsUTF8(
@@ -426,6 +448,7 @@ void write16ByteFormat(const Obj& obj, const std::string& filename) {
   std::vector<int16_t> data;
   data.push_back(indexed_positions.size() / 3);
   data.push_back(tri_indices.size() / 3);
+  addFloats(&position_scale[0], &position_scale[3], &data);
   data.insert(data.end(), indexed_positions.begin(), indexed_positions.end());
   data.insert(data.end(), indexed_normals.begin(), indexed_normals.end());
   data.insert(data.end(), indexed_uvs.begin(), indexed_uvs.end());
@@ -466,7 +489,8 @@ void write9ByteFormat(const Obj& obj, const std::string& filename) {
   float min_values[3] = { 0, 0, 0, };
 
   // quantize the data to the values we will store.
-  quantize(obj.positions, 3, position_min, position_scale, 0x7FF, &unindexed_positions);
+  quantize(obj.positions, 3, position_min, position_scale, 0x7FF,
+           &unindexed_positions, true);
   quantize(obj.normals, 3, min_values, normal_scale, 0x7F, &unindexed_normals);
   quantize(obj.uvs, 2, min_values, normal_scale, 0xFF, &unindexed_uvs);
 
@@ -518,9 +542,12 @@ void write9ByteFormat(const Obj& obj, const std::string& filename) {
   std::vector<int16_t> data;
   data.push_back(indexed_positions.size() / 3);
   data.push_back(tri_indices.size() / 3);
+  addFloats(&position_min[0], &position_min[3], &data);
+  addFloats(&position_scale[0], &position_scale[3], &data);
   compressTo11_10_11(indexed_positions, &data);
   compressTo8(indexed_normals, &data);
   compressTo8(indexed_uvs, &data);
+  data.insert(data.end(), tri_indices.begin(), tri_indices.end());
 
   printf("num 9byte vertices : %d\n",
          static_cast<int>(indexed_positions.size() / 3));

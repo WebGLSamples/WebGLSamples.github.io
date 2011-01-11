@@ -441,6 +441,7 @@ tdl.io.Decoder = function() {
   var buf = new ArrayBuffer(4);
   this.float_ = new Float32Array(buf);
   this.uint16_ = new Uint16Array(buf);
+  this.uint32_ = new Uint32Array(buf);
 };
 
 tdl.io.Decoder.prototype.getInt16 = function() {
@@ -470,13 +471,14 @@ tdl.io.Decoder.prototype.getUint16Float = function() {
 };
 
 tdl.io.Decoder.prototype.getUint32 = function() {
-  return this.getUint8() +
-         (this.getUint8() << 8) +
-         (this.getUint8() << 16) +
-         (this.getUint8() << 24);
+  // TODO(gman): fix. Currently Uint32 must be on 2 byte boundry.
+  this.uint16_[0] = this.getUint16();
+  this.uint16_[1] = this.getUint16();
+  return this.uint32_[0];
 };
 
 tdl.io.Decoder.prototype.getFloat = function() {
+  // TODO(gman): fix. Currently float must be on 2 byte boundry.
   var l = this.getUint16();
   var h = this.getUint16();
   this.uint16_[0] = l;
@@ -494,7 +496,7 @@ tdl.base.inherit(tdl.io.UTF8Decoder, tdl.io.Decoder);
 
 tdl.io.UTF8Decoder.prototype.getUint16 = function() {
   var word = this.str_.charCodeAt(this.ndx_++);
-  return ((word >> 1) ^ ((word & 1) << 15));
+  return ((word >> 1) | ((word & 0x1) << 15));
 };
 
 

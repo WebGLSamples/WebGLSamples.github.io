@@ -59,7 +59,7 @@ tdl.buffers.Buffer = function(array, opt_target) {
     this.type_ = gl.UNSIGNED_BYTE;
     this.normalize_ = true;
   } else if (array.buffer instanceof Int8Array) {
-    this.type_ = gl._BYTE;
+    this.type_ = gl.BYTE;
     this.normalize_ = true;
   } else if (array.buffer instanceof Uint16Array) {
     this.type_ = gl.UNSIGNED_SHORT;
