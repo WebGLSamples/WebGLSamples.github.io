@@ -5,7 +5,16 @@
 
 #include <assert.h>
 #include <math.h>
+#if !defined(_MSC_VER)
 #include <stdint.h>
+#else
+typedef signed char int8_t;
+typedef unsigned char uint8_t;
+typedef short int16_t;
+typedef unsigned short uint16_t;
+typedef int int32_t;
+typedef unsigned int uint32_t;
+#endif
 #include <stdio.h>
 #include <algorithm>
 #include <map>
@@ -69,7 +78,8 @@ void quantize(
     const float* min_values,
     const float* ranges,
     float mult,
-    std::vector<int16_t>* out) {
+    std::vector<int16_t>* out,
+    bool check = false) {
   if (values.empty()) {
     return;
   }
@@ -77,6 +87,11 @@ void quantize(
   for (size_t ii = 0; ii < values.size(); ii += numComponents) {
     for (size_t cc = 0; cc < numComponents; ++cc) {
       float value = (values[ii + cc] - min_values[cc]) / ranges[cc] * mult;
+      if (check) {
+        if (value < 0 || value > mult) {
+          printf("bad value: %d, %f %f\n", static_cast<int>(ii), value, mult);
+        }
+      }
       out->push_back(static_cast<int16_t>(value));
     }
   }
@@ -104,38 +119,76 @@ void compressTo8(const std::vector<int16_t>& values, std::vector<int16_t>* out) 
     if (ii + 1 < values.size()) {
       v1 = values[ii + 1];
     }
-    uint16_t v = (static_cast<uint32_t>(v0 << 0)) |
-                 (static_cast<uint32_t>(v1 << 8)) ;
+    uint16_t v = (static_cast<uint32_t>((v0 << 0) & 0x00FF)) |
+                 (static_cast<uint32_t>((v1 << 8) & 0xFF00)) ;
     out->push_back(v);
   }
 }
 
+void addFloats(
+    const float* start, const float* end, std::vector<int16_t>* data) {
+  const int16_t* s = reinterpret_cast<const int16_t*>(start);
+  const int16_t* e = reinterpret_cast<const int16_t*>(end);
+  data->insert(data->end(), s, e);
+}
+
 uint16_t ZigZag(uint16_t v) {
-  return (v << 1) ^ (v >> 15);
+  return (v << 1) | (v >> 15);
 }
 
 void write16BitAsUTF8(
     const std::vector<int16_t>&values, const std::string& filename) {
+  int counts[3] = { 0, };
   std::vector<uint8_t> data;
 
+  uint16_t prev = 0;
   for (size_t ii = 0; ii < values.size(); ++ii) {
-    uint16_t v = ZigZag(values[ii]);
+    uint16_t next = values[ii];
+    uint16_t v = ZigZag(next - prev);
+    prev = next;
     if (v <= 0x7F) {
+      ++counts[0];
       data.push_back(static_cast<uint8_t>(v));
     } else if (v <= 0x7FF) {
+      ++counts[1];
       data.push_back(0xC0 + static_cast<uint8_t>(v >> 6));
       data.push_back(0x80 + static_cast<uint8_t>(v & 0x3F));
     } else {
+      if (v >= 0xD800 && v <= 0xDFFF) {
+        printf("bad! at %lu\n", ii);
+      }
+      ++counts[2];
       data.push_back(0xE0 + static_cast<uint8_t>(v >> 12));
       data.push_back(0x80 + static_cast<uint8_t>((v >> 6) & 0x3F));
       data.push_back(0x80 + static_cast<uint8_t>((v >> 0) & 0x3F));
     }
   }
 
+  printf("num 1 byte: %d\n", counts[0]);
+  printf("num 2 byte: %d\n", counts[1]);
+  printf("num 3 byte: %d\n", counts[2]);
+
   std::string name(filename);
   name += std::string(".utf8");
   FILE* file = fopen(name.c_str(), "wb");
   fwrite(&data[0], 1, data.size(), file);
+  fclose(file);
+}
+
+void write16BitAsBinary(
+    const std::vector<int16_t>&values, const std::string& filename) {
+  std::string name(filename);
+  name += ".bin";
+  FILE* file = fopen(name.c_str(), "wb");
+  std::vector<uint16_t> delta(values.size());
+  uint16_t prev = 0;
+  for (size_t ii = 0; ii < values.size(); ++ii) {
+    uint16_t v = values[ii];
+    delta[ii] = v - prev;
+    prev = v;
+  }
+
+  fwrite(&delta[0], sizeof(delta[0]), delta.size(), file);
   fclose(file);
 }
 
@@ -284,6 +337,8 @@ struct Obj {
 };
 
 void write32ByteFormat(const Obj& obj, const std::string& filename) {
+  printf("--write 32 byte format--\n");
+
   std::vector<uint16_t> tri_indices;
   std::vector<float> indexed_positions;
   std::vector<float> indexed_normals;
@@ -345,17 +400,14 @@ void write32ByteFormat(const Obj& obj, const std::string& filename) {
   data.insert(data.end(), tri_indices.begin(), tri_indices.end());
 
   // write as binary.
-  std::string name(filename);
-  name += ".bin";
-  FILE* file = fopen(name.c_str(), "wb");
-  fwrite(&data[0], sizeof(data[0]), data.size(), file);
-  fclose(file);
-
+  write16BitAsBinary(data, filename);
   // Write has UTF8
   write16BitAsUTF8(data, filename);
 }
 
 void write16ByteFormat(const Obj& obj, const std::string& filename) {
+  printf("--write 16 byte format--\n");
+
   std::vector<int16_t> unindexed_positions;
   std::vector<int16_t> unindexed_normals;
   std::vector<int16_t> unindexed_uvs;
@@ -371,12 +423,13 @@ void write16ByteFormat(const Obj& obj, const std::string& filename) {
 
   // quantize the data to the values we will store.
   quantize(
-      obj.positions, 3, min_values, position_scale, 0x7FFF,
+      obj.positions, 3, min_values, position_scale, 0x3FFF,
       &unindexed_positions);
   quantize(
-       obj.normals, 3, min_values, normal_scale, 0x7FFF,
-       &unindexed_normals);
-  quantize(obj.uvs, 2, min_values, normal_scale, 0x7FFF, &unindexed_uvs);
+      obj.normals, 3, min_values, normal_scale, 0x1FF,
+      &unindexed_normals);
+  quantize(obj.uvs, 2, min_values, normal_scale, 0x1FF,
+      &unindexed_uvs);
 
   std::vector<uint16_t> tri_indices;
   std::vector<int16_t> indexed_positions;
@@ -426,6 +479,7 @@ void write16ByteFormat(const Obj& obj, const std::string& filename) {
   std::vector<int16_t> data;
   data.push_back(indexed_positions.size() / 3);
   data.push_back(tri_indices.size() / 3);
+  addFloats(&position_scale[0], &position_scale[3], &data);
   data.insert(data.end(), indexed_positions.begin(), indexed_positions.end());
   data.insert(data.end(), indexed_normals.begin(), indexed_normals.end());
   data.insert(data.end(), indexed_uvs.begin(), indexed_uvs.end());
@@ -437,17 +491,14 @@ void write16ByteFormat(const Obj& obj, const std::string& filename) {
          static_cast<int>(tri_indices.size() / 3));
 
   // write as binary.
-  std::string name(filename);
-  name += ".bin";
-  FILE* file = fopen(name.c_str(), "wb");
-  fwrite(&data[0], sizeof(data[0]), data.size(), file);
-  fclose(file);
-
+  write16BitAsBinary(data, filename);
   // Write has UTF8
   write16BitAsUTF8(data, filename);
 }
 
 void write9ByteFormat(const Obj& obj, const std::string& filename) {
+  printf("--write 9 byte format--\n");
+
   std::vector<int16_t> unindexed_positions;
   std::vector<int16_t> unindexed_normals;
   std::vector<int16_t> unindexed_uvs;
@@ -466,7 +517,8 @@ void write9ByteFormat(const Obj& obj, const std::string& filename) {
   float min_values[3] = { 0, 0, 0, };
 
   // quantize the data to the values we will store.
-  quantize(obj.positions, 3, position_min, position_scale, 0x7FF, &unindexed_positions);
+  quantize(obj.positions, 3, position_min, position_scale, 0x7FF,
+           &unindexed_positions, true);
   quantize(obj.normals, 3, min_values, normal_scale, 0x7F, &unindexed_normals);
   quantize(obj.uvs, 2, min_values, normal_scale, 0xFF, &unindexed_uvs);
 
@@ -518,9 +570,12 @@ void write9ByteFormat(const Obj& obj, const std::string& filename) {
   std::vector<int16_t> data;
   data.push_back(indexed_positions.size() / 3);
   data.push_back(tri_indices.size() / 3);
+  addFloats(&position_min[0], &position_min[3], &data);
+  addFloats(&position_scale[0], &position_scale[3], &data);
   compressTo11_10_11(indexed_positions, &data);
   compressTo8(indexed_normals, &data);
   compressTo8(indexed_uvs, &data);
+  data.insert(data.end(), tri_indices.begin(), tri_indices.end());
 
   printf("num 9byte vertices : %d\n",
          static_cast<int>(indexed_positions.size() / 3));
@@ -528,12 +583,7 @@ void write9ByteFormat(const Obj& obj, const std::string& filename) {
          static_cast<int>(tri_indices.size() / 3));
 
   // write as binary.
-  std::string name(filename);
-  name += ".bin";
-  FILE* file = fopen(name.c_str(), "wb");
-  fwrite(&data[0], sizeof(data[0]), data.size(), file);
-  fclose(file);
-
+  write16BitAsBinary(data, filename);
   // Write has UTF8
   write16BitAsUTF8(data, filename);
 }

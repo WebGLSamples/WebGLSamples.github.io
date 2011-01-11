@@ -50,7 +50,7 @@ CANVAS {
   position: absolute;
   top: 10px;
   left: 10px;
-  z-index: 2;
+  z-index: 3;
   color: white;
   font-family: sans-serif;
   background-color: rgba(0,0,0,0.5);
@@ -60,6 +60,26 @@ CANVAS {
 #viewContainer {
   width: 100%;
   height: 100%;
+}
+#labels {
+  z-index: 2;
+  position: absolute;
+  top: 0px,
+  left: 0px;
+  width: 100%;
+  height: 100%;
+}
+#labels TD {
+  width: 33%;
+  vertical-align: bottom;
+  text-align: center;
+}
+#labels DIV {
+  color: white;
+  background-color: rgba(0,0,0,0.5);
+  border-radius: 10px;
+  padding: 5px;
+  margin: 5px;
 }
 </style>
 <script type="text/javascript" src="../tdl/base.js"></script>
@@ -86,14 +106,116 @@ var g_fpsTimer;           // object to measure frames per second;
 var g_logGLCalls = true;  // whether or not to log webgl calls
 var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;   // draw just one frame.
+var g_info;
 
 //g_drawOnce = true;
 //g_debug = true;
 
 var g_eyeSpeed          = 0.0;
-var g_eyeHeight         = 2;
-var g_eyeRadius         = 19;
+var g_eyeHeight         = 0;
+var g_eyeRadius         = 3;
 var g_speed             = 0.2;
+var g_transOff          = [-0.5, -3, -5.5];
+
+Decoder = function() {
+  var buf = new ArrayBuffer(4);
+  this.float_ = new Float32Array(buf);
+  this.uint16_ = new Uint16Array(buf);
+  this.uint32_ = new Uint32Array(buf);
+  this.half_ = false;
+  this.highByte_ = 0;
+};
+
+Decoder.prototype.getInt16 = function() {
+  var v = this.getUint16();
+  if (v > 0x7fff) {
+    v = v - 0x10000;
+  }
+  return v;
+};
+
+Decoder.prototype.getInt8 = function() {
+  var v = this.getUint8();
+  if (v > 0x7f) {
+    v = v - 0x100;
+  }
+  return v;
+};
+
+Decoder.prototype.getInt16Float = function() {
+  var v = this.getInt16();
+  return v / 0x7FFF;
+};
+
+Decoder.prototype.getUint16Float = function() {
+  var v = this.getUint16();
+  return v / 0xFFFF;
+};
+
+Decoder.prototype.getUint32 = function() {
+  // TODO(gman): fix. Currently Uint32 must be on 2 byte boundry.
+  this.uint16_[0] = this.getUint16();
+  this.uint16_[1] = this.getUint16();
+  return this.uint32_[0];
+};
+
+Decoder.prototype.getFloat = function() {
+  // TODO(gman): fix. Currently float must be on 2 byte boundry.
+  var l = this.getUint16();
+  var h = this.getUint16();
+  this.uint16_[0] = l;
+  this.uint16_[1] = h;
+  return this.float_[0];
+};
+
+Decoder.prototype.getUint8 = function() {
+  if (!this.half_) {
+    var v = this.getUint16();
+    this.highByte_ = v >> 8;
+    this.half_ = true;
+    return v & 0xFF;
+  } else {
+    this.half_ = false;
+    return this.highByte_;
+  }
+}
+
+UTF8Decoder = function(str) {
+  Decoder.call(this);
+  this.str_ = str;
+  this.ndx_ = 0;
+  this.prev_ = 0;
+};
+
+tdl.base.inherit(UTF8Decoder, Decoder);
+
+UTF8Decoder.prototype.getUint16 = function() {
+  if (this.half_) {
+    throw("can only get 16 bit values from 2 byte boundries");
+  }
+  var word = this.str_.charCodeAt(this.ndx_++);
+  word = ((word >> 1) | ((word & 0x1) << 15));
+  var next = (this.prev_ + word) & 0xFFFF;
+  this.prev_ = next;
+  return next;
+};
+
+ArrayBufferDecoder = function(buf) {
+  Decoder.call(this);
+  this.buf_ = new Uint16Array(buf);
+  this.ndx_ = 0;
+  this.prev_ = 0;
+};
+
+tdl.base.inherit(ArrayBufferDecoder, Decoder);
+
+ArrayBufferDecoder.prototype.getUint16 = function() {
+  if (this.half_) {
+    throw("can only get 16 bit values from 2 byte boundries");
+  }
+  this.prev_ = (this.buf_[this.ndx_++] + this.prev_) & 0xFFFF;
+  return this.prev_;
+}
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -142,6 +264,7 @@ function setup32BytePerVertexModel(decoder) {
   var numVertices = decoder.getUint16();
   var numTriangles = decoder.getUint16();
 
+  tdl.log("--32 byte per--");
   tdl.log("num verts: ", numVertices);
   tdl.log("num tris : ", numTriangles);
 
@@ -178,42 +301,57 @@ function setup32BytePerVertexModel(decoder) {
     texCoord: uvs,
     indices: indices};
 
-  return new tdl.models.Model(program, arrays, textures);
+  return {
+    model: new tdl.models.Model(program, arrays, textures),
+    positionMin: [0,0,0],
+    positionScale: [1,1,1]
+  };
 }
 
 function setup16BytePerVertexModel(decoder) {
-  for (var ii = -0x7000; ii <= 0x7000; ii += 0x1000) {
-    var v = decoder.getInt16();
-    tdl.log(ii, v);
-  }
-
   var numVertices = decoder.getUint16();
   var numTriangles = decoder.getUint16();
+  var positionScale = [
+      decoder.getFloat(), decoder.getFloat(), decoder.getFloat()];
 
+  tdl.log("--16 byte per--");
   tdl.log("num verts: ", numVertices);
   tdl.log("num tris : ", numTriangles);
+  tdl.log("pos scale: ", positionScale[0], positionScale[1], positionScale[2]);
 
   var positions = new tdl.primitives.AttribBuffer(3, numVertices , 'Int16Array');
   var normals = new tdl.primitives.AttribBuffer(3, numVertices , 'Int16Array');
-  var uvs = new tdl.primitives.AttribBuffer(2, numVertices , 'Uint16Array');
+  var uvs = new tdl.primitives.AttribBuffer(2, numVertices , 'Int16Array');
   var indices = new tdl.primitives.AttribBuffer(3, numTriangles, 'Uint16Array');
 
+  // We should just pass position scale to the shader.
   for (var ii = 0; ii < numVertices; ++ii) {
-    positions.setElement(ii, [decoder.getInt16(), decoder.getInt16(), decoder.getInt16()]);
+    positions.setElement(ii, [
+        decoder.getInt16() * 2,
+        decoder.getInt16() * 2,
+        decoder.getInt16() * 2]);
     if (ii < 10) {
       var v = positions.getElement(ii);
-      tdl.log("p", ii, v[0] / 0x7fff, v[1] / 0x7fff, v[2] / 0x7fff);
+      tdl.log("p", ii,
+              positionScale[0] * (v[0] / 0x7FFF),
+              positionScale[1] * (v[1] / 0x7FFF),
+              positionScale[2] * (v[2] / 0x7FFF));
     }
   }
   for (var ii = 0; ii < numVertices; ++ii) {
-    normals.setElement(ii, [decoder.getInt16(), decoder.getInt16(), decoder.getInt16()]);
+    normals.setElement(ii, [
+        decoder.getInt16() * 64,
+        decoder.getInt16() * 64,
+        decoder.getInt16() * 64]);
     if (ii < 10) {
       var v = normals.getElement(ii);
-      tdl.log("n", ii, v[0] / 0x7fff, v[1] / 0x7fff, v[2] / 0x7fff);
+      tdl.log("n", ii, v[0] / 0x7FFF, v[1] / 0x7FFF, v[2] / 0x7FFF);
     }
   }
   for (var ii = 0; ii < numVertices; ++ii) {
-    uvs.setElement(ii, [decoder.getUint16(), decoder.getUint16()]);
+    uvs.setElement(ii, [
+        decoder.getInt16() * 64,
+        decoder.getInt16() * 64]);
   }
   for (var ii = 0; ii < numTriangles; ++ii) {
     indices.setElement(ii, [decoder.getUint16(), decoder.getUint16(), decoder.getUint16()]);
@@ -230,15 +368,27 @@ function setup16BytePerVertexModel(decoder) {
     texCoord: uvs,
     indices: indices};
 
-  return new tdl.models.Model(program, arrays, textures);
+  return {
+    model: new tdl.models.Model(program, arrays, textures),
+    positionMin: [0,0,0],
+    positionScale: positionScale
+  };
 }
 
 function setup9BytePerVertexModel(decoder) {
   var numVertices = decoder.getUint16();
   var numTriangles = decoder.getUint16();
+  var positionMin = [
+      decoder.getFloat(), decoder.getFloat(), decoder.getFloat()];
+  var positionScale = [
+      decoder.getFloat(), decoder.getFloat(), decoder.getFloat()];
 
+  tdl.log("--9 byte per--");
   tdl.log("num verts: ", numVertices);
   tdl.log("num tris : ", numTriangles);
+
+  tdl.log("pos min: ", positionMin[0], positionMin[1], positionMin[2]);
+  tdl.log("pos scale: ", positionScale[0], positionScale[1], positionScale[2]);
 
   var positions = new tdl.primitives.AttribBuffer(3, numVertices , 'Float32Array');
   var normals = new tdl.primitives.AttribBuffer(3, numVertices , 'Int8Array');
@@ -246,14 +396,18 @@ function setup9BytePerVertexModel(decoder) {
   var indices = new tdl.primitives.AttribBuffer(3, numTriangles, 'Uint16Array');
 
   for (var ii = 0; ii < numVertices; ++ii) {
-    var v = decoder.getUint32();
+    var l = decoder.getUint16();
+    var h = decoder.getUint16();
     positions.setElement(ii, [
-                         (v >> 21) / 0x7FF,
-                         ((v >> 11) & 0x3FF) / 0x3FF,
-                         (v & 0x7FF) / 0x7FF]);
+        (h >> 5) / 0x7FF,
+        (((h & 0x1F) << 5) | ((l >> 11) & 0x1f)) / 0x3FF,
+        (l & 0x7FF) / 0x7FF]);
     if (ii < 10) {
       var v = positions.getElement(ii);
-      tdl.log("p", ii, v[0], v[1], v[2]);
+      tdl.log("p", ii,
+              positionMin[0] + positionScale[0] * v[0],
+              positionMin[1] + positionScale[1] * v[1],
+              positionMin[2] + positionScale[2] * v[2]);
     }
   }
   for (var ii = 0; ii < numVertices; ++ii) {
@@ -263,12 +417,12 @@ function setup9BytePerVertexModel(decoder) {
       tdl.log("n", ii, v[0] / 0x7f, v[1] / 0x7f, v[2] / 0x7f);
     }
   }
-  for (var ii = 0; ii < numVertices; ++ii) {
-    uvs.setElement(ii, [decoder.getUint8(), decoder.getUint8()]);
-  }
   if (numVertices % 2) {
     tdl.log("eat one");
     decoder.getUint8();
+  }
+  for (var ii = 0; ii < numVertices; ++ii) {
+    uvs.setElement(ii, [decoder.getUint8(), decoder.getUint8()]);
   }
   for (var ii = 0; ii < numTriangles; ++ii) {
     indices.setElement(ii, [decoder.getUint16(), decoder.getUint16(), decoder.getUint16()]);
@@ -289,7 +443,40 @@ function setup9BytePerVertexModel(decoder) {
     texCoord: uvs,
     indices: indices};
 
-  return new tdl.models.Model(program, arrays, textures);
+  return {
+    model: new tdl.models.Model(program, arrays, textures),
+    positionMin: positionMin,
+    positionScale: positionScale
+  };
+}
+
+function compareUTF8ToBinary() {
+  tdl.io.loadTextFile("bytes16.utf8", function(b1, e) {
+    if (e) {
+      alert(e);
+    } else {
+      tdl.io.loadArrayBuffer("bytes16.bin", function(b2, e) {
+        if (e) {
+          alert(e);
+        } else {
+          var u = new UTF8Decoder(b1);
+          var b = new ArrayBufferDecoder(b2);
+          var c = 0;
+          for (var ii = 0; ii < b1.length; ++ii) {
+            var uv = u.getUint16();
+            var bv = b.getUint16();
+            if (uv != bv) {
+              tdl.log(ii, " ", uv.toString(16), " ", bv.toString(16));
+              ++c;
+              if (c > 100) {
+                break;
+              }
+            }
+          }
+        }
+      });
+    }
+  });
 }
 
 function initialize() {
@@ -308,14 +495,22 @@ function initialize() {
 
   Log("--Setup Sphere---------------------------------------");
   var sphere = setupSphere();
-  var models = [sphere, sphere, sphere, sphere, sphere, sphere];
+  var info = {
+    model: sphere,
+    positionMin: [0,0,0],
+    positionScale: [1,1,1],
+  };
+  var models = [info, info, info, info, info, info];
+  g_info = models;
+
+  //compareUTF8ToBinary();
 
   function utf8Loader(index, url, decoder) {
     tdl.io.loadTextFile(url, function(buf, exception) {
         if (exception) {
           alert(exception);
         } else {
-          models[0] = decoder(new tdl.io.UTF8Decoder(buf));
+          models[index] = decoder(new UTF8Decoder(buf));
         }
       });
   }
@@ -325,7 +520,7 @@ function initialize() {
         if (exception) {
           alert(exception);
         } else {
-          models[index] = decoder(new tdl.io.ArrayBufferDecoder(buf));
+          models[index] = decoder(new ArrayBufferDecoder(buf));
         }
       });
   }
@@ -359,7 +554,9 @@ function initialize() {
 
   for (var ll = 0; ll < loaders.length; ++ll) {
     var loader = loaders[ll];
-    loader.loader(ll, loader.url, loader.decoder);
+    if (loader.loader) {
+      loader.loader(ll, loader.url, loader.decoder);
+    }
   }
 
   var then = 0.0;
@@ -479,14 +676,17 @@ function initialize() {
 
       Log("--Draw model---------------------------------------");
       var lightColor = modelPer.lightColor;
-      var model = models[ii];
+      var info = models[ii];
+      var model = info.model;
       if (!model) {
         continue;
       }
+      modelConst.positionMin = info.positionMin;
+      modelConst.positionScale = info.positionScale;
       model.drawPrep(modelConst);
       fast.matrix4.rotationY(m4t0, clock * g_speed);
-      fast.matrix4.translation(m4t1, [0, 0, 0]);
-      fast.matrix4.mul(world, m4t0, m4t1);
+      fast.matrix4.translation(m4t1, g_transOff);
+      fast.matrix4.mul(world, m4t1, m4t0);
       fast.matrix4.mul(worldViewProjection, world, viewProjection);
       fast.matrix4.inverse(worldInverse, world);
       fast.matrix4.transpose(worldInverseTranspose, worldInverse);
@@ -511,6 +711,10 @@ function initialize() {
   <div class="fps">fps: <span id="fps"></div>
 </div>
 <div id="viewContainer">
+<table id="labels">
+<tr><td><div>16 bytes bin</div></td><td><div>9 bytes bin</div></td><td><div>32 bytes bin</div></td></tr>
+<tr><td><div>16 bytes utf8</div></td><td><div>9 bytes utf8</div></td><td><div>32 bytes utf8</div></td></tr>
+</table>
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </div>
 </body>
@@ -520,6 +724,8 @@ uniform vec3 lightWorldPos;
 uniform mat4 world;
 uniform mat4 viewInverse;
 uniform mat4 worldInverseTranspose;
+uniform vec3 positionMin;
+uniform vec3 positionScale;
 attribute vec4 position;
 attribute vec3 normal;
 attribute vec2 texCoord;
@@ -530,10 +736,11 @@ varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
 void main() {
   v_texCoord = texCoord;
-  v_position = (worldViewProjection * position);
+  vec4 pos = vec4(positionMin, 1) + position * vec4(positionScale, 1);
+  v_position = (worldViewProjection * pos);
   v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
-  v_surfaceToLight = lightWorldPos - (world * position).xyz;
-  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * pos).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * pos)).xyz;
   gl_Position = v_position;
 }
 
