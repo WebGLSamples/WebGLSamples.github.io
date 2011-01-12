@@ -36,7 +36,7 @@
 
 tdl.provide('tdl.models');
 
-tdl.requre('tdl.buffers');
+tdl.require('tdl.buffers');
 
 /**
  * A module for models.
