@@ -277,10 +277,15 @@ function setupSkybox() {
     program = createProgramFromTags(
         'refractSkyboxVertexShader',
         'refractSkyboxFragmentShader');
-  } else {
-    program = createProgramFromTags(
-        'skyboxVertexShader',
-        'skyboxFragmentShader');
+    if (!program) {
+      g_refract = false;
+    }
+  }
+
+  if (!g_refract) {
+      program = createProgramFromTags(
+          'skyboxVertexShader',
+          'skyboxFragmentShader');
   }
   var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
   delete arrays['normal'];
