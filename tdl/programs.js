@@ -64,7 +64,11 @@ tdl.programs.loadProgram = function(vertexShader, fragmentShader) {
   if (program) {
     return program;
   }
-  program = new tdl.programs.Program(vertexShader, fragmentShader);
+  try {
+    program = new tdl.programs.Program(vertexShader, fragmentShader);
+  } catch (e) {
+    return null;
+  }
   tdl.programs.programDB[id] = program;
   return program;
 };

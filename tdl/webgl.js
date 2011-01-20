@@ -36,6 +36,7 @@
 tdl.provide('tdl.webgl');
 
 tdl.require('tdl.log');
+tdl.require('tdl.misc');
 
 /**
  * A module for log.
@@ -122,6 +123,10 @@ tdl.webgl.setupWebGL = function(canvas, opt_attribs, opt_onError) {
  * @return {!WebGLRenderingContext} The created context.
  */
 tdl.webgl.create3DContext = function(canvas, opt_attribs) {
+  if (opt_attribs === undefined) {
+    opt_attribs = {};
+    tdl.misc.applyUrlSettings(opt_attribs, 'webgl');
+  }
   var names = ["webgl", "experimental-webgl", "webkit-3d", "moz-webgl"];
   var context = null;
   for (var ii = 0; ii < names.length; ++ii) {
