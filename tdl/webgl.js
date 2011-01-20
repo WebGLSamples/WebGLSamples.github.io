@@ -459,7 +459,7 @@ tdl.webgl.requestAnimationFrame = function(element, callback) {
         "webkitRequestAnimationFrame",
         "mozRequestAnimationFrame",
         "operaRequestAnimationFrame",
-        "requestAnimationFrame"
+        "msAnimationFrame"
       ];
       for (var jj = 0; jj < functionNames.length; ++jj) {
         var functionName = functionNames[jj];
