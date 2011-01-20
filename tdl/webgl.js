@@ -449,7 +449,6 @@ tdl.webgl.animationTime = function() {
 tdl.webgl.requestAnimationFrame = function(element, callback) {
   if (!tdl.webgl.requestAnimationFrameImpl_) {
     tdl.webgl.requestAnimationFrameImpl_ = function() {
-      var objects = [element, window];
       var functionNames = [
         "requestAnimationFrame",
         "webkitRequestAnimationFrame",
@@ -457,26 +456,15 @@ tdl.webgl.requestAnimationFrame = function(element, callback) {
         "operaRequestAnimationFrame",
         "requestAnimationFrame"
       ];
-      var functions = [
-        function (name) {
-          return function(element, callback) {
-            element[name].call(element, callback);
-          };
-        },
-        function (name) {
-          return function(element, callback) {
-            window[name].call(window, callback);
-          };
-        }
-      ];
-      for (var ii = 0; ii < objects.length; ++ii) {
-        var obj = objects[ii];
-        for (var jj = 0; jj < functionNames.length; ++jj) {
-          var functionName = functionNames[jj];
-          if (obj[functionName]) {
-            tdl.log("using ", functionName);
-            return functions[ii](functionName);
-          }
+      for (var jj = 0; jj < functionNames.length; ++jj) {
+        var functionName = functionNames[jj];
+        if (window[functionName]) {
+          tdl.log("using ", functionName);
+          return function(name) {
+            return function(element, callback) {
+              window[name].call(window, callback, element);
+            };
+          }(functionName);
         }
       }
       tdl.log("using window.setTimeout");
