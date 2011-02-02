@@ -36,6 +36,7 @@
 tdl.provide('tdl.webgl');
 
 tdl.require('tdl.log');
+tdl.require('tdl.misc');
 
 /**
  * A module for log.
@@ -122,6 +123,10 @@ tdl.webgl.setupWebGL = function(canvas, opt_attribs, opt_onError) {
  * @return {!WebGLRenderingContext} The created context.
  */
 tdl.webgl.create3DContext = function(canvas, opt_attribs) {
+  if (opt_attribs === undefined) {
+    opt_attribs = {};
+    tdl.misc.applyUrlSettings(opt_attribs, 'webgl');
+  }
   var names = ["webgl", "experimental-webgl", "webkit-3d", "moz-webgl"];
   var context = null;
   for (var ii = 0; ii < names.length; ++ii) {
@@ -449,34 +454,22 @@ tdl.webgl.animationTime = function() {
 tdl.webgl.requestAnimationFrame = function(element, callback) {
   if (!tdl.webgl.requestAnimationFrameImpl_) {
     tdl.webgl.requestAnimationFrameImpl_ = function() {
-      var objects = [element, window];
       var functionNames = [
         "requestAnimationFrame",
         "webkitRequestAnimationFrame",
         "mozRequestAnimationFrame",
         "operaRequestAnimationFrame",
-        "requestAnimationFrame"
+        "msAnimationFrame"
       ];
-      var functions = [
-        function (name) {
-          return function(element, callback) {
-            element[name].call(element, callback);
-          };
-        },
-        function (name) {
-          return function(element, callback) {
-            window[name].call(window, callback);
-          };
-        }
-      ];
-      for (var ii = 0; ii < objects.length; ++ii) {
-        var obj = objects[ii];
-        for (var jj = 0; jj < functionNames.length; ++jj) {
-          var functionName = functionNames[jj];
-          if (obj[functionName]) {
-            tdl.log("using ", functionName);
-            return functions[ii](functionName);
-          }
+      for (var jj = 0; jj < functionNames.length; ++jj) {
+        var functionName = functionNames[jj];
+        if (window[functionName]) {
+          tdl.log("using ", functionName);
+          return function(name) {
+            return function(element, callback) {
+              window[name].call(window, callback, element);
+            };
+          }(functionName);
         }
       }
       tdl.log("using window.setTimeout");
