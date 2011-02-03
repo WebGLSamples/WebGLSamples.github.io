@@ -1,0 +1,139 @@
+<html>
+<head>
+<script type="text/javascript" src="../tdl/base.js"></script>
+<script>
+tdl.require('tdl.math');
+tdl.require('tdl.webgl');
+window.onload = main;
+
+var gl;
+var canvas;
+var math;
+var mat4;
+
+function loadShader(source, type) {
+  var shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    alert(gl.getShaderParameter(shader,gl.INFO_LOG));
+  }
+  return shader;
+}
+
+function loadProgram(vertexShaderSource, fragmentShaderSource) {
+  var vertexShader = loadShader(vertexShaderSource, gl.VERTEX_SHADER);
+  var fragmentShader = loadShader(fragmentShaderSource, gl.FRAGMENT_SHADER);
+  var program = gl.createProgram();
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    alert(gl.getProgramParameter(program, gl.INFO_LOG));
+  }
+  return program;
+}
+
+function main() {
+  math = tdl.math;
+  mat4 = math.matrix4;
+  canvas = document.getElementById("mycanvas");
+  gl = canvas.getContext("experimental-webgl");
+
+  gl = tdl.webgl.makeDebugContext(gl);
+
+  gl.clearColor(1, 0, 1, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  var positions = new Float32Array(
+    [-0.5, -0.5, 0,
+      0.5, -0.5, 0,
+      0.5,  0.5, 0,
+     -0.5,  0.5, 0]);
+
+  var indices = new Uint16Array(
+    [0, 1,
+     1, 2,
+     2, 3,
+     3, 0]);
+
+  var positionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+  var indexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+
+  var program = loadProgram(
+    document.getElementById("vertexShader").text,
+    document.getElementById("fragmentShader").text);
+
+  gl.useProgram(program);
+  var positionLocation = gl.getAttribLocation(program, "position");
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(
+      0,        // index
+      3,        // number of components per element)
+      gl.FLOAT, // type of data
+      false,    // normalized
+      0,        // stride
+      0);       // offset
+
+  function render() {
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    var clock = (new Date()).getTime() * 0.001;
+    var world = mat4.translation([0, 0, 0]);
+    var view = mat4.lookAt(
+        [Math.sin(clock) * 4, 0.1, Math.cos(clock) * 4],  // eye position
+        [0, 0, 0],     // target
+        [0, 1, 0]);    // up
+    var aspectRatio =
+        canvas.clientWidth / canvas.clientHeight;
+    var projection = mat4.perspective(
+        math.degToRad(30),  // field of view
+        aspectRatio,        // aspect ratio
+        0.1,                // z near
+        5000);              // z far
+
+    var viewProjection = mat4.mul(view, projection);
+    var worldViewProjection = mat4.mul(world, viewProjection);
+
+    var wvpLocation = gl.getUniformLocation(
+        program, "worldViewProjection");
+    gl.uniformMatrix4fv(
+        wvpLocation,
+        false,
+        worldViewProjection);
+
+    gl.drawElements(
+        gl.LINES,           // what to draw
+        indices.length,     // number of vertices
+        gl.UNSIGNED_SHORT,  // type of indices
+        0);                 // offset
+    tdl.webgl.requestAnimationFrame(canvas, render);
+  }
+  render();
+}
+
+</script>
+<script id="vertexShader" type="something-not-js">
+//
+attribute vec4 position;
+uniform mat4 worldViewProjection;
+
+void main(void) {
+  gl_Position = worldViewProjection * position;
+}
+</script>
+<script id="fragmentShader" type="something-not-js">
+//
+void main(void) {
+  gl_FragColor = vec4(1, 1, 0, 1);
+}
+</script>
+</head>
+<body>
+<canvas id="mycanvas" width="800" height="600"></canvas>
+</body>
+</html>

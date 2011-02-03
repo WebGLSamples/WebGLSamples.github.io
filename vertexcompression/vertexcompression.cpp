@@ -132,8 +132,8 @@ void addFloats(
   data->insert(data->end(), s, e);
 }
 
-uint16_t ZigZag(uint16_t v) {
-  return (v << 1) | (v >> 15);
+uint16_t ZigZag(int16_t v) {
+  return (v << 1) ^ (v >> 15);
 }
 
 void write16BitAsUTF8(
@@ -141,11 +141,9 @@ void write16BitAsUTF8(
   int counts[3] = { 0, };
   std::vector<uint8_t> data;
 
-  uint16_t prev = 0;
+  bool once = true;
   for (size_t ii = 0; ii < values.size(); ++ii) {
-    uint16_t next = values[ii];
-    uint16_t v = ZigZag(next - prev);
-    prev = next;
+    uint16_t v = ZigZag(values[ii]);
     if (v <= 0x7F) {
       ++counts[0];
       data.push_back(static_cast<uint8_t>(v));
@@ -154,7 +152,8 @@ void write16BitAsUTF8(
       data.push_back(0xC0 + static_cast<uint8_t>(v >> 6));
       data.push_back(0x80 + static_cast<uint8_t>(v & 0x3F));
     } else {
-      if (v >= 0xD800 && v <= 0xDFFF) {
+      if (once && v >= 0xD800 && v <= 0xDFFF) {
+        once = false;
         printf("bad! at %lu\n", ii);
       }
       ++counts[2];
@@ -180,16 +179,21 @@ void write16BitAsBinary(
   std::string name(filename);
   name += ".bin";
   FILE* file = fopen(name.c_str(), "wb");
-  std::vector<uint16_t> delta(values.size());
-  uint16_t prev = 0;
-  for (size_t ii = 0; ii < values.size(); ++ii) {
-    uint16_t v = values[ii];
-    delta[ii] = v - prev;
-    prev = v;
-  }
-
-  fwrite(&delta[0], sizeof(delta[0]), delta.size(), file);
+  fwrite(&values[0], sizeof(values[0]), values.size(), file);
   fclose(file);
+}
+
+template <typename T>
+void deltafy(typename std::vector<T>* values, int num_components) {
+  assert(values->size() % num_components == 0);
+  typename std::vector<T> prev(values->size());
+  for (size_t ii = 0; ii < values->size(); ii += num_components) {
+    for (size_t jj = 0; jj < num_components; ++jj) {
+      T v = (*values)[ii + jj];
+      (*values)[ii + jj] = v - prev[jj];
+      prev[jj] = v;
+    }
+  }
 }
 
 template <typename T>
@@ -384,6 +388,11 @@ void write32ByteFormat(const Obj& obj, const std::string& filename) {
     tri_indices.push_back(quad_indices[3]);
   }
 
+  deltafy(&indexed_positions, 3);
+  deltafy(&indexed_normals, 3);
+  deltafy(&indexed_uvs, 2);
+  deltafy(&tri_indices, 1);
+
   std::vector<int16_t> data;
   data.push_back(indexed_positions.size() / 3);
   data.push_back(tri_indices.size() / 3);
@@ -476,6 +485,11 @@ void write16ByteFormat(const Obj& obj, const std::string& filename) {
     tri_indices.push_back(quad_indices[3]);
   }
 
+  deltafy(&indexed_positions, 3);
+  deltafy(&indexed_normals, 3);
+  deltafy(&indexed_uvs, 2);
+  deltafy(&tri_indices, 1);
+
   std::vector<int16_t> data;
   data.push_back(indexed_positions.size() / 3);
   data.push_back(tri_indices.size() / 3);
@@ -566,6 +580,11 @@ void write9ByteFormat(const Obj& obj, const std::string& filename) {
     tri_indices.push_back(quad_indices[2]);
     tri_indices.push_back(quad_indices[3]);
   }
+
+  deltafy(&indexed_positions, 3);
+  deltafy(&indexed_normals, 3);
+  deltafy(&indexed_uvs, 2);
+  deltafy(&tri_indices, 1);
 
   std::vector<int16_t> data;
   data.push_back(indexed_positions.size() / 3);

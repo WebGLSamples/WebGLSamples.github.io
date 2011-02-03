@@ -1804,7 +1804,9 @@ tdl.math.matrix4.cameraLookAt = function(eye, target, up) {
      vx[0], vx[1], vx[2], 0,
      vy[0], vy[1], vy[2], 0,
      vz[0], vz[1], vz[2], 0,
-     eye[0], eye[1], eye[2], 1]);
+     -tdl.math.dot(vx, eye),
+     -tdl.math.dot(vy, eye),
+     -tdl.math.dot(vz, eye), 1]);
 };
 
 /**
