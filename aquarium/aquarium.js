@@ -1107,13 +1107,15 @@ function initialize() {
     // See if we should increase/decrease the rendering resolution
     checkResTimer -= elapsedTime;
     if (checkResTimer < 0) {
-      if (g_fpsTimer.averageFPS > 35) {
-        if (increaseCanvasSize(canvas)) {
-          checkResTimer = 2;
-        }
-      } else if (g_fpsTimer.averageFPS < 15) {
-        if (decreaseCanvasSize(canvas)) {
-          checkResTimer = 2;
+      if (g.win && g.win.adjustRes) {
+        if (g_fpsTimer.averageFPS > 35) {
+          if (increaseCanvasSize(canvas)) {
+            checkResTimer = 2;
+          }
+        } else if (g_fpsTimer.averageFPS < 15) {
+          if (decreaseCanvasSize(canvas)) {
+            checkResTimer = 2;
+          }
         }
       }
     }
