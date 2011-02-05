@@ -423,7 +423,7 @@ tdl.webgl.animationTime = function() {
         "animationTime",
         "webkitAnimationTime",
         "mozAnimationTime",
-        "operaAnimationTime",
+        "oAnimationTime",
         "msAnimationTime"
       ];
       for (var ii = 0; ii < attribNames.length; ++ii) {
@@ -458,7 +458,7 @@ tdl.webgl.requestAnimationFrame = function(element, callback) {
         "requestAnimationFrame",
         "webkitRequestAnimationFrame",
         "mozRequestAnimationFrame",
-        "operaRequestAnimationFrame",
+        "oRequestAnimationFrame",
         "msAnimationFrame"
       ];
       for (var jj = 0; jj < functionNames.length; ++jj) {
