@@ -1,0 +1,199 @@
+<!--
+ * Copyright 2009, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+  "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>WebGL Clear test</title>
+<style>
+html, body {
+  width: 100%;
+  height: 100%;
+  border: 0px;
+  padding: 0px;
+  margin: 0px;
+  background-color: red;
+}
+CANVAS {
+  background-color: gray;
+}
+#canvas2d {
+  display: none;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 3;
+}
+.fpsContainer {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 3;
+  color: white;
+  font-family: sans-serif;
+  background-color: rgba(0,0,0,0.5);
+  border-radius: 10px;
+  padding: 10px;
+}
+.fpsContainer a:visited, .fpsContainer a:hover, .fpsContainer a {
+  color: white;
+  font-size: xx-small;
+}
+#viewContainer {
+  width: 100%;
+  height: 100%;
+}
+</style>
+<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript">
+tdl.require('tdl.buffers');
+tdl.require('tdl.fast');
+tdl.require('tdl.fps');
+tdl.require('tdl.log');
+tdl.require('tdl.math');
+tdl.require('tdl.models');
+tdl.require('tdl.particles');
+tdl.require('tdl.primitives');
+tdl.require('tdl.programs');
+tdl.require('tdl.textures');
+tdl.require('tdl.webgl');
+window.onload = initialize;
+
+// globals
+var gl;                   // the gl context.
+var canvas;               // the canvas
+var math;                 // the math lib.
+var fast;                 // the fast math lib.
+var g_fpsTimer;           // object to measure frames per second;
+var g_logGLCalls = true;  // whether or not to log webgl calls
+var g_debug = false;      // whether or not to debug.
+var g_drawOnce = false;   // draw just one frame.
+
+//g_drawOnce = true;
+//g_debug = true;
+
+function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
+  for (var ii = 0; ii < args.length; ++ii) {
+    if (args[ii] === undefined) {
+      tdl.error("undefined passed to gl." + functionName + "(" +
+                tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
+    }
+  }
+}
+
+function Log(msg) {
+  if (g_logGLCalls) {
+    tdl.log(msg);
+  }
+}
+
+function LogGLCall(functionName, args) {
+  if (g_logGLCalls) {
+    ValidateNoneOfTheArgsAreUndefined(functionName, args)
+    tdl.log("gl." + functionName + "(" +
+            tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
+  }
+}
+
+function createProgramFromTags(vertexTagId, fragmentTagId) {
+  return tdl.programs.loadProgram(
+      document.getElementById(vertexTagId).text,
+      document.getElementById(fragmentTagId).text);
+}
+
+function initialize() {
+  math = tdl.math;
+  fast = tdl.fast;
+  canvas = document.getElementById("canvas");
+  g_fpsTimer = new tdl.fps.FPSTimer();
+
+  gl = tdl.webgl.setupWebGL(canvas);
+  if (!gl) {
+    return false;
+  }
+  if (g_debug) {
+    gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
+  }
+
+  var then = 0.0;
+  var clock = 0.0;
+  var fpsElem = document.getElementById("fps");
+  var frameCount = 0;
+  var eyeClock = 0;
+
+  function render() {
+    ++frameCount;
+    if (!g_drawOnce) {
+      tdl.webgl.requestAnimationFrame(canvas, render);
+    }
+    var now = tdl.webgl.animationTime() * 0.001;
+    var elapsedTime;
+    if(then == 0.0) {
+      elapsedTime = 0.0;
+    } else {
+      elapsedTime = now - then;
+    }
+    then = now;
+
+    g_fpsTimer.update(elapsedTime);
+    fpsElem.innerHTML = g_fpsTimer.averageFPS;
+
+    clock += elapsedTime;
+
+    gl.colorMask(true, true, true, true);
+    gl.depthMask(true);
+    gl.clearColor(
+      frameCount % 2,
+      frameCount % 4 / 3,
+      frameCount % 8 / 7,
+      1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+    // turn off logging after 1 frame.
+    g_logGLCalls = false;
+  }
+  render();
+  return true;
+}
+</script>
+</head>
+<body>
+<div class="fpsContainer">
+  <div class="fps">fps: <span id="fps"></div>
+</div>
+<div id="viewContainer">
+<canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
+</div>
+</body>
+</html>
+
+
