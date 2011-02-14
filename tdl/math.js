@@ -1186,10 +1186,39 @@ tdl.math.row = null;
  */
 tdl.math.transpose = function(m) {
   var r = [];
-  for (var j = 0; j < 4; ++j) {
-    for (var i = 0; i < 4; ++i)
-      r[j*4+i] = m[i*4+j];
-  }
+  var m00 = m[0 * 4 + 0];
+  var m01 = m[0 * 4 + 1];
+  var m02 = m[0 * 4 + 2];
+  var m03 = m[0 * 4 + 3];
+  var m10 = m[1 * 4 + 0];
+  var m11 = m[1 * 4 + 1];
+  var m12 = m[1 * 4 + 2];
+  var m13 = m[1 * 4 + 3];
+  var m20 = m[2 * 4 + 0];
+  var m21 = m[2 * 4 + 1];
+  var m22 = m[2 * 4 + 2];
+  var m23 = m[2 * 4 + 3];
+  var m30 = m[3 * 4 + 0];
+  var m31 = m[3 * 4 + 1];
+  var m32 = m[3 * 4 + 2];
+  var m33 = m[3 * 4 + 3];
+
+  r[ 0] = m00;
+  r[ 1] = m10;
+  r[ 2] = m20;
+  r[ 3] = m30;
+  r[ 4] = m01;
+  r[ 5] = m11;
+  r[ 6] = m21;
+  r[ 7] = m31;
+  r[ 8] = m02;
+  r[ 9] = m12;
+  r[10] = m22;
+  r[11] = m32;
+  r[12] = m03;
+  r[13] = m13;
+  r[14] = m23;
+  r[15] = m33;
   return r;
 };
 
