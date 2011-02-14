@@ -186,10 +186,10 @@ tdl.fast.divVectorScalar = function(dst, v, k) {
 /**
  * Computes the cross product of two vectors; assumes both vectors have
  * three entries.
- * @param {!tdl.math.Vector} dst vector.
- * @param {!tdl.math.Vector} a Operand vector.
- * @param {!tdl.math.Vector} b Operand vector.
- * @return {!tdl.math.Vector} The vector a cross b.
+ * @param {!tdl.fast.Vector} dst vector.
+ * @param {!tdl.fast.Vector} a Operand vector.
+ * @param {!tdl.fast.Vector} b Operand vector.
+ * @return {!tdl.fast.Vector} The vector a cross b.
  */
 tdl.fast.cross = function(dst, a, b) {
   dst[0] = a[1] * b[2] - a[2] * b[1];
@@ -201,8 +201,8 @@ tdl.fast.cross = function(dst, a, b) {
 /**
  * Computes the dot product of two vectors; assumes both vectors have
  * three entries.
- * @param {!tdl.math.Vector} a Operand vector.
- * @param {!tdl.math.Vector} b Operand vector.
+ * @param {!tdl.fast.Vector} a Operand vector.
+ * @param {!tdl.fast.Vector} b Operand vector.
  * @return {number} dot product
  */
 tdl.fast.dot = function(a, b) {
@@ -964,14 +964,14 @@ tdl.fast.matrix4.getAxis = function(dst, m, axis) {
  * z-axis.  The matrix generated sends the viewing frustum to the unit box.
  * We assume a unit box extending from -1 to 1 in the x and y dimensions and
  * from 0 to 1 in the z dimension.
- * @param {!tdl.math.Matrix4} dst matrix.
+ * @param {!tdl.fast.Matrix4} dst matrix.
  * @param {number} angle The camera angle from top to bottom (in radians).
  * @param {number} aspect The aspect ratio width / height.
  * @param {number} near The depth (negative z coordinate)
  *     of the near clipping plane.
  * @param {number} far The depth (negative z coordinate)
  *     of the far clipping plane.
- * @return {!tdl.math.Matrix4} The perspective matrix.
+ * @return {!tdl.fast.Matrix4} The perspective matrix.
  */
 tdl.fast.matrix4.perspective = function(dst, angle, aspect, near, far) {
   var f = Math.tan(Math.PI * 0.5 - 0.5 * angle);
@@ -1005,7 +1005,7 @@ tdl.fast.matrix4.perspective = function(dst, angle, aspect, near, far) {
  * Computes a 4-by-4 othogonal transformation matrix given the left, right,
  * bottom, and top dimensions of the near clipping plane as well as the
  * near and far clipping plane distances.
- * @param {!tdl.math.Matrix4} dst Output matrix.
+ * @param {!tdl.fast.Matrix4} dst Output matrix.
  * @param {number} left Left side of the near clipping plane viewport.
  * @param {number} right Right side of the near clipping plane viewport.
  * @param {number} top Top of the near clipping plane viewport.
@@ -1014,7 +1014,7 @@ tdl.fast.matrix4.perspective = function(dst, angle, aspect, near, far) {
  *     of the near clipping plane.
  * @param {number} far The depth (negative z coordinate)
  *     of the far clipping plane.
- * @return {!tdl.math.Matrix4} The perspective matrix.
+ * @return {!tdl.fast.Matrix4} The perspective matrix.
  */
 tdl.fast.matrix4.ortho = function(dst, left, right, bottom, top, near, far) {
 
@@ -1057,7 +1057,7 @@ tdl.fast.matrix4.ortho = function(dst, left, right, bottom, top, near, far) {
  * @param {number} top The y coordinate of the right plane of the box.
  * @param {number} near The negative z coordinate of the near plane of the box.
  * @param {number} far The negative z coordinate of the far plane of the box.
- * @return {!tdl.math.Matrix4} The perspective projection matrix.
+ * @return {!tdl.fast.Matrix4} The perspective projection matrix.
  */
 tdl.fast.matrix4.frustum = function(dst, left, right, bottom, top, near, far) {
   var dx = (right - left);
@@ -1235,9 +1235,69 @@ tdl.fast.matrix4.translate = function(m, v) {
 tdl.fast.matrix4.transpose = tdl.fast.transpose4;
 
 /**
+ * Creates a 4-by-4 matrix which rotates around the x-axis by the given angle.
+ * @param {number} angle The angle by which to rotate (in radians).
+ * @return {!tdl.fast.Matrix4} The rotation matrix.
+ */
+tdl.fast.matrix4.rotationX = function(dst, angle) {
+  var c = Math.cos(angle);
+  var s = Math.sin(angle);
+
+  dst[ 0] = 1;
+  dst[ 1] = 0;
+  dst[ 2] = 0;
+  dst[ 3] = 0;
+  dst[ 4] = 0;
+  dst[ 5] = c;
+  dst[ 6] = s;
+  dst[ 7] = 0;
+  dst[ 8] = 0;
+  dst[ 9] = -s;
+  dst[10] = c;
+  dst[11] = 0;
+  dst[12] = 0;
+  dst[13] = 0;
+  dst[14] = 0;
+  dst[15] = 1;
+
+  return dst;
+};
+
+/**
+ * Modifies the given 4-by-4 matrix by a rotation around the x-axis by the given
+ * angle.
+ * @param {!tdl.fast.Matrix4} m The matrix.
+ * @param {number} angle The angle by which to rotate (in radians).
+ * @return {!tdl.fast.Matrix4} m once modified.
+ */
+tdl.fast.matrix4.rotateX = function(m, angle) {
+  var m10 = m[4];
+  var m11 = m[5];
+  var m12 = m[6];
+  var m13 = m[7];
+  var m20 = m[8];
+  var m21 = m[9];
+  var m22 = m[10];
+  var m23 = m[11];
+  var c = Math.cos(angle);
+  var s = Math.sin(angle);
+
+  m[4]  = c * m10 + s * m20;
+  m[5]  = c * m11 + s * m21;
+  m[6]  = c * m12 + s * m22;
+  m[7]  = c * m13 + s * m23;
+  m[8]  = c * m20 - s * m10;
+  m[9]  = c * m21 - s * m11;
+  m[10] = c * m22 - s * m12;
+  m[11] = c * m23 - s * m13;
+
+  return m;
+};
+
+/**
  * Creates a 4-by-4 matrix which rotates around the y-axis by the given angle.
  * @param {number} angle The angle by which to rotate (in radians).
- * @return {!tdl.math.Matrix4} The rotation matrix.
+ * @return {!tdl.fast.Matrix4} The rotation matrix.
  */
 tdl.fast.matrix4.rotationY = function(dst, angle) {
   var c = Math.cos(angle);
@@ -1264,9 +1324,40 @@ tdl.fast.matrix4.rotationY = function(dst, angle) {
 };
 
 /**
+ * Modifies the given 4-by-4 matrix by a rotation around the y-axis by the given
+ * angle.
+ * @param {!tdl.fast.Matrix4} m The matrix.
+ * @param {number} angle The angle by which to rotate (in radians).
+ * @return {!tdl.fast.Matrix4} m once modified.
+ */
+tdl.fast.matrix4.rotateY = function(m, angle) {
+  var m00 = m[0*4+0];
+  var m01 = m[0*4+1];
+  var m02 = m[0*4+2];
+  var m03 = m[0*4+3];
+  var m20 = m[2*4+0];
+  var m21 = m[2*4+1];
+  var m22 = m[2*4+2];
+  var m23 = m[2*4+3];
+  var c = Math.cos(angle);
+  var s = Math.sin(angle);
+
+  m[ 0] = c * m00 - s * m20;
+  m[ 1] = c * m01 - s * m21;
+  m[ 2] = c * m02 - s * m22;
+  m[ 3] = c * m03 - s * m23;
+  m[ 8] = c * m20 + s * m00;
+  m[ 9] = c * m21 + s * m01;
+  m[10] = c * m22 + s * m02;
+  m[11] = c * m23 + s * m03;
+
+  return m;
+};
+
+/**
  * Creates a 4-by-4 matrix which rotates around the z-axis by the given angle.
  * @param {number} angle The angle by which to rotate (in radians).
- * @return {!tdl.math.Matrix4} The rotation matrix.
+ * @return {!tdl.fast.Matrix4} The rotation matrix.
  */
 tdl.fast.matrix4.rotationZ = function(dst, angle) {
   var c = Math.cos(angle);
@@ -1293,12 +1384,43 @@ tdl.fast.matrix4.rotationZ = function(dst, angle) {
 };
 
 /**
+ * Modifies the given 4-by-4 matrix by a rotation around the z-axis by the given
+ * angle.
+ * @param {!tdl.fast.Matrix4} m The matrix.
+ * @param {number} angle The angle by which to rotate (in radians).
+ * @return {!tdl.fast.Matrix4} m once modified.
+ */
+tdl.fast.matrix4.rotateZ = function(m, angle) {
+  var m00 = m[0*4+0];
+  var m01 = m[0*4+1];
+  var m02 = m[0*4+2];
+  var m03 = m[0*4+3];
+  var m10 = m[1*4+0];
+  var m11 = m[1*4+1];
+  var m12 = m[1*4+2];
+  var m13 = m[1*4+3];
+  var c = Math.cos(angle);
+  var s = Math.sin(angle);
+
+  m[ 0] = c * m00 + s * m10;
+  m[ 1] = c * m01 + s * m11;
+  m[ 2] = c * m02 + s * m12;
+  m[ 3] = c * m03 + s * m13;
+  m[ 4] = c * m10 - s * m00;
+  m[ 5] = c * m11 - s * m01;
+  m[ 6] = c * m12 - s * m02;
+  m[ 7] = c * m13 - s * m03;
+
+  return m;
+};
+
+/**
  * Creates a 4-by-4 matrix which rotates around the given axis by the given
  * angle.
- * @param {(!tdl.math.Vector3|!tdl.math.Vector4)} axis The axis
+ * @param {(!tdl.fast.Vector3|!tdl.fast.Vector4)} axis The axis
  *     about which to rotate.
  * @param {number} angle The angle by which to rotate (in radians).
- * @return {!tdl.math.Matrix4} A matrix which rotates angle radians
+ * @return {!tdl.fast.Matrix4} A matrix which rotates angle radians
  *     around the axis.
  */
 tdl.fast.matrix4.axisRotation = function(dst, axis, angle) {
@@ -1337,6 +1459,73 @@ tdl.fast.matrix4.axisRotation = function(dst, axis, angle) {
 };
 
 /**
+ * Modifies the given 4-by-4 matrix by rotation around the given axis by the
+ * given angle.
+ * @param {!tdl.fast.Matrix4} m The matrix.
+ * @param {(!tdl.fast.Vector3|!tdl.fast.Vector4)} axis The axis
+ *     about which to rotate.
+ * @param {number} angle The angle by which to rotate (in radians).
+ * @return {!tdl.fast.Matrix4} m once modified.
+ */
+tdl.fast.matrix4.axisRotate = function(m, axis, angle) {
+  var x = axis[0];
+  var y = axis[1];
+  var z = axis[2];
+  var n = Math.sqrt(x * x + y * y + z * z);
+  x /= n;
+  y /= n;
+  z /= n;
+  var xx = x * x;
+  var yy = y * y;
+  var zz = z * z;
+  var c = Math.cos(angle);
+  var s = Math.sin(angle);
+  var oneMinusCosine = 1 - c;
+
+  var r00 = xx + (1 - xx) * c;
+  var r01 = x * y * oneMinusCosine + z * s;
+  var r02 = x * z * oneMinusCosine - y * s;
+  var r10 = x * y * oneMinusCosine - z * s;
+  var r11 = yy + (1 - yy) * c;
+  var r12 = y * z * oneMinusCosine + x * s;
+  var r20 = x * z * oneMinusCosine + y * s;
+  var r21 = y * z * oneMinusCosine - x * s;
+  var r22 = zz + (1 - zz) * c;
+
+  var m00 = m[0];
+  var m01 = m[1];
+  var m02 = m[2];
+  var m03 = m[3];
+  var m10 = m[4];
+  var m11 = m[5];
+  var m12 = m[6];
+  var m13 = m[7];
+  var m20 = m[8];
+  var m21 = m[9];
+  var m22 = m[10];
+  var m23 = m[11];
+  var m30 = m[12];
+  var m31 = m[13];
+  var m32 = m[14];
+  var m33 = m[15];
+
+  m[ 0] = r00 * m00 + r01 * m10 + r02 * m20;
+  m[ 1] = r00 * m01 + r01 * m11 + r02 * m21;
+  m[ 2] = r00 * m02 + r01 * m12 + r02 * m22;
+  m[ 3] = r00 * m03 + r01 * m13 + r02 * m23;
+  m[ 4] = r10 * m00 + r11 * m10 + r12 * m20;
+  m[ 5] = r10 * m01 + r11 * m11 + r12 * m21;
+  m[ 6] = r10 * m02 + r11 * m12 + r12 * m22;
+  m[ 7] = r10 * m03 + r11 * m13 + r12 * m23;
+  m[ 8] = r20 * m00 + r21 * m10 + r22 * m20;
+  m[ 9] = r20 * m01 + r21 * m11 + r22 * m21;
+  m[10] = r20 * m02 + r21 * m12 + r22 * m22;
+  m[11] = r20 * m03 + r21 * m13 + r22 * m23;
+
+  return m;
+};
+
+/**
  * Creates a 4-by-4 matrix which scales in each dimension by an amount given by
  * the corresponding entry in the given vector; assumes the vector has three
  * entries.
@@ -1362,6 +1551,36 @@ tdl.fast.matrix4.scaling = function(dst, v) {
   dst[14] = 0;
   dst[15] = 1;
   return dst;
+};
+
+/**
+ * Modifies the given 4-by-4 matrix, scaling in each dimension by an amount
+ * given by the corresponding entry in the given vector; assumes the vector has
+ * three entries.
+ * @param {!tdl.fast.Matrix4} m The matrix to be modified.
+ * @param {!tdl.fast.Vector3} v A vector of three entries specifying the
+ *     factor by which to scale in each dimension.
+ * @return {!tdl.fast.Matrix4} m once modified.
+ */
+tdl.fast.matrix4.scale = function(m, v) {
+  var v0 = v[0];
+  var v1 = v[1];
+  var v2 = v[2];
+
+  m[0] = v0 * m[0*4+0];
+  m[1] = v0 * m[0*4+1];
+  m[2] = v0 * m[0*4+2];
+  m[3] = v0 * m[0*4+3];
+  m[4] = v1 * m[1*4+0];
+  m[5] = v1 * m[1*4+1];
+  m[6] = v1 * m[1*4+2];
+  m[7] = v1 * m[1*4+3];
+  m[8] = v2 * m[2*4+0];
+  m[9] = v2 * m[2*4+1];
+  m[10] = v2 * m[2*4+2];
+  m[11] = v2 * m[2*4+3];
+
+  return m;
 };
 
 /**

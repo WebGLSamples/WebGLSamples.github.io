@@ -1494,6 +1494,8 @@ tdl.math.matrix4.copy = function(m) {
   return tdl.math.copyMatrix(m);
 };
 
+tdl.math.matrix4.transpose = tdl.math.transpose;
+
 /**
  * Sets the upper 3-by-3 block of matrix a to the upper 3-by-3 block of matrix
  * b; assumes that a and b are big enough to contain an upper 3-by-3 block.
@@ -1971,6 +1973,9 @@ tdl.math.matrix4.translate = function(m, v) {
   var m31 = m[3*4+1];
   var m32 = m[3*4+2];
   var m33 = m[3*4+3];
+  var v0 = v[0];
+  var v1 = v[1];
+  var v2 = v[2];
 
   m[12] = m00 * v0 + m10 * v1 + m20 * v2 + m30;
   m[13] = m01 * v0 + m11 * v1 + m21 * v2 + m31;
