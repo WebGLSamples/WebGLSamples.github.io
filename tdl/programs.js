@@ -67,6 +67,7 @@ tdl.programs.loadProgram = function(vertexShader, fragmentShader) {
   try {
     program = new tdl.programs.Program(vertexShader, fragmentShader);
   } catch (e) {
+    tdl.error(e);
     return null;
   }
   tdl.programs.programDB[id] = program;
@@ -74,7 +75,6 @@ tdl.programs.loadProgram = function(vertexShader, fragmentShader) {
 };
 
 tdl.programs.Program = function(vertexShader, fragmentShader) {
-
   /**
    * Loads a shader.
    * @param {!WebGLContext} gl The WebGLContext to use.
@@ -86,8 +86,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
     // Create the shader object
     var shader = gl.createShader(shaderType);
     if (shader == null) {
-      tdl.error("*** Error: unable to create shader '"+shaderSource+"'");
-      return null;
+      throw("*** Error: unable to create shader '"+shaderSource+"'");
     }
 
     // Load the shader source
@@ -100,10 +99,10 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
     var compiled = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
     if (!compiled) {
       // Something went wrong during compilation; get the error
-      lastError = gl.getShaderInfoLog(shader);
-      tdl.error("*** Error compiling shader '" + shader + "':" + lastError);
+      tdl.programs.lastError = gl.getShaderInfoLog(shader);
       gl.deleteShader(shader);
-      return null;
+      throw("*** Error compiling shader '" + shader + "':" +
+            tdl.programs.lastError);
     }
 
     return shader;
@@ -118,14 +117,22 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
    * @return {!WebGLProgram} The created program.
    */
   var loadProgram = function(gl, vertexShader, fragmentShader) {
-    var program = gl.createProgram();
-    gl.attachShader(
-        program,
-        loadShader(gl, vertexShader, gl.VERTEX_SHADER));
-    gl.attachShader(
-        program,
-        loadShader(gl, fragmentShader,  gl.FRAGMENT_SHADER));
-    linkProgram(gl, program);
+    var vs;
+    var fs;
+    var program;
+    try {
+      vs = loadShader(gl, vertexShader, gl.VERTEX_SHADER);
+      fs = loadShader(gl, fragmentShader, gl.FRAGMENT_SHADER);
+      program = gl.createProgram();
+      gl.attachShader(program, vs);
+      gl.attachShader(program, fs);
+      linkProgram(gl, program);
+    } catch (e) {
+      if (vs) { gl.deleteShader(vs) }
+      if (fs) { gl.deleteShader(fs) }
+      if (program) { gl.deleteShader(program) }
+      throw(e);
+    }
     return program;
   };
 
@@ -134,7 +141,6 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
    * Links a WebGL program, throws if there are errors.
    * @param {!WebGLContext} gl The WebGLContext to use.
    * @param {!WebGLProgram} program The WebGLProgram to link.
-   * @return {boolean} True if link was successful.
    */
   var linkProgram = function(gl, program) {
     // Link the program
@@ -144,11 +150,9 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
     var linked = gl.getProgramParameter(program, gl.LINK_STATUS);
     if (!linked) {
       // something went wrong with the link
-      var error = gl.getProgramInfoLog (program);
-      throw("Error in program linking:" + error);
-      return false;
+      tdl.programs.lastError = gl.getProgramInfoLog (program);
+      throw("*** Error in program linking:" + tdl.programs.lastError);
     }
-    return true;
   };
 
   // Compile shaders
