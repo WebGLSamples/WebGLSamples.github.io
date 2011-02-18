@@ -128,12 +128,6 @@ function LogGLCall(functionName, args) {
   }
 }
 
-function createProgramFromTags(vertexTagId, fragmentTagId) {
-  return tdl.programs.loadProgram(
-      document.getElementById(vertexTagId).text,
-      document.getElementById(fragmentTagId).text);
-}
-
 function initialize() {
   math = tdl.math;
   fast = tdl.fast;

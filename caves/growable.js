@@ -51,13 +51,13 @@ Growable.prototype.getLength = function() {
 }
 
 Growable.prototype.getArray = function() {
-  return new window[this.type](this.buffer.slice(0, this.usedSize));
+  return new window[this.type](this.buffer.subarray(0, this.usedSize));
 };
 
 // Returns a fake AttribBuffer.
 Growable.prototype.getAttribBuffer = function(numComponents) {
   return {
-    buffer: new window[this.type](this.buffer.slice(0, this.usedSize)),
+    buffer: new window[this.type](this.buffer.subarray(0, this.usedSize)),
     numComponents: numComponents,
     numElements: this.usedSize / numComponents,
     type: this.type

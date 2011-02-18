@@ -39,7 +39,8 @@
 
 function MarchingCubesEffect(resolution) {
   var arrays = tdl.primitives.createCube(1.0)
-  var program = createProgramFromTags("marching_cube_vs", "marching_cube_fs")
+  var program = tdl.programs.loadProgramFromScriptTags(
+      "marching_cube_vs", "marching_cube_fs")
   var textures = []
 
   var proj = new Float32Array(16)
@@ -231,7 +232,7 @@ function MarchingCubesEffect(resolution) {
     m4.mul(viewproj, view, proj)
     m4.mul(worldview, world, view)
     m4.mul(worldviewproj, world, viewproj)
-    
+
     gl.clearColor(0.2,0.15,0.12,1)
     gl.clearDepth(1.0)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)

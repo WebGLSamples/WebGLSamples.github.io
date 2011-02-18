@@ -131,12 +131,6 @@ function LogGLCall(functionName, args) {
   }
 }
 
-function createProgramFromTags(vertexTagId, fragmentTagId) {
-  return tdl.programs.loadProgram(
-      document.getElementById(vertexTagId).text,
-      document.getElementById(fragmentTagId).text);
-}
-
 /**
  * Sets up Planet.
  */
@@ -145,7 +139,7 @@ function setupPlanet() {
     diffuseSampler: tdl.textures.loadTexture('assets/rock-color.png'),
     bumpSampler: tdl.textures.loadTexture('assets/rock-nmap.png')};
 
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'planetVertexShader',
       'planetFragmentShader');
   var arrays = tdl.primitives.createSphere(1, 100, 100);
@@ -195,7 +189,7 @@ function setupOcean() {
   var textures = {
     diffuseSampler: tdl.textures.loadTexture([15,100,200,200]),
     bumpSampler: tdl.textures.loadTexture([128,128,255,128])};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'waterVertexShader',
       'waterFragmentShader');
   var arrays = tdl.primitives.createSphere(1, 100, 100);
@@ -211,7 +205,7 @@ function setupMeteor() {
     diffuseSampler: tdl.textures.loadTexture('assets/rock-color.png'),
     bumpSampler: tdl.textures.loadTexture('assets/rock-nmap.png'),
     heightSampler: tdl.textures.loadTexture('assets/height-map.png')};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'meteorVertexShader',
       'meteorFragmentShader');
   var arrays = tdl.primitives.createSphere(1, 8, 8);
@@ -230,7 +224,7 @@ function setupMeteor() {
 function setupShield() {
   var textures = {
     diffuseSampler: tdl.textures.loadTexture([255,255,255,255])};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'shieldVertexShader',
       'shieldFragmentShader');
   var arrays = tdl.primitives.createSphere(1.1, 20, 20);
@@ -247,7 +241,7 @@ function setupShockwave() {
     shieldNoise: tdl.textures.loadTexture('assets/shield-noise.png')};
   textures.shieldGradient.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   textures.shieldGradient.setParameter(gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'shockwaveVertexShader',
       'shockwaveFragmentShader');
   var arrays = tdl.primitives.createSphere(1.1, 20, 20);
@@ -273,7 +267,7 @@ function setupSkybox() {
         'assets/space_fr.jpg',
         'assets/space_bk.jpg'])
   };
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'skyboxVertexShader',
       'skyboxFragmentShader');
   var arrays = tdl.primitives.createPlane(2, 2, 1, 1);

@@ -1,6 +1,7 @@
 
 function MarchingCubes(tree) {
-  var program = createProgramFromTags("marching_cube_vs", "marching_cube_fs");
+  var program = tdl.programs.loadProgramFromScriptTags(
+      "marching_cube_vs", "marching_cube_fs");
   var textures = {
       diffuseSamplerWall: tdl.textures.loadTexture('assets/rock-color.png'),
       diffuseSamplerFloor: tdl.textures.loadTexture('assets/sand-color.png')
@@ -20,16 +21,16 @@ function MarchingCubes(tree) {
   var yd = blockSize;
   var zd = blockSize * blockSize;
   var blockSize3 = blockSize * blockSize * blockSize;
-  
+
   var modelMap = {};
-  
+
   var m4 = tdl.fast.matrix4
 
   // Temp buffers used in polygonize.
   var vlist = new Float32Array(12 * 3);
   var nlist = new Float32Array(12 * 3);
   var normal_cache = new Float32Array(blockSize3 * 3);
-  
+
   function lerp(a,b,t) { return a + (b - a) * t; }
   function VIntX(q,pout,nout,offset,isol,x,y,z,valp1,valp2) {
     var mu = (isol - valp1) / (valp2 - valp1);
@@ -60,7 +61,7 @@ function MarchingCubes(tree) {
     nout[offset + 1] = lerp(normal_cache[q+1], normal_cache[q2+1], mu);
     nout[offset + 2] = lerp(normal_cache[q+2], normal_cache[q2+2], mu);
   }
-  
+
   function wipeNormalCache() {
     for (var i = 0; i < blockSize3; i++) {
       normal_cache[i * 3] = 0.0;
@@ -86,7 +87,7 @@ function MarchingCubes(tree) {
     var field5 = field[q+1+zd];
     var field6 = field[q+yd+zd];
     var field7 = field[q+1+yd+zd];
-    
+
     if (field0 < isol) cubeindex |= 1;
     if (field1 < isol) cubeindex |= 2;
     if (field2 < isol) cubeindex |= 8;

@@ -180,18 +180,12 @@ function LogGLCall(functionName, args) {
   }
 }
 
-function createProgramFromTags(vertexTagId, fragmentTagId) {
-  return tdl.programs.loadProgram(
-      document.getElementById(vertexTagId).text,
-      document.getElementById(fragmentTagId).text);
-}
-
 /**
  * Sets up Grass.
  */
 function setupGrass() {
   var textures = { };
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'grassVertexShader',
       'grassFragmentShader');
   var arrays = tdl.primitives.createPlane(1, 1, 1, 10);
@@ -238,7 +232,7 @@ function setupGrass() {
 function setupDofPlane(mainTexture, blurTexture) {
   var textures = { mainSampler: mainTexture,
                    blurSampler: blurTexture};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'dofVertexShader',
       'dofFragmentShader');
   var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
@@ -256,7 +250,7 @@ function setupDofPlane(mainTexture, blurTexture) {
  */
 function setupBlurPlane(mainTexture) {
   var textures = {mainSampler: mainTexture};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'blurVertexShader',
       'blurFragmentShader');
   var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
@@ -282,7 +276,7 @@ function setupSkybox() {
         'assets/mid.png',
         'assets/mid.png'])
   };
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'skyboxVertexShader',
       'skyboxFragmentShader');
   var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
@@ -568,6 +562,10 @@ function initialize() {
     dofPlane.drawPrep(g.dofConst);
     dofPlane.draw(dofPer);
 
+    if (g.globals.drawRenderTargets) {
+
+    }
+
     // Set the alpha to 255.
     gl.colorMask(false, false, false, true);
     gl.clearColor(0,0,0,1);
@@ -659,6 +657,24 @@ $(function(){
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </div>
 </body>
+<script id="textureVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+attribute vec2 texCoord;
+uniform mat4 worldViewProjection;
+varying vec2 v_texCoord;
+void main() {
+  gl_Position = worldViewProjection * position;
+  v_texCoord = texCoord;
+}
+</script>
+<script id="textureFragmentShader" type="text/something-not-javascript">
+precision highp float;
+varying vec2 v_texCoord;
+uniform sampler2D texture;
+void main() {
+  gl_FragColor = texture2D(texture, v_texCoord);
+}
+</script>
 <script id="grassVertexShader" type="text/something-not-javascript">
 uniform mat4 worldViewProjection;
 uniform mat4 world;

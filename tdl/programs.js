@@ -58,6 +58,35 @@ tdl.programs.programDB = {};
  */
 tdl.programs.shaderDB = {};
 
+/**
+ * Loads a program from script tags.
+ * @param {string} vertexShaderId The id of the script tag that contains the
+ *     vertex shader source.
+ * @param {string} fragmentShaderId The id of the script tag that contains the
+ *     fragment shader source.
+ * @return {tdl.programs.Program} The created program.
+ */
+tdl.programs.loadProgramFromScriptTags = function(
+    vertexShaderId, fragmentShaderId) {
+  var vertElem = document.getElementById(vertexShaderId);
+  var fragElem = document.getElementById(fragmentShaderId);
+  if (!vertElem) {
+    throw("Can't find vertex program tag: " + vertexShaderId);
+  }
+  if (!fragElem ) {
+    throw("Can't find fragment program tag: " + fragmentShaderId);
+  }
+  return tdl.programs.loadProgram(
+      document.getElementById(vertexShaderId).text,
+      document.getElementById(fragmentShaderId).text);
+};
+
+/**
+ * Loads a program.
+ * @param {string} vertexShader The vertex shader source.
+ * @param {string} fragmentShader The fragment shader source.
+ * @return {tdl.programs.Program} The created program.
+ */
 tdl.programs.loadProgram = function(vertexShader, fragmentShader) {
   var id = vertexShader + fragmentShader;
   var program = tdl.programs.programDB[id];
@@ -74,6 +103,12 @@ tdl.programs.loadProgram = function(vertexShader, fragmentShader) {
   return program;
 };
 
+/**
+ * A object to manage a WebGLProgram.
+ * @constructor
+ * @param {string} vertexShader The vertex shader source.
+ * @param {string} fragmentShader The fragment shader source.
+ */
 tdl.programs.Program = function(vertexShader, fragmentShader) {
   /**
    * Loads a shader.
@@ -83,6 +118,12 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
    * @return {!WebGLShader} The created shader.
    */
   var loadShader = function(gl, shaderSource, shaderType) {
+    var id = shaderSource + shaderType;
+    var shader = tdl.programs.shaderDB[id];
+    if (shader) {
+      return shader;
+    }
+
     // Create the shader object
     var shader = gl.createShader(shaderType);
     if (shader == null) {
@@ -105,6 +146,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
             tdl.programs.lastError);
     }
 
+    tdl.programs.shaderDB[id] = shader;
     return shader;
   }
 

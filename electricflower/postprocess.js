@@ -46,42 +46,42 @@ function QuadDrawer() {
     gl.enableVertexAttribArray(program.attribLoc["position"])
     gl.vertexAttribPointer(program.attribLoc["position"], 3, gl.FLOAT, false, 0, 0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
-  } 
+  }
 }
 
 function PostProcessor(w, h) {
   // Create a set of render targets, useful for various post processing
-  // effects.  
+  // effects.
   var render_fb = tdl.framebuffers.createFramebuffer(w, h, true)
   var bounce_fb = tdl.framebuffers.createFramebuffer(w, h, true)
-  
+
   var qw_fb = tdl.framebuffers.createFramebuffer(w / 4, h, true)
   var qw_qh_fb = tdl.framebuffers.createFramebuffer(w / 4, h, true)
 
   // Re-bind the backbuffer.
   backbuffer.bind()
-  
-  var blurQuadProgram = createProgramFromTags("quad_vs", "blur_fs")
-  var copyQuadProgram = createProgramFromTags("quad_vs", "copy_fs")
-  var addQuadProgram  = createProgramFromTags("quad_vs", "add_fs")
-  var radialQuadProgram = createProgramFromTags("radial_vs", "radial_fs")
-  
+
+  var blurQuadProgram = tdl.programs.loadProgramFromScriptTags("quad_vs", "blur_fs")
+  var copyQuadProgram = tdl.programs.loadProgramFromScriptTags("quad_vs", "copy_fs")
+  var addQuadProgram  = tdl.programs.loadProgramFromScriptTags("quad_vs", "add_fs")
+  var radialQuadProgram = tdl.programs.loadProgramFromScriptTags("radial_vs", "radial_fs")
+
   this.focusBlur = function(framebuffer, params) {
     blurQuadProgram.use()
     blurQuadProgram.setUniform("mainSampler", 0)
-    
+
     qw_fb.bind()
     gl.bindTexture(gl.TEXTURE_2D, render_fb.texture.texture)
     blurQuadProgram.setUniform("blurSize", [params.x / w, 0.0 / h])
     blurQuadProgram.setUniform("subtract", [0,0,0,0])
     quad.draw(blurQuadProgram)
-    
+
     qw_qh_fb.bind()
     gl.bindTexture(gl.TEXTURE_2D, qw_fb.texture.texture)
     blurQuadProgram.setUniform("blurSize", [0.0 / w, params.y / h])
     blurQuadProgram.setUniform("subtract", [0,0,0,0])
     quad.draw(blurQuadProgram)
-    
+
     gl.bindTexture(gl.TEXTURE_2D, qw_qh_fb.texture.texture)
     copyQuadProgram.use()
     copyQuadProgram.setUniform("mainSampler", 0)
@@ -92,19 +92,19 @@ function PostProcessor(w, h) {
   this.hypnoGlow = function(framebuffer, params) {
     blurQuadProgram.use()
     blurQuadProgram.setUniform("mainSampler", 0)
-    
+
     qw_fb.bind()
     gl.bindTexture(gl.TEXTURE_2D, render_fb.texture.texture)
     blurQuadProgram.setUniform("blurSize", [params.x / w, 0.0 / h])
     blurQuadProgram.setUniform("subtract", [params.sub,params.sub,params.sub,0])
     quad.draw(blurQuadProgram)
-    
+
     qw_qh_fb.bind()
     gl.bindTexture(gl.TEXTURE_2D, qw_fb.texture.texture)
     blurQuadProgram.setUniform("blurSize", [0.0 / w, params.y / h])
     blurQuadProgram.setUniform("subtract", [0,0,0,0])
     quad.draw(blurQuadProgram)
-    
+
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, qw_qh_fb.texture.texture)
     gl.activeTexture(gl.TEXTURE1)
@@ -116,7 +116,7 @@ function PostProcessor(w, h) {
     framebuffer.bind()
     quad.draw(addQuadProgram)
   }
-  
+
   // Params: strength, glow(1.0=neutral)
   this.radialBlur = function(framebuffer, params) {
     if (params.strength <= 0.002) {
@@ -130,7 +130,7 @@ function PostProcessor(w, h) {
     pingpong = [render_fb, bounce_fb]
     to = 1
     from = 0
-    
+
     var passes = 3
     var amount = params.strength
     radialQuadProgram.use()
@@ -157,7 +157,7 @@ function PostProcessor(w, h) {
   this.begin = function() {
     render_fb.bind()
   }
-  
+
   this.end = function(framebuffer, func, params) {
     gl.disable(gl.DEPTH_TEST)
     gl.disable(gl.CULL_FACE)

@@ -31,7 +31,7 @@
 
 function FlowerEffect() {
   var arrays = tdl.primitives.createFlaredCube(0.01, 3.0, 1400)
-  var program = createProgramFromTags("flower_vs", "flower_fs")
+  var program = tdl.programs.loadProgramFromScriptTags("flower_vs", "flower_fs")
   var textures = []
 
   var proj = new Float32Array(16)

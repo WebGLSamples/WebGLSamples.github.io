@@ -179,19 +179,13 @@ function Dump() {
   tdl.log(strs.join(""));
 }
 
-function createProgramFromTags(vertexTagId, fragmentTagId) {
-  return tdl.programs.loadProgram(
-      document.getElementById(vertexTagId).text,
-      document.getElementById(fragmentTagId).text);
-}
-
 /**
  * Sets up a imagePlane
  */
 function setupImagePlane() {
   var textures = {
       diffuseSampler: tdl.textures.loadTexture([128,128,128,255])};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'imageSphereVertexShader',
       'imageSphereFragmentShader');
 //  var arrays = tdl.primitives.createCube(1);
@@ -210,7 +204,7 @@ function setupImagePlane() {
  */
 function setupBlankPlane() {
   var textures = {};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'blackVertexShader',
       'blackFragmentShader');
   var arrays = tdl.primitives.createPlane(1,1,4,4);

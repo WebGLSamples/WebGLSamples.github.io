@@ -423,7 +423,8 @@ function refract(i, n, eta) {
 
 function createProgramFromTags(
     vertexTagId,
-    fragmentTagId, fog,
+    fragmentTagId,
+    fog,
     opt_reflection,
     opt_normalMaps) {
   opt_reflection = (opt_reflection === undefined) ? true : opt_reflection;
@@ -456,8 +457,7 @@ function createProgramFromTags(
     fs = fs.replace(/^.*?\/\/ #normalMap\n/gm, "");
   }
 
-  return tdl.programs.loadProgram(
-      getScriptText(vertexTagId), fs);
+  return tdl.programs.loadProgram(getScriptText(vertexTagId), fs);
 }
 
 var Scene = function(opt_programIds, fog) {

@@ -117,13 +117,6 @@ tdl.require('tdl.framebuffers');
 tdl.require('tdl.textures');
 tdl.require('tdl.webgl');
 
-// Util functions
-function createProgramFromTags(vertexTagId, fragmentTagId) {
-  return tdl.programs.loadProgram(
-      document.getElementById(vertexTagId).text,
-      document.getElementById(fragmentTagId).text);
-}
-
 var gl;
 var canvas;
 var aspect;

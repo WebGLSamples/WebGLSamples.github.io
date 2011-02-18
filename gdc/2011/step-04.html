@@ -60,18 +60,12 @@ function setupSphere() {
   //  diffuseSampler: tdl.textures.loadTexture('assets/sometexture.png')};
   var textures = {
     diffuseSampler: tdl.textures.loadTexture([255,255,255,1])};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'sphereVertexShader',
       'sphereFragmentShader');
   var arrays = tdl.primitives.createSphere(0.8, 10, 12);
 
   return new tdl.models.Model(program, arrays, textures);
-}
-
-function createProgramFromTags(vertexTagId, fragmentTagId) {
-  return tdl.programs.loadProgram(
-      document.getElementById(vertexTagId).text,
-      document.getElementById(fragmentTagId).text);
 }
 
 function setTranslation(count, clock) {

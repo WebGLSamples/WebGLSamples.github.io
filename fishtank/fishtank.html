@@ -151,12 +151,6 @@ function LogGLCall(functionName, args) {
   }
 }
 
-function createProgramFromTags(vertexTagId, fragmentTagId) {
-  return tdl.programs.loadProgram(
-      document.getElementById(vertexTagId).text,
-      document.getElementById(fragmentTagId).text);
-}
-
 /**
  * Set Fish
  */
@@ -165,7 +159,7 @@ function setupFish() {
     diffuseSampler: tdl.textures.loadTexture('assets/rock-color.png'),
     bumpSampler: tdl.textures.loadTexture('assets/rock-nmap.png'),
     skybox: tdl.textures.loadTexture(g_skyBoxUrls)};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'fishVertexShader',
       'fishFragmentShader');
   var sphereArrays = tdl.primitives.createSphere(1, 10, 10);
@@ -200,7 +194,7 @@ function setupShark() {
   var textures = {
       diffuseSampler: tdl.textures.loadTexture('assets/shark.png')};
   textures.diffuseSampler.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'sharkVertexShader',
       'sharkFragmentShader');
   var sphereArrays = tdl.primitives.createSphere(1, 10, 10);
@@ -246,7 +240,7 @@ function setupShark() {
 function setupLaser() {
   var textures = {
       colorMap: tdl.textures.loadTexture('assets/beam.png')};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'laserVertexShader',
       'laserFragmentShader');
   var beam1Arrays = tdl.primitives.createPlane(1, 1, 1, 1);
@@ -274,7 +268,7 @@ function setupSkybox() {
     skybox: tdl.textures.loadTexture(g_skyBoxUrls)};
   var program;
   if (g_refract) {
-    program = createProgramFromTags(
+    program = tdl.programs.loadProgramFromScriptTags(
         'refractSkyboxVertexShader',
         'refractSkyboxFragmentShader');
     if (!program) {
@@ -283,7 +277,7 @@ function setupSkybox() {
   }
 
   if (!g_refract) {
-      program = createProgramFromTags(
+      program = tdl.programs.loadProgramFromScriptTags(
           'skyboxVertexShader',
           'skyboxFragmentShader');
   }
@@ -305,7 +299,7 @@ function setupSand() {
   var textures = {
     diffuseSampler: tdl.textures.loadTexture('assets/sand-color.png'),
     bumpSampler: tdl.textures.loadTexture('assets/sand-nmap.png')};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'normalMapVertexShader',
       'normalMapFragmentShader');
   // expand radius at end of dome matches desired radius.
@@ -328,7 +322,7 @@ function setupGlass() {
   var textures = {
     bumpSampler: tdl.textures.loadTexture('assets/sand-nmap.png'),
     skybox: tdl.textures.loadTexture(g_skyBoxUrls)};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'glassVertexShader',
       'glassFragmentShader');
   var arrays = tdl.primitives.createCylinder(
@@ -349,7 +343,7 @@ function setupStand() {
   var textures = {
     diffuseSampler: tdl.textures.loadTexture('assets/stand-color.jpg'),
     bumpSampler: tdl.textures.loadTexture([128,128,255,255])};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'normalMapVertexShader',
       'normalMapFragmentShader');
   var arrays = tdl.primitives.createCylinder(

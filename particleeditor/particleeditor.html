@@ -185,18 +185,12 @@ function LogGLCall(functionName, args) {
   }
 }
 
-function createProgramFromTags(vertexTagId, fragmentTagId) {
-  return tdl.programs.loadProgram(
-      document.getElementById(vertexTagId).text,
-      document.getElementById(fragmentTagId).text);
-}
-
 /**
  * Sets up Ground.
  */
 function setupGround() {
   var textures = {};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'groundVertexShader',
       'groundFragmentShader');
   var arrays = tdl.primitives.createPlane(20, 20, 4, 4);

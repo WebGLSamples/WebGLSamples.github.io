@@ -140,25 +140,15 @@ function LogGLCall(functionName, args) {
   }
 }
 
-function createProgramFromTags(vertexTagId, fragmentTagId) {
-  var vertElem = document.getElementById(vertexTagId);
-  var fragElem = document.getElementById(fragmentTagId);
-  if (vertElem === null) {
-    tdl.error("Can't find vertex program tag: " + vertexTagId);
-  }
-  if (fragElem === null) {
-    tdl.error("Can't find fragment program tag: " + fragmentTagId);
-  }
-  return tdl.programs.loadProgram(vertElem.text, fragElem.text);
-}
-
 /**
  * Create columns
  */
 function setupColumns(depthTexture) {
-  var readProgram = createProgramFromTags('shadowReadVertexShader',
+  var readProgram = tdl.programs.loadProgramFromScriptTags(
+      'shadowReadVertexShader',
       'shadowReadFragmentShader');
-  var writeProgram = createProgramFromTags('shadowWriteVertexShader',
+  var writeProgram = tdl.programs.loadProgramFromScriptTags(
+      'shadowWriteVertexShader',
       'shadowWriteFragmentShader');
   var textures = {
     diffuseSampler: tdl.textures.loadTexture('assets/rock-color.png'),
@@ -209,7 +199,7 @@ function setupColumns(depthTexture) {
 function setupSkybox() {
   var textures = {
     skybox: tdl.textures.loadTexture(g_skyBoxUrls)};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'skyboxVertexShader',
       'skyboxFragmentShader');
   var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
@@ -227,7 +217,8 @@ function setupSkybox() {
  * Sets up the ground
  */
 function setupGround(depthTexture) {
-  var readProgram = createProgramFromTags('shadowReadVertexShader',
+  var readProgram = tdl.programs.loadProgramFromScriptTags(
+      'shadowReadVertexShader',
       'shadowReadFragmentShader');
   var textures = {
     diffuseSampler: tdl.textures.loadTexture('assets/sand-color.png'),
@@ -251,7 +242,8 @@ function setupGround(depthTexture) {
 // Coordinates and dimensions are all in NDC space.
 function setupDebugTex(tex, x, y, width, height)
 {
-  var program = createProgramFromTags('debugTextureVertexShader',
+  var program = tdl.programs.loadProgramFromScriptTags(
+      'debugTextureVertexShader',
       'debugTextureFragmentShader');
 
   var numVertices = 4;

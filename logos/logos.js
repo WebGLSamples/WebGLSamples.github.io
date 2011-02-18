@@ -55,14 +55,9 @@ function setupWebGL() {
   return true;
 };
 
-function createProgramFromTags(vertexTagId, fragmentTagId) {
-  return tdl.programs.loadProgram(
-      document.getElementById(vertexTagId).text,
-      document.getElementById(fragmentTagId).text);
-}
-
 function setupSkybox(uniforms) {
-  var program = createProgramFromTags('skyboxVShader','skyboxFShader');
+  var program = tdl.programs.loadProgramFromScriptTags(
+      'skyboxVShader','skyboxFShader');
   // Create a quad covering far plane in clip space.
   var positions = new tdl.primitives.AttribBuffer(3, 4);
   var zFar = 0.99;  // Small offset to avoid clipping.
@@ -97,7 +92,8 @@ function setupSkybox(uniforms) {
 }
 
 function setupGround(uniforms) {
-  var program = createProgramFromTags('groundVShader', 'groundFShader');
+  var program = tdl.programs.loadProgramFromScriptTags(
+      'groundVShader', 'groundFShader');
   var arrays = tdl.primitives.createPlane(30, 30, 1, 1);
   delete arrays['normal'];
   delete arrays['texCoord'];

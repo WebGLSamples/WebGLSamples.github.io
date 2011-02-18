@@ -240,19 +240,13 @@ function LogGLCall(functionName, args) {
   }
 }
 
-function createProgramFromTags(vertexTagId, fragmentTagId) {
-  return tdl.programs.loadProgram(
-      document.getElementById(vertexTagId).text,
-      document.getElementById(fragmentTagId).text);
-}
-
 /**
  * Sets up Planet.
  */
 function setupSphere() {
   var textures = {
     diffuseSampler: tdl.textures.loadTexture('sometexture.png')};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'sphereVertexShader',
       'sphereFragmentShader');
   var arrays = tdl.primitives.createSphere(1, 100, 100);
@@ -292,7 +286,7 @@ function setup32BytePerVertexModel(decoder) {
 
   var textures = {
     diffuseSampler: tdl.textures.loadTexture('sometexture.png')};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'sphereVertexShader',
       'sphereFragmentShader');
   var arrays = {
@@ -359,7 +353,7 @@ function setup16BytePerVertexModel(decoder) {
 
   var textures = {
     diffuseSampler: tdl.textures.loadTexture('sometexture.png')};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'sphereVertexShader',
       'sphereFragmentShader');
   var arrays = {
@@ -434,7 +428,7 @@ function setup9BytePerVertexModel(decoder) {
 
   var textures = {
     diffuseSampler: tdl.textures.loadTexture('sometexture.png')};
-  var program = createProgramFromTags(
+  var program = tdl.programs.loadProgramFromScriptTags(
       'sphereVertexShader',
       'sphereFragmentShader');
   var arrays = {
