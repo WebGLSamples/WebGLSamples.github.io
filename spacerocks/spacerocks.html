@@ -91,6 +91,7 @@ var g_poofIndex = 0;
 var g_poofs = [];
 var g_anims = [];
 var g_timeTillLaunch = 0;
+var g_showShockwave = false;
 
 //g_drawOnce = true;
 //g_debug = true;
@@ -414,6 +415,12 @@ function triggerPoof(transNorm) {
     }
 }
 
+function onKeyPress(event) {
+  if (event.charCode == 'd'.charCodeAt(0) ||
+      event.charCode == 'D'.charCodeAt(0)) {
+    g_showShockwave = !g_showShockwave;
+  }
+}
 
 function initialize() {
   math = tdl.math;
@@ -422,6 +429,8 @@ function initialize() {
   g_fpsTimer = new tdl.fps.FPSTimer();
 
   setupCountButtons();
+
+  window.addEventListener('keypress', onKeyPress, false);
 
   gl = tdl.webgl.setupWebGL(canvas);
   if (!gl) {
@@ -444,6 +453,11 @@ function initialize() {
   var shield = setupShield();
   Log("--Setup ShockWave---------------------------------------");
   var shockwave = setupShockwave();
+
+  var shockwaveDebugTextures = {
+    shieldGradient: tdl.textures.loadTexture([255,255,255,255]),
+    shieldNoise: tdl.textures.loadTexture([255,255,255,255])
+  };
 
   particleSystem = new tdl.particles.ParticleSystem(
       gl, null, math.pseudoRandom);
@@ -759,7 +773,10 @@ function initialize() {
     gl.blendFunc(gl.ONE, gl.ONE);
     gl.disable(gl.CULL_FACE);
 
-    shockwave.drawPrep(shockwaveConst);
+    shockwave.drawPrep(
+        shockwaveConst,
+        g_showShockwave ? shockwaveDebugTextures : undefined);
+    shockwave.mode = g_showShockwave ? gl.LINES : gl.TRIANGLES;
 
     for (var ii = 0; ii < g_numShockwaves; ++ii) {
       if (!shockwaveActive[ii]) {
