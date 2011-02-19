@@ -1081,7 +1081,7 @@ function initialize() {
 
   function render() {
     if (!g_drawOnce) {
-      tdl.webgl.requestAnimationFrame(canvas, render);
+      tdl.webgl.requestAnimationFrame(render, canvas);
     }
     var now = theClock.getTime();
     var elapsedTime;

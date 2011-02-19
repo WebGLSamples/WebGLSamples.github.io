@@ -111,7 +111,7 @@ function main() {
         indices.length,     // number of vertices
         gl.UNSIGNED_SHORT,  // type of indices
         0);                 // offset
-    tdl.webgl.requestAnimationFrame(canvas, render);
+    tdl.webgl.requestAnimationFrame(render, canvas);
   }
   render();
 }

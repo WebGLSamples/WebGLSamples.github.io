@@ -1017,7 +1017,7 @@ var main = function() {
             ok = true;
         } finally {
             if (ok) {
-              tdl.webgl.requestAnimationFrame(canvas, render);
+              tdl.webgl.requestAnimationFrame(render, canvas);
             }
         }
     };

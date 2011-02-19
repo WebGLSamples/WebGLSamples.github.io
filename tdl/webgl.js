@@ -413,45 +413,13 @@ tdl.webgl.makeDebugContext = function(ctx, opt_onErrorFunc, opt_onFunc) {
 };
 
 /**
- * Returns the animationTime in a cross browser way.
- * @return {number} The current animationTime
- */
-tdl.webgl.animationTime = function() {
-  if (!tdl.webgl.getAnimationTimeImpl_) {
-    tdl.webgl.getAnimationTimeImpl_ = function() {
-      var attribNames = [
-        "animationTime",
-        "webkitAnimationTime",
-        "mozAnimationTime",
-        "oAnimationTime",
-        "msAnimationTime"
-      ];
-      for (var ii = 0; ii < attribNames.length; ++ii) {
-        var name = attribNames[ii];
-        if (window[name]) {
-          tdl.log("using window." + name);
-          return function() {
-            return window[name];
-          };
-        }
-      }
-      tdl.log("using Date.getTime");
-      return function() {
-        return (new Date()).getTime();
-      }
-    }();
-  }
-  return tdl.webgl.getAnimationTimeImpl_();
-};
-
-/**
  * Provides requestAnimationFrame in a cross browser
  * way.
- * @param {!Element} element Element to request an animation frame for.
  * @param {function(RequestAnimationEvent): void} callback. Callback that will
  *        be called when a frame is ready.
+ * @param {!Element} element Element to request an animation frame for.
  */
-tdl.webgl.requestAnimationFrame = function(element, callback) {
+tdl.webgl.requestAnimationFrame = function(callback, element) {
   if (!tdl.webgl.requestAnimationFrameImpl_) {
     tdl.webgl.requestAnimationFrameImpl_ = function() {
       var functionNames = [
@@ -459,27 +427,27 @@ tdl.webgl.requestAnimationFrame = function(element, callback) {
         "webkitRequestAnimationFrame",
         "mozRequestAnimationFrame",
         "oRequestAnimationFrame",
-        "msAnimationFrame"
+        "msRequestAnimationFrame"
       ];
       for (var jj = 0; jj < functionNames.length; ++jj) {
         var functionName = functionNames[jj];
         if (window[functionName]) {
           tdl.log("using ", functionName);
           return function(name) {
-            return function(element, callback) {
+            return function(callback, element) {
               window[name].call(window, callback, element);
             };
           }(functionName);
         }
       }
       tdl.log("using window.setTimeout");
-      return function(element, callback) {
+      return function(callback, element) {
            window.setTimeout(callback, 1000 / 70);
         };
     }();
   }
 
-  tdl.webgl.requestAnimationFrameImpl_(element, callback)
+  tdl.webgl.requestAnimationFrameImpl_(callback, element);
 };
 
 

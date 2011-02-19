@@ -136,9 +136,9 @@ function main() {
   function render() {
     ++frameCount;
     if (!g_drawOnce) {
-      tdl.webgl.requestAnimationFrame(canvas, render);
+      tdl.webgl.requestAnimationFrame(render, canvas);
     }
-    var now = tdl.webgl.animationTime() * 0.001;
+    var now = (new Date()).getTime() * 0.001;
     var elapsedTime;
     if(then == 0.0) {
       elapsedTime = 0.0;

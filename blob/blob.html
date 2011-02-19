@@ -153,8 +153,8 @@ function mainloop() {
   var fpsElem = document.getElementById("fps");
 
   function render() {
-    tdl.webgl.requestAnimationFrame(canvas, render);
-    var now = tdl.webgl.animationTime() * 0.001;
+    tdl.webgl.requestAnimationFrame(render, canvas);
+    var now = (new Date()).getTime() * 0.001;
     var elapsedTime;
     if(then == 0.0) {
       elapsedTime = 0.0;

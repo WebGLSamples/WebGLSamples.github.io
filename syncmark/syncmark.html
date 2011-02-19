@@ -68,7 +68,7 @@ function mainloop() {
   // framerate independent so we will still keep sync even if we
   // lose frames.
   function render() {
-    tdl.webgl.requestAnimationFrame(canvas, render);
+    tdl.webgl.requestAnimationFrame(render, canvas);
     var time = music.currentTime
     gl.enable(gl.SCISSOR_TEST)
     gl.clearColor(0, 0, 0, 1.0)
