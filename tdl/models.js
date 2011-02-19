@@ -93,6 +93,15 @@ tdl.models.Model.prototype.setBuffers = function(arrays) {
   }
 };
 
+tdl.models.Model.prototype.applyUniforms_ = function(opt_uniforms) {
+  if (opt_uniforms) {
+    var program = this.program;
+    for (var uniform in opt_uniforms) {
+      program.setUniform(uniform, opt_uniforms[uniform]);
+    }
+  }
+};
+
 /**
  * Sets up the shared parts of drawing this model. Uses the
  * program, binds the buffers, sets the textures.
@@ -102,7 +111,7 @@ tdl.models.Model.prototype.setBuffers = function(arrays) {
  * @param {!Object.<string, *>} opt_textures An object of names to
  *     textures to set on this models uniforms.
  */
-tdl.models.Model.prototype.drawPrep = function(opt_uniforms, opt_textures) {
+tdl.models.Model.prototype.drawPrep = function() {
   var program = this.program;
   var buffers = this.buffers;
   var textures = this.textures;
@@ -120,24 +129,9 @@ tdl.models.Model.prototype.drawPrep = function(opt_uniforms, opt_textures) {
     }
   }
 
-  for (var texture in textures) {
-    var unit = this.textureUnits[texture];
-    program.setUniform(texture, unit);
-    textures[texture].bindToUnit(unit);
-  }
-
-  if (opt_textures) {
-    for (var texture in opt_textures) {
-      var unit = this.textureUnits[texture];
-      program.setUniform(texture, unit);
-      opt_textures[texture].bindToUnit(unit);
-    }
-  }
-
-  if (opt_uniforms) {
-    for (var uniform in opt_uniforms) {
-      program.setUniform(uniform, opt_uniforms[uniform]);
-    }
+  this.applyUniforms_(textures);
+  for (var ii = 0; ii < arguments.length; ++ii) {
+    this.applyUniforms_(arguments[ii]);
   }
 };
 
@@ -152,20 +146,9 @@ tdl.models.Model.prototype.drawPrep = function(opt_uniforms, opt_textures) {
  * @param {!Object.<string, *>} opt_textures An object of names to
  *     textures to set on this models uniforms.
  */
-tdl.models.Model.prototype.draw = function(opt_uniforms, opt_textures) {
-  var program = this.program;
-  if (opt_uniforms) {
-    for (uniform in opt_uniforms) {
-      program.setUniform(uniform, opt_uniforms[uniform]);
-    }
-  }
-
-  if (opt_textures) {
-    for (var texture in opt_textures) {
-      var unit = this.textureUnits[texture];
-      program.setUniform(texture, unit);
-      opt_textures[texture].bindToUnit(unit);
-    }
+tdl.models.Model.prototype.draw = function() {
+  for (var ii = 0; ii < arguments.length; ++ii) {
+    this.applyUniforms_(arguments[ii]);
   }
 
   var buffers = this.buffers;

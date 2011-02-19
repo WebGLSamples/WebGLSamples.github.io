@@ -248,6 +248,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
   var numUniforms = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
   var uniforms = {
   };
+  var textureUnit = 0;
 
   function createUniformSetter(info) {
     var loc = gl.getUniformLocation(program, info.name);
@@ -284,10 +285,18 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
         return function(v) { gl.uniformMatrix3fv(loc, false, v); };
       if (type == gl.FLOAT_MAT4)
         return function(v) { gl.uniformMatrix4fv(loc, false, v); };
-      if (type == gl.SAMPLER_2D)
-        return function(v) { gl.uniform1iv(loc, v); };
-      if (type == gl.SAMPLER_CUBE_MAP)
-        return function(v) { gl.uniform1iv(loc, v); };
+      if (type == gl.SAMPLER_2D || type == gl.SAMPLER_CUBE) {
+        var units = [];
+        for (var ii = 0; ii < info.size; ++ii) {
+          units.push(textureUnit++);
+        }
+        return function(units) {
+          return function(v) {
+            gl.uniform1iv(loc, units);
+            v.bindToUnit(units);
+          };
+        }(units);
+      }
       throw ("unknown type: 0x" + type.toString(16));
     } else {
       if (type == gl.FLOAT)
@@ -320,10 +329,14 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
         return function(v) { gl.uniformMatrix3fv(loc, false, v); };
       if (type == gl.FLOAT_MAT4)
         return function(v) { gl.uniformMatrix4fv(loc, false, v); };
-      if (type == gl.SAMPLER_2D)
-        return function(v) { gl.uniform1i(loc, v); };
-      if (type == gl.SAMPLER_CUBE)
-        return function(v) { gl.uniform1i(loc, v); };
+      if (type == gl.SAMPLER_2D || type == gl.SAMPLER_CUBE) {
+        return function(unit) {
+          return function(v) {
+            gl.uniform1i(loc, unit);
+            v.bindToUnit(unit);
+          };
+        }(textureUnit++);
+      }
       throw ("unknown type: 0x" + type.toString(16));
     }
   }
