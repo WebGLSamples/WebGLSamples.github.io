@@ -588,18 +588,18 @@ function initialize() {
 
     if (g.globals.showRT) {
       if (g.globals.showRT == 4) {
-        rtPlane.drawPrep({});
+        rtPlane.drawPrep();
         rtPlane.draw({
             worldViewProjection: [0.5,0,0,0,0,0.5,0,0,0,0,1,0,-0.6,0,0,1],
             mixAmount: 0,
           }, {
-            texture: verticalBlurFBO.texture
+            texture: mainFBO.texture
           });
         rtPlane.draw({
             worldViewProjection: [0.5,0,0,0,0,0.5,0,0,0,0,1,0,-0.0,0,0,1],
             mixAmount: 0,
           }, {
-            texture: mainFBO.texture
+            texture: verticalBlurFBO.texture
           });
         rtPlane.draw({
             worldViewProjection: [0.5,0,0,0,0,0.5,0,0,0,0,1,0,0.6,0,0,1],
@@ -608,14 +608,14 @@ function initialize() {
             texture: mainFBO.texture
           });
       } else {
-        rtPlane.drawPrep({});
+        rtPlane.drawPrep();
         rtPlane.draw({
             worldViewProjection: [2,0,0,0,0,2,0,0,0,0,1,0,0,0,0,1],
             mixAmount: g.globals.showRT == 3 ? 1 : 0,
           }, {
             texture: g.globals.showRT == 1 ?
-                verticalBlurFBO.texture :
-                mainFBO.texture
+                mainFBO.texture :
+                verticalBlurFBO.texture
           });
       }
     }
