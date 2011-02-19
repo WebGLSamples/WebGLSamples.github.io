@@ -62,7 +62,7 @@ tdl.models.Model = function(program, arrays, textures, opt_mode) {
 
   var textureUnits = { }
   var unit = 0;
-  for (var texture in textures) {
+  for (var texture in program.textures) {
     textureUnits[texture] = unit++;
   }
 
@@ -99,8 +99,10 @@ tdl.models.Model.prototype.setBuffers = function(arrays) {
  *
  * @param {!Object.<string, *>} uniforms An object of names to
  *     values to set on this models uniforms.
+ * @param {!Object.<string, *>} opt_textures An object of names to
+ *     textures to set on this models uniforms.
  */
-tdl.models.Model.prototype.drawPrep = function(uniforms) {
+tdl.models.Model.prototype.drawPrep = function(uniforms, opt_textures) {
   var program = this.program;
   var buffers = this.buffers;
   var textures = this.textures;
@@ -124,6 +126,14 @@ tdl.models.Model.prototype.drawPrep = function(uniforms) {
     textures[texture].bindToUnit(unit);
   }
 
+  if (opt_textures) {
+    for (var texture in opt_textures) {
+      var unit = this.textureUnits[texture];
+      program.setUniform(texture, unit);
+      opt_textures[texture].bindToUnit(unit);
+    }
+  }
+
   for (var uniform in uniforms) {
     program.setUniform(uniform, uniforms[uniform]);
   }
@@ -137,6 +147,8 @@ tdl.models.Model.prototype.drawPrep = function(uniforms) {
  *
  * @param {!Object.<string, *>} uniforms An object of names to
  *     values to set on this models uniforms.
+ * @param {!Object.<string, *>} opt_textures An object of names to
+ *     textures to set on this models uniforms.
  */
 tdl.models.Model.prototype.draw = function(uniforms, opt_textures) {
   var program = this.program;

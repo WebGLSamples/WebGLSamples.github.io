@@ -127,7 +127,10 @@ var g_grassSettings = [
 var g = {
   grassConst: {},
   dofConst: {},
-  globals: {}};
+  globals: {
+    showRT: 0
+  }
+};
 
 var g_ui = [
   { obj: 'grassConst', name: 'bladeSpacing',     value: 0.06,  max:  0.5 },
@@ -264,6 +267,24 @@ function setupBlurPlane(mainTexture) {
 }
 
 /**
+ * Sets up RT plane.
+ */
+function setupRTPlane() {
+  var textures = {};
+  var program = tdl.programs.loadProgramFromScriptTags(
+      'rtVertexShader',
+      'rtFragmentShader');
+  var arrays = tdl.primitives.createPlane(1, 1, 1, 1);
+  tdl.primitives.reorient(arrays,
+      [1, 0, 0, 0,
+       0, 0,-1, 0,
+       0, 1, 0, 0,
+       0, 0, 0, 1]);
+  delete arrays.normal;
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
  * Sets up Skybox.
  */
 function setupSkybox() {
@@ -358,6 +379,8 @@ function initialize() {
   var verticalBlurPlane = setupBlurPlane(horizontalBlurFBO.texture);
   Log("--Setup DofPlane---------------------------------------");
   var dofPlane = setupDofPlane(mainFBO.texture, verticalBlurFBO.texture);
+  Log("--Setup RTPlane---------------------------------------");
+  var rtPlane = setupRTPlane();
 
   var then = 0.0;
   var clock = 0.0;
@@ -365,6 +388,7 @@ function initialize() {
 
   var projection = new Float32Array(16);
   var view = new Float32Array(16);
+  var identity = new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]);
   var world = new Float32Array(16);
   var worldInverse = new Float32Array(16);
   var worldInverseTranspose = new Float32Array(16);
@@ -562,8 +586,18 @@ function initialize() {
     dofPlane.drawPrep(g.dofConst);
     dofPlane.draw(dofPer);
 
-    if (g.globals.drawRenderTargets) {
-
+    if (g.globals.showRT) {
+      gl.clearColor(0,1,0,1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      rtPlane.drawPrep({
+        worldViewProjection: [2,0,0,0,0,2,0,0,0,0,1,0,0,0,0,1],
+        mixAmount: g.globals.showRT == 3 ? 1 : 0
+        });
+      rtPlane.draw({}, {
+          texture: g.globals.showRT == 1 ?
+              verticalBlurFBO.texture :
+              mainFBO.texture
+          });
     }
 
     // Set the alpha to 255.
@@ -630,6 +664,12 @@ $(function(){
     setupSlider($, div, ui, obj);
     uiElem.appendChild(div);
   }
+  $(document).keypress(function(event) {
+    if (event.keyCode == 'd'.charCodeAt(0) ||
+        event.keyCode == 'D'.charCodeAt(0)) {
+      g.globals.showRT = (g.globals.showRT + 1) % 4;
+    }
+  });
 
   initialize();
 });
@@ -657,7 +697,7 @@ $(function(){
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </div>
 </body>
-<script id="textureVertexShader" type="text/something-not-javascript">
+<script id="rtVertexShader" type="text/something-not-javascript">
 attribute vec4 position;
 attribute vec2 texCoord;
 uniform mat4 worldViewProjection;
@@ -667,12 +707,14 @@ void main() {
   v_texCoord = texCoord;
 }
 </script>
-<script id="textureFragmentShader" type="text/something-not-javascript">
+<script id="rtFragmentShader" type="text/something-not-javascript">
 precision highp float;
 varying vec2 v_texCoord;
+uniform float mixAmount;
 uniform sampler2D texture;
 void main() {
-  gl_FragColor = texture2D(texture, v_texCoord);
+  vec4 color = texture2D(texture, v_texCoord);
+  gl_FragColor = vec4(mix(color.rgb, color.aaa, mixAmount), 1);
 }
 </script>
 <script id="grassVertexShader" type="text/something-not-javascript">

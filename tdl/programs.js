@@ -328,15 +328,22 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
     }
   }
 
+  var textures = {};
+
   for (var ii = 0; ii < numUniforms; ++ii) {
     var info = gl.getActiveUniform(program, ii);
     name = info.name;
     if (tdl.string.endsWith(name, "[0]")) {
       name = name.substr(0, name.length - 3);
     }
-    uniforms[name] = createUniformSetter(info);
+    var setter = createUniformSetter(info);
+    uniforms[name] = setter;
+    if (info.type == gl.SAMPLER_2D || info.type == gl.SAMPLER_CUBE) {
+      textures[name] = setter;
+    }
   }
 
+  this.textures = textures;
   this.program = program;
   this.attrib = attribs;
   this.attribLoc = attribLocs;
