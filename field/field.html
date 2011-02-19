@@ -587,17 +587,37 @@ function initialize() {
     dofPlane.draw(dofPer);
 
     if (g.globals.showRT) {
-      gl.clearColor(0,1,0,1);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      rtPlane.drawPrep({
-        worldViewProjection: [2,0,0,0,0,2,0,0,0,0,1,0,0,0,0,1],
-        mixAmount: g.globals.showRT == 3 ? 1 : 0
-        });
-      rtPlane.draw({}, {
-          texture: g.globals.showRT == 1 ?
-              verticalBlurFBO.texture :
-              mainFBO.texture
+      if (g.globals.showRT == 4) {
+        rtPlane.drawPrep({});
+        rtPlane.draw({
+            worldViewProjection: [0.5,0,0,0,0,0.5,0,0,0,0,1,0,-0.6,0,0,1],
+            mixAmount: 0,
+          }, {
+            texture: verticalBlurFBO.texture
           });
+        rtPlane.draw({
+            worldViewProjection: [0.5,0,0,0,0,0.5,0,0,0,0,1,0,-0.0,0,0,1],
+            mixAmount: 0,
+          }, {
+            texture: mainFBO.texture
+          });
+        rtPlane.draw({
+            worldViewProjection: [0.5,0,0,0,0,0.5,0,0,0,0,1,0,0.6,0,0,1],
+            mixAmount: 1,
+          }, {
+            texture: mainFBO.texture
+          });
+      } else {
+        rtPlane.drawPrep({});
+        rtPlane.draw({
+            worldViewProjection: [2,0,0,0,0,2,0,0,0,0,1,0,0,0,0,1],
+            mixAmount: g.globals.showRT == 3 ? 1 : 0,
+          }, {
+            texture: g.globals.showRT == 1 ?
+                verticalBlurFBO.texture :
+                mainFBO.texture
+          });
+      }
     }
 
     // Set the alpha to 255.
@@ -667,7 +687,7 @@ $(function(){
   $(document).keypress(function(event) {
     if (event.keyCode == 'd'.charCodeAt(0) ||
         event.keyCode == 'D'.charCodeAt(0)) {
-      g.globals.showRT = (g.globals.showRT + 1) % 4;
+      g.globals.showRT = (g.globals.showRT + 1) % 5;
     }
   });
 

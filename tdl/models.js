@@ -97,12 +97,12 @@ tdl.models.Model.prototype.setBuffers = function(arrays) {
  * Sets up the shared parts of drawing this model. Uses the
  * program, binds the buffers, sets the textures.
  *
- * @param {!Object.<string, *>} uniforms An object of names to
+ * @param {!Object.<string, *>} opt_uniforms An object of names to
  *     values to set on this models uniforms.
  * @param {!Object.<string, *>} opt_textures An object of names to
  *     textures to set on this models uniforms.
  */
-tdl.models.Model.prototype.drawPrep = function(uniforms, opt_textures) {
+tdl.models.Model.prototype.drawPrep = function(opt_uniforms, opt_textures) {
   var program = this.program;
   var buffers = this.buffers;
   var textures = this.textures;
@@ -134,8 +134,10 @@ tdl.models.Model.prototype.drawPrep = function(uniforms, opt_textures) {
     }
   }
 
-  for (var uniform in uniforms) {
-    program.setUniform(uniform, uniforms[uniform]);
+  if (opt_uniforms) {
+    for (var uniform in opt_uniforms) {
+      program.setUniform(uniform, opt_uniforms[uniform]);
+    }
   }
 };
 
@@ -145,15 +147,17 @@ tdl.models.Model.prototype.drawPrep = function(uniforms, opt_textures) {
  * After calling tdl.models.Model.drawPrep you can call this
  * function multiple times to draw this model.
  *
- * @param {!Object.<string, *>} uniforms An object of names to
+ * @param {!Object.<string, *>} opt_uniforms An object of names to
  *     values to set on this models uniforms.
  * @param {!Object.<string, *>} opt_textures An object of names to
  *     textures to set on this models uniforms.
  */
-tdl.models.Model.prototype.draw = function(uniforms, opt_textures) {
+tdl.models.Model.prototype.draw = function(opt_uniforms, opt_textures) {
   var program = this.program;
-  for (uniform in uniforms) {
-    program.setUniform(uniform, uniforms[uniform]);
+  if (opt_uniforms) {
+    for (uniform in opt_uniforms) {
+      program.setUniform(uniform, opt_uniforms[uniform]);
+    }
   }
 
   if (opt_textures) {
