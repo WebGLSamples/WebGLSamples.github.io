@@ -191,28 +191,6 @@ div.title {
     gl_FragColor = color;
   }
 </script>
-<script id="skyboxOtherVertexShader" type="text/something-not-javascript">
-attribute vec4 position;
-varying vec4 v_position;
-void main() {
-  v_position = position;
-  gl_Position = position;
-}
-</script>
-<script id="skyboxOtherFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision highp float;
-#endif
-uniform samplerCube skybox;
-uniform mat4 viewProjectionInverse;
-varying vec4 v_position;
-void main() {
-  vec4 t = viewProjectionInverse * v_position;
-  gl_FragColor = textureCube(
-      skybox,
-      normalize(t.xyz / t.w));
-}
-</script>
 
 </head>
 <body>
