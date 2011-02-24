@@ -905,10 +905,10 @@ void main() {
 precision highp float;
 #endif
 uniform samplerCube skybox;
-uniform mat4 viewProjectionInverse;
+uniform mat4 viewDirectionProjectionInverse;
 varying vec4 v_position;
 void main() {
-  vec4 t = viewProjectionInverse * v_position;
+  vec4 t = viewDirectionProjectionInverse * v_position;
   gl_FragColor = textureCube(
       skybox,
       normalize(t.xyz));

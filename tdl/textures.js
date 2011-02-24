@@ -182,8 +182,12 @@ tdl.textures.Texture2D = function(url, opt_flipY) {
   } else {
     img = document.createElement('img');
     img.onload = function() {
+      //tdl.log("loaded image: ", url);
       that.updateTexture();
-    }
+    };
+    img.onerror = function() {
+      tdl.log("could not load image: ", url);
+    };
   }
   this.img = img;
   this.uploadTexture();
@@ -320,9 +324,15 @@ tdl.textures.CubeMap = function(urls) {
       face.img = img;
       img.onload = function(faceIndex) {
         return function() {
+          //tdl.log("loaded image: ", urls[faceIndex]);
           that.updateTexture(faceIndex);
         }
       } (ff);
+      img.onerror = function(url) {
+        return function() {
+          tdl.log("could not load image: ", url);
+        }
+      }(urls[ff]);
       img.src = urls[ff];
     }
   }

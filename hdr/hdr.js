@@ -201,6 +201,31 @@ function setupSkybox() {
 }
 */
 
+var g_skyBoxUrls2 = [
+  '../fishtank/assets/lobby/right.jpg',
+  '../fishtank/assets/lobby/left.jpg',
+  '../fishtank/assets/lobby/up.jpg',
+  '../fishtank/assets/lobby/down.jpg',
+  '../fishtank/assets/lobby/front.jpg',
+  '../fishtank/assets/lobby/back.jpg'];
+
+function setupSkyboxOther() {
+  var textures = {
+    skybox: tdl.textures.loadTexture(g_skyBoxUrls2)};
+  var program = tdl.programs.loadProgramFromScriptTags(
+    'skyboxOtherVertexShader',
+    'skyboxOtherFragmentShader');
+  var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
+  delete arrays['normal'];
+  delete arrays['texCoord'];
+  tdl.primitives.reorient(arrays,
+      [1, 0, 0, 0,
+       0, 0, 1, 0,
+       0,-1, 0, 0,
+       0, 0, 0.99, 1]);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
 function setupSkybox() {
   var reflectionMap = new HDRCubeMap(
     ["assets/grace_cross_mmp-posx.bin",
@@ -265,9 +290,10 @@ var HDRDemo = function() {
   var floatBackbuffer = new tdl.framebuffers.Float32Framebuffer(canvas.width, canvas.height, true);
 
   var skybox = setupSkybox();
+  var skybox2 = setupSkyboxOther();
 
   this.render = function(time) {
-    
+
     backbuffer.bind();
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -292,36 +318,44 @@ var HDRDemo = function() {
     // m4.inverse(viewInverse, view);
     m4.inverse(viewProjectionInverse, viewProjection);
     m4.mul(worldViewProjection, world, viewProjection);
-    
-    gl.frontFace(gl.CW);
-    gl.disable(gl.DEPTH_TEST);
+
+//    gl.frontFace(gl.CW);
+//    gl.disable(gl.DEPTH_TEST);
 
     // Draw the skybox.
     var skyConst = {
       u_worldViewProjection: worldViewProjection,
     };
     var skyPer = {};
-    skybox.drawPrep(skyConst);
-    skybox.draw(skyPer);
+//    skybox.drawPrep(skyConst);
+//    skybox.draw(skyPer);
 
-    gl.frontFace(gl.CCW);
-    gl.enable(gl.DEPTH_TEST);
-
-    var uniformsConst = {
-      u_worldViewProjection: worldViewProjection,
-      u_worldView: worldView,
-      u_world: world,
-      // u_lightDir: [-1.0, 1.0, 1.0],
-      // u_lightColor: [0.8, 0.7, 0.6, 1.0],
-      u_irradianceMap: irradianceMap,
+    var skyConst2 = {
+      viewProjectionInverse: viewProjectionInverse
     };
-    var uniformsPer = {};
+    gl.clearColor(0,0,0,1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BIT);
+    skybox2.drawPrep(skyConst2);
+    skybox2.draw();
 
-    for (var ii = 0; ii < this.models.length; ++ii) {
-      var model = this.models[0];
-      model.drawPrep(uniformsConst);
-      model.draw(uniformsPer);
-    }
+//    gl.frontFace(gl.CCW);
+//    gl.enable(gl.DEPTH_TEST);
+//
+//    var uniformsConst = {
+//      u_worldViewProjection: worldViewProjection,
+//      u_worldView: worldView,
+//      u_world: world,
+//      // u_lightDir: [-1.0, 1.0, 1.0],
+//      // u_lightColor: [0.8, 0.7, 0.6, 1.0],
+//      u_irradianceMap: irradianceMap,
+//    };
+//    var uniformsPer = {};
+//
+//    for (var ii = 0; ii < this.models.length; ++ii) {
+//      var model = this.models[0];
+//      model.drawPrep(uniformsConst);
+//      model.draw(uniformsPer);
+//    }
   };
 };
 
