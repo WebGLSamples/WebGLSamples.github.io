@@ -1,0 +1,199 @@
+<!--
+ * Copyright 2010, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+  "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>WebGL High Dynamic Range Demo</title>
+<style>
+body {
+  width: 100%;
+  height: 100%;
+  border: 0px;
+  padding: 0px;
+  margin: 0px;
+  background-color: white;
+}
+canvas {
+  background-color: red;
+}
+canvas.invisible {
+  display: none;
+}
+#controls {
+  z-index: 2;
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  background-color: #FFEE99;
+  display: table;
+}
+#beat {
+  display: table-cell;
+  font-family: sans-serif;
+  margin: 4px;
+  padding: 4px;
+  border-width: 1px;
+  vertical-align: middle;
+}
+#viewContainer {
+  width: 100%;
+  height: 100%;
+}
+.fpsContainer {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  color: gray;
+  font-family: sans-serif;
+  background-color: rgba(0,0,0,0.5);
+  border-radius: 10px;
+  padding: 10px;
+}
+div.title {
+  font-weight: bold;
+}
+</style>
+<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript" src="hdr.js"></script>
+
+<!----- Skybox shaders ----->
+
+<script id="skyboxVertexShader" type="text/something-not-javascript">
+  attribute vec3 position;
+  uniform mat4 u_worldViewProjection;
+
+  varying vec3 v_texCoord;
+  void main() {
+    // Transform vertex as a vector, not a point.
+    vec4 hPos = vec4(position, 0.0);
+    // Set the z and w components equal to put the vertex at the far clip plane.
+    gl_Position = (u_worldViewProjection * hPos).xyww;
+    v_texCoord = position.xyz;
+  }
+</script>
+
+<script id="skyboxFragmentShader" type="text/something-not-javascript">
+  #ifdef GL_ES
+  precision mediump float;
+  #endif
+  uniform samplerCube u_skybox;
+  varying vec3 v_texCoord;
+  void main() {
+    gl_FragColor = textureCube(u_skybox, v_texCoord);
+  }
+</script>
+
+<!----- Diffuse shader (testing purposes only, currently unused) ----->
+
+<script id="diffuseVertexShader" type="text/something-not-javascript">
+  attribute vec3 position;
+  attribute vec3 normal;
+  attribute vec4 color;
+
+  uniform mat4 u_worldViewProjection;
+  uniform mat4 u_worldView;
+  uniform mat4 u_world;
+
+  varying vec4 v_color;
+  varying vec3 v_normal;
+  varying vec3 v_eyeDir;
+
+  void main(void) {
+    v_color = color;
+    v_normal = (u_world * vec4(normalize(normal), 0.0)).xyz;
+    v_eyeDir = -normalize((u_worldView * vec4(position, 1.0)).xyz);
+    gl_Position = u_worldViewProjection * vec4(position, 1.0);
+  }
+</script>
+<script id="diffuseFragmentShader" type="text/something-not-javascript">
+  #ifdef GL_ES
+  precision highp float;
+  #endif
+  varying vec4 v_color;
+  varying vec3 v_normal;
+  uniform vec3 u_lightDir;
+  uniform vec4 u_lightColor;
+  varying vec3 v_eyeDir;
+  void main(void) {
+    float light = max(0.0, dot(normalize(u_lightDir), v_normal));
+    float glare = max(0.0, dot(v_normal, normalize(v_eyeDir + u_lightDir)));
+    glare = glare*glare;
+    glare = glare*glare;
+    glare = glare*glare;
+    glare = glare*glare;
+    glare = glare*glare;
+    glare = glare*glare;
+    vec4 ambient = v_color;
+    // Gamma correction approximation (sqrt)
+    vec4 finalColor = sqrt(ambient + light * u_lightColor + glare);
+    finalColor.w = 1.0;
+    gl_FragColor = finalColor;
+  }
+</script>
+
+<!----- Irradiance shader ----->
+
+<script id="irradianceVertexShader" type="text/something-not-javascript">
+  attribute vec3 position;
+  attribute vec3 normal;
+
+  uniform mat4 u_world;
+  uniform mat4 u_worldViewProjection;
+
+  varying vec3 v_normal;
+
+  void main(void) {
+    v_normal = (u_world * vec4(normalize(normal), 0.0)).xyz;
+    gl_Position = u_worldViewProjection * vec4(position, 1.0);
+  }
+</script>
+
+<script id="irradianceFragmentShader" type="text/something-not-javascript">
+  #ifdef GL_ES
+  precision highp float;
+  #endif
+  varying vec3 v_normal;
+  uniform samplerCube u_irradianceMap;
+  void main(void) {
+    vec3 normal = normalize(v_normal);
+    vec4 color = textureCube(u_irradianceMap, normal);
+    gl_FragColor = color;
+  }
+</script>
+
+</head>
+<body>
+<canvas id="canvas" width="1024" height="1024"></canvas>
+</body>
+</html>
