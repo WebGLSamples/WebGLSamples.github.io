@@ -61,14 +61,14 @@ function main() {
 
   gl.useProgram(program);
   var positionLocation = gl.getAttribLocation(program, "position");
-  gl.enableVertexAttribArray(0);
+  gl.enableVertexAttribArray(positionLocation);
   gl.vertexAttribPointer(
-      0,        // index
-      3,        // number of components per element)
-      gl.FLOAT, // type of data
-      false,    // normalized
-      0,        // stride
-      0);       // offset
+      positionLocation,  // index
+      3,                 // number of components per element
+      gl.FLOAT,          // type of data
+      false,             // normalized
+      0,                 // stride
+      0);                // offset
 
   gl.drawElements(
       gl.LINES,           // what to draw
