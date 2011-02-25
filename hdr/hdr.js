@@ -174,7 +174,6 @@ HDRCubeMap.prototype.update_ = function() {
 /**
  * Sets up the Skybox
  */
-/*
 function setupSkybox() {
   var reflectionMap = new HDRCubeMap(
     ["assets/grace_cross_mmp-posx.bin",
@@ -199,34 +198,6 @@ function setupSkybox() {
        0, 0, 0.99, 1]);
   return new tdl.models.Model(program, arrays, textures);
 }
-*/
-
-function setupSkybox() {
-  var reflectionMap = new HDRCubeMap(
-    ["assets/grace_cross_mmp-posx.bin",
-     "assets/grace_cross_mmp-negx.bin",
-     "assets/grace_cross_mmp-posy.bin",
-     "assets/grace_cross_mmp-negy.bin",
-     "assets/grace_cross_mmp-posz.bin",
-     "assets/grace_cross_mmp-negz.bin"]);
-  var textures = {
-    u_skybox: reflectionMap
-  };
-  var program = tdl.programs.loadProgramFromScriptTags(
-    'skyboxVertexShader',
-    'skyboxFragmentShader');
-  var arrays = tdl.primitives.createCube(2);
-  delete arrays['normal'];
-  delete arrays['texCoord'];
-  /*
-  tdl.primitives.reorient(arrays,
-      [1, 0, 0, 0,
-       0, 0, 1, 0,
-       0,-1, 0, 0,
-       0, 0, 0.99, 1]);
-  */
-  return new tdl.models.Model(program, arrays, textures);
-}
 
 //----------------------------------------------------------------------
 
@@ -241,9 +212,10 @@ var HDRDemo = function() {
 
   var worldView = new Float32Array(16);
   var viewProjection = new Float32Array(16);
-  var viewInverse = new Float32Array(16);
-  var viewProjectionInverse = new Float32Array(16);
+  var viewDirectionProjectionInverse = new Float32Array(16);
   var worldViewProjection = new Float32Array(16);
+  var m4t0 = new Float32Array(16);
+  var m4t1 = new Float32Array(16);
 
   this.models = [];
 
@@ -289,23 +261,23 @@ var HDRDemo = function() {
       up);
     m4.mul(viewProjection, view, projection);
     m4.identity(world);
-    // m4.inverse(viewInverse, view);
-    m4.inverse(viewProjectionInverse, viewProjection);
     m4.mul(worldViewProjection, world, viewProjection);
+    m4.copy(m4t0, view);
+    m4.setTranslation(m4t0, [0, 0, 0]);
+    m4.mul(m4t1, m4t0, projection);
+    m4.inverse(viewDirectionProjectionInverse, m4t1);
     
-    gl.frontFace(gl.CW);
-    gl.disable(gl.DEPTH_TEST);
+    gl.depthMask(false);
 
     // Draw the skybox.
     var skyConst = {
-      u_worldViewProjection: worldViewProjection,
+      u_viewDirectionProjectionInverse: viewDirectionProjectionInverse,
     };
     var skyPer = {};
     skybox.drawPrep(skyConst);
     skybox.draw(skyPer);
 
-    gl.frontFace(gl.CCW);
-    gl.enable(gl.DEPTH_TEST);
+    gl.depthMask(true);
 
     var uniformsConst = {
       u_worldViewProjection: worldViewProjection,

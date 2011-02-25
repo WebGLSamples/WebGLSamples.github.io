@@ -90,28 +90,27 @@ div.title {
 <!----- Skybox shaders ----->
 
 <script id="skyboxVertexShader" type="text/something-not-javascript">
-  attribute vec3 position;
-  uniform mat4 u_worldViewProjection;
-
-  varying vec3 v_texCoord;
-  void main() {
-    // Transform vertex as a vector, not a point.
-    vec4 hPos = vec4(position, 0.0);
-    // Set the z and w components equal to put the vertex at the far clip plane.
-    gl_Position = (u_worldViewProjection * hPos).xyww;
-    v_texCoord = position.xyz;
-  }
+attribute vec4 position;
+varying vec4 v_position;
+void main() {
+  v_position = position;
+  gl_Position = position;
+}
 </script>
 
 <script id="skyboxFragmentShader" type="text/something-not-javascript">
-  #ifdef GL_ES
-  precision mediump float;
-  #endif
-  uniform samplerCube u_skybox;
-  varying vec3 v_texCoord;
-  void main() {
-    gl_FragColor = textureCube(u_skybox, v_texCoord);
-  }
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform samplerCube u_skybox;
+uniform mat4 u_viewDirectionProjectionInverse;
+varying vec4 v_position;
+void main() {
+  vec4 t = u_viewDirectionProjectionInverse * v_position;
+  gl_FragColor = textureCube(
+      u_skybox,
+      normalize(t.xyz / t.w));
+}
 </script>
 
 <!----- Diffuse shader (testing purposes only, currently unused) ----->
