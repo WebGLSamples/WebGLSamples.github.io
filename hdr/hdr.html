@@ -84,7 +84,9 @@ div.title {
   font-weight: bold;
 }
 </style>
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript" src="jshashtable-2.1.js"></script>
 <script type="text/javascript" src="hdr.js"></script>
 
 <!----- Skybox shaders ----->
@@ -99,9 +101,8 @@ void main() {
 </script>
 
 <script id="skyboxFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
 precision highp float;
-#endif
+
 uniform samplerCube u_skybox;
 uniform mat4 u_viewDirectionProjectionInverse;
 varying vec4 v_position;
@@ -116,79 +117,114 @@ void main() {
 <!----- Diffuse shader (testing purposes only, currently unused) ----->
 
 <script id="diffuseVertexShader" type="text/something-not-javascript">
-  attribute vec3 position;
-  attribute vec3 normal;
-  attribute vec4 color;
+attribute vec3 position;
+attribute vec3 normal;
+attribute vec4 color;
 
-  uniform mat4 u_worldViewProjection;
-  uniform mat4 u_worldView;
-  uniform mat4 u_world;
+uniform mat4 u_worldViewProjection;
+uniform mat4 u_worldView;
+uniform mat4 u_world;
 
-  varying vec4 v_color;
-  varying vec3 v_normal;
-  varying vec3 v_eyeDir;
+varying vec4 v_color;
+varying vec3 v_normal;
+varying vec3 v_eyeDir;
 
-  void main(void) {
-    v_color = color;
-    v_normal = (u_world * vec4(normalize(normal), 0.0)).xyz;
-    v_eyeDir = -normalize((u_worldView * vec4(position, 1.0)).xyz);
-    gl_Position = u_worldViewProjection * vec4(position, 1.0);
-  }
+void main(void) {
+  v_color = color;
+  v_normal = (u_world * vec4(normalize(normal), 0.0)).xyz;
+  v_eyeDir = -normalize((u_worldView * vec4(position, 1.0)).xyz);
+  gl_Position = u_worldViewProjection * vec4(position, 1.0);
+}
 </script>
 <script id="diffuseFragmentShader" type="text/something-not-javascript">
-  #ifdef GL_ES
-  precision highp float;
-  #endif
-  varying vec4 v_color;
-  varying vec3 v_normal;
-  uniform vec3 u_lightDir;
-  uniform vec4 u_lightColor;
-  varying vec3 v_eyeDir;
-  void main(void) {
-    float light = max(0.0, dot(normalize(u_lightDir), v_normal));
-    float glare = max(0.0, dot(v_normal, normalize(v_eyeDir + u_lightDir)));
-    glare = glare*glare;
-    glare = glare*glare;
-    glare = glare*glare;
-    glare = glare*glare;
-    glare = glare*glare;
-    glare = glare*glare;
-    vec4 ambient = v_color;
-    // Gamma correction approximation (sqrt)
-    vec4 finalColor = sqrt(ambient + light * u_lightColor + glare);
-    finalColor.w = 1.0;
-    gl_FragColor = finalColor;
-  }
+precision highp float;
+
+varying vec4 v_color;
+varying vec3 v_normal;
+uniform vec3 u_lightDir;
+uniform vec4 u_lightColor;
+varying vec3 v_eyeDir;
+void main(void) {
+  float light = max(0.0, dot(normalize(u_lightDir), v_normal));
+  float glare = max(0.0, dot(v_normal, normalize(v_eyeDir + u_lightDir)));
+  glare = glare*glare;
+  glare = glare*glare;
+  glare = glare*glare;
+  glare = glare*glare;
+  glare = glare*glare;
+  glare = glare*glare;
+  vec4 ambient = v_color;
+  // Gamma correction approximation (sqrt)
+  vec4 finalColor = sqrt(ambient + light * u_lightColor + glare);
+  finalColor.w = 1.0;
+  gl_FragColor = finalColor;
+}
 </script>
 
 <!----- Irradiance shader ----->
 
 <script id="irradianceVertexShader" type="text/something-not-javascript">
-  attribute vec3 position;
-  attribute vec3 normal;
+attribute vec3 position;
+attribute vec3 normal;
 
-  uniform mat4 u_world;
-  uniform mat4 u_worldViewProjection;
+uniform mat4 u_world;
+uniform mat4 u_worldViewProjection;
 
-  varying vec3 v_normal;
+varying vec3 v_normal;
 
-  void main(void) {
-    v_normal = (u_world * vec4(normalize(normal), 0.0)).xyz;
-    gl_Position = u_worldViewProjection * vec4(position, 1.0);
-  }
+void main(void) {
+  v_normal = (u_world * vec4(normalize(normal), 0.0)).xyz;
+  gl_Position = u_worldViewProjection * vec4(position, 1.0);
+}
 </script>
 
 <script id="irradianceFragmentShader" type="text/something-not-javascript">
-  #ifdef GL_ES
-  precision highp float;
-  #endif
-  varying vec3 v_normal;
-  uniform samplerCube u_irradianceMap;
-  void main(void) {
-    vec3 normal = normalize(v_normal);
-    vec4 color = textureCube(u_irradianceMap, normal);
-    gl_FragColor = color;
-  }
+precision highp float;
+
+varying vec3 v_normal;
+uniform samplerCube u_irradianceMap;
+void main(void) {
+  vec3 normal = normalize(v_normal);
+  vec4 color = textureCube(u_irradianceMap, normal);
+  gl_FragColor = color;
+}
+</script>
+
+<!----- HDRPipeline vertex shader ----->
+
+<script id="hdrPipelineVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+varying vec2 v_texCoord;
+void main() {
+  v_texCoord = (position.xy + 1.0) * 0.5;
+  gl_Position = position;
+}
+</script>
+
+<!----- Various pipeline stages' fragment shaders ---->
+<script id="toneMappingShader" type="text/something-not-javascript">
+precision mediump float;
+
+varying vec2 v_texCoord;
+uniform sampler2D u_source;
+uniform sampler2D u_gammaTexture;
+uniform float u_exposure;
+
+void main() {
+  vec4 c = texture2D(u_source, v_texCoord) * u_exposure;
+
+  // FIXME: figure out why the gamma lookup texture is behaving so badly
+#if 0
+  float r = texture2D(u_gammaTexture, vec2(c.r, 0.5)).r;
+  float g = texture2D(u_gammaTexture, vec2(c.g, 0.5)).r;
+  float b = texture2D(u_gammaTexture, vec2(c.b, 0.5)).r;
+#else
+  float r = pow(c.r, 1.0 / 2.2);
+  float g = pow(c.g, 1.0 / 2.2);
+  float b = pow(c.b, 1.0 / 2.2);
+#endif
+  gl_FragColor = vec4(r, g, b, 1.0);
+}
 </script>
 
 </head>

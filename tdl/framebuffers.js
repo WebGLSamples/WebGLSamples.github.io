@@ -109,8 +109,9 @@ tdl.framebuffers.Framebuffer.prototype.unbind = function() {
 tdl.framebuffers.Framebuffer.prototype.recoverFromLostContext = function() {
   var tex = new tdl.textures.SolidTexture([0,0,0,0]);
   this.initializeTexture(tex);  
+  var db = null;
   if (this.depth) {
-    var db = gl.createRenderbuffer();
+    db = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER, db);
     gl.renderbufferStorage(
         gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, this.width, this.height);

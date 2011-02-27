@@ -27,6 +27,8 @@ var then = 0.0;
 var frameCount = 0;
 var totalFrameCount = 0;
 
+var exposure = 1.0;
+
 function getScriptText(id) {
   //tdl.log("loading: ", id);
   var elem = document.getElementById(id);
@@ -36,12 +38,58 @@ function getScriptText(id) {
   return elem.text;
 }
 
+function loadShader(shaderSource, shaderType) {
+  // Create the shader object
+  var shader = gl.createShader(shaderType);
+  if (shader == null) {
+    throw "Error: unable to create shader";
+  }
+
+  // Load the shader source
+  gl.shaderSource(shader, shaderSource);
+
+  // Compile the shader
+  gl.compileShader(shader);
+
+  // Check the compile status
+  var compiled = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+  if (!compiled) {
+    // Something went wrong during compilation; get the error
+    lastError = gl.getShaderInfoLog(shader);
+    gl.deleteShader(shader);
+    throw "Error compiling shader '" + shaderSource + "': " + lastError;
+  }
+
+  return shader;
+}
+
 function createProgramFromTags(
     vertexTagId,
     fragmentTagId) {
   return tdl.programs.loadProgram(
     getScriptText(vertexTagId), getScriptText(fragmentTagId));
 }
+
+function keyPressHandler(e) {
+  switch (e.which) {
+  case 187: // '=', '+'
+    if (e.shiftKey) {
+      exposure += 1.0;
+    } else {
+      exposure *= 2;
+    }
+    break;
+  case 189: // '-', '_'
+    if (e.shiftKey) {
+      exposure -= 1.0;
+    } else {
+      exposure *= 0.5;
+    }
+    break;
+  }
+}
+
+$(document).keydown(keyPressHandler);
 
 function initializeGraphics() {
   canvas = document.getElementById('canvas');
@@ -54,6 +102,14 @@ function initializeGraphics() {
     alert("This demo requires the OES_texture_float extension");
     return false;
   }
+
+/*
+  canvas.onmousedown = function(e) {
+    console.log("mousedown");
+    canvas.focus();
+  };
+  canvas.onkeypress = keyPressHandler;
+*/
 
   aspect = canvas.clientWidth / canvas.clientHeight;
 
@@ -201,6 +257,300 @@ function setupSkybox() {
 
 //----------------------------------------------------------------------
 
+var HDREffect = function(pipeline, opt_fragmentShader) {
+  this.pipeline_ = pipeline;
+  this.inputs_ = [];
+  this.textureUniformLocations_ = [];
+  this.outputTexture_ = null;
+
+  if (opt_fragmentShader) {
+    var program = gl.createProgram();
+    gl.attachShader(program, pipeline.vertexShader());
+
+    var frag = loadShader(opt_fragmentShader, gl.FRAGMENT_SHADER);
+    gl.attachShader(program, frag);
+    pipeline.bindAttribLocations(program);
+    gl.linkProgram(program);
+    var linked = gl.getProgramParameter(program, gl.LINK_STATUS);
+    if (!linked) {
+      // something went wrong with the link
+      var error = gl.getProgramInfoLog(program);
+      throw "Error in program linking:" + error;
+    }
+    this.program_ = program;
+  }
+};
+
+HDREffect.prototype.outputSize = function() {
+  // By default, make our output size the same as the first input's size.
+  return this.inputs_[0].outputSize();
+};
+
+HDREffect.prototype.textureType = function() {
+  return gl.FLOAT;
+};
+
+HDREffect.prototype.addInput = function(effect, uniformName) {
+  this.inputs_.push(effect);
+  this.textureUniformLocations_.push(gl.getUniformLocation(this.program_, uniformName));
+};
+
+HDREffect.prototype.bindProgram = function() {
+  gl.useProgram(this.program_);
+};
+
+HDREffect.prototype.inputs = function() {
+  return this.inputs_;
+};
+
+HDREffect.prototype.textureUniformLocations = function() {
+  return this.textureUniformLocations_;
+};
+
+// Returns null if the effect is supposed to render to the back buffer.
+HDREffect.prototype.lockOutputTexture = function() {
+  if (!this.outputTexture_) {
+    this.outputTexture_ = this.pipeline_.lockTemporaryTexture(this);
+  }
+  return this.outputTexture_;
+};
+
+HDREffect.prototype.unlockOutputTexture = function() {
+  this.pipeline_.releaseTemporaryTexture(this, this.outputTexture_);
+  this.outputTexture_ = null;
+}
+
+//----------------------------------------------------------------------
+
+var TextureInputEffect = function(pipeline, texture) {
+  HDREffect.call(this, pipeline, null);
+  this.texture_ = texture;
+};
+
+tdl.base.inherit(TextureInputEffect, HDREffect);
+
+TextureInputEffect.prototype.outputSize = function() {
+  // Assumes expando properties "width" and "height" on texture object.
+  return [ this.texture_.width, this.texture_.height ];
+}
+
+TextureInputEffect.prototype.lockOutputTexture = function() {
+  return this.texture_;
+};
+
+TextureInputEffect.prototype.unlockOutputTexture = function() {
+};
+
+//----------------------------------------------------------------------
+
+var ToneMappingEffect = function(pipeline, gammaSize, gamma) {
+  HDREffect.call(this, pipeline, getScriptText("toneMappingShader"));
+  this.gammaSize_ = gammaSize;
+  this.gammaTexture_ = this.createGammaTexture_(gammaSize, gamma);
+  this.exposureLoc_ = gl.getUniformLocation(this.program_, "u_exposure");
+  this.gammaTextureLoc_ = gl.getUniformLocation(this.program_, "u_gammaTexture");
+};
+
+tdl.base.inherit(ToneMappingEffect, HDREffect);
+
+ToneMappingEffect.prototype.bindProgram = function() {
+  HDREffect.prototype.bindProgram.call(this);
+  // FIXME: figure out why the gamma lookup texture is behaving so badly
+  // gl.uniform1f(this.exposureLoc_, exposure / this.gammaSize_);
+  gl.uniform1f(this.exposureLoc_, exposure);
+  this.pipeline_.setAuxiliaryTextures(this, [
+    { location: this.gammaTextureLoc_,
+      texture: this.gammaTexture_ }
+  ]);
+
+
+  // FIXME: delegate to the Pipeline to hook up auxiliary textures?
+//  var numInputs = 
+//  gl.activeTexture
+
+//  gl.uniform1f(this.exposureLoc_, this.exposure_);
+
+  // FIXME: hook up the gamma texture and exposure
+};
+
+ToneMappingEffect.prototype.lockOutputTexture = function() {
+  return null;
+};
+
+ToneMappingEffect.prototype.unlockOutputTexture = function() {
+};
+
+ToneMappingEffect.prototype.createGammaTexture_ = function(size, gamma) {
+  var data = new Float32Array(4 * size);
+  for (var ii = 0; ii < size; ++ii) {
+    var x = (1.0 * ii) / size;
+    data[4 * ii + 0] = Math.pow(x, gamma);
+    // console.log("x = " + x + " Math.pow(x, gamma) = " + data[4 * ii + 0]);
+    data[4 * ii + 1] = 0.0;
+    data[4 * ii + 2] = 0.0;
+    data[4 * ii + 3] = 0.0;
+  }
+  var texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, 1, 0, gl.RGBA, gl.FLOAT, data);
+  return texture;
+};
+
+//----------------------------------------------------------------------
+
+
+var HDRPipeline = function(backbuffer) {
+  this.backbuffer_ = backbuffer;
+  this.fbo_ = gl.createFramebuffer();
+
+  var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
+  delete arrays['normal'];
+  delete arrays['texCoord'];
+  tdl.primitives.reorient(arrays,
+      [1, 0, 0, 0,
+       0, 0, 1, 0,
+       0,-1, 0, 0,
+       0, 0, 0.99, 1]);
+  this.vertexBuffer_ = new tdl.buffers.Buffer(arrays['position'], gl.ARRAY_BUFFER);
+  this.indexBuffer_ = new tdl.buffers.Buffer(arrays['indices'], gl.ELEMENT_ARRAY_BUFFER);
+
+  this.vertexShader_ = loadShader(getScriptText("hdrPipelineVertexShader"), gl.VERTEX_SHADER);
+  var arrayHash = function arrayHash(arg) {
+    return arg[0] * 31 + arg[1];
+  }
+
+  var arrayEquals = function arrayEquals(arg1, arg2) {
+    return arg1[0] = arg2[0] && arg1[1] == arg2[1];
+  }
+  this.textureCaches_ = [];
+  this.textureCaches_[gl.FLOAT] = new Hashtable(arrayHash, arrayEquals);
+  this.textureCaches_[gl.UNSIGNED_BYTE] = new Hashtable(arrayHash, arrayEquals);
+
+  this.outputEffect_ = null;
+};
+
+HDRPipeline.prototype.vertexShader = function() {
+  return this.vertexShader_;
+};
+
+HDRPipeline.prototype.bindAttribLocations = function(program) {
+  gl.bindAttribLocation(program, "position", 0);
+};
+
+HDRPipeline.prototype.setAuxiliaryTextures = function(effect, texturesAndLocations) {
+  var baseTextureUnit = effect.textureUniformLocations().length;
+//  console.log("Base texture unit = " + baseTextureUnit);
+  for (var ii = 0; ii < texturesAndLocations.length; ++ii) {
+    gl.activeTexture(gl.TEXTURE0 + baseTextureUnit + ii);
+    gl.bindTexture(texturesAndLocations[ii].texture);
+    gl.uniform1i(texturesAndLocations[ii].location, ii);
+//    console.log("Binding texture " + texturesAndLocations[ii].texture + " to texture unit " + (baseTextureUnit + ii));
+  }
+};
+
+HDRPipeline.prototype.setOutputEffect = function(effect) {
+  this.outputEffect_ = effect;
+};
+
+HDRPipeline.prototype.outputEffect = function() {
+  return this.outputEffect_;
+};
+
+HDRPipeline.prototype.run = function() {
+  gl.bindFramebuffer(this.fbo_);
+  var b = this.vertexBuffer_;
+  gl.bindBuffer(gl.ARRAY_BUFFER, b.buffer());
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer_.buffer());
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, b.numComponents(), b.type(), b.normalize(), b.stride(), b.offset());
+  gl.disable(gl.DEPTH_TEST);
+
+  if (this.outputEffect_) {
+    this.renderEffect_(this.outputEffect_);
+  }
+};
+
+HDRPipeline.prototype.renderEffect_ = function(effect) {
+  var inputs = effect.inputs();
+
+  // Effects that don't have any inputs simply supply an output texture.
+  if (!inputs || !inputs.length) {
+    return;
+  }
+
+  // Our traversal order guarantees that all the inputs have been produced.
+  var inputTextures = new Array(inputs.length);
+  for (var ii = 0; ii < inputs.length; ++ii) {
+    this.renderEffect_(inputs[ii]);
+    inputTextures[ii] = inputs[ii].lockOutputTexture();
+  }
+  effect.bindProgram();
+  var textureUniformLocations = effect.textureUniformLocations();
+  for (var ii = 0; ii < textureUniformLocations.length; ++ii) {
+    gl.activeTexture(gl.TEXTURE0 + ii);
+    gl.bindTexture(gl.TEXTURE_2D, inputTextures[ii]);
+    gl.uniform1i(textureUniformLocations[ii], ii);
+  }
+  var outputTexture = effect.lockOutputTexture();
+  // If the effect doesn't produce an output texture, then we're
+  // supposed to render it to the real back buffer.
+  if (outputTexture) {
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, outputTexture, 0);
+  } else {
+    this.backbuffer_.bind();
+  }
+  // Draw the single quad.
+  gl.drawElements(gl.TRIANGLES, this.indexBuffer_.totalComponents(), gl.UNSIGNED_SHORT);
+  // Unlock the input textures.
+  for (var ii = 0; ii < inputs.length; ++ii) {
+    inputs[ii].unlockOutputTexture();
+  }
+  // We leave the output's texture locked.
+};
+
+HDRPipeline.prototype.lockTemporaryTexture = function(effect) {
+  var textureBucket = this.textureBucket_(effect);
+  var texture = null;
+  if (textureBucket.length > 0) {
+    texture = textureBucket.splice(-1, 1);
+  }
+  if (!texture) {
+    texture = gl.createTexture();
+    gl.bind(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size[0], size[1], 0, gl.RGBA,
+                  effect.textureType(), null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    texture.width = size[0];
+    texture.height = size[1];
+  }
+  return texture;
+};
+
+HDRPipeline.prototype.releaseTemporaryTexture = function(effect, texture) {
+  var textureBucket = this.textureBucket_(effect);
+  textureBucket.splice(textureBucket.length - 1, 0, texture);
+};
+
+HDRPipeline.prototype.textureBucket_ = function(effect) {
+  var textureCache = this.textureCaches_[effect.textureType()];
+  var size = effect.outputSize();
+  var textureBucket = textureCache.get(size);
+  if (!textureBucket) {
+    textureBucket = [];
+    textureCache.put(size, textureBucket);
+  }
+  return textureBucket;
+};
+
+//----------------------------------------------------------------------
+
 var HDRDemo = function() {
   var eyePosition = new Float32Array(3);
   var target = new Float32Array(3);
@@ -235,13 +585,29 @@ var HDRDemo = function() {
   var backbuffer = tdl.framebuffers.getBackBuffer(canvas);
 
   var floatBackbuffer = new tdl.framebuffers.Float32Framebuffer(canvas.width, canvas.height, true);
+  // Hack the texture inside this framebuffer to have the expando
+  // properties the HDRPipeline requires.
+  var floatBackbufferTexture = floatBackbuffer.texture.texture;
+  floatBackbufferTexture.width = canvas.width;
+  floatBackbufferTexture.height = canvas.height;
 
   var skybox = setupSkybox();
 
+  var pipeline = new HDRPipeline(backbuffer);
+  var source = new TextureInputEffect(pipeline, floatBackbufferTexture);
+  var toneMapping = new ToneMappingEffect(pipeline, 1024, 1.0 / 2.2);
+  toneMapping.addInput(source, "source");
+  pipeline.setOutputEffect(toneMapping);
+
   this.render = function(time) {
     
-    backbuffer.bind();
+    // backbuffer.bind();
+    floatBackbuffer.bind();
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    // Bug in OS X graphics drivers? This re-enabling after binding
+    // the auxiliary back buffer should not be necessary.
+    gl.enable(gl.DEPTH_TEST);
 
     var eyeRadius = 100.0;
     var eyeHeight = 30.0;
@@ -294,6 +660,8 @@ var HDRDemo = function() {
       model.drawPrep(uniformsConst);
       model.draw(uniformsPer);
     }
+
+    pipeline.run();
   };
 };
 
