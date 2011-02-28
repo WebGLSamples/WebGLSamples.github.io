@@ -213,8 +213,7 @@ uniform float u_exposure;
 void main() {
   vec4 c = texture2D(u_source, v_texCoord) * u_exposure;
 
-  // FIXME: figure out why the gamma lookup texture is behaving so badly
-#if 0
+#if 1
   float r = texture2D(u_gammaTexture, vec2(c.r, 0.5)).r;
   float g = texture2D(u_gammaTexture, vec2(c.g, 0.5)).r;
   float b = texture2D(u_gammaTexture, vec2(c.b, 0.5)).r;

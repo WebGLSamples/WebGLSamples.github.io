@@ -103,14 +103,6 @@ function initializeGraphics() {
     return false;
   }
 
-/*
-  canvas.onmousedown = function(e) {
-    console.log("mousedown");
-    canvas.focus();
-  };
-  canvas.onkeypress = keyPressHandler;
-*/
-
   aspect = canvas.clientWidth / canvas.clientHeight;
 
   // Set some sane defaults.
@@ -355,22 +347,11 @@ tdl.base.inherit(ToneMappingEffect, HDREffect);
 
 ToneMappingEffect.prototype.bindProgram = function() {
   HDREffect.prototype.bindProgram.call(this);
-  // FIXME: figure out why the gamma lookup texture is behaving so badly
-  // gl.uniform1f(this.exposureLoc_, exposure / this.gammaSize_);
   gl.uniform1f(this.exposureLoc_, exposure);
   this.pipeline_.setAuxiliaryTextures(this, [
     { location: this.gammaTextureLoc_,
       texture: this.gammaTexture_ }
   ]);
-
-
-  // FIXME: delegate to the Pipeline to hook up auxiliary textures?
-//  var numInputs = 
-//  gl.activeTexture
-
-//  gl.uniform1f(this.exposureLoc_, this.exposure_);
-
-  // FIXME: hook up the gamma texture and exposure
 };
 
 ToneMappingEffect.prototype.lockOutputTexture = function() {
@@ -381,14 +362,12 @@ ToneMappingEffect.prototype.unlockOutputTexture = function() {
 };
 
 ToneMappingEffect.prototype.createGammaTexture_ = function(size, gamma) {
-  var data = new Float32Array(4 * size);
+  var data = new Float32Array(3 * size);
   for (var ii = 0; ii < size; ++ii) {
-    var x = (1.0 * ii) / size;
-    data[4 * ii + 0] = Math.pow(x, gamma);
-    // console.log("x = " + x + " Math.pow(x, gamma) = " + data[4 * ii + 0]);
-    data[4 * ii + 1] = 0.0;
-    data[4 * ii + 2] = 0.0;
-    data[4 * ii + 3] = 0.0;
+    var x = (1.0 * ii) / (size - 1);
+    data[3 * ii + 0] = Math.pow(x, gamma);
+    data[3 * ii + 1] = 0.0;
+    data[3 * ii + 2] = 0.0;
   }
   var texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -396,7 +375,7 @@ ToneMappingEffect.prototype.createGammaTexture_ = function(size, gamma) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, 1, 0, gl.RGBA, gl.FLOAT, data);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, size, 1, 0, gl.RGB, gl.FLOAT, data);
   return texture;
 };
 
@@ -443,12 +422,10 @@ HDRPipeline.prototype.bindAttribLocations = function(program) {
 
 HDRPipeline.prototype.setAuxiliaryTextures = function(effect, texturesAndLocations) {
   var baseTextureUnit = effect.textureUniformLocations().length;
-//  console.log("Base texture unit = " + baseTextureUnit);
   for (var ii = 0; ii < texturesAndLocations.length; ++ii) {
     gl.activeTexture(gl.TEXTURE0 + baseTextureUnit + ii);
-    gl.bindTexture(texturesAndLocations[ii].texture);
-    gl.uniform1i(texturesAndLocations[ii].location, ii);
-//    console.log("Binding texture " + texturesAndLocations[ii].texture + " to texture unit " + (baseTextureUnit + ii));
+    gl.bindTexture(gl.TEXTURE_2D, texturesAndLocations[ii].texture);
+    gl.uniform1i(texturesAndLocations[ii].location, baseTextureUnit + ii);
   }
 };
 
@@ -519,6 +496,7 @@ HDRPipeline.prototype.lockTemporaryTexture = function(effect) {
     texture = textureBucket.splice(-1, 1);
   }
   if (!texture) {
+    var size = effect.outputSize();
     texture = gl.createTexture();
     gl.bind(gl.TEXTURE_2D, texture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size[0], size[1], 0, gl.RGBA,
@@ -601,7 +579,6 @@ var HDRDemo = function() {
 
   this.render = function(time) {
     
-    // backbuffer.bind();
     floatBackbuffer.bind();
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
