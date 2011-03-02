@@ -98,7 +98,7 @@ function initializeGraphics() {
   if (!gl) {
     return false;
   }
-  gl = tdl.webgl.makeDebugContext(gl);
+//  gl = tdl.webgl.makeDebugContext(gl);
 
   if (!gl.getExtension("OES_texture_float")) {
     alert("This demo requires the OES_texture_float extension");
@@ -259,7 +259,8 @@ var HDREffect = function(pipeline, opt_fragmentShader) {
 
   if (opt_fragmentShader) {
     var program = gl.createProgram();
-    gl.attachShader(program, pipeline.vertexShader());
+    var vert = pipeline.vertexShader();
+    gl.attachShader(program, vert);
 
     var frag = loadShader(opt_fragmentShader, gl.FRAGMENT_SHADER);
     gl.attachShader(program, frag);
@@ -271,8 +272,15 @@ var HDREffect = function(pipeline, opt_fragmentShader) {
       var error = gl.getProgramInfoLog(program);
       throw "Error in program linking:" + error;
     }
+    gl.deleteShader(vert);
+    gl.deleteShader(frag);
+
     this.program_ = program;
   }
+};
+
+HDREffect.prototype.name = function() {
+  return "HDREffect";
 };
 
 HDREffect.prototype.outputSize = function() {
@@ -323,6 +331,10 @@ var TextureInputEffect = function(pipeline, texture) {
 
 tdl.base.inherit(TextureInputEffect, HDREffect);
 
+TextureInputEffect.prototype.name = function() {
+  return "TextureInputEffect";
+};
+
 TextureInputEffect.prototype.outputSize = function() {
   // Assumes expando properties "width" and "height" on texture object.
   return [ this.texture_.width, this.texture_.height ];
@@ -339,12 +351,15 @@ TextureInputEffect.prototype.unlockOutputTexture = function() {
 
 var ScaleDownEffect = function(pipeline, source) {
   var code = this.generateCode_(this.halveSize_(source.outputSize()));
-  console.log(code);
   HDREffect.call(this, pipeline, code);
   this.addInput_(source, "u_source");
 };
 
 tdl.base.inherit(ScaleDownEffect, HDREffect);
+
+ScaleDownEffect.prototype.name = function() {
+  return "ScaleDownEffect";
+};
 
 ScaleDownEffect.prototype.outputSize = function() {
   var sourceSize = this.inputs()[0].outputSize();
@@ -363,10 +378,15 @@ ScaleDownEffect.prototype.generateCode_ = function(textureSize) {
   code.push("varying vec2 v_texCoord;");
   code.push("uniform sampler2D u_source;");
   code.push("void main() {");
-  code.push("  vec4 c0 = texture2D(u_source, v_texCoord);");
-  code.push("  vec4 c1 = texture2D(u_source, v_texCoord + vec2(" + horizTexelOffset + ", 0.0));");
-  code.push("  vec4 c2 = texture2D(u_source, v_texCoord + vec2(0.0, " + vertTexelOffset + "));");
-  code.push("  vec4 c3 = texture2D(u_source, v_texCoord + vec2(" + horizTexelOffset + ", " + vertTexelOffset + "));");
+  // FIXME: why is this scaling necessary? We should be mapping view
+  // coordinates ((-1, -1), (1, 1)) to ((0, 0), (1, 1)) in the vertex
+  // shader and sampling the higher-resolution texture with normal
+  // texture coordinates.
+  code.push("  vec2 texCoord = v_texCoord * 2.0;");
+  code.push("  vec4 c0 = texture2D(u_source, texCoord);");
+  code.push("  vec4 c1 = texture2D(u_source, texCoord + vec2(" + horizTexelOffset + ", 0.0));");
+  code.push("  vec4 c2 = texture2D(u_source, texCoord + vec2(0.0, " + vertTexelOffset + "));");
+  code.push("  vec4 c3 = texture2D(u_source, texCoord + vec2(" + horizTexelOffset + ", " + vertTexelOffset + "));");
   code.push("  gl_FragColor = 0.25 * (c0 + c1 + c2 + c3);");
   code.push("}");
   return code.join("\n");
@@ -385,6 +405,10 @@ var BlurEffect = function(pipeline, source, vertical) {
 };
 
 tdl.base.inherit(BlurEffect, HDREffect);
+
+BlurEffect.prototype.name = function() {
+  return "BlurEffect";
+};
 
 BlurEffect.prototype.generateBlurCode_ = function(numTaps, vertical, textureSize) {
   var code = [];
@@ -450,6 +474,10 @@ var ToneMappingEffect = function(pipeline, mainTexture, gammaSize, gamma, blurTe
 
 tdl.base.inherit(ToneMappingEffect, HDREffect);
 
+ToneMappingEffect.prototype.name = function() {
+  return "ToneMappingEffect";
+};
+
 ToneMappingEffect.prototype.bindProgram = function() {
   HDREffect.prototype.bindProgram.call(this);
   gl.uniform1f(this.exposureLoc_, exposure);
@@ -503,7 +531,6 @@ var HDRPipeline = function(backbuffer) {
   this.vertexBuffer_ = new tdl.buffers.Buffer(arrays['position'], gl.ARRAY_BUFFER);
   this.indexBuffer_ = new tdl.buffers.Buffer(arrays['indices'], gl.ELEMENT_ARRAY_BUFFER);
 
-  this.vertexShader_ = loadShader(getScriptText("hdrPipelineVertexShader"), gl.VERTEX_SHADER);
   var arrayHash = function arrayHash(arg) {
     return arg[0] * 31 + arg[1];
   }
@@ -519,7 +546,7 @@ var HDRPipeline = function(backbuffer) {
 };
 
 HDRPipeline.prototype.vertexShader = function() {
-  return this.vertexShader_;
+  return loadShader(getScriptText("hdrPipelineVertexShader"), gl.VERTEX_SHADER);
 };
 
 HDRPipeline.prototype.bindAttribLocations = function(program) {
@@ -552,6 +579,8 @@ HDRPipeline.prototype.run = function() {
   gl.vertexAttribPointer(0, b.numComponents(), b.type(), b.normalize(), b.stride(), b.offset());
   gl.disable(gl.DEPTH_TEST);
 
+//  console.log("HDRPipeline");
+
   if (this.outputEffect_) {
     this.renderEffect_(this.outputEffect_);
   }
@@ -562,6 +591,7 @@ HDRPipeline.prototype.renderEffect_ = function(effect) {
 
   // Effects that don't have any inputs simply supply an output texture.
   if (!inputs || !inputs.length) {
+//    console.log("Executing no-input effect " + effect.name());
     return;
   }
 
@@ -571,6 +601,9 @@ HDRPipeline.prototype.renderEffect_ = function(effect) {
     this.renderEffect_(inputs[ii]);
     inputTextures[ii] = inputs[ii].lockOutputTexture();
   }
+
+//  console.log("Executing effect " + effect.name());
+
   effect.bindProgram();
   var textureUniformLocations = effect.textureUniformLocations();
   for (var ii = 0; ii < textureUniformLocations.length; ++ii) {
@@ -683,8 +716,6 @@ var HDRDemo = function() {
 //  var vertBlur = new BlurEffect(pipeline, scaleDown, true);
 //  var horizBlur = new BlurEffect(pipeline, vertBlur, false);
 //  var toneMapping = new ToneMappingEffect(pipeline, source, 1024, 1.0 / 2.2, horizBlur, 0.5);
-  // FIXME: figure out why the scale-down operation is only collecting
-  // the lower-left quadrant
   var toneMapping = new ToneMappingEffect(pipeline, source, 1024, 1.0 / 2.2, scaleDown, 0.5);
   pipeline.setOutputEffect(toneMapping);
 
