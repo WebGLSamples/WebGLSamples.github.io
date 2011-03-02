@@ -28,6 +28,7 @@ var frameCount = 0;
 var totalFrameCount = 0;
 
 var exposure = 1.0;
+var blurSize = 3;
 
 function getScriptText(id) {
   //tdl.log("loading: ", id);
@@ -97,6 +98,7 @@ function initializeGraphics() {
   if (!gl) {
     return false;
   }
+  gl = tdl.webgl.makeDebugContext(gl);
 
   if (!gl.getExtension("OES_texture_float")) {
     alert("This demo requires the OES_texture_float extension");
@@ -282,11 +284,6 @@ HDREffect.prototype.textureType = function() {
   return gl.FLOAT;
 };
 
-HDREffect.prototype.addInput = function(effect, uniformName) {
-  this.inputs_.push(effect);
-  this.textureUniformLocations_.push(gl.getUniformLocation(this.program_, uniformName));
-};
-
 HDREffect.prototype.bindProgram = function() {
   gl.useProgram(this.program_);
 };
@@ -312,6 +309,11 @@ HDREffect.prototype.unlockOutputTexture = function() {
   this.outputTexture_ = null;
 }
 
+HDREffect.prototype.addInput_ = function(effect, uniformName) {
+  this.inputs_.push(effect);
+  this.textureUniformLocations_.push(gl.getUniformLocation(this.program_, uniformName));
+};
+
 //----------------------------------------------------------------------
 
 var TextureInputEffect = function(pipeline, texture) {
@@ -335,12 +337,115 @@ TextureInputEffect.prototype.unlockOutputTexture = function() {
 
 //----------------------------------------------------------------------
 
-var ToneMappingEffect = function(pipeline, gammaSize, gamma) {
+var ScaleDownEffect = function(pipeline, source) {
+  var code = this.generateCode_(this.halveSize_(source.outputSize()));
+  console.log(code);
+  HDREffect.call(this, pipeline, code);
+  this.addInput_(source, "u_source");
+};
+
+tdl.base.inherit(ScaleDownEffect, HDREffect);
+
+ScaleDownEffect.prototype.outputSize = function() {
+  var sourceSize = this.inputs()[0].outputSize();
+  return this.halveSize_(sourceSize);
+};
+
+ScaleDownEffect.prototype.halveSize_ = function(size) {
+  return [ size[0] / 2, size[1] / 2 ];
+};
+
+ScaleDownEffect.prototype.generateCode_ = function(textureSize) {
+  var code = [];
+  var horizTexelOffset = 1.0 / textureSize[0];
+  var vertTexelOffset = 1.0 / textureSize[1];
+  code.push("precision mediump float;");
+  code.push("varying vec2 v_texCoord;");
+  code.push("uniform sampler2D u_source;");
+  code.push("void main() {");
+  code.push("  vec4 c0 = texture2D(u_source, v_texCoord);");
+  code.push("  vec4 c1 = texture2D(u_source, v_texCoord + vec2(" + horizTexelOffset + ", 0.0));");
+  code.push("  vec4 c2 = texture2D(u_source, v_texCoord + vec2(0.0, " + vertTexelOffset + "));");
+  code.push("  vec4 c3 = texture2D(u_source, v_texCoord + vec2(" + horizTexelOffset + ", " + vertTexelOffset + "));");
+  code.push("  gl_FragColor = 0.25 * (c0 + c1 + c2 + c3);");
+  code.push("}");
+  return code.join("\n");
+};
+
+//----------------------------------------------------------------------
+
+function gaussian(x, s) {
+  return Math.exp(-x * x / (2 * s * s)) / (s * Math.sqrt(2 * Math.PI));
+}
+
+var BlurEffect = function(pipeline, source, vertical) {
+  var code = this.generateBlurCode_(blurSize, vertical, source.outputSize());
+  HDREffect.call(this, pipeline, code);
+  this.addInput_(source, "u_source");
+};
+
+tdl.base.inherit(BlurEffect, HDREffect);
+
+BlurEffect.prototype.generateBlurCode_ = function(numTaps, vertical, textureSize) {
+  var code = [];
+  var horizTexelOffset = 1.0 / textureSize[0];
+  var vertTexelOffset = 1.0 / textureSize[1];
+  code.push("precision mediump float;");
+  code.push("varying vec2 v_texCoord;");
+  code.push("uniform sampler2D u_source;");
+  code.push("void main() {");
+  code.push("  vec4 sum, temp1, temp2;");
+  var sum = 0;
+  for (var ii = -numTaps; ii <= numTaps; ii += 2) {
+    sum += gaussian(3.0 * ii / numTaps, 1.0);
+  }
+  for (var ii = -numTaps; ii <= numTaps; ii += 2) {
+    var weight = gaussian(3.0 * ii / numTaps, 1.0) / sum;
+    var weight2 = gaussian(3.0 * (ii + 1) / numTaps, 1.0) / sum;
+
+    var xOffset, yOffset, xOffset2, yOffset2;
+    if (vertical) {
+      xOffset = xOffset2 = 0;
+      yOffset = ii * vertTexelOffset;
+      yOffset2 = (ii + 1) * vertTexelOffset;
+    } else {
+      xOffset = ii * horizTexelOffset;
+      xOffset2 = (ii + 1) * horizTexelOffset;
+      yOffset = yOffset2 = 0;
+    }
+
+    code.push("  temp1 = texture2D(u_source, v_texCoord + vec2(" + xOffset + ", " + yOffset + "));");
+    if (ii + 1 <= numTaps) {
+      code.push("  temp2 = texture2D(u_source, v_texCoord + vec2(" + xOffset2 + ", " + yOffset2 + "));");
+    }
+    if (ii == -numTaps) {
+      // First sample.
+      code.push("  sum = temp1 * " + weight + ";");
+      code.push("  sum += temp2 * " + weight2 + ";");
+    } else {
+      code.push("  sum += temp1 * " + weight + ";");
+      if (ii + 1 <= numTaps) {
+        code.push("  sum += temp2 * " + weight2 + ";");
+      }
+    }
+  }
+  code.push("  gl_FragColor = sum;");
+  code.push("}");
+  return code.join("\n");
+};
+
+//----------------------------------------------------------------------
+
+var ToneMappingEffect = function(pipeline, mainTexture, gammaSize, gamma, blurTexture, blurAmount) {
   HDREffect.call(this, pipeline, getScriptText("toneMappingShader"));
   this.gammaSize_ = gammaSize;
+  this.blurAmount_ = blurAmount;
   this.gammaTexture_ = this.createGammaTexture_(gammaSize, gamma);
   this.exposureLoc_ = gl.getUniformLocation(this.program_, "u_exposure");
+  this.blurAmountLoc_ = gl.getUniformLocation(this.program_, "u_blurAmount");
   this.gammaTextureLoc_ = gl.getUniformLocation(this.program_, "u_gammaTexture");
+  this.addInput_(mainTexture, "u_source");
+  this.addInput_(blurTexture, "u_blurred");
 };
 
 tdl.base.inherit(ToneMappingEffect, HDREffect);
@@ -348,6 +453,7 @@ tdl.base.inherit(ToneMappingEffect, HDREffect);
 ToneMappingEffect.prototype.bindProgram = function() {
   HDREffect.prototype.bindProgram.call(this);
   gl.uniform1f(this.exposureLoc_, exposure);
+  gl.uniform1f(this.blurAmountLoc_, this.blurAmount_);
   this.pipeline_.setAuxiliaryTextures(this, [
     { location: this.gammaTextureLoc_,
       texture: this.gammaTexture_ }
@@ -438,7 +544,7 @@ HDRPipeline.prototype.outputEffect = function() {
 };
 
 HDRPipeline.prototype.run = function() {
-  gl.bindFramebuffer(this.fbo_);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo_);
   var b = this.vertexBuffer_;
   gl.bindBuffer(gl.ARRAY_BUFFER, b.buffer());
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer_.buffer());
@@ -481,7 +587,7 @@ HDRPipeline.prototype.renderEffect_ = function(effect) {
     this.backbuffer_.bind();
   }
   // Draw the single quad.
-  gl.drawElements(gl.TRIANGLES, this.indexBuffer_.totalComponents(), gl.UNSIGNED_SHORT);
+  gl.drawElements(gl.TRIANGLES, this.indexBuffer_.totalComponents(), gl.UNSIGNED_SHORT, 0);
   // Unlock the input textures.
   for (var ii = 0; ii < inputs.length; ++ii) {
     inputs[ii].unlockOutputTexture();
@@ -493,12 +599,12 @@ HDRPipeline.prototype.lockTemporaryTexture = function(effect) {
   var textureBucket = this.textureBucket_(effect);
   var texture = null;
   if (textureBucket.length > 0) {
-    texture = textureBucket.splice(-1, 1);
+    texture = textureBucket.splice(-1, 1)[0];
   }
   if (!texture) {
     var size = effect.outputSize();
     texture = gl.createTexture();
-    gl.bind(gl.TEXTURE_2D, texture);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size[0], size[1], 0, gl.RGBA,
                   effect.textureType(), null);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -513,7 +619,7 @@ HDRPipeline.prototype.lockTemporaryTexture = function(effect) {
 
 HDRPipeline.prototype.releaseTemporaryTexture = function(effect, texture) {
   var textureBucket = this.textureBucket_(effect);
-  textureBucket.splice(textureBucket.length - 1, 0, texture);
+  textureBucket.push(texture);
 };
 
 HDRPipeline.prototype.textureBucket_ = function(effect) {
@@ -573,8 +679,13 @@ var HDRDemo = function() {
 
   var pipeline = new HDRPipeline(backbuffer);
   var source = new TextureInputEffect(pipeline, floatBackbufferTexture);
-  var toneMapping = new ToneMappingEffect(pipeline, 1024, 1.0 / 2.2);
-  toneMapping.addInput(source, "source");
+  var scaleDown = new ScaleDownEffect(pipeline, source);
+//  var vertBlur = new BlurEffect(pipeline, scaleDown, true);
+//  var horizBlur = new BlurEffect(pipeline, vertBlur, false);
+//  var toneMapping = new ToneMappingEffect(pipeline, source, 1024, 1.0 / 2.2, horizBlur, 0.5);
+  // FIXME: figure out why the scale-down operation is only collecting
+  // the lower-left quadrant
+  var toneMapping = new ToneMappingEffect(pipeline, source, 1024, 1.0 / 2.2, scaleDown, 0.5);
   pipeline.setOutputEffect(toneMapping);
 
   this.render = function(time) {
@@ -582,8 +693,8 @@ var HDRDemo = function() {
     floatBackbuffer.bind();
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    // Bug in OS X graphics drivers? This re-enabling after binding
-    // the auxiliary back buffer should not be necessary.
+    // Bug in Mac OS X graphics drivers? This re-enabling after
+    // binding the auxiliary back buffer should not be necessary.
     gl.enable(gl.DEPTH_TEST);
 
     var eyeRadius = 100.0;

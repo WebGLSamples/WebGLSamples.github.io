@@ -207,11 +207,15 @@ precision mediump float;
 
 varying vec2 v_texCoord;
 uniform sampler2D u_source;
+uniform sampler2D u_blurred;
+uniform float u_blurAmount;
 uniform sampler2D u_gammaTexture;
 uniform float u_exposure;
 
 void main() {
-  vec4 c = texture2D(u_source, v_texCoord) * u_exposure;
+  vec4 c0 = texture2D(u_source, v_texCoord);
+  vec4 c1 = texture2D(u_blurred, v_texCoord);
+  vec4 c = mix(c0, c1, u_blurAmount) * u_exposure;
 
 #if 1
   float r = texture2D(u_gammaTexture, vec2(c.r, 0.5)).r;
