@@ -28,7 +28,7 @@ var frameCount = 0;
 var totalFrameCount = 0;
 
 var exposure = 1.0;
-var blurSize = 3;
+var blurSize = 7;
 
 function getScriptText(id) {
   //tdl.log("loading: ", id);
@@ -419,6 +419,8 @@ BlurEffect.prototype.generateBlurCode_ = function(numTaps, vertical, textureSize
   code.push("uniform sampler2D u_source;");
   code.push("void main() {");
   code.push("  vec4 sum, temp1, temp2;");
+  // FIXME: this rescaling is *definitely* not supposed to be necessary!
+  code.push("  vec2 texCoord = v_texCoord * 2.0;");
   var sum = 0;
   for (var ii = -numTaps; ii <= numTaps; ii += 2) {
     sum += gaussian(3.0 * ii / numTaps, 1.0);
@@ -438,9 +440,9 @@ BlurEffect.prototype.generateBlurCode_ = function(numTaps, vertical, textureSize
       yOffset = yOffset2 = 0;
     }
 
-    code.push("  temp1 = texture2D(u_source, v_texCoord + vec2(" + xOffset + ", " + yOffset + "));");
+    code.push("  temp1 = texture2D(u_source, texCoord + vec2(" + xOffset + ", " + yOffset + "));");
     if (ii + 1 <= numTaps) {
-      code.push("  temp2 = texture2D(u_source, v_texCoord + vec2(" + xOffset2 + ", " + yOffset2 + "));");
+      code.push("  temp2 = texture2D(u_source, texCoord + vec2(" + xOffset2 + ", " + yOffset2 + "));");
     }
     if (ii == -numTaps) {
       // First sample.
@@ -713,10 +715,11 @@ var HDRDemo = function() {
   var pipeline = new HDRPipeline(backbuffer);
   var source = new TextureInputEffect(pipeline, floatBackbufferTexture);
   var scaleDown = new ScaleDownEffect(pipeline, source);
-//  var vertBlur = new BlurEffect(pipeline, scaleDown, true);
-//  var horizBlur = new BlurEffect(pipeline, vertBlur, false);
-//  var toneMapping = new ToneMappingEffect(pipeline, source, 1024, 1.0 / 2.2, horizBlur, 0.5);
-  var toneMapping = new ToneMappingEffect(pipeline, source, 1024, 1.0 / 2.2, scaleDown, 0.5);
+  var vertBlur = new BlurEffect(pipeline, scaleDown, true);
+  var horizBlur = new BlurEffect(pipeline, vertBlur, false);
+  var toneMapping = new ToneMappingEffect(pipeline, source, 1024, 1.0 / 2.2, horizBlur, 0.2);
+//  var toneMapping = new ToneMappingEffect(pipeline, source, 1024, 1.0 / 2.2, vertBlur, 0.5);
+//  var toneMapping = new ToneMappingEffect(pipeline, source, 1024, 1.0 / 2.2, scaleDown, 0.5);
   pipeline.setOutputEffect(toneMapping);
 
   this.render = function(time) {
