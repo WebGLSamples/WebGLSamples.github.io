@@ -527,7 +527,7 @@ var HDRPipeline = function(backbuffer) {
       [1, 0, 0, 0,
        0, 0, 1, 0,
        0,-1, 0, 0,
-       0, 0, 0.99, 1]);
+       0, 0, 0, 1]);
   this.vertexBuffer_ = new tdl.buffers.Buffer(arrays['position'], gl.ARRAY_BUFFER);
   this.indexBuffer_ = new tdl.buffers.Buffer(arrays['indices'], gl.ELEMENT_ARRAY_BUFFER);
 
