@@ -378,15 +378,10 @@ ScaleDownEffect.prototype.generateCode_ = function(textureSize) {
   code.push("varying vec2 v_texCoord;");
   code.push("uniform sampler2D u_source;");
   code.push("void main() {");
-  // FIXME: why is this scaling necessary? We should be mapping view
-  // coordinates ((-1, -1), (1, 1)) to ((0, 0), (1, 1)) in the vertex
-  // shader and sampling the higher-resolution texture with normal
-  // texture coordinates.
-  code.push("  vec2 texCoord = v_texCoord * 2.0;");
-  code.push("  vec4 c0 = texture2D(u_source, texCoord);");
-  code.push("  vec4 c1 = texture2D(u_source, texCoord + vec2(" + horizTexelOffset + ", 0.0));");
-  code.push("  vec4 c2 = texture2D(u_source, texCoord + vec2(0.0, " + vertTexelOffset + "));");
-  code.push("  vec4 c3 = texture2D(u_source, texCoord + vec2(" + horizTexelOffset + ", " + vertTexelOffset + "));");
+  code.push("  vec4 c0 = texture2D(u_source, v_texCoord);");
+  code.push("  vec4 c1 = texture2D(u_source, v_texCoord + vec2(" + horizTexelOffset + ", 0.0));");
+  code.push("  vec4 c2 = texture2D(u_source, v_texCoord + vec2(0.0, " + vertTexelOffset + "));");
+  code.push("  vec4 c3 = texture2D(u_source, v_texCoord + vec2(" + horizTexelOffset + ", " + vertTexelOffset + "));");
   code.push("  gl_FragColor = 0.25 * (c0 + c1 + c2 + c3);");
   code.push("}");
   return code.join("\n");
@@ -419,8 +414,6 @@ BlurEffect.prototype.generateBlurCode_ = function(numTaps, vertical, textureSize
   code.push("uniform sampler2D u_source;");
   code.push("void main() {");
   code.push("  vec4 sum, temp1, temp2;");
-  // FIXME: this rescaling is *definitely* not supposed to be necessary!
-  code.push("  vec2 texCoord = v_texCoord * 2.0;");
   var sum = 0;
   for (var ii = -numTaps; ii <= numTaps; ii += 2) {
     sum += gaussian(3.0 * ii / numTaps, 1.0);
@@ -440,9 +433,9 @@ BlurEffect.prototype.generateBlurCode_ = function(numTaps, vertical, textureSize
       yOffset = yOffset2 = 0;
     }
 
-    code.push("  temp1 = texture2D(u_source, texCoord + vec2(" + xOffset + ", " + yOffset + "));");
+    code.push("  temp1 = texture2D(u_source, v_texCoord + vec2(" + xOffset + ", " + yOffset + "));");
     if (ii + 1 <= numTaps) {
-      code.push("  temp2 = texture2D(u_source, texCoord + vec2(" + xOffset2 + ", " + yOffset2 + "));");
+      code.push("  temp2 = texture2D(u_source, v_texCoord + vec2(" + xOffset2 + ", " + yOffset2 + "));");
     }
     if (ii == -numTaps) {
       // First sample.
@@ -581,6 +574,8 @@ HDRPipeline.prototype.run = function() {
   gl.vertexAttribPointer(0, b.numComponents(), b.type(), b.normalize(), b.stride(), b.offset());
   gl.disable(gl.DEPTH_TEST);
 
+  this.viewport_ = [0, 0];
+
 //  console.log("HDRPipeline");
 
   if (this.outputEffect_) {
@@ -618,6 +613,7 @@ HDRPipeline.prototype.renderEffect_ = function(effect) {
   // supposed to render it to the real back buffer.
   if (outputTexture) {
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, outputTexture, 0);
+    this.resetViewport_(outputTexture.width, outputTexture.height);
   } else {
     this.backbuffer_.bind();
   }
@@ -655,6 +651,14 @@ HDRPipeline.prototype.lockTemporaryTexture = function(effect) {
 HDRPipeline.prototype.releaseTemporaryTexture = function(effect, texture) {
   var textureBucket = this.textureBucket_(effect);
   textureBucket.push(texture);
+};
+
+HDRPipeline.prototype.resetViewport_ = function(width, height) {
+  if (this.viewport_[0] != width || this.viewport_[1] != height) {
+    gl.viewport(0, 0, width, height);
+    this.viewport_[0] = width;
+    this.viewport_[1] = height;
+  }
 };
 
 HDRPipeline.prototype.textureBucket_ = function(effect) {
