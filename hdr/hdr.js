@@ -30,6 +30,12 @@ var totalFrameCount = 0;
 var exposure = 1.0;
 var blurSize = 7;
 
+var kMaxLocalSigma = 4.0;
+
+function makeInt(value) {
+  return value | 0;
+}
+
 function getScriptText(id) {
   //tdl.log("loading: ", id);
   var elem = document.getElementById(id);
@@ -37,6 +43,17 @@ function getScriptText(id) {
     throw 'no element: ' + id
   }
   return elem.text;
+}
+
+function allocate2DTexture(width, height, format, type) {
+  var texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, format, width, height, 0, format, type, null);
+  return texture;
 }
 
 function loadShader(shaderSource, shaderType) {
@@ -98,7 +115,7 @@ function initializeGraphics() {
   if (!gl) {
     return false;
   }
-//  gl = tdl.webgl.makeDebugContext(gl);
+  gl = tdl.webgl.makeDebugContext(gl);
 
   if (!gl.getExtension("OES_texture_float")) {
     alert("This demo requires the OES_texture_float extension");
@@ -251,7 +268,7 @@ function setupSkybox() {
 
 //----------------------------------------------------------------------
 
-var HDREffect = function(pipeline, opt_fragmentShader) {
+var HDREffect = function(pipeline, opt_fragmentShader, opt_vertexShader) {
   this.pipeline_ = pipeline;
   this.inputs_ = [];
   this.textureUniformLocations_ = [];
@@ -259,9 +276,12 @@ var HDREffect = function(pipeline, opt_fragmentShader) {
 
   if (opt_fragmentShader) {
     var program = gl.createProgram();
-    var vert = pipeline.vertexShader();
+    var vert;
+    if (!opt_vertexShader)
+      vert = pipeline.vertexShader();
+    else
+      vert = loadShader(opt_vertexShader, gl.VERTEX_SHADER);
     gl.attachShader(program, vert);
-
     var frag = loadShader(opt_fragmentShader, gl.FRAGMENT_SHADER);
     gl.attachShader(program, frag);
     pipeline.bindAttribLocations(program);
@@ -367,7 +387,7 @@ ScaleDownEffect.prototype.outputSize = function() {
 };
 
 ScaleDownEffect.prototype.halveSize_ = function(size) {
-  return [ size[0] / 2, size[1] / 2 ];
+  return [ makeInt(size[0] / 2), makeInt(size[1] / 2) ];
 };
 
 ScaleDownEffect.prototype.generateCode_ = function(textureSize) {
@@ -389,9 +409,18 @@ ScaleDownEffect.prototype.generateCode_ = function(textureSize) {
 
 //----------------------------------------------------------------------
 
-function gaussian(x, s) {
-  return Math.exp(-x * x / (2 * s * s)) / (s * Math.sqrt(2 * Math.PI));
-}
+var DiscardLDREffect = function(pipeline, texture) {
+  HDREffect.call(this, pipeline, getScriptText("discardLDRShader"));
+  this.addInput_(texture, "u_source");
+};
+
+tdl.base.inherit(DiscardLDREffect, HDREffect);
+
+DiscardLDREffect.prototype.name = function() {
+  return "DiscardLDREffect";
+};
+
+//----------------------------------------------------------------------
 
 var BlurEffect = function(pipeline, source, vertical) {
   var code = this.generateBlurCode_(blurSize, vertical, source.outputSize());
@@ -405,6 +434,27 @@ BlurEffect.prototype.name = function() {
   return "BlurEffect";
 };
 
+// We lop off the sqrt(2 * pi) * sigma term, since we're going to normalize
+// anyway.
+function gauss(x, sigma) {
+  return Math.exp(- (x * x) / (2.0 * sigma * sigma));
+}
+
+function buildKernel(sigma, kernelSize) {
+  var halfWidth = (kernelSize - 1) / 2;
+  var values = new Array(kernelSize);
+  var sum = 0.0;
+  for (i = 0; i < kernelSize; ++i) {
+    values[i] = gauss(i - halfWidth, sigma);
+    sum += values[i];
+  }
+  // Now normalize the kernel
+  for (i = 0; i < kernelSize; ++i) {
+    values[i] /= sum;
+  }
+  return values;
+}
+
 BlurEffect.prototype.generateBlurCode_ = function(numTaps, vertical, textureSize) {
   var code = [];
   var horizTexelOffset = 1.0 / textureSize[0];
@@ -413,45 +463,60 @@ BlurEffect.prototype.generateBlurCode_ = function(numTaps, vertical, textureSize
   code.push("varying vec2 v_texCoord;");
   code.push("uniform sampler2D u_source;");
   code.push("void main() {");
-  code.push("  vec4 sum, temp1, temp2;");
-  var sum = 0;
-  for (var ii = -numTaps; ii <= numTaps; ii += 2) {
-    sum += gaussian(3.0 * ii / numTaps, 1.0);
-  }
-  for (var ii = -numTaps; ii <= numTaps; ii += 2) {
-    var weight = gaussian(3.0 * ii / numTaps, 1.0) / sum;
-    var weight2 = gaussian(3.0 * (ii + 1) / numTaps, 1.0) / sum;
-
-    var xOffset, yOffset, xOffset2, yOffset2;
+  code.push("  vec4 sum;");
+  var kernel = buildKernel(kMaxLocalSigma, 2 * numTaps + 1);
+  for (var ii = -numTaps; ii <= numTaps; ++ii) {
+    var xOffset, yOffset;
     if (vertical) {
-      xOffset = xOffset2 = 0;
+      xOffset = 0;
       yOffset = ii * vertTexelOffset;
-      yOffset2 = (ii + 1) * vertTexelOffset;
     } else {
       xOffset = ii * horizTexelOffset;
-      xOffset2 = (ii + 1) * horizTexelOffset;
-      yOffset = yOffset2 = 0;
+      yOffset = 0;
     }
-
-    code.push("  temp1 = texture2D(u_source, v_texCoord + vec2(" + xOffset + ", " + yOffset + "));");
-    if (ii + 1 <= numTaps) {
-      code.push("  temp2 = texture2D(u_source, v_texCoord + vec2(" + xOffset2 + ", " + yOffset2 + "));");
-    }
+    var operator = "+=";
     if (ii == -numTaps) {
       // First sample.
-      code.push("  sum = temp1 * " + weight + ";");
-      code.push("  sum += temp2 * " + weight2 + ";");
-    } else {
-      code.push("  sum += temp1 * " + weight + ";");
-      if (ii + 1 <= numTaps) {
-        code.push("  sum += temp2 * " + weight2 + ";");
-      }
+      operator = "=";
     }
+    code.push("  sum " + operator + " texture2D(u_source, v_texCoord + vec2(" + xOffset + ", " + yOffset + ")) * " + kernel[ii + numTaps] + ";");
   }
   code.push("  gl_FragColor = sum;");
   code.push("}");
   return code.join("\n");
 };
+
+//----------------------------------------------------------------------
+
+var BicubicUpsamplingEffect = function(pipeline, texture, destinationWidth, destinationHeight) {
+  HDREffect.call(this, pipeline, getScriptText("bicubicUpsamplingShader"), getScriptText("bicubicUpsamplingVertexShader"));
+  // HDREffect.call(this, pipeline, getScriptText("bicubicUpsamplingShader"));
+  this.addInput_(texture, "u_source");
+  this.bindProgram();
+  var imageIncrementLoc = gl.getUniformLocation(this.program_, "u_imageIncrement");
+  var sourceSize = texture.outputSize();
+  console.log("Bicubic image increment is [" + 1.0 / sourceSize[0] + ", " + 1.0 / sourceSize[1] + "] (" + sourceSize[0] + " x " + sourceSize[1] + ")");
+  gl.uniform2f(imageIncrementLoc, 1.0 / sourceSize[0], 1.0 / sourceSize[1]);
+  var coefficientsLoc = gl.getUniformLocation(this.program_, "u_coefficients");
+  gl.uniformMatrix4fv(coefficientsLoc, false, [
+    0.0 / 18.0,   2.0 / 18.0,  14.0 / 18.0,  2.0 / 18.0,
+    0.0 / 18.0,   9.0 / 18.0,   0.0 / 18.0, -9.0 / 18.0,
+   -3.0 / 18.0,  18.0 / 18.0, -27.0 / 18.0, 12.0 / 18.0,
+    5.0 / 18.0, -15.0 / 18.0,  15.0 / 18.0, -5.0 / 18.0
+  ]);
+  this.outputSize_ = [ destinationWidth, destinationHeight ];
+};
+
+tdl.base.inherit(BicubicUpsamplingEffect, HDREffect);
+
+BicubicUpsamplingEffect.prototype.name = function() {
+  return "BicubicUpsamplingEffect";
+};
+
+BicubicUpsamplingEffect.prototype.outputSize = function() {
+  return this.outputSize_;
+};
+
 
 //----------------------------------------------------------------------
 
@@ -498,13 +563,8 @@ ToneMappingEffect.prototype.createGammaTexture_ = function(size, gamma) {
     data[3 * ii + 1] = 0.0;
     data[3 * ii + 2] = 0.0;
   }
-  var texture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, size, 1, 0, gl.RGB, gl.FLOAT, data);
+  var texture = allocate2DTexture(size, 1, gl.RGB, gl.FLOAT);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, size, 1, gl.RGB, gl.FLOAT, data);
   return texture;
 };
 
@@ -634,14 +694,8 @@ HDRPipeline.prototype.lockTemporaryTexture = function(effect) {
   }
   if (!texture) {
     var size = effect.outputSize();
-    texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size[0], size[1], 0, gl.RGBA,
-                  effect.textureType(), null);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    console.log("Allocating texture " + size[0] + " x " + size[1]);
+    texture = allocate2DTexture(size[0], size[1], gl.RGBA, effect.textureType());
     texture.width = size[0];
     texture.height = size[1];
   }
@@ -664,10 +718,11 @@ HDRPipeline.prototype.resetViewport_ = function(width, height) {
 HDRPipeline.prototype.textureBucket_ = function(effect) {
   var textureCache = this.textureCaches_[effect.textureType()];
   var size = effect.outputSize();
-  var textureBucket = textureCache.get(size);
+  // Avoid mutation of outputSize's return value by jshashtable library.
+  var textureBucket = textureCache.get([size[0], size[1]]);
   if (!textureBucket) {
     textureBucket = [];
-    textureCache.put(size, textureBucket);
+    textureCache.put([size[0], size[1]], textureBucket);
   }
   return textureBucket;
 };
@@ -707,28 +762,45 @@ var HDRDemo = function() {
 
   var backbuffer = tdl.framebuffers.getBackBuffer(canvas);
 
-  var floatBackbuffer = new tdl.framebuffers.Float32Framebuffer(canvas.width, canvas.height, true);
+  // Draw the initial version of the scene full-resolution into the
+  // normal, LDR, back buffer, so that we get multisampling.
+  var ldrSourceTexture = allocate2DTexture(canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE);
+  // Hack the texture to have the expando properties the HDRPipeline
+  // requires.
+  ldrSourceTexture.width = canvas.width;
+  ldrSourceTexture.height = canvas.height;
+  var ldrSource = new TextureInputEffect(pipeline, ldrSourceTexture);
+
+  // Draw the HDR version of the scene, which is used to compute the
+  // glow pass, to a quarter-resolution floating-point back buffer.
+  var floatBackbuffer = new tdl.framebuffers.Float32Framebuffer(canvas.width / 2, canvas.height / 2, true);
   // Hack the texture inside this framebuffer to have the expando
   // properties the HDRPipeline requires.
   var floatBackbufferTexture = floatBackbuffer.texture.texture;
-  floatBackbufferTexture.width = canvas.width;
-  floatBackbufferTexture.height = canvas.height;
+  floatBackbufferTexture.width = floatBackbuffer.width;
+  floatBackbufferTexture.height = floatBackbuffer.height;
 
   var skybox = setupSkybox();
 
   var pipeline = new HDRPipeline(backbuffer);
   var source = new TextureInputEffect(pipeline, floatBackbufferTexture);
-  var scaleDown = new ScaleDownEffect(pipeline, source);
-  var vertBlur = new BlurEffect(pipeline, scaleDown, true);
-  var horizBlur = new BlurEffect(pipeline, vertBlur, false);
-  var toneMapping = new ToneMappingEffect(pipeline, source, 1024, 1.0 / 2.2, horizBlur, 0.2);
-//  var toneMapping = new ToneMappingEffect(pipeline, source, 1024, 1.0 / 2.2, vertBlur, 0.5);
-//  var toneMapping = new ToneMappingEffect(pipeline, source, 1024, 1.0 / 2.2, scaleDown, 0.5);
+//  var discardLDR = new DiscardLDREffect(pipeline, source);
+
+//  var blurSource = discardLDR;
+  var blurSource = source;
+  for (var ii = 0; ii < 3; ++ii) {
+    var vertBlur = new BlurEffect(pipeline, blurSource, true);
+    var horizBlur = new BlurEffect(pipeline, vertBlur, false);
+    var scaleDown = new ScaleDownEffect(pipeline, horizBlur);
+    blurSource = scaleDown;
+  }
+
+  var bicubicUpsampling = new BicubicUpsamplingEffect(pipeline, blurSource, canvas.width, canvas.height);
+  var toneMapping = new ToneMappingEffect(pipeline, ldrSource, 1024, 1.0 / 2.2, bicubicUpsampling, 0.75);
+
   pipeline.setOutputEffect(toneMapping);
 
-  this.render = function(time) {
-    
-    floatBackbuffer.bind();
+  this.drawScene_ = function(time) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     // Bug in Mac OS X graphics drivers? This re-enabling after
@@ -786,6 +858,16 @@ var HDRDemo = function() {
       model.drawPrep(uniformsConst);
       model.draw(uniformsPer);
     }
+  };
+
+  this.render = function(time) {
+    backbuffer.bind();
+    this.drawScene_(time);
+    gl.bindTexture(gl.TEXTURE_2D, ldrSourceTexture);
+    gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, backbuffer.width, backbuffer.height);
+
+    floatBackbuffer.bind();
+    this.drawScene_(time);
 
     pipeline.run();
   };

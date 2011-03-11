@@ -202,6 +202,72 @@ void main() {
 </script>
 
 <!----- Various pipeline stages' fragment shaders ---->
+
+<script id="discardLDRShader" type="text/something-not-javascript">
+precision mediump float;
+
+varying vec2 v_texCoord;
+uniform sampler2D u_source;
+
+void main() {
+  vec4 c = texture2D(u_source, v_texCoord);
+  gl_FragColor = step(1.0, c);
+}
+</script>
+
+<script id="bicubicUpsamplingVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+varying vec2 v_texCoord;
+uniform vec2 u_imageIncrement;
+void main() {
+  v_texCoord = (position.xy + 1.0) * 0.5 - vec2(0.5, 0.5) * u_imageIncrement;
+  gl_Position = position;
+}
+</script>
+
+<script id="bicubicUpsamplingShader" type="text/something-not-javascript">
+precision mediump float;
+
+varying vec2 v_texCoord;
+uniform sampler2D u_source;
+uniform vec2 u_imageIncrement;
+uniform mat4 u_coefficients;
+
+// TODO(kbr): incorporate half-pixel offset of incoming texture
+// coordinates in vertex shader for correctness.
+
+vec4 cubicBlend(float t, vec4 c0, vec4 c1, vec4 c2, vec4 c3) {
+  vec4 ts = vec4(1.0, t, t * t, t * t * t);
+  vec4 result = u_coefficients * ts;
+  return result.w * c0 + result.z * c1 + result.y * c2 + result.x * c3;
+}
+
+void main() {
+   vec2 f = fract(v_texCoord / u_imageIncrement);
+  vec4 t00 = texture2D(u_source, v_texCoord + u_imageIncrement * vec2(-1.0, -1.0));
+  vec4 t10 = texture2D(u_source, v_texCoord + u_imageIncrement * vec2( 0.0, -1.0));
+  vec4 t20 = texture2D(u_source, v_texCoord + u_imageIncrement * vec2( 1.0, -1.0));
+  vec4 t30 = texture2D(u_source, v_texCoord + u_imageIncrement * vec2( 2.0, -1.0));
+  vec4 t0 = cubicBlend(f.x, t00, t10, t20, t30);
+  vec4 t01 = texture2D(u_source, v_texCoord + u_imageIncrement * vec2(-1.0, 0.0));
+  vec4 t11 = texture2D(u_source, v_texCoord + u_imageIncrement * vec2( 0.0, 0.0));
+  vec4 t21 = texture2D(u_source, v_texCoord + u_imageIncrement * vec2( 1.0, 0.0));
+  vec4 t31 = texture2D(u_source, v_texCoord + u_imageIncrement * vec2( 2.0, 0.0));
+  vec4 t1 = cubicBlend(f.x, t01, t11, t21, t31);
+  vec4 t02 = texture2D(u_source, v_texCoord + u_imageIncrement * vec2(-1.0, 1.0));
+  vec4 t12 = texture2D(u_source, v_texCoord + u_imageIncrement * vec2( 0.0, 1.0));
+  vec4 t22 = texture2D(u_source, v_texCoord + u_imageIncrement * vec2( 1.0, 1.0));
+  vec4 t32 = texture2D(u_source, v_texCoord + u_imageIncrement * vec2( 2.0, 1.0));
+  vec4 t2 = cubicBlend(f.x, t02, t12, t22, t32);
+  vec4 t03 = texture2D(u_source, v_texCoord + u_imageIncrement * vec2(-1.0, 2.0));
+  vec4 t13 = texture2D(u_source, v_texCoord + u_imageIncrement * vec2( 0.0, 2.0));
+  vec4 t23 = texture2D(u_source, v_texCoord + u_imageIncrement * vec2( 1.0, 2.0));
+  vec4 t33 = texture2D(u_source, v_texCoord + u_imageIncrement * vec2( 2.0, 2.0));
+  vec4 t3 = cubicBlend(f.x, t03, t13, t23, t33);
+  gl_FragColor = cubicBlend(f.y, t0, t1, t2, t3);
+}
+</script>
+
 <script id="toneMappingShader" type="text/something-not-javascript">
 precision mediump float;
 
