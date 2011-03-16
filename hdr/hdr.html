@@ -211,7 +211,7 @@ uniform sampler2D u_source;
 
 void main() {
   vec4 c = texture2D(u_source, v_texCoord);
-  gl_FragColor = step(1.0, c);
+  gl_FragColor = step(THRESHOLD, c);
 }
 </script>
 

@@ -36,6 +36,10 @@ function makeInt(value) {
   return value | 0;
 }
 
+function degToRad(value) {
+  return value * Math.PI / 180;
+}
+
 function getScriptText(id) {
   //tdl.log("loading: ", id);
   var elem = document.getElementById(id);
@@ -409,8 +413,8 @@ ScaleDownEffect.prototype.generateCode_ = function(textureSize) {
 
 //----------------------------------------------------------------------
 
-var DiscardLDREffect = function(pipeline, texture) {
-  HDREffect.call(this, pipeline, getScriptText("discardLDRShader"));
+var DiscardLDREffect = function(pipeline, texture, threshold) {
+  HDREffect.call(this, pipeline, getScriptText("discardLDRShader").replace(/THRESHOLD/g, "float(" + threshold + ")"));
   this.addInput_(texture, "u_source");
 };
 
@@ -423,7 +427,7 @@ DiscardLDREffect.prototype.name = function() {
 //----------------------------------------------------------------------
 
 var BlurEffect = function(pipeline, source, vertical) {
-  var code = this.generateBlurCode_(blurSize, vertical, source.outputSize());
+  var code = this.generateCode_(blurSize, vertical, source.outputSize());
   HDREffect.call(this, pipeline, code);
   this.addInput_(source, "u_source");
 };
@@ -455,7 +459,7 @@ function buildKernel(sigma, kernelSize) {
   return values;
 }
 
-BlurEffect.prototype.generateBlurCode_ = function(numTaps, vertical, textureSize) {
+BlurEffect.prototype.generateCode_ = function(numTaps, vertical, textureSize) {
   var code = [];
   var horizTexelOffset = 1.0 / textureSize[0];
   var vertTexelOffset = 1.0 / textureSize[1];
@@ -488,6 +492,92 @@ BlurEffect.prototype.generateBlurCode_ = function(numTaps, vertical, textureSize
 
 //----------------------------------------------------------------------
 
+// The direction is specified in radians from the +X axis, as in
+// Cartesian coordinates.
+var StreakEffect = function(pipeline, source, passNumber, directionInRadians) {
+  var code = this.generateCode_(passNumber, directionInRadians, source.outputSize());
+  HDREffect.call(this, pipeline, code);
+  this.addInput_(source, "u_source");
+};
+
+tdl.base.inherit(StreakEffect, HDREffect);
+
+StreakEffect.prototype.name = function() {
+  return "StreakEffect";
+};
+
+StreakEffect.prototype.generateCode_ = function(passNumber, directionInRadians, textureSize) {
+  var code = [];
+  var horizTexelSize = 1.0 / textureSize[0];
+  var vertTexelSize = 1.0 / textureSize[1];
+  var horizStep = Math.cos(directionInRadians) * horizTexelSize;
+  var vertStep = Math.sin(directionInRadians) * vertTexelSize;
+  var attenuation = 0.9;
+  code.push("precision mediump float;");
+  code.push("varying vec2 v_texCoord;");
+  code.push("uniform sampler2D u_source;");
+  code.push("void main() {");
+  code.push("  vec4 sum;");
+  for (var ii = 0; ii < 4; ++ii) {
+    var operator = "+=";
+    if (ii == 0) {
+      // First sample.
+      operator = "=";
+    }
+    var b = Math.pow(4, passNumber - 1);
+    var bxs = b * ii;
+    var att = Math.pow(attenuation, bxs);
+    // FIXME: add color modulation as suggested by Kawase.
+    code.push("  sum " + operator + " texture2D(u_source, v_texCoord + vec2(" + horizStep * bxs + ", " + vertStep * bxs + ")) * float(" + att + ");");
+  }
+  code.push("  gl_FragColor = sum;");
+  code.push("}");
+  console.log("Streak code:");
+  console.log(code.join("\n"));
+  return code.join("\n");
+};
+
+
+//----------------------------------------------------------------------
+
+var SummationEffect = function(pipeline, sources) {
+  var code = this.generateCode_(sources.length);
+  HDREffect.call(this, pipeline, code);
+  for (var ii = 0; ii < sources.length; ++ii) {
+    this.addInput_(sources[ii], "u_source" + ii);
+  }
+};
+
+tdl.base.inherit(SummationEffect, HDREffect);
+
+SummationEffect.prototype.name = function() {
+  return "SummationEffect";
+};
+
+SummationEffect.prototype.generateCode_ = function(numSources) {
+  var code = [];
+  code.push("precision mediump float;");
+  code.push("varying vec2 v_texCoord;");
+  for (var ii = 0; ii < numSources; ++ii) {
+    code.push("uniform sampler2D u_source" + ii + ";");
+  }
+  code.push("void main() {");
+  code.push("  vec4 sum;");
+  for (var ii = 0; ii < numSources; ++ii) {
+    var operator = "+=";
+    if (ii == 0) {
+      // First sample.
+      operator = "=";
+    }
+    code.push("  sum " + operator + " texture2D(u_source" + ii + ", v_texCoord);");
+  }
+  code.push("  gl_FragColor = sum;");
+  code.push("}");
+  return code.join("\n");
+};
+
+//----------------------------------------------------------------------
+
 var BicubicUpsamplingEffect = function(pipeline, texture, destinationWidth, destinationHeight) {
   HDREffect.call(this, pipeline, getScriptText("bicubicUpsamplingShader"), getScriptText("bicubicUpsamplingVertexShader"));
   // HDREffect.call(this, pipeline, getScriptText("bicubicUpsamplingShader"));
@@ -499,10 +589,10 @@ var BicubicUpsamplingEffect = function(pipeline, texture, destinationWidth, dest
   gl.uniform2f(imageIncrementLoc, 1.0 / sourceSize[0], 1.0 / sourceSize[1]);
   var coefficientsLoc = gl.getUniformLocation(this.program_, "u_coefficients");
   gl.uniformMatrix4fv(coefficientsLoc, false, [
-    0.0 / 18.0,   2.0 / 18.0,  14.0 / 18.0,  2.0 / 18.0,
-    0.0 / 18.0,   9.0 / 18.0,   0.0 / 18.0, -9.0 / 18.0,
-   -3.0 / 18.0,  18.0 / 18.0, -27.0 / 18.0, 12.0 / 18.0,
-    5.0 / 18.0, -15.0 / 18.0,  15.0 / 18.0, -5.0 / 18.0
+    0.0 / 18.0,   1.0 / 18.0,  16.0 / 18.0,   1.0 / 18.0,
+    0.0 / 18.0,   9.0 / 18.0,   0.0 / 18.0,  -9.0 / 18.0,
+   -6.0 / 18.0,  27.0 / 18.0, -36.0 / 18.0,  15.0 / 18.0,
+    7.0 / 18.0, -21.0 / 18.0,  21.0 / 18.0,  -7.0 / 18.0
   ]);
   this.outputSize_ = [ destinationWidth, destinationHeight ];
 };
@@ -729,6 +819,22 @@ HDRPipeline.prototype.textureBucket_ = function(effect) {
 
 //----------------------------------------------------------------------
 
+function buildStarEffect(pipeline, inputEffect, initialOffsetInRadians, numStreaks, passesPerStreak) {
+  var streaks = [];
+  var stepInRadians = 2.0 * Math.PI / numStreaks;
+
+  for (var ii = 0; ii < numStreaks; ++ii) {
+    var streakSource = inputEffect;
+    var radians = ii * stepInRadians + initialOffsetInRadians;
+    for (var jj = 0; jj < passesPerStreak; ++jj) {
+      var streak = new StreakEffect(pipeline, streakSource, 1 + jj, radians);
+      streakSource = streak;
+    }
+    streaks.push(streakSource);
+  }
+  return new SummationEffect(pipeline, streaks);
+}
+
 var HDRDemo = function() {
   var eyePosition = new Float32Array(3);
   var target = new Float32Array(3);
@@ -784,9 +890,8 @@ var HDRDemo = function() {
 
   var pipeline = new HDRPipeline(backbuffer);
   var source = new TextureInputEffect(pipeline, floatBackbufferTexture);
-//  var discardLDR = new DiscardLDREffect(pipeline, source);
 
-//  var blurSource = discardLDR;
+  // High-quality bloom effect
   var blurSource = source;
   for (var ii = 0; ii < 3; ++ii) {
     var vertBlur = new BlurEffect(pipeline, blurSource, true);
@@ -794,9 +899,17 @@ var HDRDemo = function() {
     var scaleDown = new ScaleDownEffect(pipeline, horizBlur);
     blurSource = scaleDown;
   }
-
   var bicubicUpsampling = new BicubicUpsamplingEffect(pipeline, blurSource, canvas.width, canvas.height);
-  var toneMapping = new ToneMappingEffect(pipeline, ldrSource, 1024, 1.0 / 2.2, bicubicUpsampling, 0.75);
+  var toneMapping = new ToneMappingEffect(pipeline, ldrSource, 1024, 1.0 / 2.2, bicubicUpsampling, 0.5);
+
+  /*
+  // Star effect (looks pretty bad right now)
+  var discardLDR = new DiscardLDREffect(pipeline, source, 10.0);
+  var scaleDown = new ScaleDownEffect(pipeline, discardLDR);
+  var streakSource = buildStarEffect(pipeline, scaleDown, degToRad(15), 6, 3);
+  var bicubicUpsampling = new BicubicUpsamplingEffect(pipeline, streakSource, canvas.width, canvas.height);
+  var toneMapping = new ToneMappingEffect(pipeline, ldrSource, 1024, 1.0 / 2.2, bicubicUpsampling, 0.25);
+  */
 
   pipeline.setOutputEffect(toneMapping);
 
