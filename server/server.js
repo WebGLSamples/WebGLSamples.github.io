@@ -15,12 +15,13 @@ var getMimeType = function() {
     '.png': 'image/png',
     '.css': 'text/css',
     '.js': 'text/javascript',
+    '.json': 'application/json',
     '.html': 'text/html'
   };
 
   return function(path) {
     var ext = extension(path);
-    var mimeType = mimeTypeMap[ext];
+    var mimeType = mimeTypeMap[ext] || 'text/html';  // hack for google body? Could add some different rules?
     return mimeType;
   }
 }();
@@ -28,7 +29,14 @@ var getMimeType = function() {
 var applySettings = function(obj, dst) {
   for (var name in obj) {
     var value = obj[name];
-    if (typeof value == 'object') {
+    if (value instanceof Array) {
+      var newDst = dst[name];
+      if (!newDst) {
+        newDst = [];
+        dst[name] = newDst;
+      }
+      applySettings(value, newDst);
+    } else if (typeof value == 'object') {
       if (!dst[name]) {
         dst[name] = {};
       }
@@ -121,6 +129,7 @@ sys.print("req: " + req.method + '\n');
         sendJSONResponse(res, { ok: true });
         break;
       default:
+        sys.print("err: unknown post: " + query + "\n");
         send404(res);
         break;
       }
@@ -133,13 +142,17 @@ sys.print("req: " + req.method + '\n');
     if (mimeType) {
       fs.readFile(fullPath, function(err, data){
         if (err) {
+          sys.print("err not found: " + fullPath + "\n");
           return send404(res);
         }
         res.writeHead(200, {'Content-Type': mimeType})
         res.write(data, 'utf8');
         res.end();
       });
-    } else send404(res);
+    } else {
+      sys.print("err: unknown mimetype for " + fullPath + "\n");
+      send404(res);
+    }
   }
 }),
 

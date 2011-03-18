@@ -340,8 +340,8 @@ tdl.primitives.createTangentsAndBinormals = function(
 
   // Add the tangent and binormal streams.
   var numVertices = positionArray.numElements;
-  tangents = new tdl.primitives.AttribBuffer(3, numVertices);
-  binormals = new tdl.primitives.AttribBuffer(3, numVertices);
+  var tangents = new tdl.primitives.AttribBuffer(3, numVertices);
+  var binormals = new tdl.primitives.AttribBuffer(3, numVertices);
 
   // Extract the tangent and binormal for each vertex.
   for (var vertexIndex = 0; vertexIndex < numVertices; ++vertexIndex) {
@@ -515,8 +515,8 @@ tdl.primitives.createSphere = function(
   opt_startLongitudeInRadians = opt_startLongitudeInRadians || 0;
   opt_endLongitudeInRadians = opt_endLongitudeInRadians || (Math.PI * 2);
 
-  latRange = opt_endLatitudeInRadians - opt_startLatitudeInRadians;
-  longRange = opt_endLongitudeInRadians - opt_startLongitudeInRadians;
+  var latRange = opt_endLatitudeInRadians - opt_startLatitudeInRadians;
+  var longRange = opt_endLongitudeInRadians - opt_startLongitudeInRadians;
 
   // We are going to generate our sphere by iterating through its
   // spherical coordinates and generating 2 triangles for each quad on a
@@ -1047,3 +1047,27 @@ tdl.primitives.createCylinder = function(
       opt_bottomCap);
 };
 
+/**
+ * Interleaves vertex information into one large buffer
+ * @param {Array of <string, tdl.primitives.AttribBuffer>}
+ * @param {Object.<string, tdl.primitives.AttribBuffer>}
+ */
+tdl.primitives.interleaveVertexData = function(vertexDataArray) {
+  var stride = 0;
+  for (var s = 0; s < vertexDataArray.length; s++) {
+    stride += vertexDataArray[s].numComponents;
+  }
+  // This assumes the first element is always positions.
+  var numVertices = vertexDataArray[0].numElements;
+  var vertexData = new Float32Array(stride * numVertices);
+  var count = 0;
+  for (var v = 0; v< numVertices; v++) {
+    for (var i = 0; i < vertexDataArray.length; i++) {
+      var element  = vertexDataArray[i].getElement(v);
+      for (var d = 0; d < vertexDataArray[i].numComponents; d++) {
+        vertexData[count++] = element[d];
+      }
+    }
+  }
+  return vertexData;
+};

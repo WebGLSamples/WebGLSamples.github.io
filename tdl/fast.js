@@ -248,10 +248,10 @@ tdl.fast.negativeVector = function(dst, v) {
 /**
  * Negates a matrix.
  * @param {!tdl.fast.Matrix} dst matrix.
- * @param {!tdl.fast.Matrix} m The matrix.
- * @return {!tdl.fast.Matrix} -m.
+ * @param {!tdl.fast.Matrix} v The matrix.
+ * @return {!tdl.fast.Matrix} -v.
  */
-tdl.fast.negativeMatrix = function(dst, m) {
+tdl.fast.negativeMatrix = function(dst, v) {
   var vLength = v.length;
   for (var i = 0; i < vLength; ++i) {
     dst[i] = -v[i];
