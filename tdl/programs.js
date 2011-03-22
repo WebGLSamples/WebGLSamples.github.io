@@ -119,10 +119,11 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
    */
   var loadShader = function(gl, shaderSource, shaderType) {
     var id = shaderSource + shaderType;
-    var shader = tdl.programs.shaderDB[id];
-    if (shader) {
-      return shader;
-    }
+// TODO(gman): Uncomment after ANGLE bug is fixed
+//    var shader = tdl.programs.shaderDB[id];
+//    if (shader) {
+//      return shader;
+//    }
 
     // Create the shader object
     var shader = gl.createShader(shaderType);
@@ -142,8 +143,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
       // Something went wrong during compilation; get the error
       tdl.programs.lastError = gl.getShaderInfoLog(shader);
       gl.deleteShader(shader);
-      throw("*** Error compiling shader '" + shader + "':" +
-            tdl.programs.lastError);
+      throw("*** Error compiling shader :" + tdl.programs.lastError);
     }
 
     tdl.programs.shaderDB[id] = shader;
@@ -235,7 +235,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
   var numAttribs = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
   for (var ii = 0; ii < numAttribs; ++ii) {
     var info = gl.getActiveAttrib(program, ii);
-    name = info.name;
+    var name = info.name;
     if (tdl.string.endsWith(name, "[0]")) {
       name = name.substr(0, name.length - 3);
     }

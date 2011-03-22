@@ -49,7 +49,11 @@ tdl.misc.applyUrlSettings = function(obj, opt_argumentName) {
   try {
     var s = window.location.href;
     var q = s.indexOf("?");
-    var query = s.substr(q + 1);
+    var e = s.indexOf("#");
+    if (e < 0) {
+      e = s.length;
+    }
+    var query = s.substring(q + 1, e);
     //tdl.log("query:", query);
     var pairs = query.split("&");
     //tdl.log("pairs:", pairs.length);
@@ -83,7 +87,15 @@ tdl.misc.applyUrlSettings = function(obj, opt_argumentName) {
 tdl.misc.copyProperties = function(obj, dst) {
   for (var name in obj) {
     var value = obj[name];
-    if (typeof value == 'object') {
+    if (value instanceof Array) {
+      //tdl.log("apply->: ", name, "[]");
+      var newDst = dst[name];
+      if (!newDst) {
+        newDst = [];
+        dst[name] = newDst;
+      }
+      tdl.misc.copyProperties(value, newDst);
+    } else if (typeof value == 'object') {
       //tdl.log("apply->: ", name);
       var newDst = dst[name];
       if (!newDst) {

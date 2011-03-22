@@ -56,14 +56,15 @@ tdl.textures.textureDB = {};
  *        urls makes a cubemap, passing an img or canvas makes a 2d texture with
  *        that image.
  * @param {boolean} opt_flipY Flip the texture in Y?
+ * @param {function} opt_callback Function to execute when texture is loaded.
  */
-tdl.textures.loadTexture = function(arg, opt_flipY) {
+tdl.textures.loadTexture = function(arg, opt_flipY, opt_callback) {
   var texture = tdl.textures.textureDB[arg.toString()];
   if (texture) {
     return texture;
   }
   if (typeof arg == 'string') {
-    texture = new tdl.textures.Texture2D(arg, opt_flipY);
+    texture = new tdl.textures.Texture2D(arg, opt_flipY, opt_callback);
   } else if (arg.length == 4 && typeof arg[0] == 'number') {
     texture = new tdl.textures.SolidTexture(arg);
   } else if ((arg.length == 1 || arg.length == 6) &&
@@ -139,7 +140,7 @@ tdl.textures.SolidTexture.prototype.bindToUnit = function(unit) {
 tdl.textures.ColorTexture = function(data, opt_format, opt_type) {
   tdl.textures.Texture.call(this, gl.TEXTURE_2D);
   this.format = opt_format || gl.RGBA;
-  this.type   = opt.type || gl.UNSIGNED_BYTE;
+  this.type   = opt_type || gl.UNSIGNED_BYTE;
   if (data.pixels instanceof Array) {
     data.pixels = new Uint8Array(data.pixels);
   }
@@ -170,8 +171,9 @@ tdl.textures.ColorTexture.prototype.bindToUnit = function(unit) {
 /**
  * @constructor
  * @param {{string|!Element}} url URL of image to load into texture.
+ * @param {function} opt_callback Function to execute when texture is loaded.
  */
-tdl.textures.Texture2D = function(url, opt_flipY) {
+tdl.textures.Texture2D = function(url, opt_flipY, opt_callback) {
   tdl.textures.Texture.call(this, gl.TEXTURE_2D);
   this.flipY = opt_flipY || false;
   var that = this;
@@ -179,11 +181,17 @@ tdl.textures.Texture2D = function(url, opt_flipY) {
   if (typeof url !== 'string') {
     img = url;
     this.loaded = true;
+    if (opt_callback) {
+      opt_callback();
+    }
   } else {
     img = document.createElement('img');
     img.onload = function() {
       //tdl.log("loaded image: ", url);
       that.updateTexture();
+      if (opt_callback) {
+        opt_callback();
+      }
     };
     img.onerror = function() {
       tdl.log("could not load image: ", url);

@@ -78,7 +78,7 @@ tdl.models.Model.prototype.setProgram = function(program) {
 
 tdl.models.Model.prototype.setBuffer = function(name, array) {
   var target = (name == 'indices') ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER;
-  b = this.buffers[name];
+  var b = this.buffers[name];
   if (!b) {
     b = new tdl.buffers.Buffer(array, target);
   } else {
@@ -88,7 +88,7 @@ tdl.models.Model.prototype.setBuffer = function(name, array) {
 };
 
 tdl.models.Model.prototype.setBuffers = function(arrays) {
-  for (name in arrays) {
+  for (var name in arrays) {
     this.setBuffer(name, arrays[name]);
   }
 };

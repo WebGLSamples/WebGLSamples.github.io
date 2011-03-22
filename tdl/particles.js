@@ -42,6 +42,12 @@ tdl.require('tdl.math');
 tdl.require('tdl.shader');
 
 /**
+ * A Module with various io functions and classes.
+ * @namespace
+ */
+tdl.particles = tdl.particles || {};
+
+/**
  * Enum for pre-made particle states.
  * @enum
  */
