@@ -3,6 +3,7 @@
 <style>
 body {
   background-color: black;
+  color: white;
 }
 </style>
 <script>
@@ -69,11 +70,11 @@ function main() {
   gl.enableVertexAttribArray(positionLocation);
   gl.vertexAttribPointer(
       positionLocation,  // index
-      2,        // number of components per element
-      gl.FLOAT, // type of data
-      false,    // normalized
-      0,        // stride
-      0);       // offset
+      2,                 // number of components per element
+      gl.FLOAT,          // type of data
+      false,             // normalized
+      0,                 // stride
+      0);                // offset
 
   var ploc = gl.getUniformLocation(program, "projection");
   var mloc = gl.getUniformLocation(program, "model");
@@ -128,6 +129,7 @@ void main(void) {
 </script>
 </head>
 <body>
+<div>Pixel Perfect 2D in WebGL</div>
 <canvas id="mycanvas" width="800" height="600"></canvas>
 </body>
 </html>
