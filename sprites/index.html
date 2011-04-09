@@ -1,0 +1,225 @@
+<!--
+ * Copyright 2011, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+  "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>WebGL Sprite Atlas Demo</title>
+<style>
+body {
+  width: 100%;
+  height: 100%;
+  border: 0px;
+  padding: 0px;
+  margin: 0px;
+  background-color: white;
+}
+canvas {
+  background-color: #FF0000;
+}
+canvas.invisible {
+  display: none;
+}
+#controls {
+  z-index: 2;
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  background-color: #FFEE99;
+  display: table;
+}
+#beat {
+  display: table-cell;
+  font-family: sans-serif;
+  margin: 4px;
+  padding: 4px;
+  border-width: 1px;
+  vertical-align: middle;
+}
+#viewContainer {
+  width: 100%;
+  height: 100%;
+}
+.fpsContainer {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  color: gray;
+  font-family: sans-serif;
+  background-color: rgba(0,0,0,0.5);
+  border-radius: 10px;
+  padding: 10px;
+}
+.fps {
+  color: white;
+}
+div.title {
+  font-weight: bold;
+}
+</style>
+
+<link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
+
+<!--
+<script type="text/javascript" src="http://benvanik.github.com/WebGL-Inspector/core/embed.js"></script>
+-->
+
+<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript" src="SpriteLibrary.js"></script>
+<script type="text/javascript" src="sprites.js"></script>
+
+<script id="spriteVertexShader" type="text/something-not-javascript">
+uniform float u_frameOffset;
+
+// Corrects for screen size.
+uniform vec4 u_screenDims;
+
+// Center of the sprite in screen coordinates
+attribute vec2 centerPosition;
+
+attribute float rotation;
+
+// Per-sprite frame offset.
+attribute float perSpriteFrameOffset;
+
+// Sprite size in screen coordinates
+attribute float spriteSize;
+
+// Offset of this vertex's corner from the center, in normalized
+// coordinates for the sprite. In other words:
+//   (-0.5, -0.5) => Upper left corner
+//   ( 0.5, -0.5) => Upper right corner
+//   (-0.5,  0.5) => Lower left corner
+//   ( 0.5,  0.5) => Lower right corner
+attribute vec2 cornerOffset;
+
+// Note: we currently assume that all sprite sheets start from the
+// upper-left corner (which we define as (0,0)). Simply add another
+// attribute float for the Y start of the sheet's upper left corner to
+// add support for packing multiple sheets onto a single texture.
+
+// Specified in normalized coordinates (0.0..1.0).
+attribute vec2 spriteTextureSize;
+
+attribute float spritesPerRow;
+attribute float numFrames;
+
+// For now we fix the number of textures the atlas can handle to 4.
+// We could improve this by generating the shader code and passing
+// down a varying array. Each element in this vec4 is either 0.0 or
+// 1.0, with only one 1.0 entry, and essentially selects which texture
+// will be displayed on the sprite.
+attribute vec4 textureWeights;
+
+// Output to the fragment shader.
+varying vec2 v_texCoord;
+varying vec4 v_textureWeights;
+
+void main() {
+  // Compute the frame number
+  float frameNumber = mod(u_frameOffset + perSpriteFrameOffset, numFrames);
+  // Compute the row
+  float row = floor(frameNumber / spritesPerRow);
+  // Compute the upper left texture coordinate of the sprite
+  vec2 upperLeftTC = vec2(spriteTextureSize.x * (frameNumber - (row * spritesPerRow)),
+                          spriteTextureSize.y * row);
+  // Compute the texture coordinate of this vertex
+  vec2 tc = upperLeftTC + spriteTextureSize * (cornerOffset + vec2(0.5, 0.5));
+  v_texCoord = tc;
+  v_textureWeights = textureWeights;
+
+  float s = sin(rotation);
+  float c = cos(rotation);
+  mat2 rotMat = mat2(c, -s, s, c);
+  vec2 scaledOffset = spriteSize * cornerOffset;
+  vec2 pos = centerPosition + rotMat * scaledOffset;
+  gl_Position = vec4(pos * u_screenDims.xy + u_screenDims.zw, 0.0, 1.0);
+}
+</script>
+<script id="spriteFragmentShader" type="text/something-not-javascript">
+precision mediump float;
+
+// Arrays of uniform samplers are currently problematic on some platforms.
+// For now, convert them to individual uniforms.
+uniform sampler2D u_texture0;
+uniform sampler2D u_texture1;
+uniform sampler2D u_texture2;
+uniform sampler2D u_texture3;
+
+varying vec2 v_texCoord;
+varying vec4 v_textureWeights;
+
+void main() {
+  // Note: this fragment shader was originally written as:
+  //  gl_FragColor = (texture2D(u_texture0, v_texCoord) * v_textureWeights.x +
+  //                  texture2D(u_texture1, v_texCoord) * v_textureWeights.y +
+  //                  texture2D(u_texture2, v_texCoord) * v_textureWeights.z +
+  //                  texture2D(u_texture3, v_texCoord) * v_textureWeights.w);
+  //
+  // in order to avoid using the if-statement, under the supposition
+  // that using branches would perform worse than a straight-line
+  // statement. (Using an array of samplers is not an option for this
+  // use case in OpenGL ES SL and therefore WebGL shaders.) It turns
+  // out that at least on an NVIDIA GeForce 8000 series card, the
+  // if-statements are massively faster, because the untaken texture
+  // fetches can be eliminated, so a huge amount of texture bandwidth
+  // is saved. Many thanks to Nat Duca for this suggestion.
+
+  vec4 color;
+  if (v_textureWeights.x > 0.0)
+    color = texture2D(u_texture0, v_texCoord);
+  else if (v_textureWeights.y > 0.0)
+    color = texture2D(u_texture1, v_texCoord);
+  else if (v_textureWeights.z > 0.0)
+    color = texture2D(u_texture2, v_texCoord);
+  else // v_textureWeights.w > 0.0
+    color = texture2D(u_texture3, v_texCoord);
+  gl_FragColor = color;
+}
+</script>
+</head>
+<body onload="init()" onresize="winresize()">
+<div class="fpsContainer" id="fpsContainer">
+  <div class="fps">fps: <span id="fps"></div>
+  <div id="topUI">
+  <div>Number of Sprites</div>
+  </div>
+    <div><a href="readme.html" style="color: #FFFFFF;">More info...</a></div>
+</div>
+<div>
+<canvas id="canvas" width="800" height="600"></canvas>
+</div>
+</body>
+</html>

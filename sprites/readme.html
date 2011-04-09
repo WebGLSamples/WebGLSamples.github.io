@@ -1,0 +1,172 @@
+<p>
+
+This <a href="index.html">sprite engine prototype</a> is modeled after
+Facebook's <a href="https://github.com/facebook/jsgamebench">JSGameBench</a>
+benchmark, in particular
+its <a href="http://developers.facebook.com/blog/post/468/">WebGL
+rendering backend</a>. Small portions of the code, and the art assets,
+are copyright 2011 Facebook; see
+the <a href="jsgamebench-license.txt">JSGameBench license</a> for
+details.
+
+</p>
+<p>
+
+Analysis of the WebGL backend of JSGameBench identified some
+inefficiencies: for each sprite, it performs one draw call, sets three
+uniform variables, and (at least on average) performs one texture
+bind.
+
+</p>
+<p>
+
+The primary goal of this prototype is to draw the entire sprite field
+with one draw call. This might seem impossible, because the sprites
+require alpha blending, so they must be drawn in a particular
+order. It is a little known fact (I wasn't sure of it when starting to
+write the code) that OpenGL actually guarantees that triangles will be
+drawn in order, from first to last, when drawArrays and drawElements
+are called. Apparently GPUs contain quite a bit of silicon (the Render
+Output unit, or ROP) to provide this guarantee.  The only major
+remaining problem is how to avoid the per-sprite texture bind. The
+basic idea is to send all of the sprite sheets for the entire sprite
+field to the fragment shader, and have it somehow choose which one to
+display for any given sprite. More on this later.
+
+</p>
+<p>
+
+The vertex shader does three major operations: it selects the
+animation frame for the sprite from the sprite sheet, computes texture
+coordinates for the corner of the sprite, and transforms the corner of
+the sprite according to its position and rotation. (In JSGameBench the
+rotation is constant, so it is in this prototype as well.) The
+majority of the information needed to do these computations is
+constant per sprite, so it is computed and uploaded to the graphics
+card once, when the sprite is created. The constant information is
+transmitted to the vertex shader in several vertex attributes:
+
+<ul>
+<li> Rotation </li>
+<li> Per-sprite frame offset; allows each sprite instance to start its
+     animation at a different time </li>
+<li> Sprite size in pixels (assumes square sprites; could easily be
+     generalized)
+<li> Offset of the current vertex's corner from the center of the
+     sprite, in normalized coordinates for the sprite. In other words:
+  <ul>
+  <li> (-0.5, -0.5) => Upper left corner </li>
+  <li> ( 0.5, -0.5) => Upper right corner </li>
+  <li> (-0.5,  0.5) => Lower left corner </li>
+  <li> ( 0.5,  0.5) => Lower right corner </li>
+  </ul>
+<li> The 2D size of each sprite image within its sprite sheet,
+     specified in normalized coordinates (0.0..1.0) </li>
+<li> The number of sprites per row in the sprite sheet </li>
+<li> The total number of frames in the sprite's animation </li>
+<li> A vector of coefficients used to select the texture to display,
+     currently represented as a vec4 where one component will be 1.0
+     and the rest will be 0.0 </li>
+</ul>
+
+The position of each sprite is computed in JavaScript and uploaded to
+the graphics card each frame as another vertex attribute. It's
+technically possible to do this work in the vertex shader as well, but
+doing it on the CPU more closely matches the structure of the
+JSGameBench code, and makes it simpler to handle wrapping at the edges
+of the screen.
+
+</p>
+<p>
+
+A "global" frame offset is computed on the CPU each frame and sent to
+the shader program in a uniform variable. The vertex shader does
+simple modulo arithmetic with this frame offset plus the per-sprite
+frame offset to choose the right frame of the sprite's animation, and
+uses the corner offset to compute the texture coordinates of that
+image within the sprite sheet. The corner offset is also used to
+compute the overall position and rotation of the sprite.
+
+</p>
+<p>
+
+The fragment shader is extremely simple; it just samples the sprite
+sheet at the given texture coordinates. Recall that in order to batch
+all the sprites into a single draw call, we actually have to feed in
+multiple sprite sheets (textures), because some of the sprites'
+animations are so large that they take up an entire texture. The
+question is then how to choose which sprite sheet to sample.
+
+</p>
+<p>
+
+Conceptually, we would like to send down a uniform array of samplers,
+e.g., <code>uniform sampler2D textures[4]</code>, and compute an index
+into this array. Unfortunately, the WebGL shading language, which is
+essentially the same as the OpenGL ES shading language, doesn't allow
+this kind of indexing expression in a fragment shader. The only kind
+of indexing expression allowed is one involving constants and loop
+indices.
+
+</p>
+<p>
+
+The first attempt at the texture selection fragment shader looked like this:
+
+<pre>
+  gl_FragColor =
+    (texture2D(u_texture0, v_texCoord) * v_textureWeights.x +
+     texture2D(u_texture1, v_texCoord) * v_textureWeights.y +
+     texture2D(u_texture2, v_texCoord) * v_textureWeights.z +
+     texture2D(u_texture3, v_texCoord) * v_textureWeights.w);
+</pre>
+
+This worked, but unfortunately, the resulting demo was slower than the
+current WebGL backend of JSGameBench -- about 66% of the performance.
+I experimented with taking out the "explosion" sprite, which is the
+largest of all the sprites (256x256, filling a 2048x2048 texture), and
+selecting the sprites from the remaining three sheets. This yielded a
+significant speedup, which strongly indicated saturation of texture
+bandwidth on the card.
+
+</p>
+<p>
+
+Nat Duca from the Chrome GPU team and I discussed the problem, and he
+suggested to use a series of if-tests in the fragment shader to sample
+the desired texture. My previous experience had been to avoid if-tests
+in shaders at all costs; in earlier work, every time I had been able
+to replace an if with a non-branching operation like a clamp or step,
+performance had improved. Nat indicated that on modern cards, if the
+branch will go the same way over large regions (which it will in this
+case; it's constant across the entire surface of the sprite), it will
+work well. The fragment shader was rewritten as follows:
+
+<pre>
+  vec4 color;
+  if (v_textureWeights.x > 0.0)
+    color = texture2D(u_texture0, v_texCoord);
+  else if (v_textureWeights.y > 0.0)
+    color = texture2D(u_texture1, v_texCoord);
+  else if (v_textureWeights.z > 0.0)
+    color = texture2D(u_texture2, v_texCoord);
+  else // v_textureWeights.w > 0.0
+    color = texture2D(u_texture3, v_texCoord);
+  gl_FragColor = color;
+</pre>
+
+</p>
+<p>
+
+Measurements on the notebook where this prototype was developed (Mac
+OS X 10.6, NVIDIA GeForce 8600M GT) indicate that it can draw 250% or
+more sprites at 30 FPS than the current WebGL backend of JSGameBench.
+
+</p>
+<p>
+
+Comments and suggestions welcome.
+
+</p>
+<hr>
+<i>Kenneth Russell &ndash; kbr at chromium dot org</i>
