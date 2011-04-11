@@ -101,9 +101,8 @@ var g_logGLCalls = true;  // whether or not to log webgl calls
 var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;   // draw just one frame.
 var g_setCountElements = [];
-var g_poofIndex = 0;
-var g_poofs = [];
-var g_anims = [];
+var g_explosionMgr;
+var g_debrisMgr;
 var g_timeTillLaunch = 0;
 var g_showShockwave = false;
 
@@ -112,7 +111,6 @@ var g_showShockwave = false;
 
 var g_numMeteors        = 50;
 var g_numShockwaves     = 20;
-var g_numPoofs          = 20;
 var g_eyeSpeed          = 0.1;
 var g_eyeHeight         = 2;
 var g_eyeRadius         = 3;
@@ -354,37 +352,35 @@ function setupFlame(particleSystem) {
       spinSpeedRange: 4});
 }
 
-function setupAnims(particleSystem) {
-    var texture = tdl.textures.loadTexture('assets/rocks.png');
-    var emitter = particleSystem.createParticleEmitter(texture.texture);
-    emitter.setTranslation(0, 0, 0);
-    emitter.setColorRamp(
-        [1, 1, 1, 1,
-         1, 1, 1, 1,
-         1, 1, 1, 0]);
-    emitter.setParameters({
-        numParticles: 10,
-        numFrames: 4,
-        frameDuration: 50.0,
-        frameStartRange: 0,
-        lifeTime: 2,
-        startTime: 0,
-        startSize: 0.3,
-        endSize: 0.0,
-        spinSpeedRange: 20},
-        function(index, parameters) {
-            var speed = Math.random() * 0.6 + 0.2;
-            var speed2 = Math.random() * 0.2 + 0.1;
-            var angle = Math.random() * 2 * Math.PI;
-            parameters.velocity = math.matrix4.transformPoint(
-                math.matrix4.rotationZ(angle), [speed, speed2, 0]);
-        });
-    for (var ii = 0; ii < g_numPoofs; ++ii) {
-        g_anims[ii] = emitter.createOneShot();
-    }
+function setupDebris(particleSystem) {
+  var texture = tdl.textures.loadTexture('assets/rocks.png');
+  var emitter = particleSystem.createParticleEmitter(texture.texture);
+  emitter.setTranslation(0, 0, 0);
+  emitter.setColorRamp(
+      [1, 1, 1, 1,
+       1, 1, 1, 1,
+       1, 1, 1, 0]);
+  emitter.setParameters({
+      numParticles: 10,
+      numFrames: 4,
+      frameDuration: 50.0,
+      frameStartRange: 0,
+      lifeTime: 2,
+      startTime: 0,
+      startSize: 0.3,
+      endSize: 0.0,
+      spinSpeedRange: 20},
+      function(index, parameters) {
+          var speed = Math.random() * 0.6 + 0.2;
+          var speed2 = Math.random() * 0.2 + 0.1;
+          var angle = Math.random() * 2 * Math.PI;
+          parameters.velocity = math.matrix4.transformPoint(
+              math.matrix4.rotationZ(angle), [speed, speed2, 0]);
+      });
+	return tdl.particles.createOneShotManager(emitter, 20);
 }
 
-function setupPoofs(particleSystem) {
+function setupExplosion(particleSystem) {
     var emitter = particleSystem.createParticleEmitter();
     emitter.setState(tdl.particles.ParticleStateIds.ADD);
     emitter.setColorRamp(
@@ -408,25 +404,16 @@ function setupPoofs(particleSystem) {
             parameters.acceleration = math.mulVectorVector(
                 parameters.velocity, [speed * -0.3, speed * -0.3, 0]);
         });
-    // make 3 poofs one shots
-    for (var ii = 0; ii < g_numPoofs; ++ii) {
-        g_poofs[ii] = emitter.createOneShot();
-    }
+		return tdl.particles.createOneShotManager(emitter, 20);
 }
 
-function triggerPoof(transNorm) {
+function triggerExplosion(transNorm) {
     var _tp_ = new Float32Array(16);
     var _tv_ = new Float32Array(3);
-    // We have multiple poofs because if you only have one and it is still going
-    // when you trigger it a second time it will immediately start over.
     tdl.fast.addVector(_tv_, transNorm, transNorm);
     tdl.fast.matrix4.cameraLookAt(_tp_, transNorm, _tv_, [0, 1, 0]);
-    g_poofs[g_poofIndex].trigger(_tp_);
-    g_anims[g_poofIndex].trigger(_tp_);
-    g_poofIndex++;
-    if (g_poofIndex == g_numPoofs) {
-        g_poofIndex = 0;
-    }
+    g_explosionMgr.startOneShot(_tp_);
+		g_debrisMgr.startOneShot(_tp_);
 }
 
 function onKeyPress(event) {
@@ -476,8 +463,8 @@ function initialize() {
   particleSystem = new tdl.particles.ParticleSystem(
       gl, null, math.pseudoRandom);
   setupFlame(particleSystem);
-  setupPoofs(particleSystem);
-  setupAnims(particleSystem);
+  g_explosionMgr = setupExplosion(particleSystem);
+  g_debrisMgr = setupDebris(particleSystem);
 
   var then = 0.0;
   var clock = 0.0;
@@ -748,7 +735,7 @@ function initialize() {
             shockwavePoint[ss],
             vector);
 
-        triggerPoof(vector);
+        triggerExplosion(vector);
       } else {
         meteorTimer[ii] -= elapsedTime * meteorSpeed[ii] * g_meteorSpeed;
       }
