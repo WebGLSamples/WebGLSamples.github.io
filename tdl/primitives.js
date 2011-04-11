@@ -1048,6 +1048,97 @@ tdl.primitives.createCylinder = function(
 };
 
 /**
+ * Creates a disc. The disc will be in the xz plane, centered at
+ * the origin. When creating, at least 3 divisions, or pie
+ * pieces, need to be specified, otherwise the triangles making
+ * up the disc will be degenerate. You can also specify the
+ * number of radial pieces (opt_stacks). A value of 1 for
+ * opt_stacks will give you a simple disc of pie pieces.  If you
+ * want to create an annulus you can set opt_innerRadius to a
+ * value > 0. Finally, stackPower allows you to have the widths
+ * increase or decrease as you move away from the center. This
+ * is particularly useful when using the disc as a ground plane
+ * with a fixed camera such that you don't need the resolution
+ * of small triangles near the perimeter. For example, a value
+ * of 2 will produce stacks whose ouside radius increases with
+ * the square of the stack index. A value of 1 will give uniform
+ * stacks.
+ *
+ * @param {number} radius Radius of the ground plane.
+ * @param {number} divisions Number of triangles in the ground plane
+ *                 (at least 3).
+ * @param {number} opt_stacks Number of radial divisions (default=1).
+ * @param {number} opt_innerRadius. Default 0.
+ * @param {number} opt_stackPower Power to raise stack size to for decreasing
+ *                 width.
+ * @return {!Object.<string, !tdl.primitives.AttribBuffer>} The
+ *         created vertices.
+ */
+tdl.primitives.createDisc = function(
+    radius,
+    divisions,
+    opt_stacks,
+    opt_innerRadius,
+    opt_stackPower) {
+  if (divisions < 3) {
+    throw Error('divisions must be at least 3');
+  }
+
+  var stacks = opt_stacks ? opt_stacks : 1;
+  var stackPower = opt_stackPower ? opt_stackPower : 1;
+  var innerRadius = opt_innerRadius ? opt_innerRadius : 0;
+
+  // Note: We don't share the center vertex because that would
+  // mess up texture coordinates.
+  var numVertices = (divisions) * (stacks + 1);
+
+  var positions = new tdl.primitives.AttribBuffer(3, numVertices);
+  var normals = new tdl.primitives.AttribBuffer(3, numVertices);
+  var texCoords = new tdl.primitives.AttribBuffer(2, numVertices);
+  var indices = new tdl.primitives.AttribBuffer(
+      3, stacks * divisions * 2, 'Uint16Array');
+
+  var firstIndex = 0;
+  var radiusSpan = radius - innerRadius;
+
+  // Build the disk one stack at a time.
+  for (var stack = 0; stack <= stacks; ++stack) {
+    var stackRadius = innerRadius + radiusSpan * Math.pow(stack / stacks, stackPower);
+
+    for (var i = 0; i < divisions; ++i) {
+      var theta = 2.0 * Math.PI * i / divisions;
+      var x = stackRadius * Math.cos(theta);
+      var z = stackRadius * Math.sin(theta);
+
+      positions.push([x, 0, z]);
+      normals.push([0, 1, 0]);
+      texCoords.push([Math.cos(theta), stackRadius / radius]);
+      if (stack > 0) {
+        // a, b, c and d are the indices of the vertices of a quad.  unless
+        // the current stack is the one closest to the center, in which case
+        // the vertices a and b connect to the center vertex.
+        var a = firstIndex + (i + 1) % divisions;
+        var b = firstIndex + i;
+        var c = firstIndex + i - divisions;
+        var d = firstIndex + (i + 1) % divisions - divisions;
+
+        // Make a quad of the vertices a, b, c, d.
+        indices.push([a, b, c]);
+        indices.push([a, c, d]);
+      }
+    }
+
+    firstIndex += divisions;
+  }
+tdl.log(numVertices);
+  return {
+    position: positions,
+    normal: normals,
+    texCoord: texCoords,
+    indices: indices};
+};
+
+/**
  * Interleaves vertex information into one large buffer
  * @param {Array of <string, tdl.primitives.AttribBuffer>}
  * @param {Object.<string, tdl.primitives.AttribBuffer>}
