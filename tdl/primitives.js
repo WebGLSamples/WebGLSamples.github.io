@@ -96,6 +96,15 @@ tdl.primitives.AttribBuffer.prototype.setElement = function(index, value) {
   }
 };
 
+tdl.primitives.AttribBuffer.prototype.fillRange = function(index, count, value) {
+  var offset = index * this.numComponents;
+  for (var jj = 0; jj < count; ++jj) {
+    for (var ii = 0; ii < this.numComponents; ++ii) {
+      this.buffer[offset++] = value[ii];
+    }
+  }
+};
+
 tdl.primitives.AttribBuffer.prototype.clone = function() {
   var copy = new tdl.primitives.AttribBuffer(
       this.numComponents, this.numElements, this.type);
@@ -1142,7 +1151,7 @@ tdl.primitives.createDisc = function(
 
     firstIndex += divisions;
   }
-tdl.log(numVertices);
+
   return {
     position: positions,
     normal: normals,

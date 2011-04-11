@@ -104,6 +104,13 @@ function CreateApp() {
     });
   }
 
+  // pre-sort by model.
+  instances.sort(function(a, b) {
+    if (a.modelIndex < b.modelIndex) return -1;
+    if (a.modelIndex > b.modelIndex) return  1;
+    return 0;
+  });
+
   // pre-allocate a bunch of arrays
   var projection = new Float32Array(16);
   var view = new Float32Array(16);
@@ -215,12 +222,6 @@ function CreateApp() {
 
   function renderScene() {
     // -- Render Instances ---------------------------------------
-    // sort by model.
-    instances.sort(function(a, b) {
-      if (a.modelIndex < b.modelIndex) return -1;
-      if (a.modelIndex > b.modelIndex) return  1;
-      return 0;
-    });
 
     var m4 = fast.matrix4;
     var lastModel = null;

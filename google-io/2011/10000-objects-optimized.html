@@ -32,7 +32,7 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<title>Google I/O 2011 - 1000 objects optimized</title>
+<title>Google I/O 2011 - 10000 objects unoptimized</title>
 <link rel="stylesheet" type="text/css" href="style.css" />
 <script type="text/javascript" src="colors.js"></script>
 <script type="text/javascript" src="../../tdl/base.js"></script>
@@ -61,10 +61,11 @@ var g_eyeRadius         = 9;
 
 function CreateApp() {
   // Create Geometry.
-  var sphereArrays = tdl.primitives.createSphere(0.4, 6, 6);
-  var cubeArrays = tdl.primitives.createCube(0.8);
+  var scale = 0.2;
+  var sphereArrays = tdl.primitives.createSphere(0.4 * scale, 3, 3);
+  var cubeArrays = tdl.primitives.createCube(0.8 * scale);
   var coneArrays = tdl.primitives.createTruncatedCone(
-      0.4, 0.0, 0.8, 12, 1, true, true);
+      0.4 * scale, 0.0 * scale, 0.8 * scale, 3, 1, true, true);
 
   // Load textures
   var textures = {
@@ -76,22 +77,22 @@ function CreateApp() {
       'sphereVertexShader',
       'sphereFragmentShader');
 
-  // --Setup Models---------------------------------------
-  var models = [
-    new tdl.models.Model(program, sphereArrays, textures),
-    new tdl.models.Model(program, cubeArrays, textures),
-    new tdl.models.Model(program, coneArrays, textures)
+  // --Setup Arrays---------------------------------------
+  var arrays = [
+    sphereArrays,
+    cubeArrays,
+    coneArrays
   ];
 
   // -- Setup Instances ----------------------------------
   var instances = [];
-  for (var ii = 0; ii < 1000; ++ii) {
+  for (var ii = 0; ii < 10000; ++ii) {
     instances.push({
       x: 0,
       y: 0,
       z: 0,
       colorMult: new Float32Array(g_glColors[math.randomInt(g_glColors.length)]),
-      modelIndex: Math.floor(Math.random() * models.length),
+      arrayIndex: Math.floor(Math.random() * arrays.length),
       xRadius: Math.random() * 5,
       yRadius: Math.random() * 5,
       zRadius: Math.random() * 5,
@@ -102,6 +103,62 @@ function CreateApp() {
       yClock: Math.random() * Math.PI * 2,
       zClock: Math.random() * Math.PI * 2
     });
+  }
+
+  // Expand arrays from instances to geometry.
+
+  // Step 1: Add an extra worldPosition and colorMult field to each geometry
+  for (var ii = 0; ii < arrays.length; ++ii) {
+    var numElements = arrays[ii].position.numElements;
+    arrays[ii].worldPosition = new tdl.primitives.AttribBuffer(3, numElements);
+    arrays[ii].colorMult = new tdl.primitives.AttribBuffer(4, numElements);
+  }
+
+  // Step 2: convert instances to expanded geometry
+  var expandedArrays = [];
+  var expandedArray;
+  var totalElements = 0;
+  for (var ii = 0; ii < instances.length; ++ii) {
+    var instance = instances[ii];
+    // WebGL can only handle 65536 indexed vertices so check if this
+    // geometry can fit the current model
+    var array = arrays[instance.arrayIndex];
+    if (!expandedArray || totalElements + array.position.numElements > 65536) {
+      // Start a new array.
+      totalElements = 0;
+      expandedArray = [array];
+      expandedArrays.push(expandedArray);
+    } else {
+      // Add our new stuff on to the old one.
+      expandedArray.push(array);
+    }
+    instance.firstVertex = totalElements;
+    totalElements += array.position.numElements;
+    instance.numVertices = array.position.numElements;
+    instance.expandedArrayIndex = expandedArrays.length - 1;
+  }
+
+  for (var ii = 0; ii < expandedArrays.length; ++ii) {
+    tdl.log("concat:", ii, " of ", expandedArrays.length);
+    expandedArrays[ii] = tdl.primitives.concat(expandedArrays[ii]);
+  }
+
+  // Step 3: Make models from our expanded geometry.
+  var models = [];
+  for (var ii = 0; ii < expandedArrays.length; ++ii) {
+    models.push(new tdl.models.Model(program, expandedArrays[ii], textures));
+  }
+
+  // Step 4: Copy in Colors
+  for (var ii = 0; ii < instances.length; ++ii) {
+    var instance = instances[ii];
+    var index = instance.expandedArrayIndex;
+    var attribBuffer = expandedArrays[index].colorMult;
+    attribBuffer.fillRange(instance.firstVertex, instance.numVertices, instance.colorMult);
+  }
+  for (var ii = 0; ii < models.length; ++ii) {
+    var attribBuffer = expandedArrays[ii].colorMult;
+    models[ii].setBuffer('colorMult', attribBuffer);
   }
 
   // pre-allocate a bunch of arrays
@@ -136,9 +193,6 @@ function CreateApp() {
     specular: one4,
     shininess: 50,
     specularFactor: 0.2,
-  };
-  var uniqueUniforms = {
-    colorMult: new Float32Array([0,0,0,1]),
     world: world,
     worldViewProjection: worldViewProjection,
     worldInverse: worldInverse,
@@ -161,9 +215,16 @@ function CreateApp() {
       instance.xClock += advance * instance.xClockSpeed;
       instance.yClock += advance * instance.yClockSpeed;
       instance.zClock += advance * instance.zClockSpeed;
-      instance.x = Math.sin(instance.xClock) * instance.xRadius;
-      instance.y = Math.sin(instance.yClock) * instance.yRadius;
-      instance.z = Math.cos(instance.zClock) * instance.zRadius;
+      var x = instance.x = Math.sin(instance.xClock) * instance.xRadius;
+      var y = instance.y = Math.sin(instance.yClock) * instance.yRadius;
+      var z = instance.z = Math.cos(instance.zClock) * instance.zRadius;
+      var index = instance.expandedArrayIndex;
+      var attribBuffer = expandedArrays[index].worldPosition;
+      attribBuffer.fillRange(instance.firstVertex, instance.numVertices, [x, y, z]);
+    }
+    for (var ii = 0; ii < models.length; ++ii) {
+      var attribBuffer = expandedArrays[ii].worldPosition;
+      models[ii].setBuffer('worldPosition', attribBuffer);
     }
   }
 
@@ -211,33 +272,22 @@ function CreateApp() {
     fast.addVector(lightWorldPos, eyePosition, v3t0);
     fast.addVector(lightWorldPos, lightWorldPos, v3t1);
     fast.addVector(lightWorldPos, lightWorldPos, v3t2);
+
+    // compute shared matrices
+    m4.translation(world, [0, 0, 0]);
+    m4.mul(worldViewProjection, world, viewProjection);
+    m4.inverse(worldInverse, world);
+    m4.transpose(worldInverseTranspose, worldInverse);
   }
 
   function renderScene() {
-    // -- Render Instances ---------------------------------------
-    // sort by model.
-    instances.sort(function(a, b) {
-      if (a.modelIndex < b.modelIndex) return -1;
-      if (a.modelIndex > b.modelIndex) return  1;
-      return 0;
-    });
-
-    var m4 = fast.matrix4;
-    var lastModel = null;
-    for (var ii = 0; ii < instances.length; ++ii) {
-      var instance = instances[ii];
-      var model = models[instance.modelIndex];
-      if (model != lastModel) {
-        lastModel = model;
-        model.drawPrep(sharedUniforms);
-      }
-      m4.translation(world, [instance.x, instance.y, instance.z]);
-      m4.mul(worldViewProjection, world, viewProjection);
-      m4.inverse(worldInverse, world);
-      m4.transpose(worldInverseTranspose, worldInverse);
-      uniqueUniforms.colorMult = instance.colorMult;
-      model.drawPrep();
-      model.draw(uniqueUniforms);
+    // -- Render Models ---------------------------------------
+    // We only need to render each model once
+    // as they contain all the instances.
+    for (var ii = 0; ii < models.length; ++ii) {
+      var model = models[ii];
+      model.drawPrep(sharedUniforms);
+      model.draw();
     }
   }
 
@@ -291,7 +341,7 @@ function initialize() {
 </script>
 </head>
 <body>
-<div id="info"><span><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - google i/o 1000-objects optimized</span></div>
+<div id="info"><span><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - google i/o 10000-objects unoptimized</span></div>
 <div id="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
 </div>
@@ -308,15 +358,19 @@ uniform mat4 worldInverseTranspose;
 attribute vec4 position;
 attribute vec3 normal;
 attribute vec2 texCoord;
+attribute vec3 worldPosition;
+attribute vec4 colorMult;
 varying vec4 v_position;
 varying vec2 v_texCoord;
 varying vec3 v_normal;
 varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
+varying vec4 v_colorMult;
 void main() {
   v_texCoord = texCoord;
-  v_position = (worldViewProjection * position);
+  v_position = (worldViewProjection * (position + vec4(worldPosition, 0)));
   v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_colorMult = colorMult;
   v_surfaceToLight = lightWorldPos - (world * position).xyz;
   v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
   gl_Position = v_position;
@@ -327,12 +381,12 @@ void main() {
 #ifdef GL_ES
 precision highp float;
 #endif
-uniform vec4 colorMult;
 varying vec4 v_position;
 varying vec2 v_texCoord;
 varying vec3 v_normal;
 varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
+varying vec4 v_colorMult;
 
 uniform sampler2D diffuseSampler;
 uniform vec4 specular;
@@ -347,7 +401,7 @@ vec4 lit(float l ,float h, float m) {
               1.0);
 }
 void main() {
-  vec4 diffuse = texture2D(diffuseSampler, v_texCoord) * colorMult;
+  vec4 diffuse = texture2D(diffuseSampler, v_texCoord) * v_colorMult;
   vec3 normal = normalize(v_normal);
   vec3 surfaceToLight = normalize(v_surfaceToLight);
   vec3 surfaceToView = normalize(v_surfaceToView);
@@ -361,6 +415,7 @@ void main() {
 }
 </script>
 </html>
+
 
 
 
