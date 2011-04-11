@@ -1013,7 +1013,7 @@ tdl.primitives.createTruncatedCone = function(
           (yy < 0 || yy > verticalSubdivisions) ? 0 : (sin * cosSlant),
           (yy < 0) ? -1 : (yy > verticalSubdivisions ? 1 : sinSlant),
           (yy < 0 || yy > verticalSubdivisions) ? 0 : (cos * cosSlant)]);
-      texCoords.push([1 - (ii / radialSubdivisions), v]);
+      texCoords.push([(ii / radialSubdivisions), 1 - v]);
     }
   }
 

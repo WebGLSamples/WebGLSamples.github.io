@@ -32,7 +32,7 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<title>Google I/O 2011 - 10000 objects optimized</title>
+<title>Google I/O 2011 - 40000 objects optimized</title>
 <link rel="stylesheet" type="text/css" href="style.css" />
 <script type="text/javascript" src="colors.js"></script>
 <script type="text/javascript" src="../../tdl/base.js"></script>
@@ -60,14 +60,6 @@ var g_eyeHeight         = 2;
 var g_eyeRadius         = 9;
 
 function CreateApp() {
-  var updatePositions = true;
-
-  window.addEventListener('keypress', handleKeyPress, false);
-
-  function handleKeyPress(event) {
-    updatePositions = !updatePositions;
-  }
-
   // Create Geometry.
   var scale = 0.2;
   var sphereArrays = tdl.primitives.createSphere(0.4 * scale, 3, 3);
@@ -94,7 +86,7 @@ function CreateApp() {
 
   // -- Setup Instances ----------------------------------
   var instances = [];
-  for (var ii = 0; ii < 10000; ++ii) {
+  for (var ii = 0; ii < 40000; ++ii) {
     instances.push({
       x: 0,
       y: 0,
@@ -115,11 +107,14 @@ function CreateApp() {
 
   // Expand arrays from instances to geometry.
 
-  // Step 1: Add an extra worldPosition and colorMult field to each geometry
+  // Step 1: Add an extra colorMult, clockOffset, clockSpeed,
+  //     and radius fields to each geometry
   for (var ii = 0; ii < arrays.length; ++ii) {
     var numElements = arrays[ii].position.numElements;
-    arrays[ii].worldPosition = new tdl.primitives.AttribBuffer(3, numElements);
     arrays[ii].colorMult = new tdl.primitives.AttribBuffer(4, numElements);
+    arrays[ii].clockOffset = new tdl.primitives.AttribBuffer(3, numElements);
+    arrays[ii].clockSpeed = new tdl.primitives.AttribBuffer(3, numElements);
+    arrays[ii].radius = new tdl.primitives.AttribBuffer(3, numElements);
   }
 
   // Step 2: convert instances to expanded geometry
@@ -157,16 +152,27 @@ function CreateApp() {
     models.push(new tdl.models.Model(program, expandedArrays[ii], textures));
   }
 
-  // Step 4: Copy in Colors
+  // Step 4: Copy in Colors and other per instance data.
   for (var ii = 0; ii < instances.length; ++ii) {
     var instance = instances[ii];
     var index = instance.expandedArrayIndex;
-    var attribBuffer = expandedArrays[index].colorMult;
-    attribBuffer.fillRange(instance.firstVertex, instance.numVertices, instance.colorMult);
+    expandedArrays[index].colorMult.fillRange(
+        instance.firstVertex, instance.numVertices, instance.colorMult);
+    expandedArrays[index].clockOffset.fillRange(
+        instance.firstVertex, instance.numVertices,
+        [instance.xClock, instance.yClock, instance.zClock]);
+    expandedArrays[index].clockSpeed.fillRange(
+        instance.firstVertex, instance.numVertices,
+        [instance.xClockSpeed, instance.yClockSpeed, instance.zClockSpeed]);
+    expandedArrays[index].radius.fillRange(
+        instance.firstVertex, instance.numVertices,
+        [instance.xRadius, instance.yRadius, instance.zRadius]);
   }
   for (var ii = 0; ii < models.length; ++ii) {
-    var attribBuffer = expandedArrays[ii].colorMult;
-    models[ii].setBuffer('colorMult', attribBuffer);
+    models[ii].setBuffer('colorMult', expandedArrays[ii].colorMult);
+    models[ii].setBuffer('clockOffset', expandedArrays[ii].clockOffset);
+    models[ii].setBuffer('clockSpeed', expandedArrays[ii].clockSpeed);
+    models[ii].setBuffer('radius', expandedArrays[ii].radius);
   }
 
   // pre-allocate a bunch of arrays
@@ -201,10 +207,7 @@ function CreateApp() {
     specular: one4,
     shininess: 50,
     specularFactor: 0.2,
-    world: world,
-    worldViewProjection: worldViewProjection,
-    worldInverse: worldInverse,
-    worldInverseTranspose: worldInverseTranspose
+    viewProjection: viewProjection,
   };
 
   var clock = 0.0;
@@ -215,27 +218,6 @@ function CreateApp() {
     eyePosition[0] = Math.sin(clock * g_eyeSpeed) * g_eyeRadius;
     eyePosition[1] = g_eyeHeight;
     eyePosition[2] = Math.cos(clock * g_eyeSpeed) * g_eyeRadius;
-
-    // --Update Instance Positions---------------------------------------
-    if (updatePositions) {
-      var advance = elapsedTime / 2;
-      for (var ii = 0; ii < instances.length; ++ii) {
-        var instance = instances[ii];
-        instance.xClock += advance * instance.xClockSpeed;
-        instance.yClock += advance * instance.yClockSpeed;
-        instance.zClock += advance * instance.zClockSpeed;
-        var x = instance.x = Math.sin(instance.xClock) * instance.xRadius;
-        var y = instance.y = Math.sin(instance.yClock) * instance.yRadius;
-        var z = instance.z = Math.cos(instance.zClock) * instance.zRadius;
-        var index = instance.expandedArrayIndex;
-        var attribBuffer = expandedArrays[index].worldPosition;
-        attribBuffer.fillRange(instance.firstVertex, instance.numVertices, [x, y, z]);
-      }
-      for (var ii = 0; ii < models.length; ++ii) {
-        var attribBuffer = expandedArrays[ii].worldPosition;
-        models[ii].setBuffer('worldPosition', attribBuffer);
-      }
-    }
   }
 
   function render() {
@@ -282,18 +264,13 @@ function CreateApp() {
     fast.addVector(lightWorldPos, eyePosition, v3t0);
     fast.addVector(lightWorldPos, lightWorldPos, v3t1);
     fast.addVector(lightWorldPos, lightWorldPos, v3t2);
-
-    // compute shared matrices
-    m4.translation(world, [0, 0, 0]);
-    m4.mul(worldViewProjection, world, viewProjection);
-    m4.inverse(worldInverse, world);
-    m4.transpose(worldInverseTranspose, worldInverse);
   }
 
   function renderScene() {
     // -- Render Models ---------------------------------------
     // We only need to render each model once
     // as they contain all the instances.
+    sharedUniforms.clock = clock / 2;
     for (var ii = 0; ii < models.length; ++ii) {
       var model = models[ii];
       model.drawPrep(sharedUniforms);
@@ -351,7 +328,7 @@ function initialize() {
 </script>
 </head>
 <body>
-<div id="info"><span><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - google i/o 10000-objects optimized</span></div>
+<div id="info"><span><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - google i/o 40000-objects optimized</span></div>
 <div id="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
 </div>
@@ -360,16 +337,17 @@ function initialize() {
 </div>
 </body>
 <script id="sphereVertexShader" type="text/something-not-javascript">
-uniform mat4 worldViewProjection;
+uniform mat4 viewProjection;
 uniform vec3 lightWorldPos;
-uniform mat4 world;
 uniform mat4 viewInverse;
-uniform mat4 worldInverseTranspose;
+uniform float clock;
 attribute vec4 position;
 attribute vec3 normal;
 attribute vec2 texCoord;
-attribute vec3 worldPosition;
 attribute vec4 colorMult;
+attribute vec3 clockOffset;
+attribute vec3 clockSpeed;
+attribute vec3 radius;
 varying vec4 v_position;
 varying vec2 v_texCoord;
 varying vec3 v_normal;
@@ -377,13 +355,25 @@ varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
 varying vec4 v_colorMult;
 void main() {
+  vec3 clocks = clockOffset + (clockSpeed * clock);
+  vec4 pos = vec4(
+      sin(clocks.x) * radius.x,
+      sin(clocks.y) * radius.y,
+      cos(clocks.z) * radius.z,
+      1
+    );
+  mat4 world = mat4(
+      vec4(1,0,0,0),
+      vec4(0,1,0,0),
+      vec4(0,0,1,0),
+      pos
+    );
   v_texCoord = texCoord;
-  vec4 wp = position + vec4(worldPosition, 0);
-  v_position = (worldViewProjection * wp);
-  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_position = (viewProjection * world * position);
+  v_normal = (world * vec4(normal, 0)).xyz;
   v_colorMult = colorMult;
-  v_surfaceToLight = lightWorldPos - wp.xyz;
-  v_surfaceToView = (viewInverse[3] - wp).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
   gl_Position = v_position;
 }
 
