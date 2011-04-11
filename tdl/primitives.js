@@ -702,18 +702,13 @@ tdl.primitives.createPlane = function(
   }
   var math = tdl.math;
 
-  // We are going to generate our sphere by iterating through its
-  // spherical coordinates and generating 2 triangles for each quad on a
-  // ring of the sphere.
   var numVertices = (subdivisionsWidth + 1) * (subdivisionsDepth + 1);
   var positions = new tdl.primitives.AttribBuffer(3, numVertices);
   var normals = new tdl.primitives.AttribBuffer(3, numVertices);
   var texCoords = new tdl.primitives.AttribBuffer(2, numVertices);
 
-  // Generate the individual vertices in our vertex buffer.
   for (var z = 0; z <= subdivisionsDepth; z++) {
     for (var x = 0; x <= subdivisionsWidth; x++) {
-      // Generate a vertex based on its spherical coordinates
       var u = x / subdivisionsWidth;
       var v = z / subdivisionsDepth;
       positions.push([
@@ -848,58 +843,75 @@ tdl.primitives.createCube = function(size) {
  * @return {!Object.<string, !tdl.primitives.AttribBuffer>} The
  *         created plane vertices.
  */
-tdl.primitives.createFlaredCube = function(inner_size, outer_size, layercount) {
-  var numVertices = 8 * layercount;
-  var numIndices = 2 * 12 * 3 * (layercount - 1);
-
+tdl.primitives.createFlaredCube = function(innerSize, outerSize, layerCount) {
+  var numVertices = 2 * (layerCount + 1);
   var positions = new tdl.primitives.AttribBuffer(3, numVertices);
   var normals = new tdl.primitives.AttribBuffer(3, numVertices);
   var texCoords = new tdl.primitives.AttribBuffer(2, numVertices);
-  var indices = new tdl.primitives.AttribBuffer(3, numIndices, 'Uint16Array');
+  var indices = new tdl.primitives.AttribBuffer(
+      3, layerCount * 2, 'Uint16Array');
 
-  var sizeDelta = (outer_size - inner_size) / layercount
-  var size = inner_size;
-  for (var i = 0; i < layercount; i++, size += sizeDelta) {
-    var k = size / 2;
-    var cornerVertices = [
-      [-k, -k, -k], [+k, -k, -k], [+k, +k, -k], [-k, +k, -k],
-      [-k, -k, +k], [+k, -k, +k], [+k, +k, +k], [-k, +k, +k]
-    ];
-    var vs = [0, 1, 0, 1, 1, 0, 1, 0]
-    var u = i / (layercount - 1)
-    for (var v = 0; v < 8; ++v) {
-      var position = cornerVertices[v];
-      var uv = [u, vs[v]]
-      positions.push(position);
-      texCoords.push(uv);
+  // make a trapazoid plane.
+  for (var z = 0; z <= layerCount; z++) {
+    for (var x = 0; x <= 1; x++) {
+      var u = x;
+      var v = z / layerCount;
+      var width = tdl.math.lerpScalar(innerSize, outerSize, v);
+      positions.push([
+          width * u - width * 0.5,
+          0,
+          tdl.math.lerpScalar(innerSize, outerSize, v) * 0.7
+      ]);
+      normals.push([0, 1, 0]);
+      texCoords.push([v, u]);
     }
   }
 
-  function extrudeLine(offset, i1, i2) {
-    indices.push([offset + i1, offset + i2, offset + 8 + i1]);
-    indices.push([offset + i2, offset + 8 + i1, offset + 8 + i2]);
-  }
-  for (var i = 0; i < layercount - 1; i++) {
-    extrudeLine(i*8, 0, 1)
-    extrudeLine(i*8, 1, 2)
-    extrudeLine(i*8, 2, 3)
-    extrudeLine(i*8, 3, 0)
+  var numVertsAcross = 2;
+  for (var z = 0; z < layerCount; z++) {
+    // Make triangle 1 of quad.
+    indices.push([
+        (z + 0) * numVertsAcross,
+        (z + 1) * numVertsAcross,
+        (z + 0) * numVertsAcross + 1]);
 
-    extrudeLine(i*8, 4, 5)
-    extrudeLine(i*8, 5, 6)
-    extrudeLine(i*8, 6, 7)
-    extrudeLine(i*8, 7, 4)
-
-    extrudeLine(i*8, 0, 4)
-    extrudeLine(i*8, 1, 5)
-    extrudeLine(i*8, 2, 6)
-    extrudeLine(i*8, 3, 7)
+    // Make triangle 2 of quad.
+    indices.push([
+        (z + 1) * numVertsAcross,
+        (z + 1) * numVertsAcross + 1,
+        (z + 0) * numVertsAcross + 1]);
   }
 
-  return {
+  var arrays = {
     position: positions,
+    normal: normals,
     texCoord: texCoords,
-    indices: indices};
+    indices: indices
+  };
+
+  // rotate it 45 degrees
+  tdl.primitives.reorient(arrays, tdl.math.matrix4.rotationX(Math.PI / 4));
+
+  // make 3 copies of plane each rotated 90
+  var planes = [arrays];
+  for (var ii = 0; ii < 3; ++ii) {
+    var clone = tdl.primitives.clone(arrays);
+    tdl.primitives.reorient(clone, tdl.math.matrix4.rotationZ(Math.PI * (ii + 1) / 2));
+    planes.push(clone);
+  }
+  // concat 4 planes to make a cone
+  var arrays = tdl.primitives.concat(planes);
+
+  // make 3 copies of cone each rotated 90
+  var cones = [arrays];
+  for (var ii = 0; ii < 3; ++ii) {
+    var clone = tdl.primitives.clone(arrays);
+    tdl.primitives.reorient(clone, tdl.math.matrix4.rotationY(Math.PI * (ii + 1) / 2));
+    cones.push(clone);
+  }
+  // concat 4 cones to make flared cube
+  var arrays = tdl.primitives.concat(cones);
+  return arrays;
 };
 
 
@@ -1112,7 +1124,7 @@ tdl.primitives.createDisc = function(
 
       positions.push([x, 0, z]);
       normals.push([0, 1, 0]);
-      texCoords.push([Math.cos(theta), stackRadius / radius]);
+      texCoords.push([1 - (i / divisions), stack / stacks]);
       if (stack > 0) {
         // a, b, c and d are the indices of the vertices of a quad.  unless
         // the current stack is the one closest to the center, in which case

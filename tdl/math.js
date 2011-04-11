@@ -217,7 +217,7 @@ tdl.math.resetPseudoRandom = function() {
  * @param {number} n
  */
 tdl.math.randomInt = function(n) {
-  return Math.min(Math.floor(Math.random() * n), n - 1);
+  return Math.floor(Math.random() * n);
 }
 
 /**

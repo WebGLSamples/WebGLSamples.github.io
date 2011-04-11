@@ -33,46 +33,8 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <title>Google I/O 2011 - 100 objects</title>
-<style>
-html, body {
-  width: 100%;
-  height: 100%;
-  border: 0px;
-  padding: 0px;
-  margin: 0px;
-  background-color: red;
-  font-family: sans-serif;
-  overflow: hidden;
-  color: #000;
-}
-a {
-  color: #000;
-}
-#info {
-  font-size: small;
-  position: absolute;
-  top: 0px;
-  width: 100%;
-  padding: 5px;
-  text-align: center;
-  z-index: 2;
-}
-#fpsContainer {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 2;
-  color: white;
-  font-family: sans-serif;
-  background-color: rgba(0,0,0,0.5);
-  border-radius: 10px;
-  padding: 10px;
-}
-#viewContainer {
-  width: 100%;
-  height: 100%;
-}
-</style>
+<link rel="stylesheet" type="text/css" href="style.css" />
+<script type="text/javascript" src="colors.js"></script>
 <script type="text/javascript" src="../../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
@@ -163,8 +125,8 @@ function initialize() {
       x: 0,
       y: 0,
       z: 0,
-      colorMult: new Float32Array([Math.random(), Math.random(), Math.random(), 1]),
-      model: models[Math.floor(Math.random() * models.length)],
+      colorMult: new Float32Array(g_glColors[math.randomInt(g_glColors.length)]),
+      modelIndex: Math.floor(Math.random() * models.length),
       xRadius: Math.random() * 5,
       yRadius: Math.random() * 5,
       zRadius: Math.random() * 5,
@@ -203,7 +165,7 @@ function initialize() {
   var one4 = new Float32Array([1,1,1,1]);
 
   // uniforms.
-  var modelPer = {
+  var modelUniforms = {
     viewInverse: viewInverse,
     lightWorldPos: lightWorldPos,
     specular: one4,
@@ -294,14 +256,14 @@ function initialize() {
     var m4 = fast.matrix4;
     for (var ii = 0; ii < instances.length; ++ii) {
       var instance = instances[ii];
-      var model = instance.model;
+      var model = models[instance.modelIndex];
       m4.translation(world, [instance.x, instance.y, instance.z]);
       m4.mul(worldViewProjection, world, viewProjection);
       m4.inverse(worldInverse, world);
       m4.transpose(worldInverseTranspose, worldInverse);
-      modelPer.colorMult = instance.colorMult;
+      modelUniforms.colorMult = instance.colorMult;
       model.drawPrep();
-      model.draw(modelPer);
+      model.draw(modelUniforms);
     }
 
     // Set the alpha to 255.
@@ -315,7 +277,7 @@ function initialize() {
 </script>
 </head>
 <body>
-<div id="info"><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - google i/o 100-objects</div>
+<div id="info"><span><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - google i/o 100-objects</span></div>
 <div id="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
 </div>

@@ -33,46 +33,8 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <title>Google I/O 2011 - 1000 objects</title>
-<style>
-html, body {
-  width: 100%;
-  height: 100%;
-  border: 0px;
-  padding: 0px;
-  margin: 0px;
-  background-color: red;
-  font-family: sans-serif;
-  overflow: hidden;
-  color: #000;
-}
-a {
-  color: #000;
-}
-#info {
-  font-size: small;
-  position: absolute;
-  top: 0px;
-  width: 100%;
-  padding: 5px;
-  text-align: center;
-  z-index: 2;
-}
-#fpsContainer {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 2;
-  color: white;
-  font-family: sans-serif;
-  background-color: rgba(0,0,0,0.5);
-  border-radius: 10px;
-  padding: 10px;
-}
-#viewContainer {
-  width: 100%;
-  height: 100%;
-}
-</style>
+<link rel="stylesheet" type="text/css" href="style.css" />
+<script type="text/javascript" src="colors.js"></script>
 <script type="text/javascript" src="../../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
@@ -92,40 +54,10 @@ var gl;                   // the gl context.
 var canvas;               // the canvas
 var math;                 // the math lib.
 var fast;                 // the fast math lib.
-var g_fpsTimer;           // object to measure frames per second;
-var g_logGLCalls = true;  // whether or not to log webgl calls
-var g_debug = false;      // whether or not to debug.
-var g_drawOnce = false;   // draw just one frame.
-
-//g_drawOnce = true;
-//g_debug = true;
 
 var g_eyeSpeed          = 0.5;
 var g_eyeHeight         = 2;
 var g_eyeRadius         = 9;
-
-function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
-  for (var ii = 0; ii < args.length; ++ii) {
-    if (args[ii] === undefined) {
-      tdl.error("undefined passed to gl." + functionName + "(" +
-                tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
-    }
-  }
-}
-
-function Log(msg) {
-  if (g_logGLCalls) {
-    tdl.log(msg);
-  }
-}
-
-function LogGLCall(functionName, args) {
-  if (g_logGLCalls) {
-    ValidateNoneOfTheArgsAreUndefined(functionName, args)
-    tdl.log("gl." + functionName + "(" +
-                tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
-  }
-}
 
 /**
  * Sets up sphere.
@@ -170,17 +102,15 @@ function initialize() {
   math = tdl.math;
   fast = tdl.fast;
   canvas = document.getElementById("canvas");
-  g_fpsTimer = new tdl.fps.FPSTimer();
+  var fpsTimer = new tdl.fps.FPSTimer();
+  var fpsElem = document.getElementById("fps");
 
   gl = tdl.webgl.setupWebGL(canvas);
   if (!gl) {
     return false;
   }
-  if (g_debug) {
-    gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
-  }
 
-  Log("--Setup Sphere---------------------------------------");
+  // --Setup Models---------------------------------------
 
   var models = [
     setupSphere(),
@@ -188,14 +118,26 @@ function initialize() {
     setupCone()
   ];
 
+  // -- Setup Instances ----------------------------------
   var instances = [];
   for (var ii = 0; ii < 1000; ++ii) {
-    instances.push(models[Math.floor(Math.random() * models.length)]);
+    instances.push({
+      x: 0,
+      y: 0,
+      z: 0,
+      colorMult: new Float32Array(g_glColors[math.randomInt(g_glColors.length)]),
+      modelIndex: Math.floor(Math.random() * models.length),
+      xRadius: Math.random() * 5,
+      yRadius: Math.random() * 5,
+      zRadius: Math.random() * 5,
+      xClockSpeed: (Math.random() + 0.5),
+      yClockSpeed: (Math.random() + 0.5),
+      zClockSpeed: (Math.random() + 0.5),
+      xClock: Math.random() * Math.PI * 2,
+      yClock: Math.random() * Math.PI * 2,
+      zClock: Math.random() * Math.PI * 2
+    });
   }
-
-  var then = 0.0;
-  var clock = 0.0;
-  var fpsElem = document.getElementById("fps");
 
   // pre-allocate a bunch of arrays
   var projection = new Float32Array(16);
@@ -223,42 +165,44 @@ function initialize() {
   var one4 = new Float32Array([1,1,1,1]);
 
   // uniforms.
-  var modelConst = {
+  var modelUniforms = {
     viewInverse: viewInverse,
     lightWorldPos: lightWorldPos,
     specular: one4,
     shininess: 50,
-    specularFactor: 0.2};
-  var modelPer = {
-    lightColor: new Float32Array([0,0,0,1]),
+    specularFactor: 0.2,
+    colorMult: new Float32Array([0,0,0,1]),
     world: world,
     worldViewProjection: worldViewProjection,
     worldInverse: worldInverse,
-    worldInverseTranspose: worldInverseTranspose};
+    worldInverseTranspose: worldInverseTranspose
+  };
 
-  var frameCount = 0;
+  var then = (new Date()).getTime() * 0.001;
+  var clock = 0.0;
+
   function render() {
-    ++frameCount;
-    if (!g_drawOnce) {
-      tdl.webgl.requestAnimationFrame(render, canvas);
-    }
+    tdl.webgl.requestAnimationFrame(render, canvas);
+
+    // Compute the elapsed time since the last rendered frame
+    // in seconds.
     var now = (new Date()).getTime() * 0.001;
-    var elapsedTime;
-    if(then == 0.0) {
-      elapsedTime = 0.0;
-    } else {
-      elapsedTime = now - then;
-    }
+    var elapsedTime = now - then;
     then = now;
 
-    g_fpsTimer.update(elapsedTime);
-    fpsElem.innerHTML = g_fpsTimer.averageFPS;
-
+    // Advance the clock.
     clock += elapsedTime;
+
+    // Update the FPS timer.
+    fpsTimer.update(elapsedTime);
+    fpsElem.innerHTML = fpsTimer.averageFPS;
+
+    // Make the camera rotate around the scene.
     eyePosition[0] = Math.sin(clock * g_eyeSpeed) * g_eyeRadius;
     eyePosition[1] = g_eyeHeight;
     eyePosition[2] = Math.cos(clock * g_eyeSpeed) * g_eyeRadius;
 
+    // clear the screen.
     gl.colorMask(true, true, true, true);
     gl.depthMask(true);
     gl.clearColor(1,1,1,0);
@@ -268,6 +212,7 @@ function initialize() {
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
 
+    // Compute a projection and view matrices.
     fast.matrix4.perspective(
         projection,
         math.degToRad(60),
@@ -283,6 +228,7 @@ function initialize() {
     fast.matrix4.inverse(viewInverse, view);
     fast.matrix4.inverse(viewProjectionInverse, viewProjection);
 
+    // Put the light near the camera
     fast.matrix4.getAxis(v3t0, viewInverse, 0); // x
     fast.matrix4.getAxis(v3t1, viewInverse, 1); // y;
     fast.matrix4.getAxis(v3t2, viewInverse, 2); // z;
@@ -293,44 +239,38 @@ function initialize() {
     fast.addVector(lightWorldPos, lightWorldPos, v3t1);
     fast.addVector(lightWorldPos, lightWorldPos, v3t2);
 
-    Log("--Draw Models---------------------------------------");
-    math.resetPseudoRandom();
-    var m4 = fast.matrix4;
-    var pseudoRandom = math.pseudoRandom;
-    var lightColor = modelPer.lightColor;
-    var mClock = clock / 2;
+    // --Update Instance Positions---------------------------------------
+
+    var advance = elapsedTime / 2;
     for (var ii = 0; ii < instances.length; ++ii) {
-      var model = instances[ii];
-      model.drawPrep(modelConst);
-      lightColor[0] = pseudoRandom();
-      lightColor[1] = pseudoRandom();
-      lightColor[2] = pseudoRandom();
+      var instance = instances[ii];
+      instance.xClock += advance * instance.xClockSpeed;
+      instance.yClock += advance * instance.yClockSpeed;
+      instance.zClock += advance * instance.zClockSpeed;
+      instance.x = Math.sin(instance.xClock) * instance.xRadius;
+      instance.y = Math.sin(instance.yClock) * instance.yRadius;
+      instance.z = Math.cos(instance.zClock) * instance.zRadius;
+    }
 
-      var xRadius = pseudoRandom() * 5;
-      var yRadius = pseudoRandom() * 5;
-      var zRadius = pseudoRandom() * 5;
-      var xClock = mClock * (pseudoRandom() + 0.5) + pseudoRandom() * Math.PI * 2;
-      var yClock = mClock * (pseudoRandom() + 0.5) + pseudoRandom() * Math.PI * 2;
-      var zClock = mClock * (pseudoRandom() + 0.5) + pseudoRandom() * Math.PI * 2;
-
-      var x = Math.sin(xClock) * xRadius;
-      var y = Math.sin(yClock) * yRadius;
-      var z = Math.cos(zClock) * zRadius;
-
-      m4.translation(world, [x, y, z]);
+    // -- Render Instances ---------------------------------------
+    var m4 = fast.matrix4;
+    var lastModel = null;
+    for (var ii = 0; ii < instances.length; ++ii) {
+      var instance = instances[ii];
+      var model = models[instance.modelIndex];
+      m4.translation(world, [instance.x, instance.y, instance.z]);
       m4.mul(worldViewProjection, world, viewProjection);
       m4.inverse(worldInverse, world);
       m4.transpose(worldInverseTranspose, worldInverse);
-      model.draw(modelPer);
+      modelUniforms.colorMult = instance.colorMult;
+      model.drawPrep();
+      model.draw(modelUniforms);
     }
 
     // Set the alpha to 255.
     gl.colorMask(false, false, false, true);
     gl.clearColor(0,0,0,1);
     gl.clear(gl.COLOR_BUFFER_BIT);
-
-    // turn off logging after 1 frame.
-    g_logGLCalls = false;
   }
   render();
   return true;
@@ -338,7 +278,7 @@ function initialize() {
 </script>
 </head>
 <body>
-<div id="info"><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - google i/o 100-objects</div>
+<div id="info"><span><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - google i/o 1000-objects unoptimized</span></div>
 <div id="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
 </div>
@@ -374,7 +314,7 @@ void main() {
 #ifdef GL_ES
 precision highp float;
 #endif
-uniform vec4 lightColor;
+uniform vec4 colorMult;
 varying vec4 v_position;
 varying vec2 v_texCoord;
 varying vec3 v_normal;
@@ -394,7 +334,7 @@ vec4 lit(float l ,float h, float m) {
               1.0);
 }
 void main() {
-  vec4 diffuse = texture2D(diffuseSampler, v_texCoord);
+  vec4 diffuse = texture2D(diffuseSampler, v_texCoord) * colorMult;
   vec3 normal = normalize(v_normal);
   vec3 surfaceToLight = normalize(v_surfaceToLight);
   vec3 surfaceToView = normalize(v_surfaceToView);
@@ -402,7 +342,7 @@ void main() {
   vec4 litR = lit(dot(normal, surfaceToLight),
                     dot(normal, halfVector), shininess);
   gl_FragColor = vec4((
-  lightColor * (diffuse * litR.y
+  vec4(1,1,1,1) * (diffuse * litR.y
                         + specular * litR.z * specularFactor)).rgb,
       diffuse.a);
 }
