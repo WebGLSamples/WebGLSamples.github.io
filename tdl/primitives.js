@@ -543,7 +543,7 @@ tdl.primitives.createSphere = function(
       var uz = sinTheta * sinPhi;
       positions.push([radius * ux, radius * uy, radius * uz]);
       normals.push([ux, uy, uz]);
-      texCoords.push([u, v]);
+      texCoords.push([1 - u, v]);
     }
   }
 
@@ -759,12 +759,12 @@ tdl.primitives.createPlane = function(
  * @type {!Array.<!Array.<number>>}
  */
 tdl.primitives.CUBE_FACE_INDICES_ = [
-  [3, 7, 5, 1],
-  [0, 4, 6, 2],
-  [6, 7, 3, 2],
-  [0, 1, 5, 4],
-  [5, 7, 6, 4],
-  [2, 3, 1, 0]
+  [3, 7, 5, 1], // right
+  [6, 2, 0, 4], // left
+  [6, 7, 3, 2], // ??
+  [0, 1, 5, 4], // ??
+  [7, 6, 4, 5], // front
+  [2, 3, 1, 0], // back
 ];
 
 /**
@@ -799,10 +799,10 @@ tdl.primitives.createCube = function(size) {
   ];
 
   var uvCoords = [
-    [0, 0],
     [1, 0],
-    [1, 1],
-    [0, 1]
+    [0, 0],
+    [0, 1],
+    [1, 1]
   ];
 
   var numVertices = 6 * 4;
@@ -992,7 +992,7 @@ tdl.primitives.createTruncatedCone = function(
           (yy < 0 || yy > verticalSubdivisions) ? 0 : (sin * cosSlant),
           (yy < 0) ? -1 : (yy > verticalSubdivisions ? 1 : sinSlant),
           (yy < 0 || yy > verticalSubdivisions) ? 0 : (cos * cosSlant)]);
-      texCoords.push([ii / radialSubdivisions, v]);
+      texCoords.push([1 - (ii / radialSubdivisions), v]);
     }
   }
 

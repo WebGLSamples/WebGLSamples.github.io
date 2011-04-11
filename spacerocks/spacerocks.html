@@ -50,12 +50,12 @@ a {
  color: #fff;
 }
 #info {
-    font-size: small;
-    position: absolute;
-	top: 0px; width: 100%;
-	padding: 5px;
-	text-align: center;
-	z-index: 2;
+  font-size: small;
+  position: absolute;
+  op: 0px; width: 100%;
+  padding: 5px;
+  text-align: center;
+  z-index: 2;
 }
 CANVAS {
   background-color: gray;
@@ -377,34 +377,34 @@ function setupDebris(particleSystem) {
           parameters.velocity = math.matrix4.transformPoint(
               math.matrix4.rotationZ(angle), [speed, speed2, 0]);
       });
-	return tdl.particles.createOneShotManager(emitter, 20);
+  return tdl.particles.createOneShotManager(emitter, 20);
 }
 
 function setupExplosion(particleSystem) {
-    var emitter = particleSystem.createParticleEmitter();
-    emitter.setState(tdl.particles.ParticleStateIds.ADD);
-    emitter.setColorRamp(
-        [1, 1, 1, 1,
-         1, 1, 0, 1,
-         1, 0, 0, 1,
-         1, 1, 1, 0.5,
-         1, 1, 1, 0]);
-    emitter.setParameters({
-        numParticles: 60,
-        lifeTime: 1.5,
-        startTime: 0,
-        startSize: 0.2,
-        endSize: 1.0,
-        spinSpeedRange: 10},
-        function(index, parameters) {
-            var speed = Math.random() * 0.4 + 0.8;
-            var angle = Math.random() * 2 * Math.PI;
-            parameters.velocity = math.matrix4.transformPoint(
-                math.matrix4.rotationZ(angle), [speed, 0, 0]);
-            parameters.acceleration = math.mulVectorVector(
-                parameters.velocity, [speed * -0.3, speed * -0.3, 0]);
-        });
-		return tdl.particles.createOneShotManager(emitter, 20);
+  var emitter = particleSystem.createParticleEmitter();
+  emitter.setState(tdl.particles.ParticleStateIds.ADD);
+  emitter.setColorRamp(
+      [1, 1, 1, 1,
+       1, 1, 0, 1,
+       1, 0, 0, 1,
+       1, 1, 1, 0.5,
+       1, 1, 1, 0]);
+  emitter.setParameters({
+      numParticles: 60,
+      lifeTime: 1.5,
+      startTime: 0,
+      startSize: 0.2,
+      endSize: 1.0,
+      spinSpeedRange: 10},
+      function(index, parameters) {
+          var speed = Math.random() * 0.4 + 0.8;
+          var angle = Math.random() * 2 * Math.PI;
+          parameters.velocity = math.matrix4.transformPoint(
+              math.matrix4.rotationZ(angle), [speed, 0, 0]);
+          parameters.acceleration = math.mulVectorVector(
+              parameters.velocity, [speed * -0.3, speed * -0.3, 0]);
+      });
+  return tdl.particles.createOneShotManager(emitter, 20);
 }
 
 function triggerExplosion(transNorm) {
@@ -413,7 +413,7 @@ function triggerExplosion(transNorm) {
     tdl.fast.addVector(_tv_, transNorm, transNorm);
     tdl.fast.matrix4.cameraLookAt(_tp_, transNorm, _tv_, [0, 1, 0]);
     g_explosionMgr.startOneShot(_tp_);
-		g_debrisMgr.startOneShot(_tp_);
+    g_debrisMgr.startOneShot(_tp_);
 }
 
 function onKeyPress(event) {
