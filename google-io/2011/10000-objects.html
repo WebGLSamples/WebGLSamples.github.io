@@ -237,7 +237,6 @@ function CreateApp() {
       m4.inverse(worldInverse, world);
       m4.transpose(worldInverseTranspose, worldInverse);
       uniqueUniforms.colorMult = instance.colorMult;
-      model.drawPrep();
       model.draw(uniqueUniforms);
     }
   }
