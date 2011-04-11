@@ -43,6 +43,19 @@ html, body {
   margin: 0px;
   background-color: black;
   font-family: sans-serif;
+  overflow: hidden;
+  color: #fff;
+}
+a {
+ color: #fff;
+}
+#info {
+    font-size: small;
+    position: absolute;
+	top: 0px; width: 100%;
+	padding: 5px;
+	text-align: center;
+	z-index: 2;
 }
 CANVAS {
   background-color: gray;
@@ -51,7 +64,7 @@ CANVAS {
   position: absolute;
   top: 10px;
   left: 10px;
-  z-index: 2;
+  z-index: 3;
   color: gray;
   background-color: rgba(0,0,0,0.5);
   border-radius: 10px;
@@ -61,7 +74,7 @@ CANVAS {
   color: white;
 }
 #uiContainer {
-  z-index: 2;
+  z-index: 3;
   position: absolute;
   top: 10px;
   right: 20px;
@@ -103,6 +116,7 @@ CANVAS {
 <script type="text/javascript" src="aquarium.js"></script>
 </head>
 <body>
+<div id="info"><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - aquarium</div>
 <div class="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
   <div id="topUI">

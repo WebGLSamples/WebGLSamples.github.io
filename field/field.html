@@ -43,6 +43,19 @@ html, body {
   margin: 0px;
   background-color: dark-red;
   font-family: sans-serif;
+  overflow: hidden;
+  color: #fff;
+}
+a {
+ color: #fff;
+}
+#info {
+    font-size: small;
+    position: absolute;
+	top: 0px; width: 100%;
+	padding: 5px;
+	text-align: center;
+	z-index: 2;
 }
 CANVAS {
   background-color: gray;
@@ -701,6 +714,7 @@ $(function(){
 </script>
 </head>
 <body>
+<div id="info"><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - field</div>
 <div id="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
   <div>Grass</div>
