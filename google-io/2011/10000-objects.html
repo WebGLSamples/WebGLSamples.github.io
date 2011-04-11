@@ -61,10 +61,11 @@ var g_eyeRadius         = 9;
 
 function CreateApp() {
   // Create Geometry.
-  var sphereArrays = tdl.primitives.createSphere(0.4, 6, 6);
-  var cubeArrays = tdl.primitives.createCube(0.8);
+  var scale = 0.2;
+  var sphereArrays = tdl.primitives.createSphere(0.4 * scale, 3, 3);
+  var cubeArrays = tdl.primitives.createCube(0.8 * scale);
   var coneArrays = tdl.primitives.createTruncatedCone(
-      0.4, 0.0, 0.8, 12, 1, true, true);
+      0.4 * scale, 0.0 * scale, 0.8 * scale, 3, 1, true, true);
 
   // Load textures
   var textures = {
