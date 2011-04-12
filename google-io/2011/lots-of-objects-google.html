@@ -32,7 +32,7 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<title>Google I/O 2011 - 40000 objects optimized</title>
+<title>Google I/O 2011 - lots of objects ($)</title>
 <link rel="stylesheet" type="text/css" href="style.css" />
 <script type="text/javascript" src="colors.js"></script>
 <script type="text/javascript" src="../../tdl/base.js"></script>
@@ -123,6 +123,9 @@ function CreateApp(img) {
       }
     }
   }
+
+  document.title = document.title.replace("$", instances.length);
+  document.getElementById("numObjects").innerHTML = instances.length;
 
   // Expand arrays from instances to geometry.
 
@@ -360,7 +363,7 @@ function initialize() {
 </script>
 </head>
 <body>
-<div id="info"><span><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - google i/o 40000-objects optimized</span></div>
+<div id="info"><span><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - google i/o <code id="numObjects"></code> objects</span></div>
 <div id="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
 </div>
