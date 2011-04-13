@@ -356,24 +356,15 @@ varying vec3 v_surfaceToView;
 varying vec4 v_colorMult;
 void main() {
   vec3 clocks = clockOffset + (clockSpeed * clock);
-  vec4 pos = vec4(
-      sin(clocks.x) * radius.x,
-      sin(clocks.y) * radius.y,
-      cos(clocks.z) * radius.z,
-      1
-    );
-  mat4 world = mat4(
-      vec4(1,0,0,0),
-      vec4(0,1,0,0),
-      vec4(0,0,1,0),
-      pos
-    );
+  vec3 t = vec3(sin(clocks.x), sin(clocks.y), cos(clocks.z));
+  vec3 worldPosition = t * radius;
+  vec4 wp = position + vec4(worldPosition, 0);
   v_texCoord = texCoord;
-  v_position = (viewProjection * world * position);
-  v_normal = (world * vec4(normal, 0)).xyz;
+  v_position = viewProjection * wp;
+  v_normal = normal;
   v_colorMult = colorMult;
-  v_surfaceToLight = lightWorldPos - (world * position).xyz;
-  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  v_surfaceToLight = lightWorldPos - wp.xyz;
+  v_surfaceToView = viewInverse[3].xyz - wp.xyz;
   gl_Position = v_position;
 }
 
