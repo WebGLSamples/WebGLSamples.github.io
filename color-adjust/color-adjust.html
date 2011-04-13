@@ -268,17 +268,10 @@ function initialize() {
 
 function makeSimulatedVolumeImg(name, img, size, callback) {
   var canvas = document.createElement("canvas");
-  var sliceWidth = (size + 2);
-  canvas.width = sliceWidth * size;
+  canvas.width = size * size;
   canvas.height = size;
   var ctx = canvas.getContext("2d");
-  for (var ii = 0; ii < size; ++ii) {
-    var srcXOffset = ii * size;
-    var destXOffset = ii * sliceWidth;
-    ctx.drawImage(img, srcXOffset, 0, size, size, destXOffset + 0, 0, size, size);  // stamp left
-    ctx.drawImage(img, srcXOffset, 0, size, size, destXOffset + 2, 0, size, size);  // stamp right
-    ctx.drawImage(img, srcXOffset, 0, size, size, destXOffset + 1, 0, size, size);  // stamp middle
-  }
+  ctx.drawImage(img, 0, 0);
   var newImg = new Image();
   newImg.onload = callback;
   newImg.src = canvas.toDataURL();
@@ -289,6 +282,7 @@ function updateSelection(index) {
   function updateTexture(tex, index) {
     var info = g_adjustmentImages[index];
     gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
     //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, info.img);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, info.img);
   }
@@ -417,6 +411,7 @@ function continueSetup() {
       gl.bindTexture(gl.TEXTURE_2D, g_videoTexture.texture);
       if (!madeVideoTexture) {
         madeVideoTexture = true;
+        gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.BROWSER_DEFAULT_WEBGL);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
         g_videoTexture.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         g_videoTexture.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -587,15 +582,14 @@ uniform sampler2D colorCube1;
 varying vec2 v_texCoord;
 
 vec4 sampleAs3DTexture(sampler2D tex, vec3 texCoord, float size) {
-   float sliceSize = (size + 2.0);                    // pixelsAcrossSlice
-   float sliceOffset = 1.0 / size;                    // space of 1 slice
-   float slicePixelOffset = sliceOffset / sliceSize;  // space of 1 pixel
-   float sliceInnerSize = slicePixelOffset * size;    // space of size pixels
+   float sliceSize = 1.0 / size;                         // space of 1 slice
+   float slicePixelSize = sliceSize / size;              // space of 1 pixel
+   float sliceInnerSize = slicePixelSize * (size - 1.0); // space of size pixels
    float zSlice0 = min(floor(texCoord.z * size), size - 1.0);
    float zSlice1 = min(zSlice0 + 1.0, size - 1.0);
    float zOffset = mod(texCoord.z * size, 1.0);
-   float s0 = (slicePixelOffset * 1.0) + (texCoord.x * sliceInnerSize) + (zSlice0 * sliceOffset);
-   float s1 = (slicePixelOffset * 1.0) + (texCoord.x * sliceInnerSize) + (zSlice1 * sliceOffset);
+   float s0 = (slicePixelSize * 0.5) + (texCoord.x * sliceInnerSize) + (zSlice0 * sliceSize);
+   float s1 = (slicePixelSize * 0.5) + (texCoord.x * sliceInnerSize) + (zSlice1 * sliceSize);
    vec4 slice0Color = texture2D(tex, vec2(s0, texCoord.y));
    vec4 slice1Color = texture2D(tex, vec2(s1, texCoord.y));
    return mix(slice0Color, slice1Color, zOffset);
