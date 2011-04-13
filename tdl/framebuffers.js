@@ -67,14 +67,14 @@ if (Object.prototype.__defineSetter__) {
 tdl.framebuffers.BackBuffer.prototype.__defineGetter__(
     'width',
     function () {
-      return gl.canvas.width;
+      return gl.drawingBufferWidth || gl.canvas.width;
     }
 );
 
 tdl.framebuffers.BackBuffer.prototype.__defineGetter__(
     'height',
     function () {
-      return gl.canvas.height;
+      return gl.drawingBufferHeight || gl.canvas.height;
     }
 );
 }
@@ -99,7 +99,10 @@ tdl.framebuffers.Framebuffer.prototype.bind = function() {
 
 tdl.framebuffers.Framebuffer.unbind = function() {
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+  gl.viewport(
+      0, 0,
+      gl.drawingBufferWidth || gl.canvas.width,
+      gl.drawingBufferHeight || gl.canvas.height);
 };
 
 tdl.framebuffers.Framebuffer.prototype.unbind = function() {
@@ -108,7 +111,7 @@ tdl.framebuffers.Framebuffer.prototype.unbind = function() {
 
 tdl.framebuffers.Framebuffer.prototype.recoverFromLostContext = function() {
   var tex = new tdl.textures.SolidTexture([0,0,0,0]);
-  this.initializeTexture(tex);  
+  this.initializeTexture(tex);
   var db = null;
   if (this.depth) {
     db = gl.createRenderbuffer();
@@ -139,6 +142,7 @@ tdl.framebuffers.Framebuffer.prototype.recoverFromLostContext = function() {
   }
   this.framebuffer = fb;
   this.texture = tex;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 };
 
 tdl.framebuffers.Framebuffer.prototype.initializeTexture = function(tex) {
@@ -171,7 +175,10 @@ tdl.framebuffers.CubeFramebuffer.prototype.bind = function(face) {
 
 tdl.framebuffers.CubeFramebuffer.unbind = function() {
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+  gl.viewport(
+      0, 0,
+      gl.drawingBufferWidth || gl.canvas.width,
+      gl.drawingBufferHeight || gl.canvas.height);
 };
 
 tdl.framebuffers.CubeFramebuffer.prototype.unbind = function() {
