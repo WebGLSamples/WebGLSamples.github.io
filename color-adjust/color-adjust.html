@@ -196,6 +196,26 @@ function setupPlane() {
 }
 
 /**
+ * Sets up RenderTarget plane
+ */
+function setupRTPlane(rtTexture) {
+  var textures = {
+     texture: rtTexture
+  };
+  var program = tdl.programs.loadProgramFromScriptTags(
+      'basicVertexShader',
+      'basicFragmentShader');
+  var arrays = tdl.primitives.createPlane(1, 1, 1, 1);
+  tdl.primitives.reorient(arrays,
+      [1, 0, 0, 0,
+       0, 0, 1, 0,
+       0, -1, 0, 0,
+       0.5, 0.5, 0, 1]);
+  delete arrays.normal;
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
  * Sets up colorAdjust Plane
  */
 function setupColorAdjustPlane(inTexture) {
@@ -320,6 +340,7 @@ function continueSetup() {
   var mainFBO = tdl.framebuffers.createFramebuffer(canvas.width, canvas.height, true);
   var videoPlane = setupPlane();
   var colorAdjustPlane = setupColorAdjustPlane(mainFBO.texture);
+  var rtPlane = setupRTPlane(mainFBO.texture);
 
   var projection = new Float32Array(16);
   var view = new Float32Array(16);
@@ -349,10 +370,24 @@ function continueSetup() {
   var madeVideoTexture = false;
   var video = document.getElementById("vid");
   video.addEventListener("playing", function() { copyVideo = true; }, true);
+  video.addEventListener("ended", function() { video.currentTime = 0; video.play(); }, true);
   video.volume = 0;
   video.play();
 
+  var showRT = false;
+  $(document).keypress(function(event) {
+    if (event.keyCode == 'd'.charCodeAt(0) ||
+        event.keyCode == 'D'.charCodeAt(0)) {
+      showRT = !showRT;
+      tdl.log(showRT);
+    }
+  });
+
   var videoPlanePer = {
+    worldViewProjection: worldViewProjection
+  };
+
+  var rtPlanePer = {
     worldViewProjection: worldViewProjection
   };
 
@@ -453,6 +488,27 @@ function continueSetup() {
       colorAdjustPlane.draw({
           mixAmount: g_mixAmount
         });
+
+      if (showRT) {
+        var orthoProjection = [
+          2 / canvas.width, 0, 0, 0,
+          0, -2 / canvas.height, 0, 0,
+          0, 0, 1, 0,
+          -1 + 1 / canvas.width, 1 - 1 / canvas.height, 0, 1
+        ];
+        rtPlane.drawPrep();
+        if (video.videoWidth) {
+          var aspect = canvas.clientWidth / canvas.clientHeight;
+          fast.matrix4.scaling(m4t0, [video.videoWidth, video.videoHeight * aspect, 1]);
+        } else {
+          fast.matrix4.translation(mt40, [0, 0, 0]);
+        }
+        fast.matrix4.translation(m4t1, [canvas.width - video.videoWidth, 0, 0]);
+        fast.matrix4.mul(world, m4t0, m4t1);
+        fast.matrix4.mul(worldViewProjection, world, orthoProjection);
+        //fast.matrix4.mul(worldViewProjection, world, viewProjection);
+        rtPlane.draw(rtPlanePer);
+      }
     }
 
     // Set the alpha to 255.
