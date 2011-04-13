@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<head>
+<title>Color Cube Image Maker</title>
+<style>
+body, html {
+  background-color: black;
+  color: white;
+  font-family: monospace;
+}
+.caption {
+  font-size: x-small;
+}
+</style>
+<script type="text/javascript">
+window.onload = main;
+
+function $(id) {
+  return document.getElementById(id);
+}
+
+function main() {
+  var size = 8;
+  var canvas = document.createElement("canvas");
+  canvas.width = size * 8;
+  canvas.height = size;
+  var ctx = canvas.getContext("2d");
+  for (var zz = 0; zz < size; ++zz) {
+    for (var yy = 0; yy < size; ++yy) {
+      for (var xx = 0; xx < size; ++xx) {
+        var r = Math.floor(xx / (size - 1) * 255);
+        var g = Math.floor(yy / (size - 1) * 255);
+        var b = Math.floor(zz / (size - 1) * 255);
+        ctx.fillStyle = "rgb(" + r + "," + g + "," + b + ")";
+        ctx.fillRect(zz * size + xx, yy, 1, 1);
+      }
+    }
+  }
+  var img = $("cube");
+  img.src = canvas.toDataURL();
+  img.style.width = (size * 5 * 8).toString() + "px";
+  img.style.height = (size * 5).toString() + "px"
+  $("width").innerHTML = canvas.width;
+  $("height").innerHTML = canvas.height;
+}
+</script>
+</head>
+<body>
+<h1>Color Cube Image Maker</h1>
+<p>Right click on the image below and pick "Save Image As..."</p>
+<p><img id="cube" /></br>
+<div class="caption">( note: actual image size is
+<span id="width"></span>x<span id="height"></span> )</div>
+</p>
+</body>
+</html>

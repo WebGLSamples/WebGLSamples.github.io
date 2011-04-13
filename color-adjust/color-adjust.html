@@ -1,0 +1,708 @@
+<!--
+ * Copyright 2011, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>WebGL Color Adjust</title>
+<style>
+html, body {
+  width: 100%;
+  height: 100%;
+  border: 0px;
+  padding: 0px;
+  margin: 0px;
+  background-color: dark-red;
+  font-family: sans-serif;
+  overflow: hidden;
+  color: #fff;
+}
+a {
+ color: #fff;
+}
+#info {
+    font-size: small;
+    position: absolute;
+    top: 0px; width: 100%;
+    padding: 5px;
+    text-align: center;
+    z-index: 2;
+}
+CANVAS {
+  background-color: gray;
+}
+#uiContainer {
+  z-index: 2;
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  width: 250px;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  font-size: xx-small;
+  border-radius: 10px;
+  padding: 10px;
+}
+#ui {
+}
+#advanced {
+  color: gray;
+}
+#fpsContainer {
+  position: absolute;
+  top: 10px;
+  left: 20px;
+  z-index: 2;
+  color: white;
+  background-color: rgba(0,0,0,0.5);
+  border-radius: 10px;
+  padding: 10px;
+}
+.clickable {
+  cursor: pointer;
+}
+#viewContainer {
+  width: 100%;
+  height: 100%;
+}
+</style>
+<link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
+<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript">
+tdl.require('tdl.buffers');
+tdl.require('tdl.fast');
+tdl.require('tdl.framebuffers');
+tdl.require('tdl.fps');
+tdl.require('tdl.log');
+tdl.require('tdl.math');
+tdl.require('tdl.models');
+tdl.require('tdl.particles');
+tdl.require('tdl.primitives');
+tdl.require('tdl.programs');
+tdl.require('tdl.textures');
+tdl.require('tdl.webgl');
+
+// globals
+var gl;                   // the gl context.
+var canvas;               // the canvas
+var math;                 // the math lib.
+var fast;                 // the fast math lib.
+var g_fpsTimer;           // object to measure frames per second;
+var g_logGLCalls = true;  // whether or not to log webgl calls
+var g_debug = false;      // whether or not to debug.
+var g_drawOnce = false;   // draw just one frame.
+var g_setCountElements = [];
+var g_autoSet = true;
+var g_autoSetting = 0;
+
+//g_drawOnce = true;
+//g_debug = true;
+
+var g_adjustmentImages = [
+  { name: 'default',     url: "default.png" },
+  { name: 'monochrome',  url: "adjustments/monochrome.png" },
+  { name: 'sepia',       url: "adjustments/sepia.png" },
+  { name: 'saturated',   url: "adjustments/saturated.png", },
+  { name: 'inverse',     url: "adjustments/inverse.png", },
+  { name: 'b/w',         url: "adjustments/black-white.png", },
+  { name: 'blues',       url: "adjustments/blues.png" },
+  { name: 'infrared',    url: "adjustments/infrared.png" }
+];
+
+function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
+  for (var ii = 0; ii < args.length; ++ii) {
+    if (args[ii] === undefined) {
+      tdl.error("undefined passed to gl." + functionName + "(" +
+          tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
+    }
+  }
+}
+
+function Log(msg) {
+  if (g_logGLCalls) {
+    tdl.log(msg);
+  }
+}
+
+function LogGLCall(functionName, args) {
+  if (g_logGLCalls) {
+    ValidateNoneOfTheArgsAreUndefined(functionName, args)
+    tdl.log("gl." + functionName + "(" +
+            tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
+  }
+}
+
+/**
+ * Sets up Grass.
+ */
+function setupGrass() {
+  var textures = { };
+  var program = tdl.programs.loadProgramFromScriptTags(
+      'grassVertexShader',
+      'grassFragmentShader');
+  var arrays = tdl.primitives.createPlane(1, 1, 1, 10);
+  tdl.primitives.reorient(arrays,
+      [1, 0, 0, 0,
+       0, 0, -1, 0,
+       0, 1, 0, 0,
+       0, 0.5, 0, 1]);
+  delete arrays.normal;
+  delete arrays.texCoord;
+  var numElements = arrays.position.numElements;
+  var blades = [arrays]
+  var across = 10;
+  for (var xx = 1; xx < across; ++xx) {
+    var a2 = tdl.primitives.clone(arrays);
+    blades[xx] = a2;
+  }
+  var arrays = tdl.primitives.concat(blades);
+  var blades = [arrays]
+  for (var zz = 1; zz < across; ++zz) {
+    var a2 = tdl.primitives.clone(arrays);
+    blades[zz] = a2;
+  }
+  var arrays = tdl.primitives.concat(blades);
+  var numBlades = across * across;
+  var bladeId = new tdl.primitives.AttribBuffer(
+      4, numElements * numBlades);
+  for (var xx = 0; xx < across; ++xx) {
+    for (var zz = 0; zz < across; ++zz) {
+      var r1 = Math.random();
+      var r2 = Math.random();
+      for (var jj = 0; jj < numElements; ++jj) {
+        bladeId.push([xx, zz, r1, r2]);
+      }
+    }
+  }
+  arrays.bladeId = bladeId;
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
+ * Sets up dofplane.
+ */
+function setupDofPlane(mainTexture, blurTexture) {
+  var textures = { mainSampler: mainTexture,
+                   blurSampler: blurTexture};
+  var program = tdl.programs.loadProgramFromScriptTags(
+      'dofVertexShader',
+      'dofFragmentShader');
+  var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
+  tdl.primitives.reorient(arrays,
+      [1, 0, 0, 0,
+       0, 0,-1, 0,
+       0, 1, 0, 0,
+       0, 0, 0, 1]);
+  delete arrays.normal;
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
+ * Sets up blur plane.
+ */
+function setupBlurPlane(mainTexture) {
+  var textures = {mainSampler: mainTexture};
+  var program = tdl.programs.loadProgramFromScriptTags(
+      'blurVertexShader',
+      'blurFragmentShader');
+  var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
+  tdl.primitives.reorient(arrays,
+      [1, 0, 0, 0,
+       0, 0,-1, 0,
+       0, 1, 0, 0,
+       0, 0, 0, 1]);
+  delete arrays.normal;
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
+ * Sets up RT plane.
+ */
+function setupRTPlane() {
+  var textures = {};
+  var program = tdl.programs.loadProgramFromScriptTags(
+      'rtVertexShader',
+      'rtFragmentShader');
+  var arrays = tdl.primitives.createPlane(1, 1, 1, 1);
+  tdl.primitives.reorient(arrays,
+      [1, 0, 0, 0,
+       0, 0,-1, 0,
+       0, 1, 0, 0,
+       0, 0, 0, 1]);
+  delete arrays.normal;
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
+ * Sets up Skybox.
+ */
+function setupSkybox() {
+  var textures = {
+    skybox: tdl.textures.loadTexture([
+        'assets/mid.png',
+        'assets/mid.png',
+        'assets/top.png',
+        'assets/bottom.png',
+        'assets/mid.png',
+        'assets/mid.png'])
+  };
+  var program = tdl.programs.loadProgramFromScriptTags(
+      'skyboxVertexShader',
+      'skyboxFragmentShader');
+  var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
+  delete arrays['normal'];
+  delete arrays['texCoord'];
+  tdl.primitives.reorient(arrays,
+      [1, 0, 0, 0,
+       0, 0, 1, 0,
+       0,-1, 0, 0,
+       0, 0, 0.99, 1]);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+/**
+ * Sets the count
+ */
+function setCount(elem, settings) {
+  g_autoSet = false;
+  for (var name in settings) {
+    g.globals[name] = settings[name];
+  }
+  for (var ii = 0; ii < g_setCountElements.length; ++ii) {
+    g_setCountElements[ii].style.color = "black";
+  }
+  elem.style.color = "red";
+}
+
+/**
+ * Sets up the count buttons.
+ */
+function setupCountButtons() {
+  for (var ii = 0; ii < g_grassSettings.length; ++ii) {
+    var elem = document.getElementById("setCount" + ii);
+    if (!elem) {
+      break;
+    }
+    g_setCountElements.push(elem);
+    elem.onclick = function(elem, settings) {
+      return function () {
+        setCount(elem, settings);
+      }
+    }(elem, g_grassSettings[ii]);
+  }
+  setCount(document.getElementById('setCount0'), g_grassSettings[0]);
+  g_autoSet = true;
+  $('#advanced').click(function() {
+      g_autoSet = false;
+      $("#uiContainer").toggle('slow'); return false; });
+  $("#uiContainer").toggle();
+
+}
+
+function initialize() {
+  math = tdl.math;
+  fast = tdl.fast;
+  canvas = document.getElementById("canvas");
+  g_fpsTimer = new tdl.fps.FPSTimer();
+
+  setupCountButtons();
+
+  gl = tdl.webgl.setupWebGL(canvas);
+  if (!gl) {
+    return false;
+  }
+  if (g_debug) {
+    gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
+  }
+
+  var mainFBO = tdl.framebuffers.createFramebuffer(canvas.width, canvas.height, true);
+  var horizontalBlurFBO = tdl.framebuffers.createFramebuffer(canvas.width / 4, canvas.height);
+  var verticalBlurFBO = tdl.framebuffers.createFramebuffer(canvas.width / 4, canvas.height / 4);
+  Log("--Setup Grass---------------------------------------");
+  var grass = setupGrass();
+  Log("--Setup Skybox---------------------------------------");
+  var skybox = setupSkybox();
+  Log("--Setup HorizontalBlurPlane---------------------------------------");
+  var horizontalBlurPlane = setupBlurPlane(mainFBO.texture);
+  Log("--Setup VerticalBlurPlane---------------------------------------");
+  var verticalBlurPlane = setupBlurPlane(horizontalBlurFBO.texture);
+  Log("--Setup DofPlane---------------------------------------");
+  var dofPlane = setupDofPlane(mainFBO.texture, verticalBlurFBO.texture);
+  Log("--Setup RTPlane---------------------------------------");
+  var rtPlane = setupRTPlane();
+
+  var then = 0.0;
+  var clock = 0.0;
+  var fpsElem = document.getElementById("fps");
+
+  var projection = new Float32Array(16);
+  var view = new Float32Array(16);
+  var identity = new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]);
+  var world = new Float32Array(16);
+  var worldInverse = new Float32Array(16);
+  var worldInverseTranspose = new Float32Array(16);
+  var viewProjection = new Float32Array(16);
+  var worldViewProjection = new Float32Array(16);
+  var viewInverse = new Float32Array(16);
+  var viewDirectionProjectionInverse = new Float32Array(16);
+  var eyePosition = new Float32Array(3);
+  var target = new Float32Array(3);
+  var up = new Float32Array([0,1,0]);
+  var lightWorldPos = new Float32Array(3);
+  var v3t0 = new Float32Array(3);
+  var v3t1 = new Float32Array(3);
+  var v3t2 = new Float32Array(3);
+  var v3t3 = new Float32Array(3);
+  var m4t0 = new Float32Array(16);
+  var m4t1 = new Float32Array(16);
+  var m4t2 = new Float32Array(16);
+  var m4t3 = new Float32Array(16);
+  var zero4 = new Float32Array(4);
+  var one4 = new Float32Array([1,1,1,1]);
+
+  // Sky uniforms.
+  var skyConst = {viewDirectionProjectionInverse: viewDirectionProjectionInverse};
+  var skyPer = {};
+
+  // dofPlane uniforms.
+  var dofPer = {};
+
+  // blurPlane uniforms.
+  var horizontalBlurConst = {
+      blurSize: new Float32Array([2.0 / canvas.width, 0])};
+  var verticalBlurConst = {
+      blurSize: new Float32Array([0, 2.0 / canvas.height])};
+  var blurPer = {};
+
+  // Grass uniforms.
+  g.grassConst.viewInverse = viewInverse;
+  g.grassConst.time = 0;
+
+  var grassPer = {
+    world: world,
+    worldViewProjection: worldViewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose};
+
+  var frameCount = 0;
+  var eyeClock = 0;
+  var countAdjustClock = 0;
+
+  function render() {
+    ++frameCount;
+    if (!g_drawOnce) {
+      tdl.webgl.requestAnimationFrame(render, canvas);
+    }
+    var now = (new Date()).getTime() * 0.001;
+    var elapsedTime;
+    if(then == 0.0) {
+      elapsedTime = 0.0;
+    } else {
+      elapsedTime = now - then;
+    }
+    then = now;
+
+    g_fpsTimer.update(elapsedTime);
+    fpsElem.innerHTML = g_fpsTimer.averageFPS;
+
+    if (g_autoSet) {
+      countAdjustClock += elapsedTime;
+      if (countAdjustClock > 0.5) {
+        if (countAdjustClock > 1.5) {
+          g_autoSet = false;
+        }
+        if (g_fpsTimer.averageFPS > 17) {
+          ++g_autoSetting;
+          if (g_autoSetting < g_grassSettings.length - 1)
+          {
+            setCount(g_setCountElements[g_autoSetting],
+                     g_grassSettings[g_autoSetting]);
+            g_autoSet = true;
+            var lerp = Math.min(4, Math.max(0, g.globals.patchesAcross - 3)) / 4;
+            g.dofConst.dof = math.lerpScalar(0.742, 0.79, lerp);
+            g.globals.eyeHeight = math.lerpScalar(2.62, 2.98, lerp);
+            g.globals.eyeRadius = math.lerpScalar(3.56, 5, lerp);
+            g.globals.targetHeight = math.lerpScalar(0.1, 0.91, lerp);
+            countAdjustClock = 0;
+          }
+        }
+        if (g_autoSetting >= g_grassSettings.length - 1) {
+          g_autoSet = false;
+        }
+      }
+    }
+
+    clock += elapsedTime;
+    eyeClock += elapsedTime * g.globals.eyeSpeed;
+    eyePosition[0] = Math.sin(eyeClock) * g.globals.eyeRadius;
+    eyePosition[1] = g.globals.eyeHeight;
+    eyePosition[2] = Math.cos(eyeClock) * g.globals.eyeRadius;
+    target[0] = Math.sin(eyeClock + Math.PI) * g.globals.targetRadius;
+    target[1] = g.globals.targetHeight;
+    target[2] = Math.cos(eyeClock + Math.PI) * g.globals.targetRadius;
+
+    // Draw to main fbo.
+    mainFBO.bind();
+
+    gl.colorMask(true, true, true, true);
+    gl.depthMask(true);
+    gl.clearColor(0,0,0,0);
+    gl.clearDepth(1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+    gl.disable(gl.BLEND);
+    gl.depthFunc(gl.LESS);
+    gl.disable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    fast.matrix4.perspective(
+        projection,
+        math.degToRad(30),
+        canvas.clientWidth / canvas.clientHeight,
+        1,
+        5000);
+    fast.matrix4.lookAt(
+        view,
+        eyePosition,
+        target,
+        up);
+    fast.matrix4.mul(viewProjection, view, projection);
+    fast.matrix4.inverse(viewInverse, view);
+    fast.matrix4.copy(m4t0, view);
+    fast.matrix4.setTranslation(m4t0, [0, 0, 0]);
+    fast.matrix4.mul(m4t1, m4t0, projection);
+    fast.matrix4.inverse(viewDirectionProjectionInverse, m4t1);
+
+    fast.matrix4.getAxis(v3t0, viewInverse, 0); // x
+    fast.matrix4.getAxis(v3t1, viewInverse, 1); // y;
+    fast.matrix4.getAxis(v3t2, viewInverse, 2); // z;
+    fast.mulScalarVector(v3t0, 1, v3t0);
+    fast.mulScalarVector(v3t1, 1, v3t1);
+    fast.mulScalarVector(v3t2, 1, v3t2);
+    fast.addVector(lightWorldPos, eyePosition, v3t0);
+    fast.addVector(lightWorldPos, lightWorldPos, v3t1);
+    fast.addVector(lightWorldPos, lightWorldPos, v3t2);
+//      view: view,
+//      projection: projection,
+//      viewProjection: viewProjection,
+
+    // Draw Skybox
+    skybox.drawPrep(skyConst);
+    skybox.draw(skyPer);
+
+    Log("--Draw grass---------------------------------------");
+    g.grassConst.time = clock;
+    grass.drawPrep(g.grassConst);
+    var across = g.globals.patchesAcross;
+    var width = g.grassConst.bladeSpacing * 10;
+    var base = width * across * -0.5;
+    for (var zz = 0; zz < across; ++zz) {
+      for (var xx = 0; xx < across; ++xx) {
+        fast.matrix4.translation(world, [base + xx * width, 0, base + zz * width]),
+        fast.matrix4.mul(worldViewProjection, world, viewProjection);
+        fast.matrix4.inverse(worldInverse, world);
+        fast.matrix4.transpose(worldInverseTranspose, worldInverse);
+        grass.draw(grassPer);
+      }
+    }
+
+    // Draw to horizontal blur fbo.
+    horizontalBlurFBO.bind();
+    gl.disable(gl.BLEND);
+    gl.disable(gl.DEPTH_TEST);
+
+    // Draw HorizontalBlurPlane
+    horizontalBlurPlane.drawPrep(horizontalBlurConst);
+    horizontalBlurPlane.draw(blurPer);
+
+    // Draw to vertical blur fbo.
+    verticalBlurFBO.bind();
+    gl.disable(gl.BLEND);
+    gl.disable(gl.DEPTH_TEST);
+
+    // Draw VerticalBlurPlane
+    verticalBlurPlane.drawPrep(verticalBlurConst);
+    verticalBlurPlane.draw(blurPer);
+
+    // Draw to backbuffer.
+    verticalBlurFBO.unbind();
+    gl.colorMask(true, true, true, true);
+    gl.depthMask(true);
+    gl.clearColor(0,0,1,1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.disable(gl.BLEND);
+    gl.disable(gl.DEPTH_TEST);
+
+    // Draw DofPlane
+    dofPlane.drawPrep(g.dofConst);
+    dofPlane.draw(dofPer);
+
+    if (g.globals.showRT) {
+      if (g.globals.showRT == 4) {
+        rtPlane.drawPrep();
+        rtPlane.draw({
+            worldViewProjection: [0.5,0,0,0,0,0.5,0,0,0,0,1,0,-0.6,0,0,1],
+            mixAmount: 0,
+          }, {
+            texture: mainFBO.texture
+          });
+        rtPlane.draw({
+            worldViewProjection: [0.5,0,0,0,0,0.5,0,0,0,0,1,0,-0.0,0,0,1],
+            mixAmount: 0,
+          }, {
+            texture: verticalBlurFBO.texture
+          });
+        rtPlane.draw({
+            worldViewProjection: [0.5,0,0,0,0,0.5,0,0,0,0,1,0,0.6,0,0,1],
+            mixAmount: 1,
+          }, {
+            texture: mainFBO.texture
+          });
+      } else {
+        rtPlane.drawPrep();
+        rtPlane.draw({
+            worldViewProjection: [2,0,0,0,0,2,0,0,0,0,1,0,0,0,0,1],
+            mixAmount: g.globals.showRT == 3 ? 1 : 0,
+          }, {
+            texture: g.globals.showRT == 1 ?
+                mainFBO.texture :
+                verticalBlurFBO.texture
+          });
+      }
+    }
+
+    // Set the alpha to 255.
+    gl.colorMask(false, false, false, true);
+    gl.clearColor(0,0,0,1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    // turn off logging after 1 frame.
+    g_logGLCalls = false;
+  }
+  render();
+  return true;
+}
+
+var g_event;
+var g_ui;
+
+function getParamId(id) {
+  return id.substr(6).replace(/(\w)/, function(m) {return m.toLowerCase() });
+}
+
+function setParam(event, ui, obj, valueElem) {
+  var id = event.target.id;
+  var value = ui.value / 1000;
+  valueElem.innerHTML = value;
+  obj[id] = value;
+}
+
+function getUIValue(obj, id) {
+  return obj[id] * 1000;
+}
+
+function setupSlider($, elem, ui, obj) {
+  var textDiv = document.createElement('div');
+  var labelDiv = document.createElement('span');
+  labelDiv.appendChild(document.createTextNode(ui.name));
+  var valueDiv = document.createElement('span');
+  valueDiv.appendChild(
+      document.createTextNode(getUIValue(obj, ui.name) / 1000));
+  valueDiv.style.position = "absolute";
+  valueDiv.style.right = "10px";
+  var sliderDiv = document.createElement('div');
+  sliderDiv.id = ui.name;
+  textDiv.appendChild(labelDiv);
+  textDiv.appendChild(valueDiv);
+  elem.appendChild(textDiv);
+  elem.appendChild(sliderDiv);
+  $(sliderDiv).slider({
+    range: false,
+    step: 1,
+    max: ui.max * 1000,
+    value: getUIValue(obj, ui.name),
+    slide: function(event, ui) { setParam(event, ui, obj, valueDiv); }
+  });
+}
+
+$(function(){
+  initialize();
+});
+</script>
+</head>
+<body>
+<div id="info"><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - color adjust</div> <div id="fpsContainer">
+  <div class="fps">fps: <span id="fps"></div>
+  <div>Adjustment</div>
+  <div id="adjustments">
+  </div>
+  <div class="clickable" id="mix"></div>
+</div>
+<div id="viewContainer">
+<canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
+</div>
+</body>
+<!-- ===[ colorAdjust ]============================================== -->
+<script id="colorAdjustVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+attribute vec2 texCoord;
+varying vec4 v_texCoord;
+void main() {
+  gl_Position = position;
+  v_texCoord = texCoord;
+}
+</script>
+<script id="colorAdjustFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform float mixAmount;
+uniform sampler2D inTexture;
+uniform sampler2D colorCube0;
+uniform sampler2D colorCube1;
+varying vec2 v_texCoord;
+void main() {
+  vec4 originalColor = texture2D(inTexture, v_texCoord);
+  vec2 lookup(
+     original.x / 8 + mod(original.z * 8, 1),
+     original.y);
+  vec4 color0 = texture2D(colorCube0, lookup);
+  vec4 color1 = texture2D(colorCube1, lookup);
+  gl_FragColor = vec4(mix(color0, color1, mixAmount).rgb, originalColor.a);
+}
+</script>
+</html>
+
+
+
