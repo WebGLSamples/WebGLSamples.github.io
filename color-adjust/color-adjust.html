@@ -42,8 +42,8 @@ html, body {
   margin: 0px;
   background-color: dark-red;
   font-family: sans-serif;
-  goverflow: hidden;
-  fcolor: #fff;
+  overflow: hidden;
+  color: #fff;
 }
 a {
  color: #fff;
@@ -59,24 +59,10 @@ a {
 CANVAS {
   background-color: gray;
 }
-#uiContainer {
-  z-index: 2;
-  position: absolute;
-  top: 10px;
-  right: 20px;
-  width: 250px;
-  background: rgba(0,0,0,0.5);
-  color: white;
-  font-size: xx-small;
-  border-radius: 10px;
-  padding: 10px;
-}
-#ui {
-}
 #advanced {
   color: gray;
 }
-#fpsContainer {
+#uiContainer {
   position: absolute;
   top: 10px;
   left: 20px;
@@ -85,13 +71,14 @@ CANVAS {
   background-color: rgba(0,0,0,0.5);
   border-radius: 10px;
   padding: 10px;
+  font-size: small;
 }
 .clickable {
   cursor: pointer;
 }
 #viewContainer {
-  width: 50%;
-  height: 50%;
+  width: 100%;
+  height: 100%;
 }
 img {
   border: solid black 2px;
@@ -105,7 +92,6 @@ img {
 tdl.require('tdl.buffers');
 tdl.require('tdl.fast');
 tdl.require('tdl.framebuffers');
-tdl.require('tdl.fps');
 tdl.require('tdl.log');
 tdl.require('tdl.math');
 tdl.require('tdl.models');
@@ -120,26 +106,33 @@ var gl;                   // the gl context.
 var canvas;               // the canvas
 var math;                 // the math lib.
 var fast;                 // the fast math lib.
-var g_fpsTimer;           // object to measure frames per second;
 var g_logGLCalls = true;  // whether or not to log webgl calls
 var g_debug = false;      // whether or not to debug.
 var g_drawOnce = false;   // draw just one frame.
 var g_setCountElements = [];
 var g_autoSet = true;
 var g_autoSetting = 0;
+var g_videoTexture;
+var g_colorCube0Texture;
+var g_colorCube1Texture;
+var g_oldIndex = 0;
+var g_mixTimer = 0;
+var g_mixAmount = 0;
+var g_eyeClock = 0;
 
+var g_mixDuration = 1;
 var g_applyColorAdjust = true;
 var g_targetHeight = 0.0;
 var g_targetRadius = 1;
 var g_eyeHeight    = 0;
-var g_eyeRadius    = 2;
-var g_eyeSpeed     = 0.1;
+var g_eyeRadius    = 1.8;
+var g_eyeSpeed     = 0.0;
 
 //g_drawOnce = true;
 //g_debug = true;
 
 var g_adjustmentImages = [
-  { name: 'default',        url: "default.png" },
+  { name: 'default',        url: "adjustments/default.png" },
   { name: 'monochrome',     url: "adjustments/monochrome.png" },
   { name: 'sepia',          url: "adjustments/sepia.png" },
   { name: 'saturated',      url: "adjustments/saturated.png", },
@@ -185,10 +178,7 @@ function LogGLCall(functionName, args) {
  */
 function setupPlane() {
   var texture = tdl.textures.loadTexture([0,100,200,255]);
-  texture.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  texture.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  texture.setParameter(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  texture.setParameter(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  g_videoTexture = texture;
   var textures = {
      texture: texture
   };
@@ -198,8 +188,8 @@ function setupPlane() {
   var arrays = tdl.primitives.createPlane(1, 1, 1, 1);
   tdl.primitives.reorient(arrays,
       [1, 0, 0, 0,
-       0, 0, -1, 0,
-       0, 1, 0, 0,
+       0, 0, 1, 0,
+       0, -1, 0, 0,
        0, 0, 0, 1]);
   delete arrays.normal;
   return new tdl.models.Model(program, arrays, textures);
@@ -209,23 +199,23 @@ function setupPlane() {
  * Sets up colorAdjust Plane
  */
 function setupColorAdjustPlane(inTexture) {
-  var colorCube0 = tdl.textures.loadTexture(g_adjustmentImages[0].img);
-  var colorCube1 = tdl.textures.loadTexture(g_adjustmentImages[0].img);
+  g_colorCubeTexture0 = tdl.textures.loadTexture(g_adjustmentImages[0].img);
+  g_colorCubeTexture1 = tdl.textures.loadTexture(g_adjustmentImages[1].img);
 
-  colorCube0.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  colorCube0.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  colorCube0.setParameter(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  colorCube0.setParameter(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  g_colorCubeTexture0.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  g_colorCubeTexture0.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  g_colorCubeTexture0.setParameter(gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  g_colorCubeTexture0.setParameter(gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-  colorCube1.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  colorCube1.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  colorCube1.setParameter(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  colorCube1.setParameter(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  g_colorCubeTexture1.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  g_colorCubeTexture1.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  g_colorCubeTexture1.setParameter(gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  g_colorCubeTexture1.setParameter(gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
   var textures = {
     inTexture: inTexture,
-    colorCube0: colorCube0,
-    colorCube1: colorCube1
+    colorCube0: g_colorCubeTexture0,
+    colorCube1: g_colorCubeTexture1
   };
   var program = tdl.programs.loadProgramFromScriptTags(
       'colorAdjustVertexShader',
@@ -240,36 +230,10 @@ function setupColorAdjustPlane(inTexture) {
   return new tdl.models.Model(program, arrays, textures);
 }
 
-/**
- * Sets up the count buttons.
- */
-function setupCountButtons() {
-  for (var ii = 0; ii < g_grassSettings.length; ++ii) {
-    var elem = document.getElementById("setCount" + ii);
-    if (!elem) {
-      break;
-    }
-    g_setCountElements.push(elem);
-    elem.onclick = function(elem, settings) {
-      return function () {
-        setCount(elem, settings);
-      }
-    }(elem, g_grassSettings[ii]);
-  }
-  setCount(document.getElementById('setCount0'), g_grassSettings[0]);
-  g_autoSet = true;
-  $('#advanced').click(function() {
-      g_autoSet = false;
-      $("#uiContainer").toggle('slow'); return false; });
-  $("#uiContainer").toggle();
-
-}
-
 function initialize() {
   math = tdl.math;
   fast = tdl.fast;
   canvas = document.getElementById("canvas");
-  g_fpsTimer = new tdl.fps.FPSTimer();
 
   gl = tdl.webgl.setupWebGL(canvas);
   if (!gl) {
@@ -282,7 +246,7 @@ function initialize() {
   setupAdjustments();
 }
 
-function makeSimulatedVolumeImg(name, img, size) {
+function makeSimulatedVolumeImg(name, img, size, callback) {
   var canvas = document.createElement("canvas");
   var sliceWidth = (size + 2);
   canvas.width = sliceWidth * size;
@@ -296,34 +260,56 @@ function makeSimulatedVolumeImg(name, img, size) {
     ctx.drawImage(img, srcXOffset, 0, size, size, destXOffset + 1, 0, size, size);  // stamp middle
   }
   var newImg = new Image();
+  newImg.onload = callback;
   newImg.src = canvas.toDataURL();
-
-  var i = document.createElement("img");
-  i.src = canvas.toDataURL();
-  var d = document.createElement("div");
-  d.appendChild(i);
-  d.appendChild(document.createTextNode(name));
-  document.getElementById("viewContainer").appendChild(d);
-  tdl.log("loaded: ", name);
   return newImg;
+}
+
+function updateSelection(index) {
+  function updateTexture(tex, index) {
+    var info = g_adjustmentImages[index];
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, info.img);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, info.img);
+  }
+  updateTexture(g_colorCubeTexture1.texture, g_oldIndex);
+  updateTexture(g_colorCubeTexture0.texture, index);
+  g_adjustmentImages[g_oldIndex].div.style.color = "gray";
+  g_adjustmentImages[index].div.style.color = "red";
+  g_mixTimer = g_mixDuration;
+  g_oldIndex = index;
 }
 
 function setupAdjustments() {
   tdl.log("setupAdjustments")
   var loadingCount = 1;
+  var adjustmentsElement = document.getElementById("adjustments");
   for (var ii = 0; ii < g_adjustmentImages.length; ++ii) {
     ++loadingCount;
     var info = g_adjustmentImages[ii];
-    tdl.log("loading: ", info.name);
+    var div = document.createElement("div");
+    info.div = div;
+    div.innerHTML = info.name;
+    div.className = "clickable";
+    div.style.color = ii ? "gray" : "red";
+    div.onclick = function(index) {
+      return function() {
+        if (!loadingCount) {
+          updateSelection(index);
+        }
+      }
+    }(ii);
+    adjustmentsElement.appendChild(div);
     var img = new Image();
     img.src = info.url;
     img.onload = function(img, info) {
       return function() {
-        info.img = makeSimulatedVolumeImg(info.name, img, 8);
-        --loadingCount;
-        if (loadingCount == 0) {
-           continueSetup();
-        }
+        info.img = makeSimulatedVolumeImg(info.name, img, 8, function() {
+          --loadingCount;
+          if (loadingCount == 0) {
+             continueSetup();
+          }
+        });
       }
     }(img, info);
   }
@@ -334,8 +320,6 @@ function continueSetup() {
   var mainFBO = tdl.framebuffers.createFramebuffer(canvas.width, canvas.height, true);
   var videoPlane = setupPlane();
   var colorAdjustPlane = setupColorAdjustPlane(mainFBO.texture);
-
-  var fpsElem = document.getElementById("fps");
 
   var projection = new Float32Array(16);
   var view = new Float32Array(16);
@@ -361,13 +345,18 @@ function continueSetup() {
   var zero4 = new Float32Array(4);
   var one4 = new Float32Array([1,1,1,1]);
 
+  var copyVideo = false;
+  var madeVideoTexture = false;
+  var video = document.getElementById("vid");
+  video.addEventListener("playing", function() { copyVideo = true; }, true);
+  video.volume = 0;
+  video.play();
+
   var videoPlanePer = {
     worldViewProjection: worldViewProjection
   };
 
   var frameCount = 0;
-  var eyeClock = 0;
-
   var then = (new Date()).getTime() * 0.001;
   var clock = 0.0;
 
@@ -380,17 +369,28 @@ function continueSetup() {
     var elapsedTime = now - then;
     then = now;
 
-    g_fpsTimer.update(elapsedTime);
-    fpsElem.innerHTML = g_fpsTimer.averageFPS;
-
     clock += elapsedTime;
-    eyeClock += elapsedTime * g_eyeSpeed;
-    eyePosition[0] = Math.sin(eyeClock) * g_eyeRadius;
+    g_eyeClock += elapsedTime * g_eyeSpeed;
+    eyePosition[0] = Math.sin(g_eyeClock) * g_eyeRadius;
     eyePosition[1] = g_eyeHeight;
-    eyePosition[2] = Math.cos(eyeClock) * g_eyeRadius;
-    target[0] = Math.sin(eyeClock + Math.PI) * g_targetRadius;
+    eyePosition[2] = Math.cos(g_eyeClock) * g_eyeRadius;
+    target[0] = Math.sin(g_eyeClock + Math.PI) * g_targetRadius;
     target[1] = g_targetHeight;
-    target[2] = Math.cos(eyeClock + Math.PI) * g_targetRadius;
+    target[2] = Math.cos(g_eyeClock + Math.PI) * g_targetRadius;
+
+    if (copyVideo) {
+      gl.bindTexture(gl.TEXTURE_2D, g_videoTexture.texture);
+      if (!madeVideoTexture) {
+        madeVideoTexture = true;
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+        g_videoTexture.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        g_videoTexture.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        g_videoTexture.setParameter(gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        g_videoTexture.setParameter(gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      } else {
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, video);
+      }
+    }
 
     // Draw to main fbo.
     if (g_applyColorAdjust) {
@@ -399,7 +399,7 @@ function continueSetup() {
 
     gl.colorMask(true, true, true, true);
     gl.depthMask(true);
-    gl.clearColor(0,0,1,1);
+    gl.clearColor(0,0,0,1);
     gl.clearDepth(1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
@@ -423,11 +423,21 @@ function continueSetup() {
 
     Log("--Draw Plane---------------------------------------");
     videoPlane.drawPrep();
-    fast.matrix4.translation(world, [0, 0, 0]),
+    if (video.videoWidth) {
+      var aspect = video.videoWidth / video.videoHeight;
+      fast.matrix4.scaling(world, [aspect, 1, 1]);
+    } else {
+      fast.matrix4.translation(world, [0, 0, 0]);
+    }
     fast.matrix4.mul(worldViewProjection, world, viewProjection);
     fast.matrix4.inverse(worldInverse, world);
     fast.matrix4.transpose(worldInverseTranspose, worldInverse);
     videoPlane.draw(videoPlanePer);
+
+    if (g_mixTimer > 0) {
+      g_mixTimer = Math.max(0, g_mixTimer - elapsedTime);
+      g_mixAmount = g_mixTimer / g_mixDuration;
+    }
 
     if (g_applyColorAdjust) {
       mainFBO.unbind();
@@ -441,73 +451,8 @@ function continueSetup() {
       gl.disable(gl.DEPTH_TEST);
       colorAdjustPlane.drawPrep();
       colorAdjustPlane.draw({
-          mixAmount: 0.0
+          mixAmount: g_mixAmount
         });
-
-      //// Draw to horizontal blur fbo.
-      //horizontalBlurFBO.bind();
-      //gl.disable(gl.BLEND);
-      //gl.disable(gl.DEPTH_TEST);
-      //
-      //// Draw HorizontalBlurPlane
-      //horizontalBlurPlane.drawPrep(horizontalBlurConst);
-      //horizontalBlurPlane.draw(blurPer);
-      //
-      //// Draw to vertical blur fbo.
-      //verticalBlurFBO.bind();
-      //gl.disable(gl.BLEND);
-      //gl.disable(gl.DEPTH_TEST);
-      //
-      //// Draw VerticalBlurPlane
-      //verticalBlurPlane.drawPrep(verticalBlurConst);
-      //verticalBlurPlane.draw(blurPer);
-      //
-      //// Draw to backbuffer.
-      //verticalBlurFBO.unbind();
-      //gl.colorMask(true, true, true, true);
-      //gl.depthMask(true);
-      //gl.clearColor(0,0,1,1);
-      //gl.clear(gl.COLOR_BUFFER_BIT);
-      //gl.disable(gl.BLEND);
-      //gl.disable(gl.DEPTH_TEST);
-      //
-      //// Draw DofPlane
-      //dofPlane.drawPrep(g.dofConst);
-      //dofPlane.draw(dofPer);
-      //
-      //if (g_showRT) {
-      //  if (g_showRT == 4) {
-      //    rtPlane.drawPrep();
-      //    rtPlane.draw({
-      //        worldViewProjection: [0.5,0,0,0,0,0.5,0,0,0,0,1,0,-0.6,0,0,1],
-      //        mixAmount: 0,
-      //      }, {
-      //        texture: mainFBO.texture
-      //      });
-      //    rtPlane.draw({
-      //        worldViewProjection: [0.5,0,0,0,0,0.5,0,0,0,0,1,0,-0.0,0,0,1],
-      //        mixAmount: 0,
-      //      }, {
-      //        texture: verticalBlurFBO.texture
-      //      });
-      //    rtPlane.draw({
-      //        worldViewProjection: [0.5,0,0,0,0,0.5,0,0,0,0,1,0,0.6,0,0,1],
-      //        mixAmount: 1,
-      //      }, {
-      //        texture: mainFBO.texture
-      //      });
-      //  } else {
-      //    rtPlane.drawPrep();
-      //    rtPlane.draw({
-      //        worldViewProjection: [2,0,0,0,0,2,0,0,0,0,1,0,0,0,0,1],
-      //        mixAmount: g_showRT == 3 ? 1 : 0,
-      //      }, {
-      //        texture: g_showRT == 1 ?
-      //            mainFBO.texture :
-      //            verticalBlurFBO.texture
-      //      });
-      //  }
-      //}
     }
 
     // Set the alpha to 255.
@@ -522,61 +467,27 @@ function continueSetup() {
   return true;
 }
 
-function getParamId(id) {
-  return id.substr(6).replace(/(\w)/, function(m) {return m.toLowerCase() });
-}
-
-function setParam(event, ui, obj, valueElem) {
-  var id = event.target.id;
-  var value = ui.value / 1000;
-  valueElem.innerHTML = value;
-  obj[id] = value;
-}
-
-function getUIValue(obj, id) {
-  return obj[id] * 1000;
-}
-
-function setupSlider($, elem, ui, obj) {
-  var textDiv = document.createElement('div');
-  var labelDiv = document.createElement('span');
-  labelDiv.appendChild(document.createTextNode(ui.name));
-  var valueDiv = document.createElement('span');
-  valueDiv.appendChild(
-      document.createTextNode(getUIValue(obj, ui.name) / 1000));
-  valueDiv.style.position = "absolute";
-  valueDiv.style.right = "10px";
-  var sliderDiv = document.createElement('div');
-  sliderDiv.id = ui.name;
-  textDiv.appendChild(labelDiv);
-  textDiv.appendChild(valueDiv);
-  elem.appendChild(textDiv);
-  elem.appendChild(sliderDiv);
-  $(sliderDiv).slider({
-    range: false,
-    step: 1,
-    max: ui.max * 1000,
-    value: getUIValue(obj, ui.name),
-    slide: function(event, ui) { setParam(event, ui, obj, valueDiv); }
-  });
-}
-
 $(function(){
   initialize();
 });
 </script>
 </head>
 <body>
-<div id="info"><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - color adjust</div> <div id="fpsContainer">
-  <div class="fps">fps: <span id="fps"></div>
+<div id="info"><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - color adjust</div>
+<div id="uiContainer">
   <div>Adjustment</div>
   <div id="adjustments">
   </div>
-  <div class="clickable" id="mix"></div>
 </div>
 <div id="viewContainer">
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </div>
+  <div style="display:none;">
+  <video id="vid">
+    <source src="sample-video.mp4"  type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"' />
+    <source src="sample-video.webmvp8.webm" type='video/webm; codecs="vp8, vorbis"' />
+  </video>
+  </div>
 </body>
 <!-- ===[ basic ]============================================== -->
 <script id="basicVertexShader" type="text/something-not-javascript">
@@ -620,18 +531,15 @@ uniform sampler2D colorCube1;
 varying vec2 v_texCoord;
 
 vec4 sampleAs3DTexture(sampler2D tex, vec3 texCoord, float size) {
-   texCoord.x = 0.0;
-   texCoord.y = 0.0;
-   texCoord.z = 1.0;
    float sliceSize = (size + 2.0);                    // pixelsAcrossSlice
    float sliceOffset = 1.0 / size;                    // space of 1 slice
    float slicePixelOffset = sliceOffset / sliceSize;  // space of 1 pixel
    float sliceInnerSize = slicePixelOffset * size;    // space of size pixels
-   float zSlice0 = floor(texCoord.z * size);
-   float zSlice1 = zSlice0 + 1.0;
+   float zSlice0 = min(floor(texCoord.z * size), size - 1.0);
+   float zSlice1 = min(zSlice0 + 1.0, size - 1.0);
    float zOffset = mod(texCoord.z * size, 1.0);
-   float s0 = slicePixelOffset + texCoord.x * sliceInnerSize + zSlice0 * sliceOffset;
-   float s1 = slicePixelOffset + texCoord.x * sliceInnerSize + zSlice1 * sliceOffset;
+   float s0 = (slicePixelOffset * 1.0) + (texCoord.x * sliceInnerSize) + (zSlice0 * sliceOffset);
+   float s1 = (slicePixelOffset * 1.0) + (texCoord.x * sliceInnerSize) + (zSlice1 * sliceOffset);
    vec4 slice0Color = texture2D(tex, vec2(s0, texCoord.y));
    vec4 slice1Color = texture2D(tex, vec2(s1, texCoord.y));
    return mix(slice0Color, slice1Color, zOffset);
