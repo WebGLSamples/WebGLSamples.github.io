@@ -43,10 +43,10 @@ html, body {
   background-color: dark-red;
   font-family: sans-serif;
   overflow: hidden;
-  color: #fff;
+  color: #000;
 }
 a {
- color: #fff;
+ color: #000;
 }
 #info {
     font-size: small;
@@ -76,6 +76,9 @@ CANVAS {
 }
 .clickable {
   cursor: pointer;
+}
+#applyorig {
+  color: #444;
 }
 #viewContainer {
   width: 100%;
@@ -117,6 +120,7 @@ var g_autoSetting = 0;
 var g_mixTimer = 0;
 var g_mixAmount = 0;
 var g_eyeClock = 0;
+var g_compositeLastFrame = false;
 
 var g_mixDuration = 1;
 var g_targetHeight = 0.0;
@@ -128,8 +132,8 @@ var g_ui = [
   { obj: 'globals', name: 'persistence',     value: 0.5,  max:  1 },
   { obj: 'globals', name: 'texOffsetX',      value: 0,    max:  0.1, min: -0.1 },
   { obj: 'globals', name: 'texOffsetY',      value: 0,    max:  0.1, min: -0.1 },
-  { obj: 'globals', name: 'texMultX',        value: 1,    max:  2 },
-  { obj: 'globals', name: 'texMultY',        value: 1,    max:  2 },
+  { obj: 'globals', name: 'texMultX',        value: 1,    max:  1.2, min:  0.8 },
+  { obj: 'globals', name: 'texMultY',        value: 1,    max:  1.2, min:  0.8 },
   { obj: 'globals', name: 'texRotation',     value: 0,    max:  20, min: -20 },
   { obj: 'globals', name: 'eyeSpeed',        value: 0,    max:  3 },
 ];
@@ -169,8 +173,8 @@ function setupCube() {
       diffuseSampler: tdl.textures.loadTexture("../google-io/2011/assets/google.png")
   };
   var program = tdl.programs.loadProgramFromScriptTags(
-      'sphereVertexShader',
-      'sphereFragmentShader');
+      'pointLightVertexShader',
+      'pointLightFragmentShader');
   var arrays = tdl.primitives.createCube(1);
   return new tdl.models.Model(program, arrays, textures);
 }
@@ -309,7 +313,7 @@ function initialize() {
 
     gl.colorMask(true, true, true, true);
     gl.depthMask(true);
-    gl.clearColor(1,1,1,1);
+    gl.clearColor(1,1,1,0);
     gl.clearDepth(1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
@@ -417,6 +421,11 @@ function initialize() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
     lastPlane.drawPrep();
     lastPlane.draw({texture: persistentFBO2.texture});
+    if (g_compositeLastFrame) {
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      lastPlane.draw({texture: mainFBO.texture});
+    }
 
     // swap persist FBOs.
     var temp = persistentFBO1;
@@ -441,7 +450,6 @@ function setParam(event, jui, ui, obj, valueElem) {
   obj[id] = value;
 }
 
-var u
 function getRealValueFromUIValue(ui, uiValue) {
   var realMin = ui.min || 0;
   var realMax = ui.max;
@@ -481,6 +489,11 @@ function setupSlider($, elem, ui, obj) {
   });
 }
 
+function toggleApplyOriginal() {
+  g_compositeLastFrame = !g_compositeLastFrame;
+  document.getElementById("applyorig").style.color = g_compositeLastFrame ? "red" : "#444";
+}
+
 $(function(){
   var uiElem = document.getElementById('adjustments');
   for (var ii = 0; ii < g_ui.length; ++ii) {
@@ -491,6 +504,7 @@ $(function(){
     setupSlider($, div, ui, obj);
     uiElem.appendChild(div);
   }
+  $("#applyorig").click(function() { toggleApplyOriginal(); });
   initialize();
 });
 </script>
@@ -501,6 +515,8 @@ $(function(){
   <div>Settings</div>
   <div id="adjustments">
   </div>
+  <hr/>
+  <input type="checkbox" id="applyorig">Apply Original Image</input>
 </div>
 <div id="viewContainer">
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
@@ -577,7 +593,7 @@ void main() {
   gl_FragColor = color;
 }
 </script>
-<script id="sphereVertexShader" type="text/something-not-javascript">
+<script id="pointLightVertexShader" type="text/something-not-javascript">
 uniform mat4 worldViewProjection;
 uniform vec3 lightWorldPos;
 uniform mat4 world;
@@ -601,7 +617,7 @@ void main() {
 }
 
 </script>
-<script id="sphereFragmentShader" type="text/something-not-javascript">
+<script id="pointLightFragmentShader" type="text/something-not-javascript">
 #ifdef GL_ES
 precision highp float;
 #endif
