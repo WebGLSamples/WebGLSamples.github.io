@@ -1,0 +1,645 @@
+<!--
+ * Copyright 2011, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>WebGL Persistence</title>
+<style>
+html, body {
+  width: 100%;
+  height: 100%;
+  border: 0px;
+  padding: 0px;
+  margin: 0px;
+  background-color: dark-red;
+  font-family: sans-serif;
+  overflow: hidden;
+  color: #fff;
+}
+a {
+ color: #fff;
+}
+#info {
+    font-size: small;
+    position: absolute;
+    top: 0px; width: 100%;
+    padding: 5px;
+    text-align: center;
+    z-index: 2;
+}
+CANVAS {
+  background-color: gray;
+}
+#advanced {
+  color: gray;
+}
+#uiContainer {
+  position: absolute;
+  top: 10px;
+  left: 20px;
+  width: 250px;
+  z-index: 2;
+  color: white;
+  background-color: rgba(0,0,0,0.5);
+  border-radius: 10px;
+  padding: 10px;
+  font-size: small;
+}
+.clickable {
+  cursor: pointer;
+}
+#viewContainer {
+  width: 100%;
+  height: 100%;
+}
+img {
+  border: solid black 2px;
+}
+</style>
+<link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
+<script type="text/javascript" src="../google-io/2011/colors.js"></script>
+<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript">
+tdl.require('tdl.buffers');
+tdl.require('tdl.fast');
+tdl.require('tdl.framebuffers');
+tdl.require('tdl.log');
+tdl.require('tdl.math');
+tdl.require('tdl.models');
+tdl.require('tdl.particles');
+tdl.require('tdl.primitives');
+tdl.require('tdl.programs');
+tdl.require('tdl.textures');
+tdl.require('tdl.webgl');
+
+// globals
+var gl;                   // the gl context.
+var canvas;               // the canvas
+var math;                 // the math lib.
+var fast;                 // the fast math lib.
+var g_logGLCalls = true;  // whether or not to log webgl calls
+var g_debug = false;      // whether or not to debug.
+var g_drawOnce = false;   // draw just one frame.
+var g_setCountElements = [];
+var g_autoSet = true;
+var g_autoSetting = 0;
+var g_mixTimer = 0;
+var g_mixAmount = 0;
+var g_eyeClock = 0;
+
+var g_mixDuration = 1;
+var g_targetHeight = 0.0;
+var g_targetRadius = 1;
+var g_eyeHeight    = 10;
+var g_eyeRadius    = 20;
+
+var g_ui = [
+  { obj: 'globals', name: 'persistence',     value: 0.5,  max:  1 },
+  { obj: 'globals', name: 'texOffsetX',      value: 0,    max:  0.1, min: -0.1 },
+  { obj: 'globals', name: 'texOffsetY',      value: 0,    max:  0.1, min: -0.1 },
+  { obj: 'globals', name: 'texMultX',        value: 1,    max:  2 },
+  { obj: 'globals', name: 'texMultY',        value: 1,    max:  2 },
+  { obj: 'globals', name: 'texRotation',     value: 0,    max:  20, min: -20 },
+  { obj: 'globals', name: 'eyeSpeed',        value: 0,    max:  3 },
+];
+
+var g = {
+  globals: {}
+};
+
+//g_drawOnce = true;
+//g_debug = true;
+
+function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
+  for (var ii = 0; ii < args.length; ++ii) {
+    if (args[ii] === undefined) {
+      tdl.error("undefined passed to gl." + functionName + "(" +
+          tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
+    }
+  }
+}
+
+function Log(msg) {
+  if (g_logGLCalls) {
+    tdl.log(msg);
+  }
+}
+
+function LogGLCall(functionName, args) {
+  if (g_logGLCalls) {
+    ValidateNoneOfTheArgsAreUndefined(functionName, args)
+    tdl.log("gl." + functionName + "(" +
+            tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
+  }
+}
+
+function setupCube() {
+  var textures = {
+      diffuseSampler: tdl.textures.loadTexture("../google-io/2011/assets/google.png")
+  };
+  var program = tdl.programs.loadProgramFromScriptTags(
+      'sphereVertexShader',
+      'sphereFragmentShader');
+  var arrays = tdl.primitives.createCube(1);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+function makePersist(newTexture, oldTexture) {
+  var textures = {
+      newRender: newTexture,
+      oldRender: oldTexture
+  };
+  var program = tdl.programs.loadProgramFromScriptTags(
+      'persistVertexShader',
+      'persistFragmentShader');
+  var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
+  tdl.primitives.reorient(arrays,
+      [1, 0, 0, 0,
+       0, 0,-1, 0,
+       0, 1, 0, 0,
+       0, 0, 0, 1]);
+  delete arrays.normal;
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+function makeLastPlane(texture) {
+  var textures = {
+      texture: texture
+  };
+  var program = tdl.programs.loadProgramFromScriptTags(
+      'mainVertexShader',
+      'mainFragmentShader');
+  var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
+  tdl.primitives.reorient(arrays,
+      [1, 0, 0, 0,
+       0, 0,-1, 0,
+       0, 1, 0, 0,
+       0, 0, 0, 1]);
+  delete arrays.normal;
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+function initialize() {
+  math = tdl.math;
+  fast = tdl.fast;
+  canvas = document.getElementById("canvas");
+  m4 = fast.matrix4;
+
+  gl = tdl.webgl.setupWebGL(canvas);
+  if (!gl) {
+    return false;
+  }
+  if (g_debug) {
+    gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
+  }
+
+  var mainFBO = tdl.framebuffers.createFramebuffer(canvas.width, canvas.height, true);
+  var persistentFBO1 = tdl.framebuffers.createFramebuffer(
+      canvas.width, canvas.height);
+  var persistentFBO2 = tdl.framebuffers.createFramebuffer(
+      canvas.width, canvas.height);
+  var persistPlane = makePersist(
+      mainFBO.texture, persistentFBO1.texture);
+
+  var lastPlane = makeLastPlane(persistentFBO2.texture);
+
+  var model = setupCube();
+
+  var projection = new Float32Array(16);
+  var view = new Float32Array(16);
+  var identity = new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]);
+  var world = new Float32Array(16);
+  var worldInverse = new Float32Array(16);
+  var worldInverseTranspose = new Float32Array(16);
+  var viewProjection = new Float32Array(16);
+  var worldViewProjection = new Float32Array(16);
+  var viewInverse = new Float32Array(16);
+  var viewDirectionProjectionInverse = new Float32Array(16);
+  var eyePosition = new Float32Array(3);
+  var target = new Float32Array(3);
+  var up = new Float32Array([0,1,0]);
+  var lightWorldPos = new Float32Array(3);
+  var v3t0 = new Float32Array(3);
+  var v3t1 = new Float32Array(3);
+  var v3t2 = new Float32Array(3);
+  var v3t3 = new Float32Array(3);
+  var m4t0 = new Float32Array(16);
+  var m4t1 = new Float32Array(16);
+  var m4t2 = new Float32Array(16);
+  var m4t3 = new Float32Array(16);
+  var zero4 = new Float32Array(4);
+  var one4 = new Float32Array([1,1,1,1]);
+
+  // uniforms.
+  var modelConst = {
+    viewInverse: viewInverse,
+    lightWorldPos: lightWorldPos,
+    specular: one4,
+    shininess: 50,
+    specularFactor: 0.2,
+  };
+
+  var modelPer = {
+    colorMult: new Float32Array([0,0,0,1]),
+    world: world,
+    worldViewProjection: worldViewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose
+  };
+
+  var rtPlanePer = {
+    worldViewProjection: worldViewProjection
+  };
+
+  var frameCount = 0;
+  var then = (new Date()).getTime() * 0.001;
+  var clock = 0.0;
+
+  function render() {
+    ++frameCount;
+    if (!g_drawOnce) {
+      tdl.webgl.requestAnimationFrame(render, canvas);
+    }
+    var now = (new Date()).getTime() * 0.001;
+    var elapsedTime = now - then;
+    then = now;
+
+    clock += elapsedTime;
+    g_eyeClock += elapsedTime * g.globals.eyeSpeed;
+    eyePosition[0] = Math.sin(g_eyeClock) * g_eyeRadius;
+    eyePosition[1] = g_eyeHeight;
+    eyePosition[2] = Math.cos(g_eyeClock) * g_eyeRadius;
+    target[0] = Math.sin(g_eyeClock + Math.PI) * g_targetRadius;
+    target[1] = g_targetHeight;
+    target[2] = Math.cos(g_eyeClock + Math.PI) * g_targetRadius;
+
+    // Draw to main fbo.
+    mainFBO.bind();
+
+    gl.colorMask(true, true, true, true);
+    gl.depthMask(true);
+    gl.clearColor(1,1,1,1);
+    gl.clearDepth(1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+
+    m4.perspective(
+        projection,
+        math.degToRad(30),
+        canvas.clientWidth / canvas.clientHeight,
+        1,
+        5000);
+    m4.lookAt(
+        view,
+        eyePosition,
+        target,
+        up);
+    m4.mul(viewProjection, view, projection);
+
+    // Put the light near the camera
+    m4.getAxis(v3t0, viewInverse, 0); // x
+    m4.getAxis(v3t1, viewInverse, 1); // y
+    m4.getAxis(v3t2, viewInverse, 2); // z
+    fast.mulScalarVector(v3t0, 10, v3t0);
+    fast.mulScalarVector(v3t1, 10, v3t1);
+    fast.mulScalarVector(v3t2, 10, v3t2);
+    fast.addVector(lightWorldPos, eyePosition, v3t0);
+    fast.addVector(lightWorldPos, lightWorldPos, v3t1);
+    fast.addVector(lightWorldPos, lightWorldPos, v3t2);
+
+    Log("--Draw models---------------------------------------");
+    model.drawPrep(modelConst);
+    math.resetPseudoRandom();
+    var rand = math.pseudoRandom;
+    for (var ii = 0; ii < 100; ++ii) {
+      var xClock = clock * (rand() + 0.5) + rand() * Math.PI * 2;
+      var yClock = clock * (rand() + 0.5) + rand() * Math.PI * 2;
+      var zClock = clock * (rand() + 0.5) + rand() * Math.PI * 2;
+      var x = Math.sin(xClock) * rand() * 5;
+      var y = Math.sin(yClock) * rand() * 5;
+      var z = Math.cos(zClock) * rand() * 5;
+      m4.translation(world, [x, y, z]);
+      m4.mul(worldViewProjection, world, viewProjection);
+      m4.inverse(worldInverse, world);
+      m4.transpose(worldInverseTranspose, worldInverse);
+      modelPer.colorMult = g_glColors[Math.floor(rand() * g_glColors.length)];
+      model.draw(modelPer);
+    }
+
+    if (g_mixTimer > 0) {
+      g_mixTimer = Math.max(0, g_mixTimer - elapsedTime);
+      g_mixAmount = g_mixTimer / g_mixDuration;
+    }
+
+    mainFBO.unbind();
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.BLEND);
+
+    // blend base with persist1 into persist2
+    persistentFBO2.bind();
+    persistPlane.drawPrep({persistence: g.globals.persistence});
+    var fixMatrix = [
+      1, 0, 0,
+      0, 1, 0,
+     -0.5, -0.5, 1
+    ];
+    var fixInverseMatrix = [
+      1, 0, 0,
+      0, 1, 0,
+     0.5, 0.5, 1
+    ];
+    var scaleMatrix = [
+      g.globals.texMultX, 0, 0,
+      0, g.globals.texMultY, 0,
+      0, 0, 1,
+    ];
+    var c = Math.cos(math.degToRad(g.globals.texRotation));
+    var s = Math.sin(math.degToRad(g.globals.texRotation));
+    var rotationMatrix = [
+      c, s, 0,
+      -s, c, 0,
+      0, 0, 1
+    ];
+    var translationMatrix = [
+      1, 0, 0,
+      0, 1, 0,
+      g.globals.texOffsetX, g.globals.texOffsetY, 1
+    ];
+    var t;
+    //t = math.mulMatrixMatrix3(translationMatrix, fixInverseMatrix);
+    t = math.copyMatrix(translationMatrix);
+    t = math.mulMatrixMatrix3(fixInverseMatrix, t);
+    t = math.mulMatrixMatrix3(rotationMatrix, t);
+    t = math.mulMatrixMatrix3(scaleMatrix, t);
+    t = math.mulMatrixMatrix3(fixMatrix, t);
+    persistPlane.draw({
+      oldRender: persistentFBO1.texture,
+      texMatrix: t
+    });
+    persistentFBO2.unbind();
+
+    // draw on the backbuffer.
+    gl.colorMask(true, true, true, true);
+    gl.clearColor(0,0,0,1);
+    gl.clearDepth(1);
+    gl.depthMask(true);  // Bug in Chrome?
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+    lastPlane.drawPrep();
+    lastPlane.draw({texture: persistentFBO2.texture});
+
+    // swap persist FBOs.
+    var temp = persistentFBO1;
+    persistentFBO1 = persistentFBO2;
+    persistentFBO2 = temp;
+
+    // turn off logging after 1 frame.
+    g_logGLCalls = false;
+  }
+  render();
+  return true;
+}
+
+function getParamId(id) {
+  return id.substr(6).replace(/(\w)/, function(m) {return m.toLowerCase() });
+}
+
+function setParam(event, jui, ui, obj, valueElem) {
+  var id = event.target.id;
+  var value = getRealValueFromUIValue(ui, jui.value);
+  valueElem.innerHTML = value.toFixed(3);
+  obj[id] = value;
+}
+
+var u
+function getRealValueFromUIValue(ui, uiValue) {
+  var realMin = ui.min || 0;
+  var realMax = ui.max;
+  var realRange = realMax - realMin;
+  var realValue = realMin + (uiValue / 1000) * realRange;
+  return realValue;
+}
+
+function getUIValueFromRealValue(ui, realValue) {
+  var realMin = ui.min || 0;
+  var realMax = ui.max;
+  var realRange = realMax - realMin;
+  var uiValue = (realValue - realMin) / realRange * 1000;
+  return uiValue;
+}
+
+function setupSlider($, elem, ui, obj) {
+  var textDiv = document.createElement('div');
+  var labelDiv = document.createElement('span');
+  labelDiv.appendChild(document.createTextNode(ui.name));
+  var valueDiv = document.createElement('span');
+  valueDiv.appendChild(document.createTextNode(ui.value));
+  valueDiv.style.position = "absolute";
+  valueDiv.style.right = "10px";
+  var sliderDiv = document.createElement('div');
+  sliderDiv.id = ui.name;
+  textDiv.appendChild(labelDiv);
+  textDiv.appendChild(valueDiv);
+  elem.appendChild(textDiv);
+  elem.appendChild(sliderDiv);
+  $(sliderDiv).slider({
+    range: false,
+    step: 1,
+    max: 1000,
+    value: getUIValueFromRealValue(ui, obj[ui.name]),
+    slide: function(event, jui) { setParam(event, jui, ui, obj, valueDiv); }
+  });
+}
+
+$(function(){
+  var uiElem = document.getElementById('adjustments');
+  for (var ii = 0; ii < g_ui.length; ++ii) {
+    var ui = g_ui[ii];
+    var obj = g[ui.obj];
+    obj[ui.name] = ui.value;
+    var div = document.createElement('div');
+    setupSlider($, div, ui, obj);
+    uiElem.appendChild(div);
+  }
+  initialize();
+});
+</script>
+</head>
+<body>
+<div id="info"><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - persistence</div>
+<div id="uiContainer">
+  <div>Settings</div>
+  <div id="adjustments">
+  </div>
+</div>
+<div id="viewContainer">
+<canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
+</div>
+  <div style="display:none;">
+  <video id="vid">
+    <source src="../color-adjust/sample-video.mp4"  type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"' />
+    <source src="../color-adjust/sample-video.webmvp8.webm" type='video/webm; codecs="vp8, vorbis"' />
+  </video>
+  </div>
+</body>
+<!-- ===[ basic ]============================================== -->
+<script id="basicVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+attribute vec4 position;
+attribute vec2 texCoord;
+varying vec2 v_texCoord;
+void main() {
+  gl_Position = worldViewProjection * position;
+  v_texCoord = texCoord;
+}
+</script>
+<script id="basicFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform sampler2D texture;
+varying vec2 v_texCoord;
+void main() {
+  gl_FragColor = texture2D(texture, v_texCoord);
+}
+</script>
+<script id="persistVertexShader" type="whatever">
+attribute vec2 position;
+attribute vec2 texCoord;
+varying vec2 v_texCoord;
+void main() {
+  gl_Position = vec4(position, 0, 1);
+  v_texCoord = texCoord;
+}
+</script>
+<script id="persistFragmentShader" type="whatever">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform sampler2D newRender;
+uniform sampler2D oldRender;
+uniform float persistence;
+uniform mat3 texMatrix;
+varying vec2 v_texCoord;
+void main() {
+  vec4 newColor = texture2D(newRender, v_texCoord);
+  vec4 oldColor = texture2D(oldRender, (texMatrix * vec3(v_texCoord, 1)).xy);
+  gl_FragColor = mix(newColor, oldColor, persistence);
+}
+</script>
+<script id="mainVertexShader" type="whatever">
+attribute vec2 position;
+attribute vec2 texCoord;
+varying vec2 v_texCoord;
+void main() {
+  gl_Position = vec4(position, 0, 1);
+  v_texCoord = texCoord;
+}
+</script>
+<script id="mainFragmentShader" type="whatever">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform sampler2D texture;
+varying vec2 v_texCoord;
+void main() {
+  vec4 color = texture2D(texture, v_texCoord);
+  gl_FragColor = color;
+}
+</script>
+<script id="sphereVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+void main() {
+  v_texCoord = texCoord;
+  v_position = (worldViewProjection * position);
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="sphereFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform vec4 colorMult;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform sampler2D diffuseSampler;
+uniform vec4 specular;
+uniform sampler2D bumpSampler;
+uniform float shininess;
+uniform float specularFactor;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec4 diffuse = texture2D(diffuseSampler, v_texCoord) * colorMult;
+  vec3 normal = normalize(v_normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  gl_FragColor = vec4((
+  vec4(1,1,1,1) * (diffuse * litR.y
+                        + specular * litR.z * specularFactor)).rgb,
+      diffuse.a);
+}
+</script>
+</html>
+
+
+
+
