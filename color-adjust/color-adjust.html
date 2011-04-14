@@ -144,9 +144,13 @@ var g_adjustmentImages = [
   { name: 'nightvision',    url: "adjustments/nightvision.png", },
   { name: 'thermal',        url: "adjustments/thermal.png", },
   { name: 'b/w',            url: "adjustments/black-white.png", },
+  { name: 'hue +60',        url: "adjustments/hue-plus-60.png", },
+  { name: 'hue +180',       url: "adjustments/hue-plus-180.png", },
+  { name: 'hue -60',        url: "adjustments/hue-minus-60.png", },
   { name: 'blues',          url: "adjustments/blues.png" },
   { name: 'infrared',       url: "adjustments/infrared.png" },
   { name: 'radioactive',    url: "adjustments/radioactive.png" },
+  { name: 'goolgey',        url: "adjustments/googley.png" },
   { name: 'bgy',            url: "adjustments/bgy.png" }
 ];
 
@@ -454,8 +458,17 @@ function continueSetup() {
     Log("--Draw Plane---------------------------------------");
     videoPlane.drawPrep();
     if (video.videoWidth) {
-      var aspect = video.videoWidth / video.videoHeight;
-      fast.matrix4.scaling(world, [aspect, 1, 1]);
+      // this is a hack since I'm doing this in 3d.
+      // meaning I'm drawing to a polygon in 3d and based on
+      // where the view is this math just happesn to work.
+      var yAspect = 1;
+      var xAspect = video.videoWidth / video.videoHeight;
+      var width = canvas.clientHeight * xAspect / canvas.clientWidth;
+      if (width < 1) {
+        yAspect /= width;
+        xAspect /= width;
+      }
+      fast.matrix4.scaling(world, [xAspect, yAspect, 1]);
     } else {
       fast.matrix4.translation(world, [0, 0, 0]);
     }
