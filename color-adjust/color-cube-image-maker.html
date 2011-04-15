@@ -12,6 +12,11 @@ body, html {
 .caption {
   font-size: x-small;
 }
+input {
+  background-color: #444;
+  color: white;
+  border: 1px solid #888;
+}
 </style>
 <script type="text/javascript">
 window.onload = main;
@@ -21,9 +26,23 @@ function $(id) {
 }
 
 function main() {
-  var size = 8;
+  $("size").addEventListener('change', handleSizeChange, true);
+  drawColorCubeImage(8);
+}
+
+function handleSizeChange(event) {
+  try {
+    var size = parseInt(event.target.value);
+    if (size >= 2 && size <= 64) {
+      drawColorCubeImage(size);
+    }
+  } catch (e) {
+  }
+}
+
+function drawColorCubeImage(size) {
   var canvas = document.createElement("canvas");
-  canvas.width = size * 8;
+  canvas.width = size * size;
   canvas.height = size;
   var ctx = canvas.getContext("2d");
   for (var zz = 0; zz < size; ++zz) {
@@ -39,7 +58,7 @@ function main() {
   }
   var img = $("cube");
   img.src = canvas.toDataURL();
-  img.style.width = (size * 5 * 8).toString() + "px";
+  img.style.width = (size * 5 * size).toString() + "px";
   img.style.height = (size * 5).toString() + "px"
   $("width").innerHTML = canvas.width;
   $("height").innerHTML = canvas.height;
@@ -48,6 +67,7 @@ function main() {
 </head>
 <body>
 <h1>Color Cube Image Maker</h1>
+<div>size:<input id="size" type="text" value="8"/></div>
 <p>Right click on the image below and pick "Save Image As..."</p>
 <p><img id="cube" /></br>
 <div class="caption">( note: actual image size is
