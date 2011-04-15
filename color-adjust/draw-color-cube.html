@@ -1,0 +1,108 @@
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Color Cube</title>
+<style>
+html, body {
+  font-family: monospace;
+  color: white;
+  background-color: black;
+}
+</style>
+<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript">
+tdl.require('tdl.log');
+
+window.onload = main;
+
+function main() {
+  var size = 8;
+  drawColorCube(size);
+  for (var y = 0; y < size; ++y) {
+    drawColorSubCube(size, 0, size, y, 1, 0, size);
+  }
+}
+
+function drawColorCube(cubeDimensions) {
+  drawColorSubCube(
+    cubeDimensions,
+    0, cubeDimensions,
+    0, cubeDimensions,
+    0, cubeDimensions);
+}
+
+function drawColorSubCube(
+    cubeDimensions,
+    xStart, xWidth,
+    yStart, yHeight,
+    zStart, zDepth) {
+  var depth = 0.5;
+  var cellSize = 32;
+  var cellArea = cellSize * (1 + depth);
+  var cubeSize = cubeDimensions * cellArea;
+  var canvas = document.createElement("canvas");
+  canvas.width = cubeSize;
+  canvas.height = cubeSize;
+  var ctx = canvas.getContext("2d");
+  for (var zz = zStart + zDepth - 1; zz >= zStart; --zz) {
+    var zOffset = zz * cellSize * depth;
+    var b = Math.floor((zz / (cubeDimensions - 1)) * 255);
+    for (var yy = yStart + yHeight - 1; yy >= yStart; --yy) {
+      var yOffset = yy * cellSize;
+      var g = Math.floor((yy / (cubeDimensions - 1)) * 255);
+      for (var xx = xStart; xx < xWidth; ++xx) {
+        var xOffset = xx * cellSize;
+        var r = Math.floor((xx / (cubeDimensions - 1)) * 255);
+        var x = xOffset + zOffset;
+        var y = yOffset + cubeDimensions * cellSize * depth - zOffset;
+        drawCube(ctx, x, y, cellSize, depth, r, g, b);
+      }
+    }
+  }
+  var img = document.createElement("img");
+  img.src = canvas.toDataURL();
+  document.body.appendChild(img);
+}
+
+function drawCube(ctx, x, y, size, depth, r, g, b) {
+  ++size;
+  var offset = size * depth;
+  ctx.fillStyle = "rgb(" + r + "," + g + "," + b + ")";
+  ctx.stokeStyle = "1px #fff";
+
+  ctx.beginPath()
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + offset, y - offset);
+  ctx.lineTo(x + offset + size, y - offset);
+  ctx.lineTo(x + size, y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath()
+  ctx.moveTo(x + size, y);
+  ctx.lineTo(x + size + offset, y - offset);
+  ctx.lineTo(x + size + offset, y - offset + size);
+  ctx.lineTo(x + size, y + size);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + size, y);
+  ctx.lineTo(x + size, y + size);
+  ctx.lineTo(x, y + size);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+}
+
+
+</script>
+</head>
+<body>
+<h1>Color Cube</h1>
+</body>
+</html>
