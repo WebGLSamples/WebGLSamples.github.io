@@ -28,9 +28,9 @@ var frameCount = 0;
 var totalFrameCount = 0;
 
 var exposure = 1.0;
-var blurSize = 7;
 
 var kMaxLocalSigma = 4.0;
+var kMaxKernelWidth = 25;
 
 function makeInt(value) {
   return value | 0;
@@ -426,8 +426,8 @@ DiscardLDREffect.prototype.name = function() {
 
 //----------------------------------------------------------------------
 
-var BlurEffect = function(pipeline, source, vertical) {
-  var code = this.generateCode_(blurSize, vertical, source.outputSize());
+var BlurEffect = function(pipeline, source, sigma, halfKernelWidth, vertical) {
+  var code = this.generateCode_(sigma, halfKernelWidth, vertical, source.outputSize());
   HDREffect.call(this, pipeline, code);
   this.addInput_(source, "u_source");
 };
@@ -459,7 +459,7 @@ function buildKernel(sigma, kernelSize) {
   return values;
 }
 
-BlurEffect.prototype.generateCode_ = function(numTaps, vertical, textureSize) {
+BlurEffect.prototype.generateCode_ = function(sigma, halfKernelWidth, vertical, textureSize) {
   var code = [];
   var horizTexelOffset = 1.0 / textureSize[0];
   var vertTexelOffset = 1.0 / textureSize[1];
@@ -468,8 +468,9 @@ BlurEffect.prototype.generateCode_ = function(numTaps, vertical, textureSize) {
   code.push("uniform sampler2D u_source;");
   code.push("void main() {");
   code.push("  vec4 sum;");
-  var kernel = buildKernel(kMaxLocalSigma, 2 * numTaps + 1);
-  for (var ii = -numTaps; ii <= numTaps; ++ii) {
+  var kernel = buildKernel(sigma, 2 * halfKernelWidth + 1);
+  var first = true;
+  for (var ii = -halfKernelWidth; ii <= halfKernelWidth; ++ii) {
     var xOffset, yOffset;
     if (vertical) {
       xOffset = 0;
@@ -479,11 +480,12 @@ BlurEffect.prototype.generateCode_ = function(numTaps, vertical, textureSize) {
       yOffset = 0;
     }
     var operator = "+=";
-    if (ii == -numTaps) {
+    if (first) {
       // First sample.
       operator = "=";
+      first = false;
     }
-    code.push("  sum " + operator + " texture2D(u_source, v_texCoord + vec2(" + xOffset + ", " + yOffset + ")) * " + kernel[ii + numTaps] + ";");
+    code.push("  sum " + operator + " texture2D(u_source, v_texCoord + vec2(" + xOffset + ", " + yOffset + ")) * " + kernel[ii + halfKernelWidth] + ";");
   }
   code.push("  gl_FragColor = sum;");
   code.push("}");
@@ -819,6 +821,30 @@ HDRPipeline.prototype.textureBucket_ = function(effect) {
 
 //----------------------------------------------------------------------
 
+function buildBloomEffect(pipeline, inputEffect, blurRadius, canvasWidth, canvasHeight) {
+  var sigma = blurRadius * 0.333333;
+  var scaleFactor = 1;
+  while (sigma > kMaxLocalSigma) {
+    scaleFactor *= 2;
+    sigma *= 0.5;
+  }
+  var source = inputEffect;
+  for (var ii = 1; ii < scaleFactor; ii *= 2) {
+    var scaleDown = new ScaleDownEffect(pipeline, source);
+    source = scaleDown;
+  }
+  var halfWidth = Math.floor(sigma * 3);
+  var blurX = new BlurEffect(pipeline, source, sigma, halfWidth, false);
+  var blurY = new BlurEffect(pipeline, blurX, sigma, halfWidth, true);
+  if (scaleFactor > 1) {
+    return new BicubicUpsamplingEffect(pipeline, blurY, canvasWidth, canvasHeight);
+  } else {
+    return blurY;
+  }
+}
+
+//----------------------------------------------------------------------
+
 function buildStarEffect(pipeline, inputEffect, initialOffsetInRadians, numStreaks, passesPerStreak) {
   var streaks = [];
   var stepInRadians = 2.0 * Math.PI / numStreaks;
@@ -892,15 +918,8 @@ var HDRDemo = function() {
   var source = new TextureInputEffect(pipeline, floatBackbufferTexture);
 
   // High-quality bloom effect
-  var blurSource = source;
-  for (var ii = 0; ii < 3; ++ii) {
-    var vertBlur = new BlurEffect(pipeline, blurSource, true);
-    var horizBlur = new BlurEffect(pipeline, vertBlur, false);
-    var scaleDown = new ScaleDownEffect(pipeline, horizBlur);
-    blurSource = scaleDown;
-  }
-  var bicubicUpsampling = new BicubicUpsamplingEffect(pipeline, blurSource, canvas.width, canvas.height);
-  var toneMapping = new ToneMappingEffect(pipeline, ldrSource, 1024, 1.0 / 2.2, bicubicUpsampling, 0.5);
+  var bloom = buildBloomEffect(pipeline, source, 40, canvas.width, canvas.height);
+  var toneMapping = new ToneMappingEffect(pipeline, ldrSource, 1024, 1.0 / 2.2, bloom, 0.5);
 
   /*
   // Star effect (looks pretty bad right now)
