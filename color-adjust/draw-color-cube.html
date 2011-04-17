@@ -9,6 +9,9 @@ html, body {
   color: white;
   background-color: black;
 }
+img {
+ border: 1px solid white;
+}
 </style>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
@@ -19,9 +22,22 @@ window.onload = main;
 function main() {
   var size = 8;
   drawColorCube(size);
+  document.body.appendChild(document.createElement("br"));
   for (var y = 0; y < size; ++y) {
     drawColorSubCube(size, 0, size, y, 1, 0, size);
   }
+  document.body.appendChild(document.createElement("br"));
+  for (var y = 0; y < size; ++y) {
+    drawColorSubCube(size, y, 1, 0, size, 0, size);
+  }
+  document.body.appendChild(document.createElement("br"));
+  for (var y = 0; y < size; ++y) {
+    drawColorSubCube(size, 0, size, 0, size, y, 1);
+  }
+  document.body.appendChild(document.createElement("br"));
+  drawColorPlans(size);
+  drawColorPlans(size);
+  drawColorSubCube(size, 0, size, 0, 1, 4, 1);
 }
 
 function drawColorCube(cubeDimensions) {
@@ -39,30 +55,66 @@ function drawColorSubCube(
     zStart, zDepth) {
   var depth = 0.5;
   var cellSize = 32;
-  var cellArea = cellSize * (1 + depth);
-  var cubeSize = cubeDimensions * cellArea;
+  var cubeWidth = xWidth * cellSize + zDepth * cellSize * depth;
+  var cubeHeight = yHeight * cellSize + zDepth * cellSize * depth;
   var canvas = document.createElement("canvas");
-  canvas.width = cubeSize;
-  canvas.height = cubeSize;
+  canvas.width = cubeWidth;
+  canvas.height = cubeHeight;
   var ctx = canvas.getContext("2d");
-  for (var zz = zStart + zDepth - 1; zz >= zStart; --zz) {
-    var zOffset = zz * cellSize * depth;
-    var b = Math.floor((zz / (cubeDimensions - 1)) * 255);
-    for (var yy = yStart + yHeight - 1; yy >= yStart; --yy) {
-      var yOffset = yy * cellSize;
-      var g = Math.floor((yy / (cubeDimensions - 1)) * 255);
-      for (var xx = xStart; xx < xWidth; ++xx) {
-        var xOffset = xx * cellSize;
-        var r = Math.floor((xx / (cubeDimensions - 1)) * 255);
-        var x = xOffset + zOffset;
-        var y = yOffset + cubeDimensions * cellSize * depth - zOffset;
-        drawCube(ctx, x, y, cellSize, depth, r, g, b);
-      }
-    }
+  drawCubes(
+      ctx, cubeDimensions,
+      xStart, xWidth, yStart, yHeight, zStart, zDepth, cellSize, depth);
+  var img = document.createElement("img");
+  img.src = canvas.toDataURL();
+  document.body.appendChild(img);
+}
+
+function drawColorPlans(
+    cubeDimensions) {
+  var depth = 0.5;
+  var cellSize = 32;
+  var cubeWidth = cubeDimensions * cubeDimensions * cellSize + cubeDimensions * cellSize * depth;
+  var cubeHeight = 1 * cellSize + cubeDimensions * cellSize * depth;
+  var canvas = document.createElement("canvas");
+  canvas.width = cubeWidth;
+  canvas.height = cubeHeight;
+  var ctx = canvas.getContext("2d");
+  for (var ii = 0; ii < cubeDimensions; ++ii) {
+    drawCubes(
+        ctx, cubeDimensions,
+        0, cubeDimensions, ii, 1, 0, cubeDimensions, cellSize, depth, ii * cubeDimensions * cellSize);
   }
   var img = document.createElement("img");
   img.src = canvas.toDataURL();
   document.body.appendChild(img);
+}
+
+function drawCubes(
+    ctx,
+    cubeDimensions,
+    xStart, xWidth,
+    yStart, yHeight,
+    zStart, zDepth,
+    cellSize,
+    depth,
+    opt_xOff, opt_yOff) {
+  xOff = opt_xOff || 0;
+  yOff = opt_yOff || 0;
+  for (var zz = zDepth - 1; zz >= 0; --zz) {
+    var zOffset = zz * cellSize * depth;
+    var g = Math.floor(((zStart + zz) / (cubeDimensions - 1)) * 255);
+    for (var yy = yHeight - 1; yy >= 0; --yy) {
+      var yOffset = yy * cellSize;
+      var b = Math.floor(((yStart + yy) / (cubeDimensions - 1)) * 255);
+      for (var xx = 0; xx < xWidth; ++xx) {
+        var xOffset = xx * cellSize;
+        var r = Math.floor(((xStart + xx) / (cubeDimensions - 1)) * 255);
+        var x = xOffset + zOffset;
+        var y = yOffset + zDepth * cellSize * depth - zOffset;
+        drawCube(ctx, x + xOff, y + yOff, cellSize, depth, r, g, b);
+      }
+    }
+  }
 }
 
 function drawCube(ctx, x, y, size, depth, r, g, b) {
