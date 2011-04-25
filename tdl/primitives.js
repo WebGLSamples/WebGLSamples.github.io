@@ -413,10 +413,10 @@ tdl.primitives.clone = function(arrays) {
 };
 
 /**
- * Concats 2 sets of arrays. Assumes each set of arrays has arrays that match
- * the other sets.
+ * Concats 2 or more sets of arrays. Assumes each set of arrays has arrays that
+ * match the other sets.
  * @param {!Array<!Object.<string, !AttribBuffer>>} arrays Arrays to concat
- * @return {!Object.<string, !AttribBuffer> concatenated result.
+ * @return {!Object.<string, !AttribBuffer>} concatenated result.
  */
 tdl.primitives.concat = function(arrayOfArrays) {
   var names = {};
@@ -470,6 +470,55 @@ tdl.primitives.concat = function(arrayOfArrays) {
 };
 
 /**
+ * Same as tdl.primitives.concat except this one returns an array
+ * of arrays if the models have indices. This is because WebGL can only handle
+ * 16bit indices (ie, < 65536) So, as it is concatenating, if the data would
+ * make indices > 65535 it starts a new set of arrays.
+ *
+ * @param {!Array<!Object.<string, !AttribBuffer>>} arrays Arrays to concat
+ * @return {!{arrays:{!Array<{!Object.<string, !AttribBuffer>>,
+ *     instances:{!Array<{firstVertex:number, numVertices:number, arrayIndex:
+ *     number}>}} object result.
+ */
+//
+tdl.primitives.concatLarge = function(arrayOfArrays) {
+  // Step 2: convert instances to expanded geometry
+  var instances = [];
+  var expandedArrays = [];
+  var expandedArray;
+  var totalElements = 0;
+  for (var ii = 0; ii < arrayOfArrays.length; ++ii) {
+    // WebGL can only handle 65536 indexed vertices so check if this
+    // geometry can fit the current model
+    var array = arrayOfArrays[ii];
+    if (!expandedArray || totalElements + array.position.numElements > 65536) {
+      // Start a new array.
+      totalElements = 0;
+      expandedArray = [array];
+      expandedArrays.push(expandedArray);
+    } else {
+      // Add our new stuff on to the old one.
+      expandedArray.push(array);
+    }
+    instances.push({
+        firstVertex: totalElements,
+        numVertices: array.position.numElements,
+        arrayIndex: expandedArrays.length - 1
+    });
+    totalElements += array.position.numElements;
+  }
+
+  for (var ii = 0; ii < expandedArrays.length; ++ii) {
+    //tdl.log("concat:", ii, " of ", expandedArrays.length);
+    expandedArrays[ii] = tdl.primitives.concat(expandedArrays[ii]);
+  }
+  return {
+      arrays: expandedArrays,
+      instances: instances
+  };
+};
+
+/**
  * Applies planar UV mapping in the XZ plane.
  * @param {!AttribBuffer} positions The positions
  * @param {!AttribBuffer} texCoords The texCoords
@@ -486,6 +535,29 @@ tdl.primitives.applyPlanarUVMapping = function(positions, texCoords) {
     var v = (position[2] - extents.min[2]) / ranges[2];
     texCoords.setElement(ii, [u, v]);
   }
+};
+
+/**
+ * Takes a bunch of instances of geometry and converts them
+ * to 1 or more geometries that represent all the instances.
+ *
+ * In other words, if make a cube
+ *
+ *    var cube = tdl.primitives.createCube(1);
+ *
+ * And you put 4 of those in an array
+ *
+ *    var instances = [cube, cube, cube, cube]
+ *
+ * Then if you call this function it will return a mesh that contains
+ * all 4 cubes.  it
+ *
+ * @author gman (4/19/2011)
+ *
+ * @param instances
+ */
+tdl.primitives.expandInstancesToGeometry = function(instances) {
+
 };
 
 /**
