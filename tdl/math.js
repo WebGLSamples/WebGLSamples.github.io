@@ -1726,14 +1726,14 @@ tdl.math.matrix4.setIdentity = function(m) {
  * @return {!tdl.math.Matrix4} The perspective matrix.
  */
 tdl.math.matrix4.perspective = function(angle, aspect, near, far) {
-  var f = Math.tan(0.5 * (Math.PI - angle));
-  var range = near - far;
+  var f = Math.tan(Math.PI * 0.5 - 0.5 * angle);
+  var rangeInv = 1.0 / (near - far);
 
   return [
     f / aspect, 0, 0, 0,
     0, f, 0, 0,
-    0, 0, far / range, -1,
-    0, 0, near * far / range, 0
+    0, 0, (near + far) * rangeInv, -1,
+    0, 0, near * far * rangeInv * 2, 0
   ];
 };
 

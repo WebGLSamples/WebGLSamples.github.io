@@ -1,0 +1,394 @@
+<!--
+ * Copyright 2011, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Google I/O 2011 - 10000 objects matrix optimized</title>
+<link rel="stylesheet" type="text/css" href="style.css" />
+<script type="text/javascript" src="colors.js"></script>
+<script type="text/javascript" src="../../tdl/base.js"></script>
+<script type="text/javascript">
+tdl.require('tdl.buffers');
+tdl.require('tdl.fast');
+tdl.require('tdl.fps');
+tdl.require('tdl.log');
+tdl.require('tdl.math');
+tdl.require('tdl.models');
+tdl.require('tdl.primitives');
+tdl.require('tdl.programs');
+tdl.require('tdl.textures');
+tdl.require('tdl.webgl');
+window.onload = initialize;
+
+// globals
+var gl;                   // the gl context.
+var canvas;               // the canvas
+var math;                 // the math lib.
+var fast;                 // the fast math lib.
+
+var g_eyeSpeed          = 0.5;
+var g_eyeHeight         = 2;
+var g_eyeRadius         = 9;
+
+function CreateApp() {
+  // Create Geometry.
+  var scale = 0.2;
+  var sphereArrays = tdl.primitives.createSphere(0.4 * scale, 3, 3);
+  var cubeArrays = tdl.primitives.createCube(0.8 * scale);
+  var coneArrays = tdl.primitives.createTruncatedCone(
+      0.4 * scale, 0.0 * scale, 0.8 * scale, 3, 1, true, true);
+
+  // Load textures
+  var textures = {
+      diffuseSampler: tdl.textures.loadTexture('assets/google.png')
+  };
+
+  // Create Shader Program
+  var program = tdl.programs.loadProgramFromScriptTags(
+      'sphereVertexShader',
+      'sphereFragmentShader');
+
+  // --Setup Models---------------------------------------
+  var models = [
+    new tdl.models.Model(program, sphereArrays, textures),
+    new tdl.models.Model(program, cubeArrays, textures),
+    new tdl.models.Model(program, coneArrays, textures)
+  ];
+
+  // -- Setup Instances ----------------------------------
+  var instances = [];
+  for (var ii = 0; ii < 10000; ++ii) {
+    instances.push({
+      x: 0,
+      y: 0,
+      z: 0,
+      colorMult: new Float32Array(g_glColors[math.randomInt(g_glColors.length)]),
+      modelIndex: Math.floor(Math.random() * models.length),
+      xRadius: Math.random() * 5,
+      yRadius: Math.random() * 5,
+      zRadius: Math.random() * 5,
+      xClockSpeed: (Math.random() + 0.5),
+      yClockSpeed: (Math.random() + 0.5),
+      zClockSpeed: (Math.random() + 0.5),
+      xClock: Math.random() * Math.PI * 2,
+      yClock: Math.random() * Math.PI * 2,
+      zClock: Math.random() * Math.PI * 2
+    });
+  }
+
+  // pre sort by model.
+  instances.sort(function(a, b) {
+    if (a.modelIndex < b.modelIndex) return -1;
+    if (a.modelIndex > b.modelIndex) return  1;
+    return 0;
+  });
+
+  // pre-allocate a bunch of arrays
+  var projection = new Float32Array(16);
+  var view = new Float32Array(16);
+  var world = new Float32Array(16);
+  var worldInverse = new Float32Array(16);
+  var worldInverseTranspose = new Float32Array(16);
+  var viewProjection = new Float32Array(16);
+  var worldViewProjection = new Float32Array(16);
+  var viewInverse = new Float32Array(16);
+  var viewProjectionInverse = new Float32Array(16);
+  var eyePosition = new Float32Array(3);
+  var target = new Float32Array(3);
+  var up = new Float32Array([0,1,0]);
+  var lightWorldPos = new Float32Array(3);
+  var v3t0 = new Float32Array(3);
+  var v3t1 = new Float32Array(3);
+  var v3t2 = new Float32Array(3);
+  var v3t3 = new Float32Array(3);
+  var m4t0 = new Float32Array(16);
+  var m4t1 = new Float32Array(16);
+  var m4t2 = new Float32Array(16);
+  var m4t3 = new Float32Array(16);
+  var zero4 = new Float32Array(4);
+  var one4 = new Float32Array([1,1,1,1]);
+  var worldPosition = new Float32Array(3);
+
+  // uniforms.
+  var sharedUniforms = {
+    viewInverse: viewInverse,
+    viewProjection: viewProjection,
+    lightWorldPos: lightWorldPos,
+    specular: one4,
+    shininess: 50,
+    specularFactor: 0.2,
+  };
+  var uniqueUniforms = {
+    colorMult: new Float32Array([0,0,0,1]),
+    worldPosition: worldPosition,
+  };
+
+  var clock = 0.0;
+  function update(elapsedTime) {
+    clock += elapsedTime;
+
+    // Make the camera rotate around the scene.
+    eyePosition[0] = Math.sin(clock * g_eyeSpeed) * g_eyeRadius;
+    eyePosition[1] = g_eyeHeight;
+    eyePosition[2] = Math.cos(clock * g_eyeSpeed) * g_eyeRadius;
+
+    // --Update Instance Positions---------------------------------------
+    var advance = elapsedTime / 2;
+    for (var ii = 0; ii < instances.length; ++ii) {
+      var instance = instances[ii];
+      instance.xClock += advance * instance.xClockSpeed;
+      instance.yClock += advance * instance.yClockSpeed;
+      instance.zClock += advance * instance.zClockSpeed;
+      instance.x = Math.sin(instance.xClock) * instance.xRadius;
+      instance.y = Math.sin(instance.yClock) * instance.yRadius;
+      instance.z = Math.cos(instance.zClock) * instance.zRadius;
+    }
+  }
+
+  function render() {
+    renderBegin();
+    renderScene();
+    renderEnd();
+  }
+
+  function renderBegin() {
+    var m4 = fast.matrix4;
+    // clear the screen.
+    gl.colorMask(true, true, true, true);
+    gl.depthMask(true);
+    gl.clearColor(1,1,1,0);
+    gl.clearDepth(1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+    gl.enable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST);
+
+    // Compute a projection and view matrices.
+    m4.perspective(
+        projection,
+        math.degToRad(60),
+        canvas.clientWidth / canvas.clientHeight,
+        1,
+        5000);
+    m4.lookAt(
+        view,
+        eyePosition,
+        target,
+        up);
+    m4.mul(viewProjection, view, projection);
+    m4.inverse(viewInverse, view);
+    m4.inverse(viewProjectionInverse, viewProjection);
+
+    // Put the light near the camera
+    m4.getAxis(v3t0, viewInverse, 0); // x
+    m4.getAxis(v3t1, viewInverse, 1); // y
+    m4.getAxis(v3t2, viewInverse, 2); // z
+    fast.mulScalarVector(v3t0, 10, v3t0);
+    fast.mulScalarVector(v3t1, 10, v3t1);
+    fast.mulScalarVector(v3t2, 10, v3t2);
+    fast.addVector(lightWorldPos, eyePosition, v3t0);
+    fast.addVector(lightWorldPos, lightWorldPos, v3t1);
+    fast.addVector(lightWorldPos, lightWorldPos, v3t2);
+  }
+
+  function renderScene() {
+    // -- Render Instances ---------------------------------------
+    var m4 = fast.matrix4;
+    var lastModel = null;
+    for (var ii = 0; ii < instances.length; ++ii) {
+      var instance = instances[ii];
+      var model = models[instance.modelIndex];
+      if (model != lastModel) {
+        lastModel = model;
+        model.drawPrep(sharedUniforms);
+      }
+      worldPosition[0] = instance.x;
+      worldPosition[1] = instance.y;
+      worldPosition[2] = instance.z;
+      uniqueUniforms.colorMult = instance.colorMult;
+      model.draw(uniqueUniforms);
+    }
+  }
+
+  function renderEnd() {
+    // Set the alpha to 255.
+    gl.colorMask(false, false, false, true);
+    gl.clearColor(0,0,0,1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+
+  return {
+    update: update,
+    render: render
+  };
+}
+
+function initialize() {
+  math = tdl.math;
+  fast = tdl.fast;
+  canvas = document.getElementById("canvas");
+  var fpsTimer = new tdl.fps.FPSTimer();
+  var fpsElem = document.getElementById("fps");
+
+  gl = tdl.webgl.setupWebGL(canvas);
+  if (!gl) {
+    return false;
+  }
+
+  var app = CreateApp();
+  var then = (new Date()).getTime() * 0.001;
+
+  function render() {
+    tdl.webgl.requestAnimationFrame(render, canvas);
+
+    // Compute the elapsed time since the last rendered frame
+    // in seconds.
+    var now = (new Date()).getTime() * 0.001;
+    var elapsedTime = now - then;
+    then = now;
+
+    // Update the FPS timer.
+    fpsTimer.update(elapsedTime);
+    fpsElem.innerHTML = fpsTimer.averageFPS;
+
+    app.update(elapsedTime);
+    app.render();
+  }
+  render();
+  return true;
+}
+</script>
+</head>
+<body>
+<div id="info"><span><a href="http://threedlibrary.googlecode.com" 
+target="_blank">tdl.js</a> - google i/o 10000-objects matrix optimized</span></div>
+<div id="fpsContainer">
+  <div class="fps">fps: <span id="fps"></div>
+</div>
+<div id="viewContainer">
+<canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
+</div>
+</body>
+<script id="sphereVertexShader" type="text/something-not-javascript">
+uniform vec3 worldPosition;
+uniform vec3 lightWorldPos;
+uniform mat4 viewInverse;
+uniform mat4 viewProjection;
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+mat4 transpose(mat4 m) {
+  return mat4(
+    vec4(m[0][0], m[1][0], m[2][0], m[3][0]),
+    vec4(m[0][1], m[1][1], m[2][1], m[3][1]),
+    vec4(m[0][2], m[1][2], m[2][2], m[3][2]),
+    vec4(m[0][3], m[1][3], m[2][3], m[3][3])
+    );
+}
+
+mat4 inverseOrthonormal(mat4 m) {
+  mat4 r = transpose(m);
+  vec3 t = vec3(m[3].xyz);
+  r[0][3] = 0.0;
+  r[1][3] = 0.0;
+  r[2][3] = 0.0;
+  r[3][0] = -dot(vec3(r[0].x, r[1].x, r[2].x), t);
+  r[3][1] = -dot(vec3(r[0].y, r[1].y, r[2].y), t);
+  r[3][2] = -dot(vec3(r[0].z, r[1].z, r[2].z), t);
+  return r;
+}
+
+void main() {
+  mat4 world = mat4(
+    vec4(1,0,0,0),
+    vec4(0,1,0,0),
+    vec4(0,0,1,0),
+    vec4(worldPosition, 1));
+  mat4 worldInverseTranspose = transpose(inverseOrthonormal(world));
+  mat4 worldViewProjection = viewProjection * world;
+  v_texCoord = texCoord;
+  v_position = (worldViewProjection * position);
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - (world * position).xyz;
+  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="sphereFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform vec4 colorMult;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform sampler2D diffuseSampler;
+uniform vec4 specular;
+uniform sampler2D bumpSampler;
+uniform float shininess;
+uniform float specularFactor;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec4 diffuse = texture2D(diffuseSampler, v_texCoord) * colorMult;
+  vec3 normal = normalize(v_normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  gl_FragColor = vec4((
+  vec4(1,1,1,1) * (diffuse * litR.y
+                        + specular * litR.z * specularFactor)).rgb,
+      diffuse.a);
+}
+</script>
+</html>
+
+
+
+
