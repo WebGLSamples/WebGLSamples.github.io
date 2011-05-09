@@ -123,49 +123,31 @@ function CreateApp() {
   }
 
   // Step 2: convert instances to expanded geometry
-  var expandedArrays = [];
-  var expandedArray;
-  var totalElements = 0;
+  var arrayInstances = [];
   for (var ii = 0; ii < instances.length; ++ii) {
-    var instance = instances[ii];
-    // WebGL can only handle 65536 indexed vertices so check if this
-    // geometry can fit the current model
-    var array = arrays[instance.arrayIndex];
-    if (!expandedArray || totalElements + array.position.numElements > 65536) {
-      // Start a new array.
-      totalElements = 0;
-      expandedArray = [array];
-      expandedArrays.push(expandedArray);
-    } else {
-      // Add our new stuff on to the old one.
-      expandedArray.push(array);
-    }
-    instance.firstVertex = totalElements;
-    totalElements += array.position.numElements;
-    instance.numVertices = array.position.numElements;
-    instance.expandedArrayIndex = expandedArrays.length - 1;
+    arrayInstances.push(arrays[instances[ii].arrayIndex]);
   }
-
-  for (var ii = 0; ii < expandedArrays.length; ++ii) {
-    tdl.log("concat:", ii, " of ", expandedArrays.length);
-    expandedArrays[ii] = tdl.primitives.concat(expandedArrays[ii]);
-  }
+  var expanded = tdl.primitives.concatLarge(arrayInstances);
 
   // Step 3: Make models from our expanded geometry.
   var models = [];
-  for (var ii = 0; ii < expandedArrays.length; ++ii) {
-    models.push(new tdl.models.Model(program, expandedArrays[ii], textures));
+  for (var ii = 0; ii < expanded.arrays.length; ++ii) {
+    models.push(new tdl.models.Model(program, expanded.arrays[ii], textures));
   }
 
   // Step 4: Copy in Colors
   for (var ii = 0; ii < instances.length; ++ii) {
     var instance = instances[ii];
-    var index = instance.expandedArrayIndex;
-    var attribBuffer = expandedArrays[index].colorMult;
+    var info = expanded.instances[ii];
+    var index = info.arrayIndex;
+    instance.firstVertex = info.firstVertex;
+    instance.numVertices = info.numVertices;
+    instance.expandedArrayIndex = index;
+    var attribBuffer = expanded.arrays[index].colorMult;
     attribBuffer.fillRange(instance.firstVertex, instance.numVertices, instance.colorMult);
   }
   for (var ii = 0; ii < models.length; ++ii) {
-    var attribBuffer = expandedArrays[ii].colorMult;
+    var attribBuffer = expanded.arrays[ii].colorMult;
     models[ii].setBuffer('colorMult', attribBuffer);
   }
 
@@ -228,11 +210,11 @@ function CreateApp() {
         var y = instance.y = Math.sin(instance.yClock) * instance.yRadius;
         var z = instance.z = Math.cos(instance.zClock) * instance.zRadius;
         var index = instance.expandedArrayIndex;
-        var attribBuffer = expandedArrays[index].worldPosition;
+        var attribBuffer = expanded.arrays[index].worldPosition;
         attribBuffer.fillRange(instance.firstVertex, instance.numVertices, [x, y, z]);
       }
       for (var ii = 0; ii < models.length; ++ii) {
-        var attribBuffer = expandedArrays[ii].worldPosition;
+        var attribBuffer = expanded.arrays[ii].worldPosition;
         models[ii].setBuffer('worldPosition', attribBuffer);
       }
     }

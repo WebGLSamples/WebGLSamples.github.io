@@ -601,11 +601,12 @@ vec4 sampleAs3DTexture(sampler2D tex, vec3 texCoord, float size) {
    float sliceInnerSize = slicePixelSize * (size - 1.0); // space of size pixels
    float zSlice0 = min(floor(texCoord.z * size), size - 1.0);
    float zSlice1 = min(zSlice0 + 1.0, size - 1.0);
-   float zOffset = mod(texCoord.z * size, 1.0);
-   float s0 = (slicePixelSize * 0.5) + (texCoord.x * sliceInnerSize) + (zSlice0 * sliceSize);
-   float s1 = (slicePixelSize * 0.5) + (texCoord.x * sliceInnerSize) + (zSlice1 * sliceSize);
+   float xOffset = slicePixelSize * 0.5 + texCoord.x * sliceInnerSize;
+   float s0 = xOffset + (zSlice0 * sliceSize);
+   float s1 = xOffset + (zSlice1 * sliceSize);
    vec4 slice0Color = texture2D(tex, vec2(s0, texCoord.y));
    vec4 slice1Color = texture2D(tex, vec2(s1, texCoord.y));
+   float zOffset = mod(texCoord.z * size, 1.0);
    return mix(slice0Color, slice1Color, zOffset);
 }
 
