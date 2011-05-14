@@ -365,11 +365,13 @@ function continueSetup() {
   var zero4 = new Float32Array(4);
   var one4 = new Float32Array([1,1,1,1]);
 
+  var startTime = 196;
   var copyVideo = false;
   var madeVideoTexture = false;
   var video = document.getElementById("vid");
   video.addEventListener("playing", function() { copyVideo = true; }, true);
-  video.addEventListener("ended", function() { video.currentTime = 0; video.play(); }, true);
+  video.addEventListener("ended", function() { 
+      video.currentTime = startTime; video.play(); }, true);
   video.volume = 0;
   video.play();
 
@@ -413,6 +415,9 @@ function continueSetup() {
     target[2] = Math.cos(g_eyeClock + Math.PI) * g_targetRadius;
 
     if (copyVideo) {
+      if (video.currentTime < startTime) {
+        video.currentTime = startTime;
+      }
       gl.bindTexture(gl.TEXTURE_2D, g_videoTexture.texture);
       if (!madeVideoTexture) {
         madeVideoTexture = true;
