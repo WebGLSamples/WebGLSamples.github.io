@@ -1141,6 +1141,92 @@ tdl.primitives.createCylinder = function(
 };
 
 /**
+ * Creates vertices for a torus, The created cone has position, normal
+ * and texCoord streams.
+ *
+ * @param {number} radius radius of center of torus circle.
+ * @param {number} thickness radius of torus ring.
+ * @param {number} radialSubdivisions The number of subdivisions around the
+ *     torus.
+ * @param {number} bodySubdivisions The number of subdivisions around the
+ *     body torus.
+ * @param {boolean} opt_startAngle start angle in radians. Default = 0.
+ * @param {boolean} opt_endAngle end angle in radians. Default = Math.PI * 2.
+ * @return {!Object.<string, !tdl.primitives.AttribBuffer>} The
+ *         created torus vertices.
+ */
+tdl.primitives.createTorus = function(
+    radius,
+    thickness,
+    radialSubdivisions,
+    bodySubdivisions,
+    opt_startAngle,
+    opt_endAngle) {
+  if (radialSubdivisions < 3) {
+    throw Error('radialSubdivisions must be 3 or greater');
+  }
+
+  if (bodySubdivisions < 3) {
+    throw Error('verticalSubdivisions must be 3 or greater');
+  }
+
+  var startAngle = opt_startAngle || 0;
+  var endAngle = opt_endAngle || Math.PI * 2;
+  var range = endAngle - startAngle;
+
+  // TODO(gman): cap the ends if not a full circle.
+
+  var numVertices = (radialSubdivisions) * (bodySubdivisions);
+  var positions = new tdl.primitives.AttribBuffer(3, numVertices);
+  var normals = new tdl.primitives.AttribBuffer(3, numVertices);
+  var texCoords = new tdl.primitives.AttribBuffer(2, numVertices);
+  var indices = new tdl.primitives.AttribBuffer(
+      3, (radialSubdivisions) * (bodySubdivisions) * 2, 'Uint16Array');
+
+  for (var slice = 0; slice < bodySubdivisions; ++slice) {
+    var v = slice / bodySubdivisions;
+    var sliceAngle = v * Math.PI * 2;
+    var sliceSin = Math.sin(sliceAngle);
+    var ringRadius = radius + sliceSin * thickness;
+    var ny = Math.cos(sliceAngle);
+    var y = ny * thickness;
+    for (var ring = 0; ring < radialSubdivisions; ++ring) {
+      var u = ring / radialSubdivisions;
+      var ringAngle = startAngle + u * range;
+      var xSin = Math.sin(ringAngle);
+      var zCos = Math.cos(ringAngle);
+      var x = xSin * ringRadius;
+      var z = zCos * ringRadius;
+      var nx = xSin * sliceSin;
+      var nz = zCos * sliceSin;
+      positions.push([x, y, z]);
+      normals.push([nx, ny, nz]);
+      texCoords.push([u, 1 - v]);
+    }
+  }
+
+  for (var slice = 0; slice < bodySubdivisions; ++slice) {
+    for (var ring = 0; ring < radialSubdivisions; ++ring) {
+      var nextRingIndex = (1 + ring) % radialSubdivisions;
+      var nextSliceIndex = (1 + slice) % bodySubdivisions;
+      indices.push([radialSubdivisions * slice          + ring,
+                    radialSubdivisions * nextSliceIndex + ring,
+                    radialSubdivisions * slice          + nextRingIndex]);
+      indices.push([radialSubdivisions * nextSliceIndex + ring,
+                    radialSubdivisions * nextSliceIndex + nextRingIndex,
+                    radialSubdivisions * slice          + nextRingIndex]);
+    }
+  }
+
+  return {
+    position: positions,
+    normal: normals,
+    texCoord: texCoords,
+    indices: indices};
+};
+
+
+/**
  * Creates a disc. The disc will be in the xz plane, centered at
  * the origin. When creating, at least 3 divisions, or pie
  * pieces, need to be specified, otherwise the triangles making
