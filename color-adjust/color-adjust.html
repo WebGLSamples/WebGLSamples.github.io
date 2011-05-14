@@ -369,9 +369,15 @@ function continueSetup() {
   var copyVideo = false;
   var madeVideoTexture = false;
   var video = document.getElementById("vid");
-  video.addEventListener("playing", function() { copyVideo = true; }, true);
+  video.addEventListener("playing", function() { 
+        copyVideo = true; 
+      }, true);
   video.addEventListener("ended", function() { 
-      video.currentTime = startTime; video.play(); }, true);
+        video.currentTime = startTime; video.play(); 
+      }, true);
+  video.addEventListener("error", function() { 
+        tdl.log("could not play video"); 
+      }, true);
   video.volume = 0;
   video.play();
 
