@@ -1,0 +1,18 @@
+/* the container for the entire editor */
+.gradient-editor-container {
+}
+/* the area that contains the gradient */
+.gradient-editor-gradient {
+}
+/* the color stop draggable area. Should not by styled */
+.gradient-editor-color-stop {
+}
+/* the color inside a color stop */
+.gradient-editor-color {
+  border: 1px solid black;
+}
+/* the area the contains the color stops */
+.gradient-editor-colors {
+  background: gray;
+}
+
