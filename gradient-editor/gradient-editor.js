@@ -35,10 +35,15 @@
       width: 512,  
       height: 40,
       stopWidth: 11,
-      stopHeight: 10
+      stopHeight: 10,
+      initialColor: "#ff00ff",
+      colors: [
+        {position: 0.0, color: "#000000"},
+        {position: 1.0, color: "#ffffff"}
+      ]
     };  
+
     var options = $.extend(defaults, options);  
-    var half = Math.floor(options.stopWidth / 2);
 
     function makeCanvasGradient(ctx, stops) {
       var gradient = ctx.createLinearGradient(0, 0, options.width, 0);
@@ -62,7 +67,22 @@
         '-moz-linear-gradient(left, ' + colors + ')';
     }
 
+    function rgbHexToColorObj(color) {
+      var hex = parseInt(
+          ((color.indexOf('#') > -1) ? color.substring(1) : color), 16);
+      return {
+        r: (hex & 0xFF0000) >> 16, 
+        g: (hex & 0x00FF00) >>  8, 
+        b: (hex & 0x0000FF) >>  0, 
+        a: 255
+      };
+    }
+
     return this.each(function() {
+      var half = Math.floor(options.stopWidth / 2);
+      var lastColor = options.initialColor;
+      var copyable = false;
+
       var obj = $(this);
       obj.html(
         '<div class="gradient-editor-container">' + 
@@ -83,21 +103,31 @@
 
       colorEditor.css("position", "absolute");
       colorEditor.ColorPicker({
+        color: rgbHexToColorObj(lastColor),
         flat: true,
         onChange: function(hsb, hex, rgb) {
+          lastColor = '#' + hex.substr(0, 6);
           if (currentStop) {
-            currentStop.setColor('#' + hex.substr(0, 6));
+            currentStop.setColor(lastColor);
             updateGradient();
           }
         }
       });
+      colorEditor.css("left", half);
       colorEditor.css(
           "top", 
           (10 + options.height + options.stopHeight).toString() + "px");
 
       outer.css("position", "relative");
-      outer.css("width", (options.width + options.stopWidth).toString() + "px");
-      outer.css("height", (options.height + options.stopHeight).toString() + "px");
+      outer.css(
+          "width", 
+          (options.width + 5 + 
+           options.stopWidth).toString() + "px");
+      outer.css(
+          "height", 
+          (colorEditor[0].clientHeight + 10 + 
+           options.height + 
+           options.stopHeight).toString() + "px");
 
       gradient.css("width", options.width);
       gradient.css("height", options.height);
@@ -123,6 +153,7 @@
           inside: true
         };
         stops.push(stop);
+        currentStop = stop;
 
         var stopObj = $(
             '<div class="gradient-editor-color-stop">' + 
@@ -146,11 +177,17 @@
             var update = false;
             var parentOffset = $(event.target).parent().offset(); 
             var y = event.pageY - parentOffset.top;
+            var newPosition = Math.min(
+                1, 
+                Math.max(0, ui.position.left / options.width)); 
             console.log(
                 'y: ' + y + 
                 ' ui.position: ' + ui.position.left + 
                 ', ' + ui.position.top + 
                 ', stop: ' + stops.length);
+            if (!event.altKey) {
+              copyable = true;
+            }
             if (y < 20) {
               if (!stop.inside) {
                 console.log("insert");
@@ -158,6 +195,11 @@
                 stops.push(stop);
                 colorObj.show();
                 update = true;
+              } else {
+                if (event.altKey && copyable) {
+                  copyable = false;
+                  addStop(newPosition, lastColor);
+                }
               }
             } else if (y >= 20) {
               if (stop.inside) {
@@ -168,9 +210,6 @@
                 update = true;
               }
             }
-            var newPosition = Math.min(
-                1, 
-                Math.max(0, ui.position.left / options.width)); 
             if (newPosition != stop.position) {
               stop.position = newPosition;
               update = true;
@@ -181,16 +220,9 @@
           },
           start: function(event, ui) {
              console.log("set color", stop.color);
-             var hex = stop.color;
-             var hex = parseInt(((hex.indexOf('#') > -1) ? hex.substring(1) : hex), 16);
-             var rgba = {
-               r: (hex & 0xFF0000) >> 16, 
-               g: (hex & 0x00FF00) >>  8, 
-               b: (hex & 0x0000FF) >>  0, 
-               a: 255
-             };
              currentStop = stop;
-             colorEditor.ColorPickerSetColor(rgba);
+             colorEditor.ColorPickerSetColor(rgbHexToColorObj(stop.color));
+             copyable = true;
           },
           stop: function(event, ui) {
              if (!stop.inside) {
@@ -206,15 +238,21 @@
 console.log("start pos: " + p);
         stopObj.position({
           my: "left",
-          at: "top left",
+          at: "left",
           of: colors,
           offset: p
         });
       }
-      addStop(0.2, '#ff0000');
-      addStop(0.5, '#00ff00');
-      colors.click(function(){
-        addStop(0.3, '#0000ff');
+
+      for (var ii = 0; ii < options.colors.length; ++ii) {
+        var stop = options.colors[ii];
+        addStop(stop.position, stop.color);
+      }
+
+      colors.click(function(event){
+        var parentOffset = $(event.target).parent().offset(); 
+        var x = event.pageX - parentOffset.left - options.stopWidth / 2;
+        addStop(Math.max(0, Math.min(1, x / options.width)), lastColor);
         updateGradient();
       });
 

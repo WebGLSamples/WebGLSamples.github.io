@@ -1,5 +1,6 @@
 /* the container for the entire editor */
 .gradient-editor-container {
+  background-color: #666;
 }
 
 /* the area that contains the gradient */
