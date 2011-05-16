@@ -34,7 +34,7 @@
     var defaults = {  
       width: 512,  
       height: 40,
-      stopWidth: 11,
+      stopWidth: 12,
       stopHeight: 10,
       initialColor: "#ff00ff",
       onChange: function() {},
@@ -61,6 +61,7 @@
 
     function makeCSSGradient(stops) {
       return '-webkit-linear-gradient(left, red, green, blue);';
+      
       var css = [];
       for (var ii = 0; ii < stops.length; ++ii) {
         var stop = stops[ii];
@@ -69,6 +70,8 @@
       var colors = css.join(", ");
       return '' +
         '-webkit-linear-gradient(left, ' + colors + ') ' +
+        '-o-linear-gradient(left, ' + colors + ') ' +
+        '-ms-linear-gradient(left, ' + colors + ') ' +
         '-moz-linear-gradient(left, ' + colors + ')';
     }
 
@@ -124,44 +127,37 @@
           }
         }
       });
-      colorEditor.css("left", half);
-      colorEditor.css(
-          "top", 
-          (5 + options.height + options.stopHeight).toString() + "px");
+        
+      colorEditor.css({ "left" : half,
+                        "top"  : 5 + options.height + options.stopHeight + "px" });
 
-      outer.css("position", "relative");
-      outer.css(
-          "width", 
-          (options.width + 5 + 
-           options.stopWidth).toString() + "px");
-      outer.css(
-          "height", 
-          (colorEditor[0].clientHeight + 10 + 
-           options.height + 
-           options.stopHeight).toString() + "px");
+      outer.css({ "position": "relative",
+                  "width"   : options.width + 5 + options.stopWidth + "px",
+                  "height"  : colorEditor[0].clientHeight + 10 + 
+                               options.height + options.stopHeight + "px" });
 
-      instructions.css("position", "absolute");
-      instructions.css(
-          "left", 
-          (colorEditor[0].clientWidth + 10).toString() + "px");
-      instructions.css(
-          "top", 
-          (options.height + 5 + options.stopHeight).toString() + "px");
+      instructions.css({  "position": "absolute", 
+                          "left"    : colorEditor[0].clientWidth + 10 + "px",
+                          "top"     : options.height + 5 + options.stopHeight + "px"});
 
-      gradient.css("width", options.width);
-      gradient.css("height", options.height);
-      gradient.css("position", "absolute");
-      gradient.css("left", half.toString() + "px");
+      gradient.css({"width"   : options.width,
+                    "height"  : options.height,
+                    "position": "absolute",
+                    "left"    : half + "px"});
+
+      colors.css({"width"   : options.width + options.stopWidth + 2,
+                  "height"  : options.stopHeight,
+                  "position": "absolute",
+                  "top"     : options.height + "px"});
+                    
       var stops = []
       var css = makeCSSGradient(stops);
       canvas.width = options.width;
       canvas.height = options.height;
       var ctx = canvas.getContext("2d");
 
-      colors.css("width", options.width + options.stopWidth + 2);
-      colors.css("height", options.stopHeight);
-      colors.css("position", "absolute");
-      colors.css("top", options.height.toString() + "px");
+
+                  
       function addStop(position, color) {
         var stop = {
           color: color,
@@ -176,11 +172,15 @@
               '<div class="gradient-editor-color"></div>' + 
             '</div>');
         var colorObj = $('.gradient-editor-color', stopObj);
-        stopObj.css("width", options.stopWidth);
-        stopObj.css("height", options.stopHeight);
-        colorObj.css("width", options.stopWidth);
-        colorObj.css("height", options.stopHeight);
-        colorObj.css("backgroundColor", color);
+        
+        
+        stopObj.css({ "width" : options.stopWidth,
+                      "height": options.stopHeight});
+        colorObj.css({"width"           : options.stopWidth,
+                      "height"          : options.stopHeight,
+                      "backgroundColor" : color});
+        
+        
         stop.setColor = function(color) {
           stop.color = color;
           colorObj.css("backgroundColor", color);
