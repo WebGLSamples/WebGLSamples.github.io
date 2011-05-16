@@ -64,7 +64,7 @@ CANVAS {
   position: absolute;
   top: 10px;
   right: 20px;
-  width: 250px;
+  width: 520px;
   background: rgba(0,0,0,0.5);
   color: white;
   font-size: xx-small;
@@ -93,7 +93,28 @@ CANVAS {
   width: 100%;
   height: 100%;
 }
-</style>
+#ramps {
+}
+#ramps .ramp {
+  border: 1px solid gray;
+  padding: 5px;
+  margin: 5px;
+}
+#ramps .ramp-name {
+  font-size: small;
+}
+#ramps .ramp .ramp-colors canvas {
+  width: 100%;
+  height: 16px;
+}
+</style>  
+<link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
+<link type="text/css" href="../colorpicker/css/colorpicker.css" rel="stylesheet" />
+<link type="text/css" href="../gradient-editor/gradient-editor.css" rel="stylesheet" />
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
+<script type="text/javascript" src="../colorpicker/js/colorpicker.js"></script>
+<script type="text/javascript" src="../gradient-editor/gradient-editor.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
@@ -106,7 +127,6 @@ tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
 tdl.require('tdl.textures');
 tdl.require('tdl.webgl');
-window.onload = initialize;
 
 // globals
 var gl;                   // the gl context.
@@ -114,10 +134,60 @@ var canvas;               // the canvas
 var math;                 // the math lib.
 var fast;                 // the fast math lib.
 
+var g_rampTexture;
 var g_eyeSpeed          = 0;
 var g_eyeHeight         = 0;
 var g_eyeRadius         = 5;
 var g_lightOffset       = [10, 10, 10];
+
+var g_ramps = [
+  {name: "standard",
+   stops: [
+     {position: 0.00, color: "#000000"},
+     {position: 1.00, color: "#ffffff"}
+   ]
+  },
+  {name: "2 tone",
+   stops: [
+    {position: 0.500, color: "#808080"},
+    {position: 0.501, color: "#ffffff"}
+   ]
+  },
+  {name: "3 tone",
+   stops: [
+    {position: 0.330, color: "#404040"},
+    {position: 0.331, color: "#808080"},
+    {position: 0.666, color: "#808080"},
+    {position: 0.667, color: "#ffffff"}
+   ]
+  },
+  {name: "8 tone",
+   stops: [
+    {position: 0.125, color: "#000000"},
+    {position: 0.126, color: "#242424"},
+    {position: 0.250, color: "#242424"},
+    {position: 0.251, color: "#484848"},
+    {position: 0.375, color: "#484848"},
+    {position: 0.376, color: "#6d6d6d"},
+    {position: 0.500, color: "#6d6d6d"},
+    {position: 0.501, color: "#919191"},
+    {position: 0.625, color: "#919191"},
+    {position: 0.626, color: "#b6b6b6"},
+    {position: 0.750, color: "#b6b6b6"},
+    {position: 0.751, color: "#dadada"},
+    {position: 0.875, color: "#dadada"},
+    {position: 0.876, color: "#ffffff"}
+   ]
+  },
+  {name: "highlight",
+   stops: [
+    {position: 0.500, color: "#404040"},
+    {position: 0.501, color: "#C0C0C0"},
+    {position: 0.950, color: "#C0C0C0"},
+    {position: 0.951, color: "#ffffff"}
+   ]
+  }
+];
 
 function CreateApp() {
   // Create Geometry.
@@ -142,6 +212,7 @@ function CreateApp() {
   var textures = {
       ramp: ramp
   };
+  g_rampTexture = ramp;
 
   // Create Shader Program
   var program = tdl.programs.loadProgramFromScriptTags(
@@ -347,12 +418,76 @@ function initialize() {
   render();
   return true;
 }
+
+$(function(){
+  var canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 1;
+  var ctx = canvas.getContext("2d");
+
+  
+
+  $("#gradienteditor").gradientEditor({
+    onChange: function(stops) {
+console.log("here");
+      fillCanvasWithGradient(canvas, stops);
+      g_rampTexture.setTexture(canvas);
+    }
+  });
+
+  for (var ii = 0; ii < g_ramps.length; ++ii) {
+    addRamp(g_ramps[ii]);
+  }
+
+  initialize();
+  
+  function fillCanvasWithGradient(canvas, stops) {
+    var ctx = canvas.getContext("2d");
+    var gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+    addGradientStops(gradient, stops);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, 1);
+  }
+
+  function addGradientStops(gradient, stops) {
+    for (var ii = 0; ii < stops.length; ++ii) {
+      var stop = stops[ii];
+      gradient.addColorStop(stop.position, stop.color);
+    }
+  }
+
+  function addRamp(ramp) {
+    var obj = $(
+      '<div class="ramp">' +
+        '<div class="ramp-name">' + ramp.name + '</div>' +
+        '<div class="ramp-colors">' +
+          '<canvas width="512" height="1"></canvas>' +
+        '</div>' + 
+      '</div>'
+    );
+    var canvasObj = $('canvas', obj);
+    var canvas = canvasObj[0];
+    fillCanvasWithGradient(canvas, ramp.stops);
+
+    obj.click(function() {
+      g_rampTexture.setTexture(canvas);
+    });
+
+    $('#ramps').append(obj);
+  }
+});
+
 </script>
 </head>
 <body>
 <div id="info"><span><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - flexible toon shading</span></div>
 <div id="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
+</div>
+<div id="uiContainer">
+<div id="ui"></div>
+  <div id="gradienteditor"></div>
+  <div id="ramps"></div>
 </div>
 <div id="viewContainer">
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>

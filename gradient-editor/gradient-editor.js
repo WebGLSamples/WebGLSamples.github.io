@@ -29,7 +29,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 (function($) {
-  $.fn.gradientEditor = function() {
+  $.fn.gradientEditor = function(options) {
 
     var defaults = {  
       width: 512,  
@@ -37,6 +37,7 @@
       stopWidth: 11,
       stopHeight: 10,
       initialColor: "#ff00ff",
+      onChange: function() {},
       colors: [
         {position: 0.0, color: "#000000"},
         {position: 1.0, color: "#ffffff"}
@@ -45,12 +46,16 @@
 
     var options = $.extend(defaults, options);  
 
-    function makeCanvasGradient(ctx, stops) {
-      var gradient = ctx.createLinearGradient(0, 0, options.width, 0);
+    function addGradientStops(gradient, stops) {
       for (var ii = 0; ii < stops.length; ++ii) {
         var stop = stops[ii];
         gradient.addColorStop(stop.position, stop.color);
       }
+    }
+
+    function makeCanvasGradient(ctx, stops) {
+      var gradient = ctx.createLinearGradient(0, 0, options.width, 0);
+      addGradientStops(gradient, stops);
       return gradient;
     }
 
@@ -109,7 +114,7 @@
           lastColor = '#' + hex.substr(0, 6);
           if (currentStop) {
             currentStop.setColor(lastColor);
-            updateGradient();
+            updateGradient(true);
           }
         }
       });
@@ -215,7 +220,7 @@
               update = true;
             }
             if (update) {
-              updateGradient();
+              updateGradient(true);
             }
           },
           start: function(event, ui) {
@@ -231,6 +236,10 @@
                colors.remove(stopObj);
              }
           }
+        });
+        stopObj.mousedown(function(event) {
+          currentStop = stop;
+          colorEditor.ColorPickerSetColor(rgbHexToColorObj(stop.color));
         });
         //stopObj.data('draggable').offset.click.left
         colors.append(stopObj);
@@ -249,23 +258,34 @@ console.log("start pos: " + p);
         addStop(stop.position, stop.color);
       }
 
-      colors.click(function(event){
+      colors.dblclick(function(event) {
         var parentOffset = $(event.target).parent().offset(); 
         var x = event.pageX - parentOffset.left - options.stopWidth / 2;
         addStop(Math.max(0, Math.min(1, x / options.width)), lastColor);
-        updateGradient();
+        updateGradient(true);
       });
 
-      function updateGradient() {
+      function copyStops(stops) {
+        var newStops = [];
+        for (var ii = 0; ii < stops.length; ++ii) {
+          var stop = stops[ii];
+          newStops.push({
+            position: stop.position,
+            color: stop.color
+          });
+        }
+        return newStops;
+      }
+
+      function updateGradient(callback) {
         ctx.fillStyle = makeCanvasGradient(ctx, stops);
         ctx.fillRect(0, 0, options.width, options.height);
+        if (callback) {
+          options.onChange(copyStops(stops));
+        }
       }
 
       updateGradient();
-
-      outer.css("border", "solid green 2px");
-      gradient.css("border", "solid blue 2px");
-      colors.css("border", "solid red 2px");
     });
   }  
 

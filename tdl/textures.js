@@ -237,20 +237,26 @@ tdl.textures.Texture2D.prototype.uploadTexture = function() {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   if (this.loaded) {
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, this.flipY);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.img);
-    if (tdl.textures.isPowerOf2(this.img.width) &&
-        tdl.textures.isPowerOf2(this.img.height)) {
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-      gl.generateMipmap(gl.TEXTURE_2D);
-    } else {
-      this.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      this.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      this.setParameter(gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    }
+    this.setTexture(this.img);
   } else {
     var pixel = new Uint8Array([255, 255, 255, 255]);
     gl.texImage2D(
         gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+  }
+};
+
+tdl.textures.Texture2D.prototype.setTexture = function(element) {
+  // TODO(gman): use texSubImage2D if the size is the same.
+  gl.bindTexture(gl.TEXTURE_2D, this.texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, element);
+  if (tdl.textures.isPowerOf2(element.width) &&
+      tdl.textures.isPowerOf2(element.height)) {
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.generateMipmap(gl.TEXTURE_2D);
+  } else {
+    this.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    this.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.setParameter(gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   }
 };
 
