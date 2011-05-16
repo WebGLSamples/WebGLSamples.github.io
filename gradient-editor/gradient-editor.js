@@ -201,7 +201,6 @@
             }
             if (y < 20) {
               if (!stop.inside) {
-                console.log("insert");
                 stop.inside = true;
                 stops.push(stop);
                 colorObj.show();
@@ -214,7 +213,6 @@
               }
             } else if (y >= 20) {
               if (stop.inside) {
-                console.log("remove");
                 stops.splice(stops.indexOf(stop), 1);
                 stop.inside = false;
                 colorObj.hide();
@@ -230,7 +228,6 @@
             }
           },
           start: function(event, ui) {
-             console.log("set color", stop.color);
              currentStop = stop;
              colorEditor.ColorPickerSetColor(rgbHexToColorObj(stop.color));
              copyable = true;
