@@ -21,3 +21,9 @@
   background: gray;
 }
 
+/* the instruction area */
+.gradient-editor-instructions {
+  font-size: x-small;
+  color: #aaa;
+}
+

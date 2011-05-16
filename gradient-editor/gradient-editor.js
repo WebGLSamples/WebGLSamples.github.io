@@ -96,6 +96,11 @@
           '</div>' +
           '<div class="gradient-editor-colors"></div>' + 
           '<div class="gradient-editor-color-editor"></div>' + 
+          '<div class="gradient-editor-instructions">' +
+            '<div>double click to add stop</div>' +
+            '<div>drag stop down to remove</div>' + 
+            '<div>alt-drag to duplicate</div>' + 
+          '</div>' + 
         '</div>' 
       );
       var outer = $('.gradient-editor-container', obj); 
@@ -104,6 +109,7 @@
       var canvas = canvasObj[0]; 
       var colors = $('.gradient-editor-colors', obj); 
       var colorEditor = $('.gradient-editor-color-editor', obj);
+      var instructions = $('.gradient-editor-instructions', obj);
       var currentStop;
 
       colorEditor.css("position", "absolute");
@@ -121,7 +127,7 @@
       colorEditor.css("left", half);
       colorEditor.css(
           "top", 
-          (10 + options.height + options.stopHeight).toString() + "px");
+          (5 + options.height + options.stopHeight).toString() + "px");
 
       outer.css("position", "relative");
       outer.css(
@@ -134,15 +140,20 @@
            options.height + 
            options.stopHeight).toString() + "px");
 
+      instructions.css("position", "absolute");
+      instructions.css(
+          "left", 
+          (colorEditor[0].clientWidth + 10).toString() + "px");
+      instructions.css(
+          "top", 
+          (options.height + 5 + options.stopHeight).toString() + "px");
+
       gradient.css("width", options.width);
       gradient.css("height", options.height);
       gradient.css("position", "absolute");
       gradient.css("left", half.toString() + "px");
       var stops = []
       var css = makeCSSGradient(stops);
-//      gradient.css("background-image", css);
-//      gradient[0].style.backgroundImage = css;
-//      g = gradient;
       canvas.width = options.width;
       canvas.height = options.height;
       var ctx = canvas.getContext("2d");
@@ -234,12 +245,12 @@
         });
         stopObj.mousedown(function(event) {
           currentStop = stop;
+          lastColor = stop.color;
           colorEditor.ColorPickerSetColor(rgbHexToColorObj(stop.color));
         });
         //stopObj.data('draggable').offset.click.left
         colors.append(stopObj);
         var p = "" + Math.floor(position * options.width) + " 0";
-console.log("start pos: " + p);
         stopObj.position({
           my: "left",
           at: "left",
