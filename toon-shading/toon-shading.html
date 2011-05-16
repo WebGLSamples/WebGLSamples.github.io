@@ -423,13 +423,9 @@ $(function(){
   var canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 1;
-  var ctx = canvas.getContext("2d");
-
-  
 
   $("#gradienteditor").gradientEditor({
     onChange: function(stops) {
-console.log("here");
       fillCanvasWithGradient(canvas, stops);
       g_rampTexture.setTexture(canvas);
     }

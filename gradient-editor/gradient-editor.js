@@ -185,11 +185,6 @@
             var newPosition = Math.min(
                 1, 
                 Math.max(0, ui.position.left / options.width)); 
-            console.log(
-                'y: ' + y + 
-                ' ui.position: ' + ui.position.left + 
-                ', ' + ui.position.top + 
-                ', stop: ' + stops.length);
             if (!event.altKey) {
               copyable = true;
             }
