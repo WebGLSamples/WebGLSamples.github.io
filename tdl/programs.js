@@ -47,18 +47,6 @@ tdl.require('tdl.string');
 tdl.programs = tdl.programs || {};
 
 /**
- * All the programs currently loaded.
- * @type {!Object.<string, !tdl.programs.Program>}
- */
-tdl.programs.programDB = {};
-
-/**
- * All the programs currently loaded.
- * @type {!Object.<string, !WebGLShader>}
- */
-tdl.programs.shaderDB = {};
-
-/**
  * Loads a program from script tags.
  * @param {string} vertexShaderId The id of the script tag that contains the
  *     vertex shader source.
@@ -89,7 +77,10 @@ tdl.programs.loadProgramFromScriptTags = function(
  */
 tdl.programs.loadProgram = function(vertexShader, fragmentShader) {
   var id = vertexShader + fragmentShader;
-  var program = tdl.programs.programDB[id];
+  if (!gl.tdl.programDB) {
+    gl.tdl.programDB = { };
+  }
+  var program = gl.tdl.programDB[id];
   if (program) {
     return program;
   }
@@ -99,7 +90,7 @@ tdl.programs.loadProgram = function(vertexShader, fragmentShader) {
     tdl.error(e);
     return null;
   }
-  tdl.programs.programDB[id] = program;
+  gl.tdl.programDB[id] = program;
   return program;
 };
 
@@ -119,11 +110,13 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
    */
   var loadShader = function(gl, shaderSource, shaderType) {
     var id = shaderSource + shaderType;
-// TODO(gman): Uncomment after ANGLE bug is fixed
-//    var shader = tdl.programs.shaderDB[id];
-//    if (shader) {
-//      return shader;
-//    }
+    if (!gl.tdl.shaderDB) {
+      gl.tdl.shaderDB = { };
+    }
+    var shader = gl.tdl.shaderDB[id];
+    if (shader) {
+      return shader;
+    }
 
     // Create the shader object
     var shader = gl.createShader(shaderType);
@@ -146,7 +139,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
       throw("*** Error compiling shader :" + tdl.programs.lastError);
     }
 
-    tdl.programs.shaderDB[id] = shader;
+    gl.tdl.shaderDB[id] = shader;
     return shader;
   }
 

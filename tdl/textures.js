@@ -43,12 +43,6 @@ tdl.provide('tdl.textures');
 tdl.textures = tdl.textures || {};
 
 /**
- * All the textures currently loaded.
- * @type {!Object.<string, !tdl.textures.Texture>}
- */
-tdl.textures.textureDB = {};
-
-/**
  * Loads a texture
  * @param {{!tdl.math.Vector4|string|!Array.<string>|!img|!canvas}} Passing a
  *        color makes a solid 1pixel 2d texture, passing a URL
@@ -78,8 +72,11 @@ tdl.textures.loadTexture = function(arg, opt_flipY, opt_callback) {
   }
 
   var texture;
+  if (!gl.tdl.textureDB) {
+    gl.tdl.textureDB = { };
+  }
   if (id !== undefined) {
-    texture = tdl.textures.textureDB[id];
+    texture = gl.tdl.textureDB[id];
   }
   if (texture) {
     return texture;
@@ -98,7 +95,7 @@ tdl.textures.loadTexture = function(arg, opt_flipY, opt_callback) {
   } else {
     throw "bad args";
   }
-  tdl.textures.textureDB[arg.toString()] = texture;
+  gl.tdl.textureDB[arg.toString()] = texture;
   return texture;
 };
 

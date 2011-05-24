@@ -45,6 +45,16 @@ tdl.require('tdl.misc');
 tdl.webgl = tdl.webgl || {};
 
 /**
+ * The current GL context
+ * @type {WebGLRenderingContext}
+ */
+gl = null;
+
+tdl.webgl.makeCurrent = function(context) {
+  gl = context;
+}
+
+/**
  * Creates the HTLM for a failure message
  * @param {string} canvasContainerId id of container of th
  *        canvas.
@@ -141,6 +151,8 @@ tdl.webgl.create3DContext = function(canvas, opt_attribs) {
     if (!tdl.webgl.glEnums) {
       tdl.webgl.init(context);
     }
+    tdl.webgl.makeCurrent(context);
+    context.tdl = {};
 
     // Disallow selection by default. This keeps the cursor from changing to an
     // I-beam when the user clicks and drags.  It's easier on the eyes.
