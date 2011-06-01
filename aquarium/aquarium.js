@@ -1079,6 +1079,10 @@ function initialize() {
 
   var checkResTimer = 2;
 
+  if (g.globals.width && g.globals.height) {
+    setCanvasSize(canvas, g.globals.width, g.globals.height);
+  }
+
   function render() {
     if (!g_drawOnce) {
       tdl.webgl.requestAnimationFrame(render, canvas);
