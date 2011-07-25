@@ -49,6 +49,10 @@ tdl.require('tdl.textures');
 tdl.require('tdl.webgl');
 window.onload = initialize;
 
+var g = {
+  img: "assets/google-color.png",
+};
+
 // globals
 var gl;                   // the gl context.
 var canvas;               // the canvas
@@ -330,8 +334,10 @@ function initialize() {
     return false;
   }
 
+  tdl.misc.applyUrlSettings(g);
+
   var img = new Image();
-  img.src = "assets/google-color.png";
+  img.src = g.img;
   img.onload = function() {
     init();
   }
