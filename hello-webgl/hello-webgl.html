@@ -93,7 +93,7 @@
  
     var buffer;
  
-    function initBuffers() {
+    function initGeometry() {
         buffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         // Interleave vertex positions and colors
@@ -135,7 +135,7 @@
         var canvas = document.getElementById("lesson02-canvas");
         initGL(canvas);
         initShaders()
-        initBuffers();
+        initGeometry();
  
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.disable(gl.DEPTH_TEST);
