@@ -1,0 +1,163 @@
+<html> 
+<head> 
+<title>Hello, WebGL (adopted from Learning WebGL lesson 2)</title> 
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1"> 
+ 
+<script id="shader-fs" type="x-shader/x-fragment"> 
+    precision mediump float;
+
+    varying vec4 vColor;
+    void main(void) {
+        gl_FragColor = vColor;
+    }
+</script> 
+ 
+<script id="shader-vs" type="x-shader/x-vertex"> 
+    attribute vec3 positionAttr;
+    attribute vec4 colorAttr;
+ 
+    varying vec4 vColor;
+ 
+    void main(void) {
+        gl_Position = vec4(positionAttr, 1.0);
+        vColor = colorAttr;
+    }
+</script> 
+ 
+<script type="text/javascript"> 
+    var gl;
+ 
+    function initGL(canvas) {
+        try {
+            gl = canvas.getContext("experimental-webgl");
+            gl.viewportWidth = canvas.width;
+            gl.viewportHeight = canvas.height;
+        } catch (e) {
+        }
+        // Not the best error detection logic.
+        // Redirect to http://get.webgl.org in failure case.
+        if (!gl) {
+            alert("Could not initialise WebGL, sorry :-(");
+        }
+    }
+ 
+    function getShader(gl, id) {
+        var script = document.getElementById(id);
+        if (!script) {
+            return null;
+        }
+ 
+        var shader;
+        if (script.type == "x-shader/x-fragment") {
+            shader = gl.createShader(gl.FRAGMENT_SHADER);
+        } else if (script.type == "x-shader/x-vertex") {
+            shader = gl.createShader(gl.VERTEX_SHADER);
+        } else {
+            return null;
+        }
+ 
+        gl.shaderSource(shader, script.text);
+        gl.compileShader(shader);
+ 
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            alert(gl.getShaderInfoLog(shader));
+            return null;
+        }
+ 
+        return shader;
+    }
+ 
+    var program;
+ 
+    function initShaders() {
+        var fragmentShader = getShader(gl, "shader-fs");
+        var vertexShader = getShader(gl, "shader-vs");
+ 
+        program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+ 
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            alert("Could not initialise shaders");
+        }
+ 
+        gl.useProgram(program);
+ 
+        program.positionAttr = gl.getAttribLocation(program, "positionAttr");
+        gl.enableVertexAttribArray(program.positionAttr);
+ 
+        program.colorAttr = gl.getAttribLocation(program, "colorAttr");
+        gl.enableVertexAttribArray(program.colorAttr);
+    }
+ 
+    var buffer;
+ 
+    function initBuffers() {
+        buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        // Interleave vertex positions and colors
+        var vertexData = [
+            // Vertex 1 position
+            0.0,  0.8,  0.0,
+            // Vertex 1 Color
+            1.0, 0.0, 0.0, 1.0,
+            // Vertex 2 position
+            -0.8, -0.8,  0.0,
+            // Vertex 2 color
+            0.0, 1.0, 0.0, 1.0,
+            // Vertex 3 position
+            0.8, -0.8,  0.0,
+            // Vertex 3 color
+            0.0, 0.0, 1.0, 1.0
+        ];
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexData), gl.STATIC_DRAW);
+    }
+ 
+    function drawScene() {
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+ 
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+
+        // There are 7 floating-point values per vertex
+        var stride = 7 * Float32Array.BYTES_PER_ELEMENT;
+
+        // Set up position stream
+        gl.vertexAttribPointer(program.positionAttr, 3, gl.FLOAT, false, stride, 0);
+        // Set up color stream
+        gl.vertexAttribPointer(program.colorAttr, 4, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
+
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+ 
+    function webGLStart() {
+        var canvas = document.getElementById("lesson02-canvas");
+        initGL(canvas);
+        initShaders()
+        initBuffers();
+ 
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.disable(gl.DEPTH_TEST);
+
+        drawScene();
+    }
+ 
+</script> 
+</head> 
+ 
+<body onload="webGLStart();"> 
+
+A simple example adopted from Giles
+Thomas' <a href="http://learningwebgl.com/blog/?p=134">Learning WebGL
+Lesson 2</a>. It has been modified to eliminate dependencies on all
+external libraries, and to use a single buffer object for all of the
+geometric data.
+
+<br>
+<br>
+
+    <canvas id="lesson02-canvas" style="border: none;" width="500" height="500"></canvas> 
+</body> 
+ 
+</html>
