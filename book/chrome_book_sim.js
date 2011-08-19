@@ -243,7 +243,7 @@ function ChromeBookSim(canvas, page_width, page_height, tessellation_res) {
 
     this.handleMouseDown = function(event) {
         if(!sim.physics_active) {
-            if(event['ctrlKey']) {
+            if(event['shiftKey']) {
                 sim.physics_active = true;
                 if(sim.pages.flipping_page_on_left ^ mouse_x < 0.0) {
                     sim.book_mesh.resetVertArray(mouse_x < 0.0);
