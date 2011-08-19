@@ -1,0 +1,83 @@
+<html>
+
+<head>
+<title>Chrome Book</title>
+
+<script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
+<script type="text/javascript" src="webgl-utils.js"></script>
+<script type="text/javascript" src="chrome_book_graphics.js"></script>
+<script type="text/javascript" src="chrome_book_physics.js"></script>
+<script type="text/javascript" src="chrome_book_mesh.js"></script>
+<!-- Interactivity, glue and application-dependent code is in chrome_book_sim.js -->
+<script type="text/javascript" src="chrome_book_sim.js"></script>
+
+<script id="shader-fs" type="x-shader/x-fragment"> 
+    #ifdef GL_ES
+    precision highp float;
+    #endif
+ 
+    varying vec2 vTextureCoord;
+    varying vec3 vFragNormal;
+    varying vec3 vFragPos;
+
+    uniform sampler2D uSampler;
+
+    void main(void) {
+        float sign = vFragNormal.y/abs(vFragNormal.y);
+        float offset = clamp(sign, -1.0, 0.0);
+        float s = vTextureCoord.s * sign - offset;
+        vec4 texColor = texture2D(uSampler, vec2(s, vTextureCoord.t));
+
+        float spotLambertFactor = abs(dot(vFragNormal, vec3(0.0,1.0,0.0)));
+        vec3 L = normalize(vFragPos - vec3(0.0, 0.1, 0.0));
+        float spotDirectionFactor = -L.y;
+        spotDirectionFactor = 3.0 * pow(spotDirectionFactor, 10.0);
+        float lightWeight = min(spotDirectionFactor * spotLambertFactor + 0.1, 1.0);
+        gl_FragColor = vec4(texColor.rgb * lightWeight, 1.0);
+    }
+</script> 
+
+<script id="shader-vs" type="x-shader/x-vertex"> 
+    attribute vec3 aVertexPosition;
+    attribute vec3 aVertexNormal;
+    attribute vec2 aVertexTexCoord;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    uniform mat3 uNMatrix;
+
+    varying vec2 vTextureCoord;
+    varying vec3 vFragNormal;
+    varying vec3 vFragPos;
+ 
+    void main(void) {
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+        vFragPos = (uMVMatrix * vec4(aVertexPosition, 1.0)).xzy;
+        vTextureCoord = aVertexTexCoord;
+        vFragNormal = (uNMatrix * normalize(aVertexNormal)).xyz;
+    }
+</script>
+
+<script type="text/javascript">
+    function start_sim() {
+        var body = document.getElementById('page-body');
+        var canvas = document.getElementById('cloth-canvas');
+        canvas.width = body.clientWidth;
+        canvas.height = body.clientHeight;
+        initGraphics(canvas);
+        var sim = new ChromeBookSim(canvas, 1.0, 1.0, 0.2);
+        sim.tick();
+    }
+</script> 
+ 
+</head> 
+ 
+ 
+<body onload="start_sim();" id="page-body" style="padding:0px; margin:0px;">
+    <canvas id="cloth-canvas" style="border: none;" width="1200" height="800"></canvas>
+    <div style="position:absolute; left:30px; top:30px; background:white; padding:5px 15px; border: 2px solid black; font-size:.8em;">
+        <h1>Chrome Book</h1>
+        <p>Hold CTRL to drag the page</p>
+    </div>
+</body> 
+</html> 
