@@ -12,6 +12,9 @@ function extension(path) {
 var getMimeType = function() {
   var mimeTypeMap = {
     '.jpg': 'image/jpeg',
+    '.ogv': 'video/ogg',
+    '.webm': 'video/webm',
+    '.mp4': 'video/mp4',
     '.png': 'image/png',
     '.css': 'text/css',
     '.js': 'text/javascript',
