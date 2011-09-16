@@ -1,0 +1,19 @@
+{
+  "name": "Chrome Book",
+  "description": "...",
+  "version": "1",
+  "app": {
+    "launch": {
+      "local_path": "book.html"
+    }
+  },
+  "icons": {
+    "16": "icon_16.png",
+    "128": "icon_128.png"
+  },
+  "permissions": [
+    "tabs", 
+	  "experimental",  
+	  "*://*/*"
+  ]
+}

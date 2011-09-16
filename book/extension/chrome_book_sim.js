@@ -2,16 +2,84 @@ var mouse_x = 0;
 var mouse_y = 0;
 var viewport_page_width = 0.8;
 
+var sleep = function(ms) {
+    var start = new Date().getTime();
+    while(new Date().getTime() < start + ms);
+}
+
 var clamp = function(v,l,h) { return Math.max(Math.min(v,h),l); }
 
-function PageTextureManager(pages) {
-    this.pages = pages;
+function OffscreenTab(url, width, height, cb) {
+    var self = this;
+
+    this.onCreate = function(tab) {
+        this.tab = tab;
+        chrome.experimental.offscreenTabs.toDataUrl(tab.id, {"format":"jpeg", "quality":90}, function(data) { self.texture = loadTexture(data, false, function(x){}); });
+        cb(self);
+    }
+
+    this._updateTextureData = function(data) {
+   loadTexture(data, false, function(tex) { gl.deleteTexture(self.texture); self.texture = tex; });
+    }
+
+    this.update = function() {
+        chrome.experimental.offscreenTabs.toDataUrl(this.tab.id, {"format":"jpeg", "quality":90}, function(data) { self._updateTextureData(data); });
+    }
+
+    chrome.experimental.offscreenTabs.create({
+												"url":url, 
+												"width":width, 
+												"height":height
+											 }, 
+											 function(tab) { sleep(100); self.onCreate(tab); } );
+}
+
+function PageManager(urls, page_width, page_height) {
+    var self = this;
+
+    this.page_width = page_width;
+    this.page_height = page_height;
+    this.tabs = [];
+
+    this.tab_width = 570;
+    this.tab_height = 480;
+    
+    this.focused_tab = 0;
+
+    for(i in urls) {
+        new OffscreenTab(urls[i], this.tab_width, this.tab_height, function(tab) { self.tabs = self.tabs.concat(tab); });
+    }
+
     this.current_left_static_page = 0;
     this.flipping_page_on_left = false;
 
+    this._rel_to_abs_page = function(rel_page) {
+        return (this.current_left_static_page + rel_page) % this.tabs.length;
+    }
+    
+    this._get_page = function(rel_page) {
+        return this.tabs[this._rel_to_abs_page(rel_page)];
+    }
+    
+    this._get_focused_page = function() {
+        var guess = this.focused_tab;
+        var page = guess;
+
+        if(this.flipping_page_on_left) {
+            if(guess != this._rel_to_abs_page(2) && guess != this._rel_to_abs_page(3))
+                page = this._rel_to_abs_page(2);
+        }
+        else {
+            if(guess != this._rel_to_abs_page(0) && guess != this._rel_to_abs_page(1))
+                page = this._rel_to_abs_page(0);
+        }
+        return this.tabs[page];
+    }
+
     // rel_page: 0 = left static page, 1 = front of "flipping" page, 2 = back, 3 = right static page
     this.getTexture = function(rel_page) {
-        return this.pages[(this.current_left_static_page + rel_page) % this.pages.length];
+        if(rel_page < this.tabs.length)
+        return this._get_page(rel_page).texture;
     }
 
     this.liftPage = function(onLeft) {
@@ -22,12 +90,75 @@ function PageTextureManager(pages) {
             this.current_left_static_page += 2;
         }
         if(this.current_left_static_page < 0) {
-            this.current_left_static_page += this.pages.length;
+            this.current_left_static_page += this.tabs.length;
         }
     }
 
     this.dropPage = function(onLeft) {
         this.flipping_page_on_left = onLeft;
+    }
+    
+    this._sendMouse = function(e, x, y) {
+        var tab = this.tabs[this.focused_tab].tab.id;
+
+        if(tab) {
+            chrome.experimental.offscreenTabs.sendMouseEvent(tab, e, x, y, function(x){});
+        }
+    }
+
+    this.sendMouseEvent = function(plane_x, plane_y, e) {
+        if(plane_x < -page_width || plane_x > page_width || plane_y < 0 || plane_y > page_height) {
+            return;
+        }
+        
+        var x,y;
+
+        if(plane_x < 0) {
+            if(e.type != 'mousewheel') {
+                x = Math.round(((plane_x + page_width) / page_width) * this.tab_width);
+                y = Math.round((plane_y / page_height) * this.tab_height);
+            }
+
+            if(this.flipping_page_on_left) {
+                this.focused_tab = this._rel_to_abs_page(2);
+                this._sendMouse(e, x, y);
+            }
+            else {
+                this.focused_tab = this._rel_to_abs_page(0);
+                this._sendMouse(e, x, y);
+            }
+        }
+        else {
+            if(e.type != 'mousewheel') {
+                x = Math.round((plane_x / page_width) * this.tab_width);
+                y = Math.round((plane_y / page_height) * this.tab_height);
+            }
+
+            if(this.flipping_page_on_left) {
+                this.focused_tab = this._rel_to_abs_page(3);
+                this._sendMouse(e, x, y);
+            }
+            else {
+                this.focused_tab = this._rel_to_abs_page(1);
+                this._sendMouse(e, x, y);
+            }
+        }
+    }
+    
+    this.sendKeyboardEvent = function(e) {
+        var tabid = self._get_focused_page().tab.id;
+        chrome.experimental.offscreenTabs.sendKeyboardEvent(tabid, e, function(x){});
+    }
+    
+    this.update_ctr = 0;
+
+    this.update = function() {
+        this.update_ctr = (this.update_ctr + 1) % 5;
+        //if(this.update_ctr % 4 != 0) return;
+        for(var i = 0; i < 4; i++) {
+            var x = this.tabs[(this.current_left_static_page + i) % this.tabs.length];
+            if(x) x.update();
+        }
     }
 }
 
@@ -135,17 +266,17 @@ function ChromeBookSim(canvas, page_width, page_height, tessellation_res) {
     };
 
     this.initPages = function() {
-        var p = [loadTexture("img/page1.png", true),
-                    loadTexture("img/page2.png", true),
-                    loadTexture("img/page3.jpg", true),
-                    loadTexture("img/page4.jpg", true),
-                    loadTexture("img/page5.jpg", true),
-                    loadTexture("img/page6.jpg", true)];
-        this.pages = new PageTextureManager(p);
+        var p = ["http://www.google.com",
+                "http://www.youtube.com/watch?v=nCgQDjiotG0",
+                "http://bodybrowser.googlelabs.com/body.html",
+                "http://en.wikipedia.org",
+                "http://images.google.com/search?q=van+gogh&tbm=isch",
+                "http://www.xkcd.com"];
+        this.pages = new PageManager(p, page_width, page_height);
     }
 
-    // hacking in the "ground" to look fancy
-    var woodTexture = loadTexture("img/wood.jpg");
+    // last thing: hacking in the "ground" to look fancy
+    var woodTexture = loadTexture(woodImage, true, function(x){});
 
     var verts = [-20.0, -1.0, -30.0,
                     -20.0, -1.0, 10.0,
@@ -221,8 +352,10 @@ function ChromeBookSim(canvas, page_width, page_height, tessellation_res) {
 
     this.tick = function() {
         requestAnimFrame(function() { sim.tick(); } );
+        canvas.focus();
         this.animate();
         this.drawScene();
+        this.pages.update();
     }
 
     // build a function to translate screen-space mouse coords into 2D coords in the plane of the book
@@ -251,17 +384,20 @@ function ChromeBookSim(canvas, page_width, page_height, tessellation_res) {
                 sim.pages.liftPage(mouse_x < 0.0);
             }
             else {
-                // forward to offscreen tab
+                var plane_coords = sim.pick(mouse_x, mouse_y);
+                sim.pages.sendMouseEvent(plane_coords[0], plane_coords[1], event);
             }
         }
     }
 
-    this.handleMouseUp = function() {
+    this.handleMouseUp = function(event) {
         if(sim.physics_active && !sim.finishing_turn) {
             sim.finishing_turn = true;
         }
         if(!sim.physics_active) {
-            // forward to offscreen tab
+            var plane_coords = sim.pick(mouse_x, mouse_y);
+            sim.pages.sendMouseEvent(plane_coords[0], plane_coords[1], event);
+            return false;
         }
     }
 
@@ -271,9 +407,12 @@ function ChromeBookSim(canvas, page_width, page_height, tessellation_res) {
         mouse_x = (event.offsetX - w/2)/(w/2);
         mouse_y = (event.offsetY - h/2)/(h/2);
         if(!sim.physics_active) {
-            // forward to offscreen tab
+            var plane_coords = sim.pick(mouse_x, mouse_y);
+            sim.pages.sendMouseEvent(plane_coords[0], plane_coords[1], event);
         }
     }
+    
+    this.handleKey = function(e) { sim.pages.sendKeyboardEvent(e); if(e.keyCode == 8) return false; };
 
     this.sendStaticPages = initStaticGeometry(page_width, page_height);
     this.updatePageControl = this.initPageControl();
@@ -283,9 +422,22 @@ function ChromeBookSim(canvas, page_width, page_height, tessellation_res) {
     this.initConstraints();
 
     var sim = this;
+
     canvas.onmousedown = this.handleMouseDown;
     canvas.onmousemove = this.handleMouseMove;
     canvas.onmouseup = this.handleMouseUp;
     canvas.onmouseout = this.handleMouseUp;
+    canvas.onkeypress = this.handleKey;
+    canvas.onkeydown = this.handleKey;
+    canvas.onkeyup = this.handleKey;
+    canvas.onmousewheel = function(event) {
+        if(!sim.physics_active) {
+            var plane_coords = sim.pick(mouse_x, mouse_y);
+            sim.pages.sendMouseEvent(plane_coords[0], plane_coords[1], event);
+            return false;
+        }
+    };
+    canvas.oncontextmenu = function(e) { if(e.ctrlKey) return false; };
+
     this.pick = this.initPicking(45, gl.viewportWidth/gl.viewportHeight);
 }

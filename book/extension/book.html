@@ -1,13 +1,15 @@
 <html>
 
 <head>
-<title>Chrome Book</title>
+<title>Chrome Book with Offscreen Tabs</title>
 
-<script type="text/javascript" src="extension/glMatrix-0.9.5.min.js"></script>
-<script type="text/javascript" src="extension/webgl-utils.js"></script>
-<script type="text/javascript" src="extension/chrome_book_graphics.js"></script>
-<script type="text/javascript" src="extension/chrome_book_physics.js"></script>
-<script type="text/javascript" src="extension/chrome_book_mesh.js"></script>
+<script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
+<script type="text/javascript" src="webgl-utils.js"></script>
+<script type="text/javascript" src="webgl-debug.js"></script>
+<script type="text/javascript" src="chrome_book_graphics.js"></script>
+<script type="text/javascript" src="chrome_book_physics.js"></script>
+<script type="text/javascript" src="chrome_book_mesh.js"></script>
+<script type="text/javascript" src="imageData.js"></script>
 <!-- Interactivity, glue and application-dependent code is in chrome_book_sim.js -->
 <script type="text/javascript" src="chrome_book_sim.js"></script>
 
@@ -74,8 +76,8 @@
  
  
 <body onload="start_sim();" id="page-body" style="padding:0px; margin:0px;">
-    <canvas id="cloth-canvas" style="border: none;" width="1200" height="800"></canvas>
-    <div style="position:absolute; left:30px; top:30px; background:white; padding:5px 15px; border: 2px solid black; font-size:.8em;">
+    <canvas id="cloth-canvas" style="border: none;" width="1200" height="800" tabindex="0"></canvas><br/>
+    <div style="position:absolute; left:30px; top:30px; background:white; padding:5px 15px; border: 2px solid black; font-size:.4em;">
         <h1>Chrome Book</h1>
         <p>Hold CTRL to drag the page</p>
     </div>

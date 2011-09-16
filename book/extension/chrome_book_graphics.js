@@ -3,6 +3,7 @@ var gl;
 function initGL(canvas) {
     try {
         gl = canvas.getContext("experimental-webgl");
+//      gl = WebGLDebugUtils.makeDebugContext(gl);		//debug
         gl.viewportWidth = canvas.width;
         gl.viewportHeight = canvas.height;
     } catch (e) {
@@ -78,21 +79,22 @@ function initShaders() {
     shaderProgram.nMatrixUniform = gl.getUniformLocation(shaderProgram, "uNMatrix");
 }
 
-function handleLoadedTexture(texture) {
+function handleLoadedTexture(texture, repeat) {
+    var wrap = repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE;
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
     gl.bindTexture(gl.TEXTURE_2D, null);
 }
 
-function loadTexture(src) {
+function loadTexture(src, repeat, cb) {
     var tex = gl.createTexture();
     tex.image = new Image();
-    tex.image.onload = function() { handleLoadedTexture(tex); };
+    tex.image.onload = function() { handleLoadedTexture(tex, repeat); if(cb) cb(tex); };
     tex.image.src = src;
     return tex;
 }
