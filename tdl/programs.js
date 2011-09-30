@@ -39,6 +39,7 @@ tdl.provide('tdl.programs');
 
 tdl.require('tdl.log');
 tdl.require('tdl.string');
+tdl.require('tdl.webgl');
 
 /**
  * A module for programs.
@@ -77,9 +78,7 @@ tdl.programs.loadProgramFromScriptTags = function(
  */
 tdl.programs.loadProgram = function(vertexShader, fragmentShader) {
   var id = vertexShader + fragmentShader;
-  if (!gl.tdl.programDB) {
-    gl.tdl.programDB = { };
-  }
+  tdl.programs.setupDB_();
   var program = gl.tdl.programDB[id];
   if (program) {
     return program;
@@ -110,9 +109,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
    */
   var loadShader = function(gl, shaderSource, shaderType) {
     var id = shaderSource + shaderType;
-    if (!gl.tdl.shaderDB) {
-      gl.tdl.shaderDB = { };
-    }
+    tdl.programs.setupDB_();
     var shader = gl.tdl.shaderDB[id];
     if (shader) {
       return shader;
@@ -132,7 +129,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
 
     // Check the compile status
     var compiled = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
-    if (!compiled) {
+    if (!compiled && !gl.isContextLost()) {
       // Something went wrong during compilation; get the error
       tdl.programs.lastError = gl.getShaderInfoLog(shader);
       gl.deleteShader(shader);
@@ -354,6 +351,23 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
   this.attrib = attribs;
   this.attribLoc = attribLocs;
   this.uniform = uniforms;
+};
+
+tdl.programs.handleLostContext = function() {
+  if (gl.tdl && gl.tdl.shaderDB) {
+    delete gl.tdl.shaderDB;
+  }
+  if (gl.tdl && gl.tdl.programDB) {
+    delete gl.tdl.programDB;
+  }
+};
+
+tdl.programs.setupDB_ = function() {
+  if (!gl.tdl.shaderDB) {
+    gl.tdl.shaderDB = { };
+    gl.tdl.programDB = { };
+    tdl.webgl.registerContextLostHandler(tdl.programs.handleLostContext, true);
+  }
 };
 
 tdl.programs.Program.prototype.use = function() {

@@ -89,15 +89,15 @@ tdl.shader.Shader = function(gl, vertex, fragment) {
   this.gl = gl;
 
   var vs = this.loadShader(this.gl.VERTEX_SHADER, vertex);
-  if (vs == null) {
-    return;
+  if (!vs) {
+    tdl.log("couldn't load shader")
   }
   this.gl.attachShader(this.program, vs);
   this.gl.deleteShader(vs);
 
   var fs = this.loadShader(this.gl.FRAGMENT_SHADER, fragment);
-  if (fs == null) {
-    return;
+  if (!fs) {
+    tdl.log("couldn't load shader")
   }
   this.gl.attachShader(this.program, fs);
   this.gl.deleteShader(fs);
@@ -107,7 +107,7 @@ tdl.shader.Shader = function(gl, vertex, fragment) {
 
   // Check the link status
   var linked = this.gl.getProgramParameter(this.program, this.gl.LINK_STATUS);
-  if (!linked) {
+  if (!linked && !this.gl.isContextLost()) {
     var infoLog = this.gl.getProgramInfoLog(this.program);
     tdl.error("Error linking program:\n" + infoLog);
     this.gl.deleteProgram(this.program);

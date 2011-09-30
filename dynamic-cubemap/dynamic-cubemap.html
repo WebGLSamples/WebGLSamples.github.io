@@ -97,8 +97,10 @@ CANVAS {
 <link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
+<script type="text/javascript" src="../khronos/webgl-debug.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
+tdl.require('tdl.webgl');
 tdl.require('tdl.buffers');
 tdl.require('tdl.fast');
 tdl.require('tdl.framebuffers');
@@ -110,7 +112,6 @@ tdl.require('tdl.particles');
 tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
 tdl.require('tdl.textures');
-tdl.require('tdl.webgl');
 
 // globals
 var gl;                   // the gl context.
@@ -125,6 +126,7 @@ var g_setCountElements = [];
 var g_autoSet = true;
 var g_autoSetting = 0;
 var g_cubeMapSize = 256;
+var g_requestId;
 
 //g_drawOnce = true;
 //g_debug = true;
@@ -239,11 +241,18 @@ function setupEnvSphere(texture) {
   return new tdl.models.Model(program, arrays, textures);
 }
 
-function initialize() {
+function main() {
   math = tdl.math;
   fast = tdl.fast;
   canvas = document.getElementById("canvas");
   g_fpsTimer = new tdl.fps.FPSTimer();
+
+  //canvas = WebGLDebugUtils.makeLostContextSimulatingCanvas(canvas);
+  // tell the simulator when to lose context.
+  //canvas.loseContextInNCalls(100000);
+
+  tdl.webgl.registerContextLostHandler(handleContextLost);
+  tdl.webgl.registerContextRestoredHandler(handleContextRestored);
 
   gl = tdl.webgl.setupWebGL(canvas);
   if (!gl) {
@@ -253,6 +262,20 @@ function initialize() {
     gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
   }
 
+  initialize();
+}
+
+function handleContextLost() {
+  tdl.log("context lost");
+  tdl.webgl.cancelRequestAnimationFrame(g_requestId);
+}
+
+function handleContextRestored() {
+  tdl.log("context restored");
+  initialize();
+}
+
+function initialize() {
   var cubeFBO = tdl.framebuffers.createCubeFramebuffer(g_cubeMapSize, true);
   Log("--Setup Sphere---------------------------------------");
   var sphere = setupSphere();
@@ -323,9 +346,6 @@ function initialize() {
 
   function render() {
     ++frameCount;
-    if (!g_drawOnce) {
-      tdl.webgl.requestAnimationFrame(render, canvas);
-    }
     var now = (new Date()).getTime() * 0.001;
     var elapsedTime;
     if(then == 0.0) {
@@ -495,13 +515,17 @@ function initialize() {
 
     // turn off logging after 1 frame.
     g_logGLCalls = false;
+
+    if (!g_drawOnce) {
+      g_requestId = tdl.webgl.requestAnimationFrame(render, canvas);
+    }
   }
   render();
   return true;
 }
 
 $(function(){
-  initialize();
+  main();
 });
 
 

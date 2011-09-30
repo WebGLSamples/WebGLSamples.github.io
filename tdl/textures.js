@@ -36,6 +36,8 @@
 
 tdl.provide('tdl.textures');
 
+tdl.require('tdl.webgl');
+
 /**
  * A module for textures.
  * @namespace
@@ -74,6 +76,7 @@ tdl.textures.loadTexture = function(arg, opt_flipY, opt_callback) {
   var texture;
   if (!gl.tdl.textureDB) {
     gl.tdl.textureDB = { };
+    tdl.webgl.registerContextLostHandler(tdl.textures.handleLostContext, true);
   }
   if (id !== undefined) {
     texture = gl.tdl.textureDB[id];
@@ -97,6 +100,12 @@ tdl.textures.loadTexture = function(arg, opt_flipY, opt_callback) {
   }
   gl.tdl.textureDB[arg.toString()] = texture;
   return texture;
+};
+
+tdl.textures.handleLostContext = function() {
+  if (gl.tdl && gl.tdl.textureDB) {
+    delete gl.tdl.textureDB;
+  }
 };
 
 tdl.textures.Texture = function(target) {
@@ -356,7 +365,8 @@ tdl.textures.CubeMap = function(urls) {
       face.img = img;
       img.onload = function(faceIndex) {
         return function() {
-          //tdl.log("loaded image: ", urls[faceIndex]);
+          tdl.log("loaded image: ", urls[faceIndex]);
+
           that.updateTexture(faceIndex);
         }
       } (ff);

@@ -118,7 +118,19 @@ tdl.webgl.setupWebGL = function(canvas, opt_attribs, opt_onError) {
         }, false);
   }
   var context = tdl.webgl.create3DContext(canvas, opt_attribs);
-  if (!context) {
+  if (context) {
+    if (canvas.addEventListener) {
+      canvas.addEventListener("webglcontextlost", function(event) {
+        //tdl.log("call tdl.webgl.handleContextLost");
+        event.preventDefault();
+        tdl.webgl.handleContextLost(canvas);
+      }, false);
+      canvas.addEventListener("webglcontextrestored", function(event) {
+        //tdl.log("call tdl.webgl.handleContextRestored");
+        tdl.webgl.handleContextRestored(canvas);
+      }, false);
+    }
+  } else {
     if (!window.WebGLRenderingContext) {
       opt_onError("");
     }
@@ -152,6 +164,7 @@ tdl.webgl.create3DContext = function(canvas, opt_attribs) {
       tdl.webgl.init(context);
     }
     tdl.webgl.makeCurrent(context);
+    tdl.webgl.setupCanvas_(canvas);
     context.tdl = {};
 
     // Disallow selection by default. This keeps the cursor from changing to an
@@ -164,7 +177,58 @@ tdl.webgl.create3DContext = function(canvas, opt_attribs) {
     canvas.onmousedown = returnFalse;
   }
   return context;
-}
+};
+
+tdl.webgl.setupCanvas_ = function(canvas) {
+  if (!canvas.tdl) {
+    canvas.tdl = {};
+  }
+};
+
+tdl.webgl.runHandlers_ = function(handlers) {
+  //tdl.log("run handlers: " + handlers.length);
+  var handlersCopy = handlers.slice();
+  for (var ii = 0; ii < handlersCopy.length; ++ii) {
+    //tdl.log("run: " + ii);
+    handlersCopy[ii]();
+  }
+};
+
+tdl.webgl.registerContextLostHandler = function(handler, opt_sysHandler) {
+  tdl.webgl.setupCanvas_(canvas);
+  if (!canvas.tdl.contextLostHandlers) {
+    canvas.tdl.contextLostHandlers = [[],[]];
+  }
+  var a = canvas.tdl.contextLostHandlers[opt_sysHandler ? 0 : 1];
+  a.push(handler);
+};
+
+tdl.webgl.registerContextRestoredHandler = function(handler, opt_sysHandler) {
+  tdl.webgl.setupCanvas_(canvas);
+  if (!canvas.tdl.contextRestoredHandlers) {
+    canvas.tdl.contextRestoredHandlers = [[],[]];
+  }
+  var a = canvas.tdl.contextRestoredHandlers[opt_sysHandler ? 0 : 1];
+  a.push(handler);
+};
+
+tdl.webgl.handleContextLost = function(canvas) {
+  // first run tdl's handlers then the user's
+  //tdl.log("tdl.webgl.handleContextLost");
+  if (canvas.tdl.contextLostHandlers) {
+    tdl.webgl.runHandlers_(canvas.tdl.contextLostHandlers[0]);
+    tdl.webgl.runHandlers_(canvas.tdl.contextLostHandlers[1]);
+  }
+};
+
+tdl.webgl.handleContextRestored = function(canvas) {
+  // first run tdl's handlers then the user's
+  //tdl.log("tdl.webgl.handleContextRestored");
+  if (canvas.tdl.contextRestoredHandlers) {
+    tdl.webgl.runHandlers_(canvas.tdl.contextRestoredHandlers[0]);
+    tdl.webgl.runHandlers_(canvas.tdl.contextRestoredHandlers[1]);
+  }
+};
 
 /**
  * Which arguements are enums.
@@ -399,14 +463,25 @@ tdl.webgl.makeDebugContext = function(ctx, opt_onErrorFunc, opt_onFunc) {
     };
   }
 
+  function makePropertyWrapper(wrapper, original, propertyName) {
+    wrapper.__defineGetter__(propertyName, function() {
+      return original[propertyName];
+    });
+    // TODO(gmane): this needs to handle properties that take more than
+    // one value?
+    wrapper.__defineSetter__(propertyName, function(value) {
+      original[propertyName] = value;
+    });
+  }
+
   // Make a an object that has a copy of every property of the WebGL context
   // but wraps all functions.
   var wrapper = {};
   for (var propertyName in ctx) {
     if (typeof ctx[propertyName] == 'function') {
-      wrapper[propertyName] = makeErrorWrapper(ctx, propertyName);
+       wrapper[propertyName] = makeErrorWrapper(ctx, propertyName);
      } else {
-       wrapper[propertyName] = ctx[propertyName];
+       wrapper[propertyName] = makePropertyWrappe(wrapper, ctx, propertyName);
      }
   }
 
@@ -425,11 +500,11 @@ tdl.webgl.makeDebugContext = function(ctx, opt_onErrorFunc, opt_onFunc) {
 };
 
 /**
- * Provides requestAnimationFrame in a cross browser
- * way.
+ * Provides requestAnimationFrame in a cross browser way.
  * @param {function(RequestAnimationEvent): void} callback. Callback that will
  *        be called when a frame is ready.
  * @param {!Element} element Element to request an animation frame for.
+ * @return {number} request id.
  */
 tdl.webgl.requestAnimationFrame = function(callback, element) {
   if (!tdl.webgl.requestAnimationFrameImpl_) {
@@ -447,19 +522,54 @@ tdl.webgl.requestAnimationFrame = function(callback, element) {
           tdl.log("using ", functionName);
           return function(name) {
             return function(callback, element) {
-              window[name].call(window, callback, element);
+              return window[name].call(window, callback, element);
             };
           }(functionName);
         }
       }
       tdl.log("using window.setTimeout");
       return function(callback, element) {
-           window.setTimeout(callback, 1000 / 70);
+           return window.setTimeout(callback, 1000 / 70);
         };
     }();
   }
 
-  tdl.webgl.requestAnimationFrameImpl_(callback, element);
+  return tdl.webgl.requestAnimationFrameImpl_(callback, element);
 };
+
+
+/**
+ * Provides cancelRequestAnimationFrame in a cross browser way.
+ * @param {number} requestId.
+ */
+tdl.webgl.cancelRequestAnimationFrame = function(requestId) {
+  if (!tdl.webgl.cancelRequestAnimationFrameImpl_) {
+    tdl.webgl.cancelRequestAnimationFrameImpl_ = function() {
+      var functionNames = [
+        "cancelRequestAnimationFrame",
+        "webkitCancelRequestAnimationFrame",
+        "mozCancelRequestAnimationFrame",
+        "oCancelRequestAnimationFrame",
+        "msCancelRequestAnimationFrame"
+      ];
+      for (var jj = 0; jj < functionNames.length; ++jj) {
+        var functionName = functionNames[jj];
+        if (window[functionName]) {
+          return function(name) {
+            return function(requestId) {
+              window[name].call(window, requestId);
+            };
+          }(functionName);
+        }
+      }
+      return function(requestId) {
+           window.clearTimeout(requestId);
+        };
+    }();
+  }
+
+  tdl.webgl.cancelRequestAnimationFrameImpl_(requestId);
+};
+
 
 
