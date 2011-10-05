@@ -78,8 +78,8 @@ tdl.programs.loadProgramFromScriptTags = function(
  */
 tdl.programs.loadProgram = function(vertexShader, fragmentShader) {
   var id = vertexShader + fragmentShader;
-  tdl.programs.setupDB_();
-  var program = gl.tdl.programDB[id];
+  tdl.programs.init_();
+  var program = gl.tdl.programs.programDB[id];
   if (program) {
     return program;
   }
@@ -89,7 +89,7 @@ tdl.programs.loadProgram = function(vertexShader, fragmentShader) {
     tdl.error(e);
     return null;
   }
-  gl.tdl.programDB[id] = program;
+  gl.tdl.programs.programDB[id] = program;
   return program;
 };
 
@@ -109,8 +109,8 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
    */
   var loadShader = function(gl, shaderSource, shaderType) {
     var id = shaderSource + shaderType;
-    tdl.programs.setupDB_();
-    var shader = gl.tdl.shaderDB[id];
+    tdl.programs.init_();
+    var shader = gl.tdl.programs.shaderDB[id];
     if (shader) {
       return shader;
     }
@@ -136,7 +136,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
       throw("*** Error compiling shader :" + tdl.programs.lastError);
     }
 
-    gl.tdl.shaderDB[id] = shader;
+    gl.tdl.programs.shaderDB[id] = shader;
     return shader;
   }
 
@@ -353,20 +353,21 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
   this.uniform = uniforms;
 };
 
-tdl.programs.handleLostContext = function() {
-  if (gl.tdl && gl.tdl.shaderDB) {
-    delete gl.tdl.shaderDB;
-  }
-  if (gl.tdl && gl.tdl.programDB) {
-    delete gl.tdl.programDB;
+tdl.programs.handleContextLost_ = function() {
+  if (gl.tdl && gl.tdl.programs && gl.tdl.programs.shaderDB) {
+    delete gl.tdl.programs.shaderDB;
+    delete gl.tdl.programs.programDB;
   }
 };
 
-tdl.programs.setupDB_ = function() {
-  if (!gl.tdl.shaderDB) {
-    gl.tdl.shaderDB = { };
-    gl.tdl.programDB = { };
-    tdl.webgl.registerContextLostHandler(tdl.programs.handleLostContext, true);
+tdl.programs.init_ = function() {
+  if (!gl.tdl.programs) {
+    gl.tdl.programs = { };
+    tdl.webgl.registerContextLostHandler(tdl.programs.handleContextLost_, true);
+  }
+  if (!gl.tdl.programs.shaderDB) {
+    gl.tdl.programs.shaderDB = { };
+    gl.tdl.programs.programDB = { };
   }
 };
 

@@ -74,12 +74,9 @@ tdl.textures.loadTexture = function(arg, opt_flipY, opt_callback) {
   }
 
   var texture;
-  if (!gl.tdl.textureDB) {
-    gl.tdl.textureDB = { };
-    tdl.webgl.registerContextLostHandler(tdl.textures.handleLostContext, true);
-  }
+  tdl.textures.init_(gl);
   if (id !== undefined) {
-    texture = gl.tdl.textureDB[id];
+    texture = gl.tdl.textures.db[id];
   }
   if (texture) {
     return texture;
@@ -98,13 +95,31 @@ tdl.textures.loadTexture = function(arg, opt_flipY, opt_callback) {
   } else {
     throw "bad args";
   }
-  gl.tdl.textureDB[arg.toString()] = texture;
+  gl.tdl.textures.db[arg.toString()] = texture;
   return texture;
 };
 
-tdl.textures.handleLostContext = function() {
-  if (gl.tdl && gl.tdl.textureDB) {
-    delete gl.tdl.textureDB;
+tdl.textures.init_ = function(gl) {
+  if (!gl.tdl.textures) {
+    gl.tdl.textures = { };
+    tdl.webgl.registerContextLostHandler(
+        tdl.textures.handleContextLost_, true);
+    tdl.webgl.registerContextRestoredHandler(
+        tdl.textures.handleContextRestored_, true);
+  }
+  if (!gl.tdl.textures.maxTextureSize) {
+    gl.tdl.textures.maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+    gl.tdl.textures.maxCubeMapSize = gl.getParameter(
+        gl.MAX_CUBE_MAP_TEXTURE_SIZE);
+  }
+  if (!gl.tdl.textures.db) {
+    gl.tdl.textures.db = { };
+  }
+};
+
+tdl.textures.handleContextLost_ = function() {
+  if (gl.tdl && gl.tdl.textures && gl.tdl.textures.db) {
+    delete gl.tdl.textures.db;
   }
 };
 
@@ -328,6 +343,7 @@ tdl.base.inherit(tdl.textures.ExternalTexture2D, tdl.textures.ExternalTexture);
  *     +--+--+--+--+
  */
 tdl.textures.CubeMap = function(urls) {
+  tdl.textures.init_(gl);
   tdl.textures.Texture.call(this, gl.TEXTURE_CUBE_MAP);
   // TODO(gman): make this global.
   if (!tdl.textures.CubeMap.faceTargets) {
@@ -396,6 +412,25 @@ tdl.textures.CubeMap.prototype.loaded = function() {
   return true;
 };
 
+tdl.textures.clampToMaxSize = function(element, maxSize) {
+  if (element.width <= maxSize && element.height <= maxSize) {
+    return element;
+  }
+  var maxDimension = Math.max(element.width, element.height);
+  var newWidth = Math.floor(element.width * maxSize / maxDimension);
+  var newHeight = Math.floor(element.height * maxSize / maxDimension);
+
+  var canvas = document.createElement('canvas');
+  canvas.width = newWidth;
+  canvas.height = newHeight;
+  var ctx = canvas.getContext("2d");
+  ctx.drawImage(
+      element,
+      0, 0, element.width, element.height,
+      0, 0, newWidth, newHeight);
+  return canvas;
+};
+
 /**
  * Uploads the images to the texture.
  */
@@ -411,7 +446,10 @@ tdl.textures.CubeMap.prototype.uploadTextures = function() {
       if (allFacesLoaded) {
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
         if (this.faces.length == 6) {
-          gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, face.img);
+          gl.texImage2D(
+              target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE,
+              tdl.textures.clampToMaxSize(
+                  face.img, gl.tdl.textures.maxCubeMapSize));
         } else {
           var canvas = document.createElement('canvas');
           var width = face.img.width / 4;
@@ -422,7 +460,10 @@ tdl.textures.CubeMap.prototype.uploadTextures = function() {
           var sx = tdl.textures.CubeMap.offsets[faceIndex][0] * width;
           var sy = tdl.textures.CubeMap.offsets[faceIndex][1] * height;
           ctx.drawImage(face.img, sx, sy, width, height, 0, 0, width, height);
-          gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+          gl.texImage2D(
+              target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE,
+              tdl.textures.clampToMaxSize(
+                  canvas, gl.tdl.textures.maxCubeMapSize));
         }
         uploaded = true;
       }
