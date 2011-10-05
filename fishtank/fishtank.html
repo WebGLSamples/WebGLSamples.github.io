@@ -78,6 +78,7 @@ CANVAS {
   height: 100%;
 }
 </style>
+<script type="text/javascript" src="../khronos/webgl-debug.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
@@ -90,7 +91,7 @@ tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
 tdl.require('tdl.textures');
 tdl.require('tdl.webgl');
-window.onload = initialize;
+window.onload = main;
 
 // globals
 var gl;                   // the gl context.
@@ -105,6 +106,7 @@ var g_setSettingElements = [];
 var g_sharkWorldMats = [];
 var g_beamWorldMats = [];
 var g_refract = true;
+var g_requestId;
 
 //g_refract = false;
 //g_debug = true;
@@ -417,10 +419,7 @@ function setupCountButtons() {
   setSetting(document.getElementById("setSetting0"), 0);
 }
 
-/**
- * Initializes stuff.
- */
-function initialize() {
+function main() {
   math = tdl.math;
   fast = tdl.fast;
   canvas = document.getElementById("canvas");
@@ -428,6 +427,14 @@ function initialize() {
   setupCountButtons();
 
   g_fpsTimer = new tdl.fps.FPSTimer();
+
+  //canvas = WebGLDebugUtils.makeLostContextSimulatingCanvas(canvas);
+  // tell the simulator when to lose context.
+  //canvas.loseContextInNCalls(100000);
+
+  tdl.webgl.registerContextLostHandler(handleContextLost);
+  tdl.webgl.registerContextRestoredHandler(handleContextRestored);
+
   gl = tdl.webgl.setupWebGL(canvas);
   if (!gl) {
     return false;
@@ -435,6 +442,24 @@ function initialize() {
   if (g_debug) {
     gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
   }
+
+  initialize();
+}
+
+function handleContextLost() {
+  tdl.log("context lost");
+  tdl.webgl.cancelRequestAnimationFrame(g_requestId);
+}
+
+function handleContextRestored() {
+  tdl.log("context restored");
+  initialize();
+}
+
+/**
+ * Initializes stuff.
+ */
+function initialize() {
   gl.enable(gl.DEPTH_TEST);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 //  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
@@ -582,9 +607,6 @@ function initialize() {
   var frameCount = 0;
 
   function render() {
-    if (!g_drawOnce) {
-      tdl.webgl.requestAnimationFrame(render, canvas);
-    }
     var now = (new Date()).getTime() * 0.001;
     var elapsedTime;
     if(then == 0.0) {
@@ -605,7 +627,7 @@ function initialize() {
     eyePosition[2] = Math.cos(clock * g_eyeSpeed) * g_eyeRadius;
 
     gl.colorMask(true, true, true, true);
-    gl.clearColor(0,0,0,0);
+    gl.clearColor(Math.random(),0,0,0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
     fast.matrix4.perspective(
@@ -809,6 +831,10 @@ function initialize() {
 
     // turn off logging after 1 frame.
     g_logGLCalls = false;
+
+    if (!g_drawOnce) {
+      g_requestId = tdl.webgl.requestAnimationFrame(render, canvas);
+    }
   }
   render();
   return true;
