@@ -29,6 +29,7 @@ var g_beamWorldMats = [];
 var g_scenes = {};  // each of the models
 var g_sceneGroups = {};  // the placement of the models
 var g_fog = true;
+var g_requestId;
 
 //g_debug = true;
 //g_drawOnce = true;
@@ -814,10 +815,17 @@ function setupCountButtons() {
 /**
  * Initializes stuff.
  */
-function initialize() {
+function main() {
   math = tdl.math;
   fast = tdl.fast;
   canvas = document.getElementById("canvas");
+
+  //canvas = WebGLDebugUtils.makeLostContextSimulatingCanvas(canvas);
+  // tell the simulator when to lose context.
+  //canvas.loseContextInNCalls(1);
+
+  tdl.webgl.registerContextLostHandler(handleContextLost);
+  tdl.webgl.registerContextRestoredHandler(handleContextRestored);
 
   g_fpsTimer = new tdl.fps.FPSTimer();
   gl = tdl.webgl.setupWebGL(canvas);
@@ -828,6 +836,20 @@ function initialize() {
     gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
   }
 
+  initialize();
+}
+
+function handleContextLost() {
+  tdl.log("context lost");
+  tdl.webgl.cancelRequestAnimationFrame(g_requestId);
+}
+
+function handleContextRestored() {
+  tdl.log("context restored");
+  initialize();
+}
+
+function initialize() {
   var maxViewportDims = gl.getParameter(gl.MAX_VIEWPORT_DIMS);
 
   gl.enable(gl.DEPTH_TEST);
@@ -1084,9 +1106,6 @@ function initialize() {
   }
 
   function render() {
-    if (!g_drawOnce) {
-      tdl.webgl.requestAnimationFrame(render, canvas);
-    }
     var now = theClock.getTime();
     var elapsedTime;
     if(then == 0.0) {
@@ -1571,6 +1590,10 @@ function initialize() {
 
     // turn off logging after 1 frame.
     g_logGLCalls = false;
+
+    if (!g_drawOnce) {
+      g_requestId = tdl.webgl.requestAnimationFrame(render, canvas);
+    }
   }
   render();
   return true;
@@ -1700,7 +1723,7 @@ $(function(){
       }
     });
   }
-  initialize();
+  main();
 });
 
 
