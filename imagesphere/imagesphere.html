@@ -92,6 +92,7 @@ CANVAS {
 <link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
+<script type="text/javascript" src="../khronos/webgl-debug.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
@@ -122,6 +123,7 @@ var g_moveVelocityX = 0;
 var g_moveVelocityY = 0;
 var g_viewProjection;
 var g_viewProjectionInverse;
+var g_requestId;
 
 // We'll maintain a grid of images this size
 // and scroll across them. When one goes off the left it comes on the right.
@@ -621,10 +623,17 @@ function raySphereIntersection(point1, point2, center, radius) {
   return math.addVector(point1, math.mulScalarVector(m, dp));
 }
 
-function initialize() {
+function main() {
   math = tdl.math;
   fast = tdl.fast;
   canvas = document.getElementById("canvas");
+
+  //canvas = WebGLDebugUtils.makeLostContextSimulatingCanvas(canvas);
+  // tell the simulator when to lose context.
+  //canvas.loseContextInNCalls(10000);
+
+  tdl.webgl.registerContextLostHandler(handleContextLost);
+  tdl.webgl.registerContextRestoredHandler(handleContextRestored);
 
   gl = tdl.webgl.setupWebGL(canvas);
   if (!gl) {
@@ -633,7 +642,6 @@ function initialize() {
   if (g_debug) {
     gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
   }
-  //gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
 
   g_fpsTimer = new tdl.fps.FPSTimer();
   hack();
@@ -648,6 +656,22 @@ function initialize() {
   canvas.addEventListener("mousemove", handleMouseMove, false);
   canvas.addEventListener("mouseup", handleMouseUp, false);
 
+
+  initialize();
+}
+
+function handleContextLost() {
+  tdl.log("context lost");
+  tdl.webgl.cancelRequestAnimationFrame(g_requestId);
+}
+
+function handleContextRestored() {
+  tdl.log("context restored");
+  initialize();
+}
+
+function initialize() {
+  //gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
 
   var headlines = [
     "China defends dealings with Iran after US pressure",
@@ -701,6 +725,7 @@ function initialize() {
 
   // make a bunch of textures.
   // What to do if we run out of memory?
+  g_textures = [];
   for (var ii = 0; ii < g_imagesDownGrid; ++ii) {
     var textures = [];
     for (var jj = 0; jj < g_imagesAcrossGrid; ++jj) {
@@ -765,9 +790,6 @@ function initialize() {
   var frameCount = 0;
   function render() {
     ++frameCount;
-    if (!g_drawOnce) {
-      tdl.webgl.requestAnimationFrame(render, canvas);
-    }
     var now = (new Date()).getTime() * 0.001;
     var elapsedTime;
     if(then == 0.0) {
@@ -869,10 +891,13 @@ function initialize() {
     gl.colorMask(false, false, false, true);
     gl.clearColor(0,0,0,1);
     gl.clear(gl.COLOR_BUFFER_BIT);
-//    gl.finish();
 
     // turn off logging after 1 frame.
     g_logGLCalls = false;
+
+    if (!g_drawOnce) {
+      g_requestId = tdl.webgl.requestAnimationFrame(render, canvas);
+    }
   }
   render();
   return true;
@@ -923,7 +948,7 @@ $(function(){
     uiElem.appendChild(div);
   }
 
-  initialize();
+  main();
 });
 </script>
 </head>
