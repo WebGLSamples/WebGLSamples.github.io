@@ -75,6 +75,7 @@ CANVAS {
   height: 100%;
 }
 </style>
+<script type="text/javascript" src="../khronos/webgl-debug.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
@@ -88,7 +89,7 @@ tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
 tdl.require('tdl.textures');
 tdl.require('tdl.webgl');
-window.onload = initialize;
+window.onload = main;
 
 // globals
 var gl;                   // the gl context.
@@ -104,6 +105,7 @@ var g_explosionMgr;
 var g_debrisMgr;
 var g_timeTillLaunch = 0;
 var g_showShockwave = false;
+var g_requestId;
 
 //g_drawOnce = true;
 //g_debug = true;
@@ -422,7 +424,7 @@ function onKeyPress(event) {
   }
 }
 
-function initialize() {
+function main() {
   math = tdl.math;
   fast = tdl.fast;
   canvas = document.getElementById("canvas");
@@ -432,13 +434,36 @@ function initialize() {
 
   window.addEventListener('keypress', onKeyPress, false);
 
+  //canvas = WebGLDebugUtils.makeLostContextSimulatingCanvas(canvas);
+  // tell the simulator when to lose context.
+  //canvas.loseContextInNCalls(1);
+
+  tdl.webgl.registerContextLostHandler(handleContextLost);
+  tdl.webgl.registerContextRestoredHandler(handleContextRestored);
+
   gl = tdl.webgl.setupWebGL(canvas);
   if (!gl) {
     return false;
   }
+
   if (g_debug) {
     gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
   }
+
+  initialize();
+}
+
+function handleContextLost() {
+  tdl.log("context lost");
+  tdl.webgl.cancelRequestAnimationFrame(g_requestId);
+}
+
+function handleContextRestored() {
+  tdl.log("context restored");
+  initialize();
+}
+
+function initialize() {
 //  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, gl.TRUE);
 
   Log("--Setup Planet---------------------------------------");
@@ -605,9 +630,6 @@ function initialize() {
   var frameCount = 0;
   function render() {
     ++frameCount;
-    if (!g_drawOnce) {
-      tdl.webgl.requestAnimationFrame(render, canvas);
-    }
     var now = (new Date()).getTime() * 0.001;
     var elapsedTime;
     if(then == 0.0) {
@@ -824,6 +846,10 @@ function initialize() {
 
     // turn off logging after 1 frame.
     g_logGLCalls = false;
+
+    if (!g_drawOnce) {
+      g_requestId = tdl.webgl.requestAnimationFrame(render, canvas);
+    }
   }
   render();
   return true;
