@@ -117,9 +117,6 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
 
     // Create the shader object
     var shader = gl.createShader(shaderType);
-    if (shader == null) {
-      throw("*** Error: unable to create shader '"+shaderSource+"'");
-    }
 
     // Load the shader source
     gl.shaderSource(shader, shaderSource);
@@ -180,7 +177,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
 
     // Check the link status
     var linked = gl.getProgramParameter(program, gl.LINK_STATUS);
-    if (!linked) {
+    if (!linked && !gl.isContextLost()) {
       // something went wrong with the link
       tdl.programs.lastError = gl.getProgramInfoLog (program);
       throw("*** Error in program linking:" + tdl.programs.lastError);
@@ -189,7 +186,7 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
 
   // Compile shaders
   var program = loadProgram(gl, vertexShader, fragmentShader);
-  if (!program) {
+  if (!program && !gl.isContextLost()) {
     throw ("could not compile program");
   }
 

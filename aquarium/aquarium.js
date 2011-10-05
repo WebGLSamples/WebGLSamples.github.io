@@ -467,6 +467,7 @@ var Scene = function(opt_programIds, fog) {
   this.loaded = false;
   this.fog = fog;
   this.models = [];
+  this.ignore = false;
 };
 
 Scene.prototype.load = function(url) {
@@ -477,7 +478,15 @@ Scene.prototype.load = function(url) {
     });
 };
 
+// Stop the scene from loading.
+Scene.prototype.stop = function() {
+  this.ignore = false;
+};
+
 Scene.prototype.onload_ = function(data, exception) {
+  if (this.ignore) {
+    return;
+  }
   this.loaded = true;
   if (exception) {
     this.bad = true;
@@ -822,7 +831,7 @@ function main() {
 
   //canvas = WebGLDebugUtils.makeLostContextSimulatingCanvas(canvas);
   // tell the simulator when to lose context.
-  //canvas.loseContextInNCalls(1);
+  //canvas.loseContextInNCalls(1500);
 
   tdl.webgl.registerContextLostHandler(handleContextLost);
   tdl.webgl.registerContextRestoredHandler(handleContextRestored);
@@ -842,6 +851,12 @@ function main() {
 function handleContextLost() {
   tdl.log("context lost");
   tdl.webgl.cancelRequestAnimationFrame(g_requestId);
+  // remove loading scenes
+  for (var name in g_scenes) {
+    var scene = g_scenes[name];
+    scene.stop();
+  }
+  g_scenes = { };
 }
 
 function handleContextRestored() {

@@ -55,6 +55,9 @@ tdl.textures = tdl.textures || {};
  * @param {function} opt_callback Function to execute when texture is loaded.
  */
 tdl.textures.loadTexture = function(arg, opt_flipY, opt_callback) {
+  if (opt_callback) {
+    alert('callback!');
+  }
   var id;
   if (typeof arg == 'string') {
     td = arg;
@@ -99,13 +102,21 @@ tdl.textures.loadTexture = function(arg, opt_flipY, opt_callback) {
   return texture;
 };
 
+tdl.textures.addLoadingImage_ = function(img) {
+  tdl.textures.init_(gl);
+  gl.tdl.textures.loadingImages.push(img);
+};
+
+tdl.textures.removeLoadingImage_ = function(img) {
+  gl.tdl.textures.loadingImages.splice(gl.tdl.textures.loadingImages.indexOf(img), 1);
+};
+
 tdl.textures.init_ = function(gl) {
   if (!gl.tdl.textures) {
     gl.tdl.textures = { };
+    gl.tdl.textures.loadingImages = [];
     tdl.webgl.registerContextLostHandler(
         tdl.textures.handleContextLost_, true);
-    tdl.webgl.registerContextRestoredHandler(
-        tdl.textures.handleContextRestored_, true);
   }
   if (!gl.tdl.textures.maxTextureSize) {
     gl.tdl.textures.maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
@@ -118,8 +129,13 @@ tdl.textures.init_ = function(gl) {
 };
 
 tdl.textures.handleContextLost_ = function() {
-  if (gl.tdl && gl.tdl.textures && gl.tdl.textures.db) {
+  if (gl.tdl && gl.tdl.textures) {
     delete gl.tdl.textures.db;
+    var imgs = gl.tdl.textures.loadingImages;
+    for (var ii = 0; ii < imgs.length; ++ii) {
+      imgs[ii].onload = undefined;
+    }
+    gl.tdl.textures.loadingImages = [];
   }
 };
 
@@ -216,10 +232,14 @@ tdl.textures.ColorTexture.prototype.bindToUnit = function(unit) {
  * @param {function} opt_callback Function to execute when texture is loaded.
  */
 tdl.textures.Texture2D = function(url, opt_flipY, opt_callback) {
+  if (opt_callback) {
+    alert('callback');
+  }
   tdl.textures.Texture.call(this, gl.TEXTURE_2D);
   this.flipY = opt_flipY || false;
   var that = this;
   var img;
+  // Handle dataURLs?
   if (typeof url !== 'string') {
     img = url;
     this.loaded = true;
@@ -228,7 +248,9 @@ tdl.textures.Texture2D = function(url, opt_flipY, opt_callback) {
     }
   } else {
     img = document.createElement('img');
+    tdl.textures.addLoadingImage_(img);
     img.onload = function() {
+      tdl.textures.removeLoadingImage_(img);
       //tdl.log("loaded image: ", url);
       that.updateTexture();
       if (opt_callback) {
@@ -378,11 +400,12 @@ tdl.textures.CubeMap = function(urls) {
       var face = { };
       this.faces[ff] = face;
       var img = document.createElement('img');
+      tdl.textures.addLoadingImage_(img);
       face.img = img;
       img.onload = function(faceIndex) {
         return function() {
+          tdl.textures.removeLoadingImage_(img);
           tdl.log("loaded image: ", urls[faceIndex]);
-
           that.updateTexture(faceIndex);
         }
       } (ff);
