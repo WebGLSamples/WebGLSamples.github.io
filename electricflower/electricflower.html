@@ -78,6 +78,7 @@ div.title {
   font-weight: bold;
 }
 </style>
+<script type="text/javascript" src="../khronos/webgl-debug.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript" src="flower.js"></script>
 <script type="text/javascript" src="postprocess.js"></script>
@@ -104,6 +105,7 @@ var backbuffer;
 var post;
 var quad;
 var g_postProc;
+var g_requestId;
 
 if (!window.Float32Array) {
   // This just makes some errors go away when there is no WebGL.
@@ -121,12 +123,12 @@ function mainloop() {
   var bootTime = (new Date()).getTime();
   var singleEffect = new FlowerEffect();
   function render() {
-    tdl.webgl.requestAnimationFrame(render, canvas);
     var now = ((new Date()).getTime() - bootTime) * 0.001;
     var music_time = now;
     aspect = canvas.clientWidth / canvas.clientHeight
     var framebuffer = backbuffer;
     singleEffect.render(framebuffer, music_time, g_postProc)
+    g_requestId = tdl.webgl.requestAnimationFrame(render, canvas);
   }
   render();
 }
@@ -152,6 +154,7 @@ function setSetting(elem, id) {
  * Sets up the count buttons.
  */
 function setupButtons() {
+  g_setSettingsElements = [];
   for (var ii = 0; ii < 100; ++ii) {
     var elem = document.getElementById("setSetting" + ii);
     if (!elem) {
@@ -167,12 +170,6 @@ function setupButtons() {
 }
 
 function initializeGraphics() {
-  canvas = document.getElementById('render_area');
-  gl = tdl.webgl.setupWebGL(canvas);
-  if (!gl) {
-    return false;
-  }
-
   aspect = canvas.clientWidth / canvas.clientHeight
   quad = new QuadDrawer()
   backbuffer = tdl.framebuffers.getBackBuffer(canvas)
@@ -185,12 +182,42 @@ function initializeGraphics() {
   return true;
 }
 
-window.onload = function() {
+function setup() {
   if (initializeGraphics()) {
     setupButtons()
     mainloop()
   }
 }
+
+window.onload = function() {
+  canvas = document.getElementById('render_area');
+
+  //canvas = WebGLDebugUtils.makeLostContextSimulatingCanvas(canvas);
+  // tell the simulator when to lose context.
+  //canvas.loseContextInNCalls(10000);
+
+  tdl.webgl.registerContextLostHandler(handleContextLost);
+  tdl.webgl.registerContextRestoredHandler(handleContextRestored);
+
+  canvas = document.getElementById('render_area');
+  gl = tdl.webgl.setupWebGL(canvas);
+  if (!gl) {
+    return false;
+  }
+
+  setup();
+}
+
+function handleContextLost() {
+  tdl.log("context lost");
+  tdl.webgl.cancelRequestAnimationFrame(g_requestId);
+}
+
+function handleContextRestored() {
+  tdl.log("context restored");
+  setup();
+}
+
 
 </script>
 

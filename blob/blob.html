@@ -97,6 +97,7 @@ div.title {
   font-weight: bold;
 }
 </style>
+<script type="text/javascript" src="../khronos/webgl-debug.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript" src="immediate_sim.js"></script>
 <script type="text/javascript" src="marching_cubes_tables.js"></script>
@@ -126,6 +127,7 @@ var quad;
 var imm;
 var g_numBlobs;
 var g_resolution;
+var g_requestId;
 
 if (!window.Float32Array) {
   // This just makes some errors go away when there is no WebGL.
@@ -152,7 +154,6 @@ function mainloop() {
   var fpsElem = document.getElementById("fps");
 
   function render() {
-    tdl.webgl.requestAnimationFrame(render, canvas);
     var now = (new Date()).getTime() * 0.001;
     var elapsedTime;
     if(then == 0.0) {
@@ -169,6 +170,7 @@ function mainloop() {
     singleEffect.render(null, now, g_numBlobs)
     frameCount++;
     totalFrameCount++;
+    g_requestId = tdl.webgl.requestAnimationFrame(render, canvas);
   }
 
   // Repeatedly run render(), attempt to hold 60 but the demo is
@@ -226,6 +228,7 @@ function setSetting(elem, id) {
  * Sets up the count buttons.
  */
 function setupCountButtons() {
+  g_setSettingElements = [];
   for (var ii = 0; ii < 100; ++ii) {
     var elem = document.getElementById("setSetting" + ii);
     if (!elem) {
@@ -243,14 +246,37 @@ function setupCountButtons() {
 
 var g_setSettingElements = [];
 
-window.onload = function() {
-  g_fpsTimer = new tdl.fps.FPSTimer();
+function setup() {
   if (initializeGraphics()) {
     singleEffect = new MarchingCubesEffect(24);
     setupCountButtons();
     // Kick it off!
     mainloop()
   }
+}
+
+window.onload = function() {
+  g_fpsTimer = new tdl.fps.FPSTimer();
+  canvas = document.getElementById('render_area');
+
+  //canvas = WebGLDebugUtils.makeLostContextSimulatingCanvas(canvas);
+  // tell the simulator when to lose context.
+  //canvas.loseContextInNCalls(1);
+
+  tdl.webgl.registerContextLostHandler(handleContextLost);
+  tdl.webgl.registerContextRestoredHandler(handleContextRestored);
+
+  setup();
+}
+
+function handleContextLost() {
+  tdl.log("context lost");
+  tdl.webgl.cancelRequestAnimationFrame(g_requestId);
+}
+
+function handleContextRestored() {
+  tdl.log("context restored");
+  setup();
 }
 
 </script>

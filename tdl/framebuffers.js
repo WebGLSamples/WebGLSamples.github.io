@@ -137,8 +137,9 @@ tdl.framebuffers.Framebuffer.prototype.recoverFromLostContext = function() {
         db);
   }
   var status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-  if (status != gl.FRAMEBUFFER_COMPLETE) {
-    throw("gl.checkFramebufferStatus() returned " + WebGLDebugUtils.glEnumToString(status));
+  if (status != gl.FRAMEBUFFER_COMPLETE && !gl.isContextLost()) {
+    throw("gl.checkFramebufferStatus() returned " +
+          tdl.webgl.glEnumToString(status));
   }
   this.framebuffer = fb;
   this.texture = tex;
