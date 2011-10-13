@@ -3,7 +3,13 @@ g = {
     screenshotCount: 0
 };
 
-
+function dumpObj(obj, label, opt_prefix) {
+  var prefix = opt_prefix || '';
+  util.print(prefix + "-----[ " + label + " ]---------\n");
+  for (var key in obj) {
+    util.print(prefix + "  " + key + ": " + obj[key] + "\n");
+  }
+}
 function extension(path) {
   var m = path.match(/\.[^\.]+$/);
   return m ? m[0] : "";
@@ -55,24 +61,24 @@ var applySettings = function(obj, dst) {
 var http = require('http'),
     url = require('url'),
     fs = require('fs'),
-    io = require('../socket.io/'),
-    sys = require('sys'),
+    WebSocketServer = require('../websocket/').server,
+    util = require('util'),
     path = require('path'),
     querystring = require('querystring');
 
 for (var ii = 2; ii < process.argv.length; ++ii) {
     var flag = process.argv[ii];
-    //sys.print("" + ii + ":" + flag + "\n");
+    //util.print("" + ii + ":" + flag + "\n");
     switch (flag) {
     case '-h':
     case '--help':
-  sys.print(
+  util.print(
         "--help: this message\n" +
         "--port: port. Default 8080\n");
     process.exit(0);
     case '--port':
   g.port = parseInt(process.argv[++ii]);
-  //sys.print("port: " + g.port + "\n");
+  //util.print("port: " + g.port + "\n");
   break;
     }
 }
@@ -113,16 +119,16 @@ function saveScreenshotFromDataURL(dataURL) {
             EXPECTED_HEADER.length,
             dataURL.length - EXPECTED_HEADER.length),
         'base64');
-    sys.print("Saved Screenshot: " + filename + "\n");
+    util.print("Saved Screenshot: " + filename + "\n");
   }
 }
 
 server = http.createServer(function(req, res){
-sys.print("req: " + req.method + '\n');
+util.print("req: " + req.method + '\n');
   // your normal server code
   if (req.method == "POST") {
     postHandler(req, function(query) {
-      sys.print("query: " + query.cmd + '\n');
+      util.print("query: " + query.cmd + '\n');
       switch (query.cmd) {
       case 'time':
         sendJSONResponse(res, { time: (new Date()).getTime() * 0.001 });
@@ -132,7 +138,7 @@ sys.print("req: " + req.method + '\n');
         sendJSONResponse(res, { ok: true });
         break;
       default:
-        sys.print("err: unknown post: " + query + "\n");
+        util.print("err: unknown post: " + query + "\n");
         send404(res);
         break;
       }
@@ -140,12 +146,12 @@ sys.print("req: " + req.method + '\n');
   } else {
     var filePath = querystring.unescape(url.parse(req.url).pathname);
     var fullPath = path.join(process.cwd(), filePath);
-    sys.print("path: " + fullPath + "\n");
+    util.print("path: " + fullPath + "\n");
     var mimeType = getMimeType(fullPath);
     if (mimeType) {
       fs.readFile(fullPath, function(err, data){
         if (err) {
-          sys.print("err not found: " + fullPath + "\n");
+          util.print("err not found: " + fullPath + "\n");
           return send404(res);
         }
         res.writeHead(200, {'Content-Type': mimeType})
@@ -153,7 +159,7 @@ sys.print("req: " + req.method + '\n');
         res.end();
       });
     } else {
-      sys.print("err: unknown mimetype for " + fullPath + "\n");
+      util.print("err: unknown mimetype for " + fullPath + "\n");
       send404(res);
     }
   }
@@ -165,34 +171,47 @@ send404 = function(res){
   res.end();
 };
 
-sys.print("Listening on port: " + g.port + "\n");
+util.print("Listening on port: " + g.port + "\n");
 server.listen(g.port);
 
-// socket.io, I choose you
-// simplest chat application evar
-var io = io.listen(server),
-    buffer = [];
-
-var g_allSettings = {};
-var g_clientIds = {};
-var g_numClients = 0;
-
-io.on('connection', function(client){
-  g_clientIds[client.sessionId] = true;
-  ++g_numClients;
-  client.send(g_allSettings);
-
-  client.on('message', function(message){
-    console.log("msg:" + message);
-    applySettings(message, g_allSettings);
-    //client.broadcast(message);
-    client.listener.broadcast(message);
+var wsServer = new WebSocketServer({
+    httpServer: server,
+    autoAcceptConnections: false
   });
 
-  client.on('disconnect', function(){
-    delete g_clientIds[client.sessionId];
-    --g_numClients;
-    if (g_numClients == 0) {
+var g_allSettings = {};
+var g_clients = [];
+
+function broadcast(message) {
+  for (var ii = 0; ii < g_clients.length; ++ii) {
+    g_clients[ii].sendUTF(message);
+  }
+}
+
+wsServer.on('request', function(request) {
+  util.print("new connection from: " + request.origin + "\n");
+  var connection = request.accept(null, request.origin);
+  g_clients.push(connection);
+
+  connection.sendUTF(JSON.stringify(g_allSettings));
+
+  connection.on('message', function(message){
+    switch (message.type) {
+    case 'utf8':
+      console.log("msg:" + message.utf8Data);
+      applySettings(JSON.parse(message.utf8Data), g_allSettings);
+      broadcast(message.utf8Data);
+      break;
+    default:
+      console.log("ERROR: unknown message type: " + message.type);
+      break;
+    }
+  });
+
+  connection.on('close', function(){
+    util.print("close connection\n");
+    g_clients.splice(g_clients.indexOf(connection), 1);
+    if (g_clients.length == 0) {
       console.log("cleared all settings");
       g_allSettings = { };
     }

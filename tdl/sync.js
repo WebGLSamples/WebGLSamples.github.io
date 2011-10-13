@@ -73,21 +73,39 @@ tdl.sync.SyncManager = function(settings, opt_callback) {
  * @param {boolean} slave true if this page is a slave. Slaves only receive
  *     settings from the server. Non slaves send settings the server.
  */
-tdl.sync.SyncManager.prototype.init = function(server, port, slave) {
+tdl.sync.SyncManager.prototype.init = function(url, slave) {
   var that = this;
   this.sync = true;
   this.slave = slave;
-  this.socket = new io.Socket(null, {
-      port: port,
-      transports: ['websocket']});
-  this.socket.connect();
-  this.socket.on('message', function(obj) {
+  this.socket = new WebSocket(url);
+  this.opened = false;
+  this.queued = [];
+  this.socket.onopen = function(event) {
+    tdl.log("SOCKET OPENED!");
+    that.opened = true;
+    for (var ii = 0; ii < that.queued.length; ++ii) {
+      var settings = that.queued[ii];
+      ++that.putCount;
+      tdl.log("--PUT:[", that.putCount, "]-------------");
+      tdl.log(settings);
+      that.socket.send(settings);
+    }
+    that.queued = [];
+  };
+  this.socket.onerror = function(event) {
+    tdl.log("SOCKET ERROR!");
+  };
+  this.socket.onclose = function(event) {
+    tdl.log("SOCKET CLOSED!");
+  };
+  this.socket.onmessage = function(event) {
     ++that.getCount;
-    //tdl.log("--GET:[", g_getCount, "]-------------");
-    //tdl.dumpObj(obj);
+    tdl.log("--GET:[", g_getCount, ":", event.type, "]-------------");
+    var obj = JSON.parse(event.data);
+    tdl.dumpObj(obj);
     tdl.misc.copyProperties(obj, that.settings);
     that.callback(obj);
-  });
+  };
 };
 
 /**
@@ -102,10 +120,14 @@ tdl.sync.SyncManager.prototype.setSettings = function(settings) {
   if (this.sync) {
     if (!this.slave) {
       if (this.socket) {
-        ++this.putCount;
-        //tdl.log("--PUT:[", this.putCount, "]-------------");
-        //tdl.dumpObj(settings);
-        this.socket.send(settings);
+        if (!this.opened) {
+          this.queued.push(JSON.stringify(settings));
+        } else {
+          ++this.putCount;
+          tdl.log("--PUT:[", this.putCount, "]-------------");
+          tdl.dumpObj(settings);
+          this.socket.send(JSON.stringify(settings));
+        }
       }
     }
   } else {
