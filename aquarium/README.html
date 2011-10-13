@@ -15,6 +15,9 @@ TABLE TD {
   padding: 0.5em;
   vertical-align: top;
 }
+OL>LI {
+  margin-top: 1em;
+}
 </style>
 </head>
 <body>
@@ -36,11 +39,11 @@ TABLE TD {
 <p>Where <i>address_of_server</i> is the domain name or ip address of the server, <i>port_of_server</i> is the port of the server, and <i>mult</i> is 0 for the center machine, positive for machines to the right of the server and negative for machines to the left.</p>
 <p>In other words, if the server is "myserver.com" and your running on port 8080 and you had 5 machines, A, B, C, D, E in that order left to right and you wanted machine C to be the master the URLs would for each machine would be:</p>
 <pre>
-Machine A: http://myserver.com:4000/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-2}}
-Machine B: http://myserver.com:4000/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-1}}
-Machine C: http://myserver.com:4000/aquarium/aquarium.html?settings={net:{sync:true,ui:true,slave:false,fovMult:1.0,rotYMult:0}}
-Machine D: http://myserver.com:4000/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-1}}
-Machine E: http://myserver.com:4000/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-2}}
+Machine A: http://myserver.com:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-2}}
+Machine B: http://myserver.com:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-1}}
+Machine C: http://myserver.com:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:true,slave:false,fovMult:1.0,rotYMult:0}}
+Machine D: http://myserver.com:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-1}}
+Machine E: http://myserver.com:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-2}}
 </pre>
 <p>At that point, settings changed on the master should be propagated to the slaves.</p>
 <h3>Options:</h3>
@@ -48,13 +51,50 @@ Machine E: http://myserver.com:4000/aquarium/aquarium.html?settings={net:{sync:t
 <tr><td>ui:</td><td>boolean</td><td><p>Whether or not to display a user interface.</p></td></tr>
 <tr><td>sync:</td><td>boolean</td><td><p>Whether or not to get settings from a server</p></td></tr>
 <tr><td>slave:</td><td>boolean</td><td><p>Whether or not to send settings to the server. False = send</p></td></tr>
-<tr><td>rotYMult:</td><td>number</td><td><p>The amount to multiply the field of view for each monitor.</p></td></tr>
+<tr><td>rotYMult:</td><td>number</td><td><p>The amount to multiply the field of view for each monitor. Assumes they are all the same size.</p></td></tr>
 <tr><td>fovMult:</td><td>number</td><td><p>The amount to multiply the field of view offset for each monitor.</p><p>The system computes the field of view for the monitor and multiplies by both rotYMult and fovMult to compute how much to rotate the view for each monitor. Think of rotYMult as a per machine setting and fovMult as a global setting. Adjust fovMult to specify the gap between monitors. For example on the Liquid Galaxy in the video above the fovMult is 1.12</p></td></tr>
 <tr><td>offset:</td><td>array</td><td><p>The amount to offset the frustum. Used to make a large virtual monitor. Example: offset:[-1,0] would define a monitor 1 unit left of the center monitor.</p></td></tr>
 <tr><td>offsetMult:</td><td>number</td><td><p>Amount to multiply the offset by. Think of offset as a per machine setting and offsetMult as a global setting.</p></tr>
 </table>
+<h3>Terse Setup</h3>
+<p>These steps worked for me as of 2011/10/13</p>
+<p>On Windows 7</p>
+<ol>
+<li>download the source</li>
+<li>download node.js binary for windows from <a href="http://nodejs.org/#download">http://nodejs.org/#download</a><br/>
+Mine was 0.5.9</li>
+<li>cd to the root folder of the samples (ie, "cd webglsamples")</li>
+<li>open a command prompt and type &lt;path_to_node.js&gt;/node.exe server\server.js<br/><br/>
+
+On my system it was<br/>
+f:\Users\gman\Downloads\node.exe server\server.js<br/><br/>
+
+You'll probably get firefall warning from windows. Allow it.</li>
+<li>Start Chrome 14 or newer<br/><br/>
+Note: it doesn't have to be Chrome 14 but it does have to be a browser that supports WebSockets draft-8, 9 or 10</li>
+<li>Make the window horizontally about 1/2 the size of your monitor or less</li>
+
+<li>Make a new tab. Pull it off the window so you now have 2 chrome
+windows and arrange the 2 windows (which would both be the same size now)
+side by side</li>
+
+<li>In the right window use this URL<br/>
+<a href="http://localhost:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:true,slave:false,fovMult:1.0,rotYMult:0}}">http://localhost:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:true,slave:false,fovMult:1.0,rotYMult:0}}</a></li>
+
+<li>In the left window use this URL<br/>
+<a href="http://localhost:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-1}}">http://localhost:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-1}}</a></li>
+</ol>
+
+<p>It will take up a few seconds for them to sync I think but it was
+working for me ;-)</p>
+
+<p>To run it across machines, change "localhost" to the ip address of the
+machine running node.js</p>
+
+<p>Note: you might have to stop and start node.js which you can do by
+pressing Ctrl+Break twice in it's window</p>
 <h2>Implemenation Notes:</h2>
-<p>The aquarium runs almost entirely based on a clock. When in networked mode that clock is the system time of day clock. That means the position of the camera and every fish will be the same across machines if their clocks are in sync. Otherwise, using node.js and the socket.io library the master sends a JSON string with any new settings to the server. The server then broadcasts those settings to each of the machines.</p>
+<p>The aquarium runs almost entirely based on a clock. That means the position of the camera and every fish will be the same across machines if their clocks are in sync. When in networked mode each machine keeps its clock in sync by periodically asking the server for the current time. Otherwise, using node.js and the websocket library the master sends a JSON string with any new settings to the server. The server then broadcasts those settings to each of the machines.</p>
 </body>
 </html>
 
