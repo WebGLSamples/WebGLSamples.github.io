@@ -51,10 +51,12 @@ a {
 #info {
     font-size: small;
     position: absolute;
-  	top: 0px; width: 100%;
-  	padding: 5px;
-  	text-align: center;
+  	top: 10px; 
+  	left: 100px;
   	z-index: 2;
+    background: rgba(0,0,0,0.5);
+    border-radius: 10px;
+    padding: 10px;
 }
 CANVAS {
   background-color: gray;
@@ -476,7 +478,10 @@ $(function(){
 </script>
 </head>
 <body>
-<div id="info"><span><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - flexible toon shading</span></div>
+<div id="info">
+  <div><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - flexible toon shading</div>
+  <div>Edit the ramp or select one below to change effects</div>
+</div>
 <div id="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
 </div>
