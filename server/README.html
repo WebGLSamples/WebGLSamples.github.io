@@ -15,7 +15,7 @@ PRE {
 <body>
 <h1>The WebGL Samples Sync Server</h1>
 <h2>Description</h2>
-<p>This is a very simple server written entirely in JavaScript using <a href="http://nodejs.org">node.js</a>. It serves the resources to the browser like a normal webserver as well as provides a WebSocket based server to keep various settings in sync across machines. The WebSocket parts of the code are implemented using <a href="http://socket.io">socket.io</a>.
+<p>This is a very simple server written entirely in JavaScript using <a href="http://nodejs.org">node.js</a>. It serves the resources to the browser like a normal webserver as well as provides a WebSocket based server to keep various settings in sync across machines. The WebSocket parts of the server are implemented using <a href="https://github.com/Worlize/WebSocket-Node">WebSocket-Node</a>.
 <h2>Starting the server</h2>
 The server is meant to be run from the root folder of the samples. Assuming the samples were installed with:</p>
 <pre>
@@ -31,14 +31,13 @@ node server/server.js --port 8080
 <h2>Syncing</h2>
 <p>Usage for syncing settings is fairly straight forward. Using tdl.sync, create a SyncManager</p>
 <pre>
-&lt;script type="text/javascript" src="../socket.io/socket.io.js"&gt;&lt;/script&gt;
 &lt;script type="text/javascript" src="../tdl/base.js"&gt;&lt;/script&gt;
 &lt;script type="text/javascript"&gt;
 tdl.require('tdl.sync');
 
 var objectToKeepInSync = {};
 g_syncManager = new tdl.sync.SyncManager(objectToKeepInSync);
-g_syncManager.init(serverURL, port, slave);
+g_syncManager.init(serverURL, slave);
 </pre>
 <p>where <i>objectToKeepInSync</i> is a JavaScript object that will contain the various settings you want to keep in sync. <i>slave</i> is a true if this browser instance is a slave or false if it is the master.</p>
 <p>After that you can send settings with SyncManager.setSettings(settings). Example:</p>

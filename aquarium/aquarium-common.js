@@ -255,10 +255,9 @@ function setSetting(elem, id) {
  */
 function initializeCommon() {
   if (g.net.sync) {
-    var server = window.location.href.match(/\/\/(.*?)\//)[1];
-    tdl.log("server:", server);
-    g.net.server = server;
-    g_syncManager.init(g.net.server, g.net.port, g.net.slave);
+    var url = "ws:" + window.location.host;
+    tdl.log("server:", url);
+    g_syncManager.init(url, g.net.slave);
     if (!g.net.slave) {
       g_viewSettingsIndex = 4;
       setViewSettings(g_viewSettingsIndex);
