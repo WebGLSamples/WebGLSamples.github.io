@@ -76,8 +76,9 @@ var Shader = function(vertexId, fragmentId) {
     }
 
     gl.linkProgram(this._program);
-    if (!gl.getProgramParameter(this._program, gl.LINK_STATUS)) {
-        tdl.log("prgoramInfoLog:", gl.getProgramInfoLog(this._program));
+    if (!gl.getProgramParameter(this._program, gl.LINK_STATUS) &&
+        !gl.isContextLost()) {
+        tdl.log("programInfoLog:", gl.getProgramInfoLog(this._program));
         gl.deleteProgram(this._program);
         throw "Program " + vertexId + ", " + fragmentId + " didn't link."
     }
@@ -100,7 +101,8 @@ Shader.prototype = {
         gl.shaderSource(shader, shaderSource);
         gl.compileShader(shader);
 
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS) &&
+            !gl.isContextLost()) {
             tdl.log(gl.getShaderInfoLog(shader));
             gl.deleteShader(shader);
             throw "Shader " + shaderId + " didn't compile.";
@@ -957,7 +959,7 @@ Master.prototype = {
                 gl.TEXTURE_2D, this.tex[i], 0);
 
             if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !=
-                gl.FRAMEBUFFER_COMPLETE)
+                gl.FRAMEBUFFER_COMPLETE && !gl.isContextLost())
                 throw "die";
 
             this.halo[i].resize(width, height);
@@ -993,6 +995,19 @@ var resize = function() {
 
 var main = function() {
     var canvas = document.getElementById("c");
+    var requestId;
+
+    canvas = WebGLDebugUtils.makeLostContextSimulatingCanvas(canvas);
+    // tell the simulator when to lose context.
+    canvas.loseContextInNCalls(10000);
+
+    tdl.webgl.registerContextLostHandler(canvas, function() {
+            tdl.webgl.cancelRequestAnimationFrame(requestId);
+        });
+    tdl.webgl.registerContextRestoredHandler(canvas, function() {
+            start();
+        });
+
     // I hope you don't mind. This is just so all of these demos have
     // one place to handle WebGL not available since the spec is being updated
     // for how to report that and distinguish between the browser doesn't have
@@ -1002,26 +1017,30 @@ var main = function() {
         return;
     }
 
-    master = new Master();
-    window.master = master;
-
     window.addEventListener("resize", resize, false);
-    resize();
+    start();
 
-    // This must be done after resize.
-    master.preanimate();
-    function render () {
-        var ok = false;
-        try {
-            master.drawClosure();
-            ok = true;
-        } finally {
-            if (ok) {
-              tdl.webgl.requestAnimationFrame(render, canvas);
+    function start() {
+        master = new Master();
+        window.master = master;
+
+        resize();
+
+        // This must be done after resize.
+        master.preanimate();
+        function render () {
+            var ok = false;
+            try {
+                master.drawClosure();
+                ok = true;
+            } finally {
+                if (ok) {
+                  requestId = tdl.webgl.requestAnimationFrame(render, canvas);
+                }
             }
-        }
-    };
-    render();
+        };
+        render();
+    }
 }
 // changed to work in IE so we can at least report the need WebGL
 window.onload = main

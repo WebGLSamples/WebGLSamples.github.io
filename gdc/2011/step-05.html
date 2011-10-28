@@ -3,6 +3,46 @@
 <meta charset="utf-8">
 <title>WebGL GDC Example Step 5 - UI</title>
 <style>
+body,html {
+  width: 100%;
+  height: 100%;
+  border: 0px;
+  text-align: center;
+}
+#outer {
+  width: 50%;
+  margin: auto;
+}
+#stage {
+  width: 600px
+  height: 400px;
+  -webkit-perspective: 800px;
+  -webkit-perspective-origin: 50%;
+  -webkit-transition: -webkit-perspective 1s;
+}
+#world {
+  -webkit-transform-style: preserve-3d;
+  -webkit-transition: -webkit-transform 1s;
+}
+.flat {
+    -webkit-perspective: 1;
+}
+.persp {
+    -webkit-perspective: 800px;
+}
+.zero {
+    -webkit-transform: translateX(0px) translateY(0px) rotateY(0deg) rotateX(0deg) rotateZ(0deg);
+}
+.threed {
+    -webkit-transform: translateX(100px) translateY(100px) rotateY(60deg) rotateX(30deg) rotateZ(-0deg);
+}
+.zero_a {
+    -webkit-transform: translateZ(1px);
+}
+.threed_a {
+    -webkit-transform: translateZ(60px);
+}
+
 #uiContainer {
   z-index: 2;
   position: absolute;
@@ -12,6 +52,7 @@
   padding: 20px;
   background: rgba(0,0,0,0.5);
   color: white;
+  -webkit-transition: -webkit-transform 1s;
 }
 
 </style>
@@ -256,20 +297,49 @@ function main() {
   return true;
 }
 
+function toggle3DCSS() {
+  var changes = [
+    { id: "#world", classes: ["zero", "threed"] },
+    { id: "#stage", classes: ["flat", "persp"] },
+    { id: "#uiContainer", classes: ["zero_a", "threed_a"] }
+  ];
+  var fromIndex = $("#world").hasClass("threed") ? 1 : 0;
+  var toIndex = fromIndex ? 0 : 1;
+
+  for (var ii = 0; ii < changes.length; ++ii) {
+    var c = changes[ii];
+    $(c.id).removeClass(c.classes[fromIndex]).addClass(c.classes[toIndex]);
+  }
+}
+
 $(function(){
+  $(document).keypress(function(event) {
+    if (event.keyCode == '3'.charCodeAt(0)) {
+      toggle3DCSS();
+    }
+  });
+
   main()
 })
 </script>
 </head>
 <body>
+<div id="outer">
+<div id="stage">
+<div id="world">
+<div id="canvasContainer">
 <canvas id="mycanvas" width="600" height="400"></canvas>
-<div id="uiContainer">
+</div>
+<div id="uiContainer" class="zero_a">
 <div>red</div>
 <div id="red"></div>
 <div>green</div>
 <div id="green"></div>
 <div>blue</div>
 <div id="blue"></div>
+</div>
+</div>
+</div>
 </div>
 </body>
 <script id="sphereVertexShader" type="text/something-not-javascript">
