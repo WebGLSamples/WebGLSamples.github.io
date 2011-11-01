@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Pipelining</title>
+    <script type="text/javascript" src="webgl-debug.js"></script>
+    <script type="text/javascript" src="gl-matrix.js"></script>
+    <script type="text/javascript" src="demo-common.js"></script>
+    <script type="text/javascript">
+      /* 05-pipelining
+       * This demo shows using double-buffering with render-to-texture operations to
+       * ensure that the GPU does not block. The goal is to draw a scene into a texture
+       * and then draw that texture on a cube - a technique used for things such as shadowing,
+       * mirrors, post-processing effects, etc. In GPU-constrained scenarios (limited GPU power or
+       * complex scenes) there can often be a significant performance penalty for using a render
+       * target as a source within in the same frame. This demo shows off how to get synchronized
+       * scenes while using alternating render target textures to ensure that there is no
+       * read-after-write dependency.
+       *
+       * Note that not all scenarios will want to do this, as it can introduce one frame of latency
+       * into the presentation. It's often possible, however, to work around this by only double-buffering
+       * the expensive parts of a scene (such as dynamic shadow maps) and leaving elements tied to user-input
+       * (like cameras) running realtime without the viewer noticing.
+       */
+
+      // Application state and control
+      var App = function() {
+        this.canvas = null;
+        this.gl = null;
+        this.rafId = null;
+
+        this.material = null;
+        this.cube = null;
+
+        this.lastTimestamp = 0;
+        this.rotation = [0, 0, 0];
+        this.previousWvpMatrix = mat4.create();
+        this.currentRenderTexture = null;
+
+        // Wait for document load
+        window.addEventListener('load', bind(this.documentLoaded, this), false);
+      };
+
+      // Document load handler (DOM ready)
+      App.prototype.documentLoaded = function() {
+        // Setup the helper library
+        GL.setup();
+
+        // Grab the canvas and wire support for context-loss
+        this.canvas = document.getElementById('canvas');
+        this.canvas.addEventListener('webglcontextrestored', bind(function(e) {
+          e.preventDefault();
+          this.contextRestored();
+        }, this), false);
+        this.canvas.addEventListener('webglcontextlost', bind(function(e) {
+          e.preventDefault();
+          this.contextLost();
+        }, this), false);
+
+        // Initial setup
+        this.contextRestored();
+      };
+
+      // WebGL context restored/setup
+      App.prototype.contextRestored = function() {
+        // Grab GL
+        var gl = this.gl = this.canvas.getContext('experimental-webgl', {
+          alpha: false
+        });
+        if (!gl) {
+          alert('Unable to create WebGL context');
+        }
+        // gl = this.gl = WebGLDebugUtils.makeDebugContext(this.gl);
+
+        gl.clearColor(0, 0, 1, 1);
+        gl.enable(gl.CULL_FACE);
+        gl.enable(gl.DEPTH_TEST);
+
+        // Setup resources
+        if (this.setupResources) {
+          this.setupResources();
+        }
+
+        // Kick off drawing
+        this.drawFrame();
+      };
+
+      // WebGL context lost/cleanup
+      App.prototype.contextLost = function() {
+        // Abort pending draws
+        GL.cancelRequestAnimationFrame(this.rafId);
+
+        // Cleanup resources
+        if (this.cleanupResources) {
+          this.cleanupResources();
+        }
+        this.gl = null;
+      };
+
+      // Setup application resources
+      App.prototype.setupResources = function() {
+        var gl = this.gl;
+        this.cleanupResources();
+
+        this.colorMaterial = new SolidColorMaterial(gl);
+        this.colorMaterial.setColor(1, 0, 0, 1);
+        this.textureMaterial = new TextureMaterial(gl);
+        this.textureMaterial.setSampler(0);
+
+        this.cube = new SimpleCube(gl);
+
+        var width = gl.drawingBufferWidth;
+        var height = gl.drawingBufferHeight;
+
+        // Framebuffer setup for render-to-texture
+        this.framebuffer = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+
+        // Color buffers
+        function createRenderTexture() {
+          var texture = gl.createTexture();
+          gl.bindTexture(gl.TEXTURE_2D, texture);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, width, height, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
+          return texture;
+        };
+        this.renderTexture0 = createRenderTexture();
+        this.renderTexture1 = createRenderTexture();
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.renderTexture0, 0);
+        this.currentRenderTexture = this.renderTexture0;
+
+        // Depth buffer
+        var depthRenderbuffer = gl.createRenderbuffer();
+        gl.bindRenderbuffer(gl.RENDERBUFFER, depthRenderbuffer);
+        gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthRenderbuffer);
+
+        // Verify correct
+        var status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        if (status != gl.FRAMEBUFFER_COMPLETE) {
+          if (window['WebGLDebugUtils']) {
+            status = WebGLDebugUtils.glEnumToString(status);
+          }
+          alert('Unable to create render target: ' + status);
+        }
+      };
+
+      // Cleanup application resources
+      App.prototype.cleanupResources = function() {
+        var gl = this.gl;
+
+        this.colorMaterial = null;
+        this.textureMaterial = null;
+        this.cube = null;
+
+        this.renderTexture = null;
+        this.framebuffer = null;
+      };
+
+      // Draw a single frame
+      App.prototype.drawFrame = function(timestamp) {
+        var gl = this.gl;
+
+        // Animate
+        if (this.lastTimestamp) {
+          var dt = (timestamp - this.lastTimestamp) / 1000;
+          var dr = Math.PI / 4 * dt;
+          this.rotation[0] += dr;
+          this.rotation[1] += dr;
+          this.rotation[2] += dr;
+        }
+        this.lastTimestamp = timestamp;
+
+        // Compute matrices
+        var projMatrix = mat4.perspective(45, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 100);
+        var viewMatrix = mat4.create();
+        mat4.identity(viewMatrix);
+        mat4.translate(viewMatrix, [0, 0, -5]);
+        var worldMatrix = mat4.create();
+        mat4.identity(worldMatrix);
+        mat4.rotate(worldMatrix, this.rotation[0], [1, 0, 0]);
+        mat4.rotate(worldMatrix, this.rotation[1], [0, 1, 0]);
+        mat4.rotate(worldMatrix, this.rotation[2], [0, 0, 1]);
+        var wvpMatrix = mat4.create();
+        mat4.multiply(viewMatrix, worldMatrix, wvpMatrix);
+        mat4.multiply(projMatrix, wvpMatrix, wvpMatrix);
+
+        // Shared setup
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        this.cube.setState();
+
+        // Begin rendering into the render target framebuffer and swap the textures
+        // Note that changing the color attachment is generally quite fast if done at the
+        // start of the frame and if there are no draw calls depending on the framebuffers/textures
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+        var sourceRenderTexture = this.currentRenderTexture;
+        if (this.currentRenderTexture == this.renderTexture0) {
+          this.currentRenderTexture = this.renderTexture1;
+        } else {
+          this.currentRenderTexture = this.renderTexture0;
+        }
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.currentRenderTexture, 0);
+
+        // Render the red cube into the framebuffer
+        // This uses the newly computed WVP matrix and is the 'current' scene
+        gl.clearColor(0, 1, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        this.colorMaterial.use();
+        gl.uniformMatrix4fv(this.colorMaterial.u_matrix, false, wvpMatrix);
+        this.cube.draw(true);
+
+        // Back to the default framebuffer
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+        // Render the display cube with the red cube scene texture
+        // This uses the WVP matrix of the previous frame to ensure what is presented
+        // matches the texture from last frame
+        gl.clearColor(0, 0, 1, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.bindTexture(gl.TEXTURE_2D, sourceRenderTexture);
+        this.textureMaterial.use();
+        gl.uniformMatrix4fv(this.textureMaterial.u_matrix, false, this.previousWvpMatrix);
+        this.cube.draw(true);
+
+        // Stash the current WVP matrix for use next frame
+        this.previousWvpMatrix = wvpMatrix;
+
+        // If we were to do a readback (gl.readPixels), we'd want to do it here so that the implicit
+        // gl.flush will get all of the rendering commands off to the GPU
+        // If latency is tolerable, reading back the previous frame's texture (sourceRenderTexture)
+        // instead of the one generated this frame is better as there's no chance for the GPU to
+        // still be generating it
+
+        // Continue drawing
+        var boundDraw = bind(this.drawFrame, this);
+        this.rafId = GL.requestAnimationFrame(function(timestamp) {
+          boundDraw(timestamp);
+        }, this.canvas);
+      };
+
+
+
+      // Global app instance
+      var app = new App();
+
+    </script>
+  </head>
+  <body>
+    <canvas id="canvas" width="500" height="500"></canvas>
+  </body>
+</html>

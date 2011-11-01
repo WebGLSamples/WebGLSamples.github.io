@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Atlasing</title>
+    <script type="text/javascript" src="webgl-debug.js"></script>
+    <script type="text/javascript" src="gl-matrix.js"></script>
+    <script type="text/javascript" src="demo-common.js"></script>
+    <script type="text/javascript">
+      // Atlas texture material.
+      var AtlasTextureMaterial = function(gl) {
+        BaseMaterial.call(this, gl);
+
+        this.program = GL.createProgram(gl,
+            AtlasTextureMaterial.vertexShader,
+            AtlasTextureMaterial.fragmentShader, {
+              'a_position': 0,
+              'a_uv': 1,
+              'a_atlasIndex': 2,
+            });
+        this.program.displayName = 'AtlasTextureMaterial';
+        this.u_matrix = gl.getUniformLocation(this.program, 'u_matrix');
+        this.u_sampler = gl.getUniformLocation(this.program, 'u_sampler');
+        this.u_texturesPerEdge = gl.getUniformLocation(this.program, 'u_atlasTexturesPerEdge');
+      };
+
+      inherit(AtlasTextureMaterial, BaseMaterial);
+
+      AtlasTextureMaterial.vertexShader = [
+        'uniform mat4 u_matrix;',
+        'uniform float u_atlasTexturesPerEdge;',
+        'attribute vec3 a_position;',
+        'attribute vec2 a_uv;',
+        'attribute float a_atlasIndex;',
+        'varying vec2 v_uv;',
+        'void main() {',
+        '  gl_Position = u_matrix * vec4(a_position, 1.0);',
+        '  // Compute x and y indices in atlas',
+        '  float xIndex = mod(a_atlasIndex, u_atlasTexturesPerEdge);',
+        '  float yIndex = floor(a_atlasIndex / u_atlasTexturesPerEdge);',
+        '  // Scale and translate incoming texture coordinates to select image',
+        '  float scaleFactor = 1.0 / u_atlasTexturesPerEdge;',
+        '  v_uv = scaleFactor * (a_uv + vec2(xIndex, yIndex));',
+        '}'
+      ].join('\n');
+
+      AtlasTextureMaterial.fragmentShader = [
+        'precision mediump float;',
+        'uniform sampler2D u_sampler;',
+        'varying vec2 v_uv;',
+        'void main() {',
+        '  gl_FragColor = texture2D(u_sampler, v_uv);',
+        '}'
+      ].join('\n');
+
+      // Application state and control
+      var App = function() {
+        this.canvas = null;
+        this.gl = null;
+        this.rafId = null;
+
+        this.material = null;
+        this.cubes = null;
+
+        this.lastTimestamp = 0;
+        this.rotation = [0, 0, 0];
+
+        // Wait for document load
+        window.addEventListener('load', bind(this.documentLoaded, this), false);
+      };
+
+      // Document load handler (DOM ready)
+      App.prototype.documentLoaded = function() {
+        // Setup the helper library
+        GL.setup();
+
+        // Grab the canvas and wire support for context-loss
+        this.canvas = document.getElementById('canvas');
+        this.canvas.addEventListener('webglcontextrestored', bind(function(e) {
+          e.preventDefault();
+          this.contextRestored();
+        }, this), false);
+        this.canvas.addEventListener('webglcontextlost', bind(function(e) {
+          e.preventDefault();
+          this.contextLost();
+        }, this), false);
+        this.useAtlasCheckbox = document.getElementById("useAtlas");
+
+        // Initial setup
+        this.contextRestored();
+      };
+
+      // WebGL context restored/setup
+      App.prototype.contextRestored = function() {
+        // Grab GL
+        var gl = this.gl = this.canvas.getContext('experimental-webgl', {
+          alpha: false
+        });
+        if (!gl) {
+          alert('Unable to create WebGL context');
+        }
+        // gl = this.gl = WebGLDebugUtils.makeDebugContext(this.gl);
+
+        gl.clearColor(0, 0, 1, 1);
+        gl.enable(gl.CULL_FACE);
+
+        // Setup resources
+        if (this.setupResources) {
+          this.setupResources();
+        }
+
+        // Kick off drawing
+        this.drawFrame();
+      };
+
+      // WebGL context lost/cleanup
+      App.prototype.contextLost = function() {
+        // Abort pending draws
+        GL.cancelRequestAnimationFrame(this.rafId);
+
+        // Cleanup resources
+        if (this.cleanupResources) {
+          this.cleanupResources();
+        }
+        this.gl = null;
+      };
+
+      // Generates a bunch of random positions within the cube
+      // centered at the origin and with edge length edgeLength.
+      App.prototype.generateRandomPositions = function(numPositions, edgeLength) {
+        var result = new Float32Array(3 * numPositions);
+        for (var ii = 0; ii < result.length; ++ii) {
+          result[ii] = (Math.random() - 0.5) * edgeLength;
+        }
+        return result;
+      };
+
+      App.prototype.newTexture = function() {
+        var gl = this.gl;
+        var texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        return texture;
+      }
+
+      // Setup application resources
+      App.prototype.setupResources = function() {
+        var gl = this.gl;
+        this.cleanupResources();
+
+        // Generate both individual textures as well as the texture atlas
+        var textureSize = 32;
+        var fontSize = 12;
+        this.textureSize = textureSize;
+        var texturePacking = 32; // Number of textures across / down in the atlas
+        this.texturePacking = texturePacking;
+
+        var textCanvas = document.createElement("canvas");
+        textCanvas.width = textureSize;
+        textCanvas.height = textureSize;
+        var textCtx = textCanvas.getContext("2d");
+        textCtx.font = "" + fontSize + "px sans-serif";
+
+        // Flip all of these textures vertically
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+        var atlasCanvas = document.createElement("canvas");
+        atlasCanvas.width = textureSize * texturePacking;
+        atlasCanvas.height = textureSize * texturePacking;
+        var atlasCtx = atlasCanvas.getContext("2d");
+
+        var textures = [];
+
+        for (var yy = 0; yy < texturePacking; ++yy) {
+          for (var xx = 0; xx < texturePacking; ++xx) {
+            textCtx.fillStyle = "#999999";
+            textCtx.fillRect(0, 0, textCanvas.width, textCanvas.height);
+            textCtx.fillStyle = "#FFFFFF";
+            var textOffset = (textureSize - fontSize) / 2;
+            textCtx.fillText("" + (1 + (texturePacking * yy) + xx),
+                             textOffset, textureSize - textOffset);
+
+            // Generate a WebGL texture and upload this canvas into it
+            var texture = this.newTexture();
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, textCanvas);
+            textures.push(texture);
+
+            // Draw this canvas into the atlas
+            atlasCtx.drawImage(textCanvas, textureSize * xx, textureSize * (texturePacking - yy - 1));
+          }
+        }
+
+        this.textures = textures;
+
+        // Turn the atlas canvas into a texture
+        var atlasTexture = this.newTexture();
+        gl.bindTexture(gl.TEXTURE_2D, atlasTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, atlasCanvas);
+        this.atlasTexture = atlasTexture;
+
+        this.simpleMaterial = new TextureMaterial(gl);
+        this.atlasMaterial = new AtlasTextureMaterial(gl);
+        this.cubes = new BatchedCubes(gl, this.generateRandomPositions(1024, 40));
+
+        // Generate a buffer containing the per-vertex atlas indices.
+        var numCubes = this.cubes.numCubes;
+        var verticesPerCube = 24; // From examination of SimpleCube
+        var data = new Float32Array(verticesPerCube * numCubes);
+        var index = 0;
+        for (var ii = 0; ii < numCubes; ++ii) {
+          var textureIndex = ii % this.textures.length;
+          for (var jj = 0; jj < verticesPerCube; ++jj) {
+            data[ii * verticesPerCube + jj] = textureIndex;
+          }
+        }
+        var atlasIndexBuffer = gl.createBuffer();
+        atlasIndexBuffer.displayName = 'Atlas index VB';
+        gl.bindBuffer(gl.ARRAY_BUFFER, atlasIndexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+        this.atlasIndexBuffer = atlasIndexBuffer;
+      };
+
+      // Cleanup application resources
+      App.prototype.cleanupResources = function() {
+        var gl = this.gl;
+
+        this.textures = null;
+
+        this.material = null;
+        this.cubes = null;
+      };
+
+      // Draw a single frame
+      App.prototype.drawFrame = function(timestamp) {
+        var gl = this.gl;
+
+        // Animate
+        if (this.lastTimestamp) {
+          var dt = (timestamp - this.lastTimestamp) / 1000;
+          var dr = Math.PI / 4 * dt;
+          this.rotation[0] += dr;
+          this.rotation[1] += dr;
+          this.rotation[2] += dr;
+        }
+        this.lastTimestamp = timestamp;
+
+        // Compute matrices
+        var projMatrix = mat4.perspective(45, gl.drawingBufferWidth / gl.drawingBufferHeight, 1, 1000);
+        var viewMatrix = mat4.create();
+        mat4.identity(viewMatrix);
+        mat4.translate(viewMatrix, [0, 0, -60]);
+        var worldMatrix = mat4.create();
+        mat4.identity(worldMatrix);
+        mat4.rotate(worldMatrix, this.rotation[0], [1, 0, 0]);
+        mat4.rotate(worldMatrix, this.rotation[1], [0, 1, 0]);
+        mat4.rotate(worldMatrix, this.rotation[2], [0, 0, 1]);
+        var wvpMatrix = mat4.create();
+        mat4.multiply(viewMatrix, worldMatrix, wvpMatrix);
+        mat4.multiply(projMatrix, wvpMatrix, wvpMatrix);
+
+        // Scene setup
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.enable(gl.DEPTH_TEST);
+
+        // Decide whether to use the texture atlas or not
+        if (this.useAtlasCheckbox && this.useAtlasCheckbox.checked) {
+          this.atlasMaterial.use();
+          gl.uniform1i(this.atlasMaterial.u_sampler, 0);
+          gl.uniformMatrix4fv(this.atlasMaterial.u_matrix, false, wvpMatrix);
+          gl.uniform1f(this.atlasMaterial.u_texturesPerEdge, this.texturePacking);
+          this.cubes.setState();
+          // Set up the attribute array for the atlas indices
+          gl.bindBuffer(gl.ARRAY_BUFFER, this.atlasIndexBuffer);
+          gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 0, 0);
+          gl.enableVertexAttribArray(2);
+          gl.bindTexture(gl.TEXTURE_2D, this.atlasTexture);
+          this.cubes.draw(true);
+        } else {
+          this.simpleMaterial.use();
+          gl.uniform1i(this.simpleMaterial.u_sampler, 0);
+          gl.uniformMatrix4fv(this.simpleMaterial.u_matrix, false, wvpMatrix);
+          this.cubes.setState();
+          gl.disableVertexAttribArray(2);
+          for (var ii = 0; ii < this.cubes.numCubes; ++ii) {
+            gl.bindTexture(gl.TEXTURE_2D, this.textures[ii % this.textures.length]);
+            this.cubes.drawOne(true, ii);
+          }
+        }
+
+        // Continue drawing
+        var boundDraw = bind(this.drawFrame, this);
+        this.rafId = GL.requestAnimationFrame(function(timestamp) {
+          boundDraw(timestamp);
+        }, this.canvas);
+      };
+
+      // Global app instance
+      var app = new App();
+
+    </script>
+  </head>
+  <body>
+    <canvas id="canvas" width="1024" height="768"></canvas>
+    <form>
+      <input type="checkbox" id="useAtlas" />
+      Use Texture Atlas
+    </form>
+  </body>
+</html>

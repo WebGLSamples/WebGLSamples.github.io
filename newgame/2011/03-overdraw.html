@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Overdraw</title>
+    <script type="text/javascript" src="webgl-debug.js"></script>
+    <script type="text/javascript" src="gl-matrix.js"></script>
+    <script type="text/javascript" src="demo-common.js"></script>
+    <script type="text/javascript">
+      /* 03-overdraw
+       * This demo shows how to use the depth buffer and draw order to reduce overdraw in a scene,
+       * regaining fill-rate lost to invisible (but still computed) pixels on the screen.
+       * Several overlapping cubes are drawn with expensive fragment shaders, in front-to-back z order.
+       * By toggling depth testing, it's possible to visibly see the reduction in overdraw, as well as the
+       * gain in performance due to the reduced number of fragments being computed.
+       *
+       * 2D and 3D games alike should ensure they are always compositing front-to-back (when possible) and
+       * using depth testing effectively. In 2D games, especially those ported from Canvas, renderers often
+       * use the painters algorithm and draw back-to-front - this demonstrates why it's important to rework
+       * renderers to exploit the features of WebGL, and how by using WebGL one can get GPU accelerated
+       * compositing that is much faster than Canvas can achieve.
+       */
+
+      // Application state and control
+      var App = function() {
+        this.canvas = null;
+        this.gl = null;
+        this.rafId = null;
+
+        this.material = null;
+        this.cube = null;
+
+        this.lastTimestamp = 0;
+        this.rotation = [0, 0, 0];
+
+        // Wait for document load
+        window.addEventListener('load', bind(this.documentLoaded, this), false);
+      };
+
+      // Document load handler (DOM ready)
+      App.prototype.documentLoaded = function() {
+        // Setup the helper library
+        GL.setup();
+
+        // Grab the canvas and wire support for context-loss
+        this.canvas = document.getElementById('canvas');
+        this.canvas.addEventListener('webglcontextrestored', bind(function(e) {
+          e.preventDefault();
+          this.contextRestored();
+        }, this), false);
+        this.canvas.addEventListener('webglcontextlost', bind(function(e) {
+          e.preventDefault();
+          this.contextLost();
+        }, this), false);
+
+        // Initial setup
+        this.contextRestored();
+      };
+
+      // WebGL context restored/setup
+      App.prototype.contextRestored = function() {
+        // Grab GL
+        var gl = this.gl = this.canvas.getContext('experimental-webgl', {
+          alpha: true
+        });
+        if (!gl) {
+          alert('Unable to create WebGL context');
+        }
+        //gl = this.gl = WebGLDebugUtils.makeDebugContext(this.gl);
+
+        gl.clearColor(0, 0, 1, 1);
+        gl.enable(gl.CULL_FACE);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+        // Setup resources
+        if (this.setupResources) {
+          this.setupResources();
+        }
+
+        // Kick off drawing
+        this.drawFrame();
+      };
+
+      // WebGL context lost/cleanup
+      App.prototype.contextLost = function() {
+        // Abort pending draws
+        GL.cancelRequestAnimationFrame(this.rafId);
+
+        // Cleanup resources
+        if (this.cleanupResources) {
+          this.cleanupResources();
+        }
+        this.gl = null;
+      };
+
+      // Kind of expensive per-pixel material
+      var AlphaExpensiveFragmentMaterial = function(gl) {
+        this.gl = gl;
+
+        this.program = GL.createProgram(gl,
+            AlphaExpensiveFragmentMaterial.vertexShader,
+            AlphaExpensiveFragmentMaterial.fragmentShader.replace(
+                '{CONSTANT}', AlphaExpensiveFragmentMaterial.CONSTANT), {
+              'a_position': 0
+            });
+        this.program.displayName = 'AlphaExpensiveFragmentMaterial';
+        this.u_wmatrix = gl.getUniformLocation(this.program, 'u_wmatrix');
+        this.u_vpmatrix = gl.getUniformLocation(this.program, 'u_vpmatrix');
+        this.u_color = gl.getUniformLocation(this.program, 'u_color');
+        this.u_alpha = gl.getUniformLocation(this.program, 'u_alpha');
+        this.u_increment = gl.getUniformLocation(this.program, 'u_increment');
+      };
+
+      AlphaExpensiveFragmentMaterial.prototype.setColor = function(r, g, b, a) {
+        var gl = this.gl;
+
+        gl.useProgram(this.program);
+        gl.uniform4f(this.u_color, r, g, b, a);
+      };
+
+      AlphaExpensiveFragmentMaterial.prototype.use = function() {
+        var gl = this.gl;
+
+        gl.useProgram(this.program);
+      };
+
+      AlphaExpensiveFragmentMaterial.vertexShader = [
+        'uniform mat4 u_wmatrix;',
+        'uniform mat4 u_vpmatrix;',
+        'attribute vec3 a_position;',
+        'void main() {',
+        '  gl_Position = u_vpmatrix * u_wmatrix * vec4(a_position, 1.0);',
+        '}'
+      ].join('\n');
+
+      // Some large enough number to cause low framerates
+      AlphaExpensiveFragmentMaterial.CONSTANT = 100;
+
+      AlphaExpensiveFragmentMaterial.fragmentShader = [
+        'precision highp float;',
+        'uniform vec4 u_color;',
+        'uniform float u_alpha;',
+        'uniform float u_increment;',
+        'void main() {',
+        '  vec4 color = vec4(0.1, 0.1, 0.1, 1.0);',
+        '  for (int n = 0; n < {CONSTANT}; n++) {',
+        '    // Reference a uniform variable to try to defeat GLSL compiler optimizations',
+        '    color.rgb += vec3(u_increment, u_increment, u_increment);',
+        '  }',
+        '  color = mix(u_color, color, 0.1);',
+        '  gl_FragColor = vec4(color.rgb, u_alpha);',
+        '}'
+      ].join('\n');
+
+      // Setup application resources
+      App.prototype.setupResources = function() {
+        var gl = this.gl;
+        this.cleanupResources();
+
+        this.material = new AlphaExpensiveFragmentMaterial(gl);
+        this.material.setColor(1, 1, 0, 1);
+
+        this.cube = new SimpleCube(gl);
+      };
+
+      // Cleanup application resources
+      App.prototype.cleanupResources = function() {
+        var gl = this.gl;
+
+        this.material = null;
+        this.cube = null;
+      };
+
+      // Draw a single frame
+      App.prototype.drawFrame = function(timestamp) {
+        var gl = this.gl;
+
+        // Animate
+        if (this.lastTimestamp) {
+          var dt = (timestamp - this.lastTimestamp) / 1000;
+          var dr = Math.PI / 4 * dt;
+          this.rotation[0] += dr;
+          this.rotation[1] += dr;
+          this.rotation[2] += dr;
+        }
+        this.lastTimestamp = timestamp;
+
+        // Compute matrices
+        var projMatrix = mat4.perspective(45, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 10);
+        var viewMatrix = mat4.create();
+        mat4.identity(viewMatrix);
+        mat4.translate(viewMatrix, [0, 0, -5]);
+        var vpMatrix = mat4.create();
+        mat4.multiply(projMatrix, viewMatrix, vpMatrix);
+        gl.uniformMatrix4fv(this.material.u_vpmatrix, false, vpMatrix);
+
+        var worldMatrix = mat4.create();
+        mat4.identity(worldMatrix);
+        mat4.rotate(worldMatrix, this.rotation[0], [1, 0, 0]);
+        mat4.rotate(worldMatrix, this.rotation[1], [0, 1, 0]);
+        mat4.rotate(worldMatrix, this.rotation[2], [0, 0, 1]);
+        var offsetMatrix = mat4.create();
+        var wMatrix = mat4.create();
+
+        // Scene setup
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        // Cubes
+        this.material.use();
+        this.cube.setState();
+        var cubeCount = 10;
+        gl.uniform1f(this.material.u_alpha, 1 / cubeCount);
+        gl.uniform1f(this.material.u_increment, 0.01);
+        for (var n = 0; n < cubeCount; n++) {
+          gl.uniform4f(this.material.u_color, n / cubeCount, 1 - (n / cubeCount), 0, 1);
+          mat4.identity(offsetMatrix);
+          // Z is front to back
+          mat4.translate(offsetMatrix, [(n - cubeCount / 2) / cubeCount, 0, -5 + ((cubeCount - n) * 2 / cubeCount)]);
+          mat4.multiply(offsetMatrix, worldMatrix, wMatrix);
+          gl.uniformMatrix4fv(this.material.u_wmatrix, false, wMatrix);
+          this.cube.draw(true);
+        }
+
+        // Continue drawing
+        var boundDraw = bind(this.drawFrame, this);
+        this.rafId = GL.requestAnimationFrame(function(timestamp) {
+          boundDraw(timestamp);
+        }, this.canvas);
+      };
+
+      App.prototype.changeSize = function(size) {
+        this.canvas.width = size;
+        this.canvas.height = size;
+      };
+
+      App.prototype.changeCost = function(cost) {
+        AlphaExpensiveFragmentMaterial.CONSTANT = cost;
+        this.setupResources();
+      };
+
+      App.prototype.toggleDepth = function(depthTest) {
+        var gl = this.gl;
+
+        if (depthTest) {
+          gl.enable(gl.DEPTH_TEST);
+          gl.depthFunc(gl.LEQUAL);
+        } else {
+          gl.disable(gl.DEPTH_TEST);
+        }
+      };
+
+
+
+      // Global app instance
+      var app = new App();
+
+    </script>
+  </head>
+  <body>
+    <br/>
+    <div>
+      Size:
+      <a href="javascript:app.changeSize(4);">4x4</a>
+      <a href="javascript:app.changeSize(64);">64x64</a>
+      <a href="javascript:app.changeSize(256);">256x256</a>
+      <a href="javascript:app.changeSize(500);">500x500</a>
+      <a href="javascript:app.changeSize(768);">768x768</a>
+    </div>
+    <div>
+      Cost:
+      <a href="javascript:app.changeCost(100);">100</a>
+      <a href="javascript:app.changeCost(1000);">1000</a>
+      <a href="javascript:app.changeCost(5000);">5000</a>
+      <a href="javascript:app.changeCost(10000);">10000</a>
+      <a href="javascript:app.changeCost(15000);">15000</a>
+    </div>
+    <div>
+      Depth testing:
+      <a href="javascript:app.toggleDepth(true);">on</a>
+      <a href="javascript:app.toggleDepth(false);">off</a>
+    </div>
+    <canvas id="canvas" width="500" height="500"></canvas>
+  </body>
+</html>
