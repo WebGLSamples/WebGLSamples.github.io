@@ -482,7 +482,7 @@ tdl.webgl.makeDebugContext = function(ctx, opt_onErrorFunc, opt_onFunc) {
     if (typeof ctx[propertyName] == 'function') {
        wrapper[propertyName] = makeErrorWrapper(ctx, propertyName);
      } else {
-       wrapper[propertyName] = makePropertyWrappe(wrapper, ctx, propertyName);
+       makePropertyWrapper(wrapper, ctx, propertyName);
      }
   }
 
