@@ -119,7 +119,7 @@ function initializeGraphics() {
   if (!gl) {
     return false;
   }
-  gl = tdl.webgl.makeDebugContext(gl);
+  // gl = tdl.webgl.makeDebugContext(gl);
 
   if (!gl.getExtension("OES_texture_float")) {
     alert("This demo requires the OES_texture_float extension");
