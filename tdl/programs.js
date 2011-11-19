@@ -222,6 +222,9 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
   var numAttribs = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
   for (var ii = 0; ii < numAttribs; ++ii) {
     var info = gl.getActiveAttrib(program, ii);
+	if (!info) {
+	  break;
+	}
     var name = info.name;
     if (tdl.string.endsWith(name, "[0]")) {
       name = name.substr(0, name.length - 3);
@@ -332,6 +335,9 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
 
   for (var ii = 0; ii < numUniforms; ++ii) {
     var info = gl.getActiveUniform(program, ii);
+	if (!info) {
+	  break;
+	}
     name = info.name;
     if (tdl.string.endsWith(name, "[0]")) {
       name = name.substr(0, name.length - 3);
