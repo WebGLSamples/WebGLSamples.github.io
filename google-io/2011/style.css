@@ -20,7 +20,7 @@ a {
   z-index: 2;
   padding: 10px;
 }
-#info span {
+#info>span {
   background-color: rgba(0,0,0,0.5);
   border-radius: 10px;
   padding: 10px;

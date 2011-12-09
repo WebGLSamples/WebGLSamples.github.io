@@ -1,0 +1,523 @@
+<!--
+ * Copyright 2011, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Lots-O-Images - Texture Data</title>
+<link rel="stylesheet" type="text/css" href="../google-io/2011/style.css" />
+<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript">
+tdl.require('tdl.buffers');
+tdl.require('tdl.fast');
+tdl.require('tdl.fps');
+tdl.require('tdl.log');
+tdl.require('tdl.math');
+tdl.require('tdl.models');
+tdl.require('tdl.primitives');
+tdl.require('tdl.programs');
+tdl.require('tdl.textures');
+tdl.require('tdl.webgl');
+window.onload = initialize;
+
+// globals
+var gl;                   // the gl context.
+var canvas;               // the canvas
+var math;                 // the math lib.
+var fast;                 // the fast math lib.
+
+var g_maxImages = 4096;
+var g_numImages = 3;
+var g_imageSize = 32;
+var g_targetFrameRate = 60;
+
+function CreateApp() {
+  var updatePositions = true;
+
+  window.addEventListener('keypress', handleKeyPress, false);
+
+  function handleKeyPress(event) {
+    updatePositions = !updatePositions;
+  }
+
+  // Create Geometry.
+  var planeArrays = tdl.primitives.createPlane(g_imageSize, g_imageSize, 1, 1);
+  // Don't need the normals.
+  delete planeArrays.nornal;
+  // rotate from xz plane to xy plane
+  tdl.primitives.reorient(planeArrays,
+      [1, 0, 0, 0,
+       0, 0, 1, 0,
+       0, -1, 0, 0,
+       0, 0, 0, 1]);
+  // translate so we position from top left instead of center.
+  tdl.primitives.reorient(planeArrays,
+      [1, 0, 0, 0,
+       0, 1, 0, 0,
+       0, 0, 1, 0,
+       g_imageSize / 2, g_imageSize / 2, 0, 1]);
+
+
+  // Create Shader Program
+  var program = tdl.programs.loadProgramFromScriptTags(
+      'sphereVertexShader',
+      'sphereFragmentShader');
+
+  // --Setup Arrays---------------------------------------
+  var arrays = [
+    planeArrays
+  ];
+
+  // -- Setup Instances ----------------------------------
+  var instances = [];
+  var width = canvas.clientWidth - g_imageSize;
+  var height = canvas.clientHeight - g_imageSize;
+  for (var ii = 0; ii < g_maxImages; ++ii) {
+    instances.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      colorMult: new Float32Array([Math.random(), Math.random(), Math.random(), Math.random()]),
+      arrayIndex: Math.floor(Math.random() * arrays.length),
+      xVel: 1 * (Math.random() < 0.5 ? -60 : 60),
+      yVel: 1 * (Math.random() < 0.5 ? -60 : 60)
+    });
+  }
+
+  var offsetTexture = new tdl.textures.ExternalTexture(gl.TEXTURE_2D);
+  offsetTexture.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  offsetTexture.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  offsetTexture.setParameter(gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  offsetTexture.setParameter(gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  offsetTexture.setParameter(gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+  // TODO(gman): use floating point textures?
+  var kGeoScale = 1024;
+  var kOffsetTextureHeight = 4;
+  var offsetData = new Uint8Array(g_maxImages * kOffsetTextureHeight * 4);
+  var offsetStride = g_maxImages * 4;
+
+  function PlusMinusOneTo8Bit(value) {
+    if (value < -1 || value > 1) {
+      throw 'value out of range';
+    }
+    var v = Math.max(0, Math.min(255, Math.floor((value * 0.5 + 0.5) * 256)));
+    //tdl.log(value, v);
+    return v;
+  }
+
+  function scaleToWorld(v) {
+    if (v < -kGeoScale || v > kGeoScale) {
+      throw 'scaleToWorld: value out of range (' + kGeoScale + '): ' + v;
+    }
+    v = v / kGeoScale;
+    return Math.max(0,
+                    Math.min(65535,
+                             Math.floor((v * 0.5 + 0.5) * 65536)));
+  }
+
+  function scaleToScale(v) {
+    if (v < -kGeoScale || v > kGeoScale) {
+      throw 'scaleToWorld: value out of range (' + kGeoScale + '): ' + v;
+    }
+    v = v / kGeoScale;
+    return Math.max(0,
+                    Math.min(65535,
+                             Math.floor((v * 0.5 + 0.5) * 65536)));
+  }
+
+  function scaleToRotation(v) {
+    return v;
+  }
+
+  function setOffset(ii, position, scale, color, rotation) {
+    var off = ii * 4;
+    var x = scaleToWorld(position[0]);
+    var y = scaleToWorld(position[1]);
+    var scaleX = scaleToScale(scale[0]);
+    var scaleY = scaleToScale(scale[1]);
+    var rot = scaleToRotation(rotation);
+
+    offsetData[offsetStride * 0 + off + 0] = x & 255;
+    offsetData[offsetStride * 0 + off + 1] = y & 255;
+    offsetData[offsetStride * 0 + off + 2] = scaleX & 255;
+    offsetData[offsetStride * 0 + off + 2] = scaleY & 255;
+    offsetData[offsetStride * 1 + off + 0] = Math.floor(x / 256);
+    offsetData[offsetStride * 1 + off + 1] = Math.floor(y / 256);
+    offsetData[offsetStride * 1 + off + 2] = Math.floor(scaleX / 256);
+    offsetData[offsetStride * 1 + off + 2] = Math.floor(scaleY / 256);
+    offsetData[offsetStride * 2 + off + 0] = color[0] * 255;
+    offsetData[offsetStride * 2 + off + 1] = color[1] * 255;
+    offsetData[offsetStride * 2 + off + 2] = color[2] * 255;
+    offsetData[offsetStride * 3 + off + 0] = rot & 255;
+    offsetData[offsetStride * 3 + off + 1] = Math.floor(rot / 256);
+  }
+
+  for (var ii = 0; ii < instances.length; ++ii) {
+    var instance = instances[ii];
+    var position = [
+      ii * 2 % 512,
+      ii * 4 % 512
+    ];
+    var scale = [1, 1];
+    var rot = 0;
+    setOffset(ii,
+       position,
+       scale,
+       instance.colorMult,
+       0);
+  }
+
+  offsetTexture.bindToUnit(0);
+  gl.texImage2D(
+      gl.TEXTURE_2D, 0, gl.RGBA, g_maxImages, kOffsetTextureHeight,
+      0, gl.RGBA, gl.UNSIGNED_BYTE, offsetData);
+
+  // Load textures
+  var textures = {
+      diffuseSampler: tdl.textures.loadTexture('../google-io/2011/assets/google.png'),
+      offsetTexture: offsetTexture
+  };
+
+  // Expand arrays from instances to geometry.
+
+  // Step 1: Add an extra worldPosition and colorMult field to each geometry
+  for (var ii = 0; ii < arrays.length; ++ii) {
+    var numElements = arrays[ii].position.numElements;
+    arrays[ii].extra = new tdl.primitives.AttribBuffer(4, numElements);
+  }
+
+  // Step 2: convert instances to expanded geometry
+  var arrayInstances = [];
+  for (var ii = 0; ii < instances.length; ++ii) {
+    arrayInstances.push(arrays[instances[ii].arrayIndex]);
+  }
+  var expanded = tdl.primitives.concatLarge(arrayInstances);
+
+  // Step 3: Make models from our expanded geometry.
+  var models = [];
+  for (var ii = 0; ii < expanded.arrays.length; ++ii) {
+    models.push(new tdl.models.Model(program, expanded.arrays[ii], textures));
+  }
+
+  // Step 4: Copy in Colors and other per instance data
+  for (var ii = 0; ii < instances.length; ++ii) {
+    var instance = instances[ii];
+    var info = expanded.instances[ii];
+    var index = info.arrayIndex;
+    instance.firstVertex = info.firstVertex;
+    instance.numVertices = info.numVertices;
+    instance.expandedArrayIndex = index;
+    //var attribBuffer = expanded.arrays[index].colorMult;
+    //attribBuffer.fillRange(instance.firstVertex, instance.numVertices, instance.colorMult);
+    var modelNdxOffset = ii / g_maxImages + 0.5 / g_maxImages;
+    expanded.arrays[index].extra.fillRange(
+        instance.firstVertex, instance.numVertices,
+        [modelNdxOffset, modelNdxOffset, modelNdxOffset, modelNdxOffset]);
+  }
+  for (var ii = 0; ii < models.length; ++ii) {
+    var extra = expanded.arrays[ii].extra;
+    models[ii].setBuffer('colorMult', extra);
+  }
+
+  // pre-allocate a bunch of arrays
+  var v3t0 = new Float32Array(3);
+  var v3t1 = new Float32Array(3);
+  var v3t2 = new Float32Array(3);
+  var v3t3 = new Float32Array(3);
+  var m4t0 = new Float32Array(16);
+  var m4t1 = new Float32Array(16);
+  var m4t2 = new Float32Array(16);
+  var m4t3 = new Float32Array(16);
+  var zero4 = new Float32Array(4);
+  var one4 = new Float32Array([1,1,1,1]);
+  var dimensions = new Float32Array([1, 1]);
+
+  // uniforms.
+  var sharedUniforms = {
+      dimensions: dimensions
+  };
+
+  var clock = 0.0;
+  function update(elapsedTime) {
+    clock += elapsedTime;
+
+    resizeCanvas();
+
+    // --Update Instance Positions---------------------------------------
+    if (updatePositions) {
+      var width = canvas.clientWidth - g_imageSize;
+      var height = canvas.clientHeight - g_imageSize;
+      var advance = elapsedTime;
+      for (var ii = 0; ii < g_numImages; ++ii) {
+        var instance = instances[ii];
+        instance.x += advance * instance.xVel;
+        instance.y += advance * instance.yVel;
+        if (instance.x < 0) {
+          instance.x = 0;
+          instance.xVel = -instance.xVel;
+        } else if (instance.x > width) {
+          instance.x = width;
+          instance.xVel = -instance.xVel;
+        }
+        if (instance.y < 0) {
+          instance.y = 0;
+          instance.yVel = -instance.yVel;
+        } else if (instance.y > height) {
+          instance.y = height;
+          instance.yVel = -instance.yVel;
+        }
+        //var index = instance.expandedArrayIndex;
+        //var attribBuffer = expanded.arrays[index].worldPosition;
+        //attribBuffer.fillRange(
+        //    instance.firstVertex,
+        //    instance.numVertices,
+        //    [instance.x, instance.y]);
+        //console.log(instance.x, instance.y);
+      }
+      // TODO(gman): update the min number of objects.
+      //for (var ii = 0; ii < models.length; ++ii) {
+      //  var attribBuffer = expanded.arrays[ii].worldPosition;
+      //  models[ii].setBuffer('worldPosition', attribBuffer);
+      //}
+    }
+  }
+
+  function render() {
+    renderBegin();
+    renderScene();
+    renderEnd();
+  }
+
+  function renderBegin() {
+    // clear the screen.
+    gl.colorMask(true, true, true, true);
+    gl.clearColor(1, 1, 1, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    // Pass in the dimensions of the canvas.
+    dimensions[0] = canvas.clientWidth;
+    dimensions[1] = canvas.clientHeight;
+  }
+
+  function renderScene() {
+    // -- Render Models ---------------------------------------
+    // We only need to render each model once
+    // as they contain all the instances.
+    var numImages = g_numImages;
+    for (var ii = 0; numImages > 0 && ii < models.length; ++ii) {
+      var model = models[ii];
+      var numImagesInModel = model.buffers.indices.numElements() / 2;
+      var numToDraw = Math.min(numImagesInModel, numImages);
+      model.drawPrep(sharedUniforms);
+      model.draw(numToDraw * 6);
+      numImages -= numToDraw;
+    }
+  }
+
+  function renderEnd() {
+    // nothing to do.
+  }
+
+  return {
+    update: update,
+    render: render
+  };
+}
+
+function resizeCanvas() {
+  if (canvas.width != canvas.clientWidth ||
+      canvas.height != canvas.clientHeight) {
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    console.log("resized canvas: " + canvas.width + ", " + canvas.height);
+    gl.viewport(0, 0, canvas.clientWidth, canvas.clientHeight);
+  }
+}
+
+function initialize() {
+  math = tdl.math;
+  fast = tdl.fast;
+  canvas = document.getElementById("canvas");
+  var fpsTimer = new tdl.fps.FPSTimer();
+  var fpsElem = document.getElementById("fps");
+  var cntElem = document.getElementById("cnt");
+
+  document.getElementById("title").innerHTML = document.getElementsByTagName("title")[0].innerText;
+
+  gl = tdl.webgl.setupWebGL(canvas, {alpha:false, antialias:false});
+  if (!gl) {
+    return false;
+  }
+
+  resizeCanvas();
+
+  var app = CreateApp();
+  var then = (new Date()).getTime() * 0.001;
+  var changeAmount = 1;
+
+  function render() {
+    tdl.webgl.requestAnimationFrame(render, canvas);
+
+    // Compute the elapsed time since the last rendered frame
+    // in seconds.
+    var now = (new Date()).getTime() * 0.001;
+    var elapsedTime = Math.min(now - then, 0.1);
+    then = now;
+
+    // Update the FPS timer.
+    fpsTimer.update(elapsedTime);
+    fpsElem.innerHTML = fpsTimer.averageFPS;
+
+    var goFaster = fpsTimer.averageFPS >= g_targetFrameRate;
+    if (goFaster) {
+      changeAmount = 11;
+    } else {
+      changeAmount = -9;
+    }
+//    g_numImages = Math.max(Math.min(g_numImages + changeAmount, g_maxImages), 1);
+
+    cntElem.innerHTML = g_numImages;
+
+    app.update(elapsedTime);
+    app.render();
+  }
+  render();
+  return true;
+}
+</script>
+  </head>
+<body>
+<div id="info"><span><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - <span id="title"></span></span></div>
+<div id="fpsContainer">
+  <div class="fps">fps: <span id="fps"></div>
+  <div class="fps">cnt: <span id="cnt"></span></div>
+</div>
+<div id="viewContainer">
+<canvas id="canvas" width="512" height="512" style="width: 100%; height: 100%;"></canvas>
+</div>
+</body>
+<script id="sphereVertexShader" type="text/something-not-javascript">
+uniform vec2 dimensions;
+attribute vec2 position;
+attribute vec2 texCoord;
+attribute vec2 worldPosition;
+attribute vec4 colorMult;
+varying vec2 v_texCoord;
+varying vec4 v_colorMult;
+void main() {
+  v_texCoord = texCoord;
+  v_colorMult = colorMult;
+  gl_Position = vec4(
+    (((position + worldPosition) / dimensions) * 2.0 - 1.0) * vec2(1, -1), 0, 1);
+}
+
+</script>
+<script id="sphereFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+varying vec2 v_texCoord;
+varying vec4 v_colorMult;
+
+uniform sampler2D diffuseSampler;
+
+void main() {
+  vec4 diffuse = texture2D(diffuseSampler, v_texCoord) * v_colorMult;
+  gl_FragColor = diffuse;
+}
+</script>
+<!-- ===========================================================================
+
+repeat shader
+
+============================================================================ -->
+<script id="repeatVertexShader" type="text/something-not-javascript">
+uniform vec2 dimensions;
+uniform sampler2D offsetTexture;
+uniform vec4 offsetScale;
+
+attribute vec2 position;
+attribute vec2 texCoord;
+attribute vec4 extra;
+
+varying vec2 v_texCoord;
+varying vec4 v_color;
+
+const float kOffsetTextureHeight = 4.0;
+const float kPixelOffset = 1.0 / kOffsetTextureHeight;
+const float kHalfPixelOffset = kPixelOffset / 2.0;
+const float kOffsetXYSXSYLow = kHalfPixelOffset;
+const float kOffsetXYSXSYHigh = kHalfPixelOffset + kPixelOffset;
+const float kOffsetColor = kHalfPixelOffset + kPixelOffset * 2.0;
+const float kOffsetRotation = kHalfPixelOffset + kPixelOffset * 3.0;
+
+void main() {
+  vec4 xysxsyLowOff = texture2D(offsetTexture, vec2(extra.x, kOffsetXYSXSYSLow));
+  vec4 xysxsyHighOff = texture2D(offsetTexture, vec2(extra.x, kOffsetXYSXSYHigh));
+  vec4 color = texture2D(offsetTexture, vec2(extra.x, kOffsetColor));
+  vec4 rotation =
+      texture2D(offsetTexture, vec2(extra.x, kOffsetRotation)) * 2.0 -
+      vec4(1, 1, 1, 1);
+
+  vec4 xysxsyOffset = vec4(xysxsyLowOff * 256.0 + xysxsyHighOff * 65536.0) / 65535.0 *
+      offsetScale - offsetScale * 0.5;
+
+  mat3 transform = mat3(
+    vec3(xysxsyOffset.z, 0, 0),
+    vec3(0, xysxsyOffset.w, 0),
+    vec3(xysxsyOffset.xy, 1));
+
+  v_color = color;
+  v_texCoord = texCoord;
+  vec2 screenPosition = (transform * vec3(position, 1)).xy;
+  vec2 clipPosition = (screenPosition / dimensions * 2.0 - 1.0) * vec2(1, -1);
+  gl_Position = vec4(clipPosition, 0, 1);
+}
+
+</script>
+<script id="repeatFragmentShader" type="text/something-not-javascript">
+precision mediump float;
+varying vec4 v_color;
+varying vec2 v_texCoord;
+
+uniform sampler2D diffuseSampler;
+
+void main() {
+  gl_FragColor = texture2D(diffuseSampler, v_texCoord) * v_color;
+}
+</script>
+</html>
+
+
+
+

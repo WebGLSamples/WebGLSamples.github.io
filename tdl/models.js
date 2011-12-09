@@ -147,11 +147,27 @@ tdl.models.Model.prototype.drawPrep = function() {
  *     textures to set on this models uniforms.
  */
 tdl.models.Model.prototype.draw = function() {
+  var buffers = this.buffers;
+  var totalComponents = buffers.indices.totalComponents();
+  var startOffset = 0;
   for (var ii = 0; ii < arguments.length; ++ii) {
-    this.applyUniforms_(arguments[ii]);
+    var arg = arguments[ii];
+    if (typeof arg == 'number') {
+      switch (ii) {
+      case 0:
+        totalComponents = arg;
+        break;
+      case 1:
+        startOffset = arg;
+        break;
+      default:
+        throw 'unvalid argument';
+      }
+    } else {
+      this.applyUniforms_(arg);
+    }
   }
 
-  var buffers = this.buffers;
   gl.drawElements(
-      this.mode, buffers.indices.totalComponents(), gl.UNSIGNED_SHORT, 0);
+      this.mode, totalComponents, gl.UNSIGNED_SHORT, startOffset);
 };
