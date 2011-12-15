@@ -377,8 +377,8 @@ tdl.textures.CubeMap = function(urls) {
       gl.TEXTURE_CUBE_MAP_POSITIVE_Z,
       gl.TEXTURE_CUBE_MAP_NEGATIVE_Z];
     tdl.textures.CubeMap.offsets = [
-      [0, 1],
       [2, 1],
+      [0, 1],
       [1, 0],
       [1, 2],
       [1, 1],

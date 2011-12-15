@@ -1,0 +1,399 @@
+<!--
+ * Copyright 2011, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>WebGL Modern Skybox</title>
+<style>
+html, body {
+  width: 100%;
+  height: 100%;
+  border: 0px;
+  padding: 0px;
+  margin: 0px;
+  background-color: dark-red;
+  font-family: sans-serif;
+  overflow: hidden;
+  color: #fff;
+}
+a {
+ color: #fff;
+}
+#info {
+    font-size: small;
+    position: absolute;
+  	top: 0px; width: 100%;
+  	padding: 5px;
+  	text-align: center;
+  	z-index: 2;
+}
+CANVAS {
+  background-color: gray;
+}
+#uiContainer {
+  z-index: 2;
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  width: 250px;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  font-size: xx-small;
+  border-radius: 10px;
+  padding: 10px;
+}
+#ui {
+}
+#advanced {
+  color: gray;
+}
+#fpsContainer {
+  position: absolute;
+  top: 10px;
+  left: 20px;
+  z-index: 2;
+  color: white;
+  background-color: rgba(0,0,0,0.5);
+  border-radius: 10px;
+  padding: 10px;
+}
+.clickable {
+  cursor: pointer;
+}
+#viewContainer {
+  width: 100%;
+  height: 100%;
+}
+</style>
+<link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
+<script type="text/javascript" src="../khronos/webgl-debug.js"></script>
+<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript">
+tdl.require('tdl.webgl');
+tdl.require('tdl.buffers');
+tdl.require('tdl.fast');
+tdl.require('tdl.framebuffers');
+tdl.require('tdl.fps');
+tdl.require('tdl.log');
+tdl.require('tdl.math');
+tdl.require('tdl.models');
+tdl.require('tdl.particles');
+tdl.require('tdl.primitives');
+tdl.require('tdl.programs');
+tdl.require('tdl.textures');
+
+// globals
+var gl;                   // the gl context.
+var canvas;               // the canvas
+var math;                 // the math lib.
+var fast;                 // the fast math lib.
+var g_fpsTimer;           // object to measure frames per second;
+var g_logGLCalls = true;  // whether or not to log webgl calls
+var g_debug = false;      // whether or not to debug.
+var g_drawOnce = false;   // draw just one frame.
+var g_setCountElements = [];
+var g_autoSet = true;
+var g_autoSetting = 0;
+var g_cubeMapSize = 256;
+var g_requestId;
+
+//g_drawOnce = true;
+//g_debug = true;
+
+var g_eyeSpeed          = 0.1;
+var g_eyeHeight         = 0.5;
+var g_eyeRadius         = 1.2;
+var g_targetRadius      = 0;
+var g_targetHeight      = 0;
+var g_innerCount        = 6;
+var g_innerSpeed        = [0.2, 0.3, 0.4];
+var g_innerRadius       = 0.1;
+var g_innerMult         = 1;
+var g_fov               = 60;
+var g_dist              = 0.7;
+var g_sphereScale       = 0.1;
+
+var g_skyBoxUrls = [
+  '../fishtank/assets/lobby/right.jpg',
+  '../fishtank/assets/lobby/left.jpg',
+  '../fishtank/assets/lobby/up.jpg',
+  '../fishtank/assets/lobby/down.jpg',
+  '../fishtank/assets/lobby/front.jpg',
+  '../fishtank/assets/lobby/back.jpg'];
+
+function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
+  for (var ii = 0; ii < args.length; ++ii) {
+    if (args[ii] === undefined) {
+      tdl.error("undefined passed to gl." + functionName + "(" +
+          tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
+    }
+  }
+}
+
+function Log(msg) {
+  if (g_logGLCalls) {
+    tdl.log(msg);
+  }
+}
+
+function LogGLCall(functionName, args) {
+  if (g_logGLCalls) {
+    ValidateNoneOfTheArgsAreUndefined(functionName, args)
+    tdl.log("gl." + functionName + "(" +
+            tdl.webgl.glFunctionArgsToString(functionName, args) + ")");
+  }
+}
+
+/**
+ * Sets up the Skybox
+ */
+function setupSkybox() {
+  var textures = {
+    skybox: tdl.textures.loadTexture(g_skyBoxUrls)};
+  var program = tdl.programs.loadProgramFromScriptTags(
+    'skyboxVertexShader',
+    'skyboxFragmentShader');
+  var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
+  // Don't need normals or texcoords
+  delete arrays['normal'];
+  delete arrays['texCoord'];
+  // reorient from xz plane to xy plane and move to back of clipspace in z.
+  tdl.primitives.reorient(arrays,
+      [1, 0, 0, 0,
+       0, 0, 1, 0,
+       0,-1, 0, 0,
+       0, 0, 0.9999, 1]);
+  return new tdl.models.Model(program, arrays, textures);
+}
+
+function main() {
+  math = tdl.math;
+  fast = tdl.fast;
+  canvas = document.getElementById("canvas");
+  g_fpsTimer = new tdl.fps.FPSTimer();
+
+  document.getElementById("title").innerHTML =
+      document.getElementsByTagName("title")[0].innerText;
+
+  //canvas = WebGLDebugUtils.makeLostContextSimulatingCanvas(canvas);
+  // tell the simulator when to lose context.
+  //canvas.loseContextInNCalls(100000);
+
+  tdl.webgl.registerContextLostHandler(handleContextLost);
+  tdl.webgl.registerContextRestoredHandler(handleContextRestored);
+
+  gl = tdl.webgl.setupWebGL(canvas);
+  if (!gl) {
+    return false;
+  }
+  if (g_debug) {
+    gl = tdl.webgl.makeDebugContext(gl, undefined, LogGLCall);
+  }
+
+  initialize();
+}
+
+function handleContextLost() {
+  tdl.log("context lost");
+  tdl.webgl.cancelRequestAnimationFrame(g_requestId);
+}
+
+function handleContextRestored() {
+  tdl.log("context restored");
+  initialize();
+}
+
+function initialize() {
+  Log("--Setup Skybox---------------------------------------");
+  var skybox = setupSkybox();
+
+  var then = 0.0;
+  var clock = 0.0;
+  var fpsElem = document.getElementById("fps");
+
+  var projection = new Float32Array(16);
+  var view = new Float32Array(16);
+  var world = new Float32Array(16);
+  var worldInverse = new Float32Array(16);
+  var worldInverseTranspose = new Float32Array(16);
+  var viewProjection = new Float32Array(16);
+  var worldViewProjection = new Float32Array(16);
+  var viewInverse = new Float32Array(16);
+  var viewProjectionInverse = new Float32Array(16);
+  var viewDirectionProjectionInverse = new Float32Array(16);
+  var eyePosition = new Float32Array(3);
+  var target = new Float32Array(3);
+  var up = new Float32Array([0,1,0]);
+  var lightWorldPos = new Float32Array([-4, 1, 0]);
+  var v3t0 = new Float32Array(3);
+  var v3t1 = new Float32Array(3);
+  var v3t2 = new Float32Array(3);
+  var v3t3 = new Float32Array(3);
+  var m4t0 = new Float32Array(16);
+  var m4t1 = new Float32Array(16);
+  var m4t2 = new Float32Array(16);
+  var m4t3 = new Float32Array(16);
+  var zero4 = new Float32Array(4);
+  var one4 = new Float32Array([1,1,1,1]);
+
+  // Sky uniforms.
+  var skyConst = {
+      viewDirectionProjectionInverse: viewDirectionProjectionInverse};
+  var skyPer = {};
+
+  var frameCount = 0;
+  var eyeClock = 0;
+
+  function render() {
+    ++frameCount;
+    var now = (new Date()).getTime() * 0.001;
+    var elapsedTime;
+    if(then == 0.0) {
+      elapsedTime = 0.0;
+    } else {
+      elapsedTime = now - then;
+    }
+    then = now;
+
+    g_fpsTimer.update(elapsedTime);
+    fpsElem.innerHTML = g_fpsTimer.averageFPS;
+
+    clock += elapsedTime;
+    eyeClock += elapsedTime * g_eyeSpeed;
+    eyePosition[0] = Math.sin(eyeClock) * g_eyeRadius;
+    eyePosition[1] = g_eyeHeight;
+    eyePosition[2] = Math.cos(eyeClock) * g_eyeRadius;
+    target[0] = Math.sin(eyeClock + Math.PI) * g_targetRadius;
+    target[1] = g_targetHeight;
+    target[2] = Math.cos(eyeClock + Math.PI) * g_targetRadius;
+
+    gl.colorMask(true, true, true, true);
+    gl.depthMask(true);
+    gl.clearColor(0,0,0,0);
+    gl.clearDepth(1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+    function setupView(width, height, fov, eye, target, up) {
+      fast.matrix4.perspective(
+          projection,
+          fov,
+          width / height,
+          0.1,
+          5000);
+      fast.matrix4.lookAt(
+          view,
+          eye,
+          target,
+          up);
+      fast.matrix4.mul(viewProjection, view, projection);
+      fast.matrix4.inverse(viewInverse, view);
+      fast.matrix4.copy(m4t0, view);
+      fast.matrix4.setTranslation(m4t0, [0, 0, 0]);
+      fast.matrix4.mul(m4t1, m4t0, projection);
+      fast.matrix4.inverse(viewDirectionProjectionInverse, m4t1);
+    }
+
+    function drawScene() {
+      // Draw Skybox
+      Log("--Draw Sky---------------------------------------");
+      skybox.drawPrep(skyConst);
+      skybox.draw(skyPer);
+    }
+
+    setupView(canvas.clientWidth, canvas.clientHeight, math.degToRad(g_fov),
+              eyePosition, target, up);
+    drawScene();
+
+    // turn off logging after 1 frame.
+    g_logGLCalls = false;
+
+    if (!g_drawOnce) {
+      g_requestId = tdl.webgl.requestAnimationFrame(render, canvas);
+    }
+  }
+  render();
+  return true;
+}
+
+$(function(){
+  function updateFov() {
+    $("#fov_value").text(g_fov);
+  }
+  $("#fov").slider({slide: function(event, ui) {
+    g_fov = ui.value;
+    updateFov();
+  }, min: 1, max: 179, value: 60})
+  updateFov();
+  main();
+});
+
+
+</script>
+</head>
+<body>
+<div id="info"><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - <span id="title"></span></div>
+<div id="fpsContainer" style="width: 200px;">
+  <div class="fps">fps: <span id="fps"></div>
+  <div>fov: <span id="fov_value"></span></div>
+  <div id="fov"></div>
+</div>
+<div id="viewContainer">
+<canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
+</div>
+</body>
+<script id="skyboxVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+varying vec4 v_position;
+void main() {
+  v_position = position;
+  gl_Position = position;
+}
+</script>
+<script id="skyboxFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform samplerCube skybox;
+uniform mat4 viewDirectionProjectionInverse;
+varying vec4 v_position;
+void main() {
+  vec4 t = viewDirectionProjectionInverse * v_position;
+  gl_FragColor = textureCube(
+      skybox,
+      normalize(t.xyz / t.w));
+}
+</script>
+</html>
+
+
