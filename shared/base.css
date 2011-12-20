@@ -1,0 +1,272 @@
+html, body {
+  width: 100%;
+  height: 100%;
+  border: 0px;
+  padding: 0px;
+  margin: 0px;
+  background-color: dark-red;
+  font-family: sans-serif;
+  overflow: hidden;
+  color: #fff;
+}
+a {
+ color: #fff;
+}
+#info {
+    font-size: small;
+    position: absolute;
+  	top: 0px; width: 100%;
+  	padding: 5px;
+  	text-align: center;
+  	z-index: 2;
+}
+CANVAS {
+  background-color: gray;
+}
+#uiContainer {
+  z-index: 2;
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  width: 250px;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  font-size: xx-small;
+  border-radius: 10px;
+  padding: 10px;
+}
+#ui {
+}
+#advanced {
+  color: gray;
+}
+#fpsContainer {
+  position: absolute;
+  top: 10px;
+  left: 20px;
+  z-index: 2;
+  color: white;
+  background-color: rgba(0,0,0,0.5);
+  border-radius: 10px;
+  padding: 10px;
+}
+.clickable {
+  cursor: pointer;
+}
+#viewContainer {
+  width: 100%;
+  height: 100%;
+}
+
+
+/* ------------------------------------------
+PURE CSS GUI ICONS
+by Nicolas Gallagher
+- http://nicolasgallagher.com/pure-css-gui-icons/
+
+http://nicolasgallagher.com
+http://twitter.com/necolas
+
+Created: 29 July 2010
+Version: 1.0
+
+Dual licensed under MIT and GNU GPLv2 © Nicolas Gallagher
+------------------------------------------ */
+
+
+/* ----------------------------------------------------------------------------------------------------------------------------
+== ICONS STYLES
+** ---------------------------------------------------------------------------------------------------------------------------- */
+
+.fps {
+    float: left;
+}
+.icon {
+    float: left;
+    position: relative;
+    top: -2px;
+    gbackground: blue;
+}
+.icon a {
+    height: 20px;
+    width: 0px;
+    gbackground: green;
+}
+.icon ul {
+    padding:0;
+    margin:0;
+}
+
+.icon li {
+    position:relative;
+    z-index:1;
+    overflow:hidden;
+    list-style:none;
+    padding:0;
+    margin:0 0 0.25em;
+}
+
+.icon li a:link,
+.icon li a:visited {
+    display:block;
+    border:0;
+    padding-left:28px;
+    color:#c55500;
+}
+
+.icon li a:hover,
+.icon li a:focus,
+.icon li a:active {
+    color:#AAA;
+    background:transparent;
+}
+
+.icon li:before,
+.icon li:after,
+.icon li a:before,
+.icon li a:after {
+    content:"";
+    position:absolute;
+    top:50%;
+    left:0;
+}
+
+.icon li a:before,
+.icon li a:after {
+    margin:-8px 0 0;
+    background:#AAA;
+}
+
+.icon li a:hover:before,
+.icon li a:focus:before,
+.icon li a:active:before {
+    background:#AAA;
+}
+
+/* FULL SCREEN
+------------------------------------------------------------------------------------------------------------------------------- */
+
+.icon .full:before,
+.icon .full:after {
+    z-index:1;
+    left:8px;
+    width:3px;
+    height:8px;
+    border:5px solid #AAA;
+    border-width:5px 0;
+    margin-top:-8px;
+    /* css3 */
+    -webkit-transform:rotate(45deg);
+    -moz-transform:rotate(45deg);
+    -o-transform:rotate(45deg);
+    transform:rotate(45deg);
+}
+
+.icon .full:after {
+    /* css3 */
+    -webkit-transform:rotate(-45deg);
+    -moz-transform:rotate(-45deg);
+    -o-transform:rotate(-45deg);
+    transform:rotate(-45deg);
+}
+
+.icon .full:hover:before,
+.icon .full:hover:after {
+    border-color:#AAA;
+}
+
+.icon .full a:before,
+.icon .full a:after {
+    z-index:10;
+    width:4px;
+    height:0;
+    border-width:0 7px 7px;
+    border-style:solid;
+    border-color:transparent #AAA;
+    margin-top:-8px;
+    background:transparent;
+}
+
+.icon .full a:after {
+    border-width:7px 7px 0;
+    margin-top:3px;
+}
+
+.icon .full a:hover:before,
+.icon .full a:focus:before,
+.icon .full a:active:before,
+.icon .full a:hover:after,
+.icon .full a:focus:after,
+.icon .full a:active:after {
+    border-color:transparent #AAA;
+    background:transparent;
+}
+
+/* SHRINK
+------------------------------------------------------------------------------------------------------------------------------- */
+
+.icon .exit:before,
+.icon .exit:after {
+    z-index:1;
+    top:50%;
+    left:8px;
+    width:3px;
+    height:14px;
+    border:5px solid #AAA;
+    border-width:5px 0;
+    margin-top:-12px;
+    /* css3 */
+    -webkit-transform:rotate(45deg);
+    -moz-transform:rotate(45deg);
+    -o-transform:rotate(45deg);
+    transform:rotate(45deg);
+}
+
+.icon .exit:after {
+    /* css3 */
+    -webkit-transform:rotate(-45deg);
+    -moz-transform:rotate(-45deg);
+    -o-transform:rotate(-45deg);
+    transform:rotate(-45deg);
+}
+
+.icon .exit:hover:before,
+.icon .exit:hover:after {
+    border-color:#AAA;
+}
+
+.icon .exit a:before,
+.icon .exit a:after {
+    z-index:10;
+    left:2px;
+    width:6px;
+    border-width:5px;
+    border-style:solid;
+    border-color:transparent #AAA;
+    margin-top:-5px;
+    background:transparent;
+    /* css3 */
+    -webkit-transform:rotate(-45deg);
+    -moz-transform:rotate(-45deg);
+    -o-transform:rotate(-45deg);
+    transform:rotate(-45deg);
+}
+
+.icon .exit a:after {
+    /* css3 */
+    -webkit-transform:rotate(45deg);
+    -moz-transform:rotate(45deg);
+    -o-transform:rotate(45deg);
+    transform:rotate(45deg);
+}
+
+.icon .exit a:hover:before,
+.icon .exit a:focus:before,
+.icon .exit a:active:before,
+.icon .exit a:hover:after,
+.icon .exit a:focus:after,
+.icon .exit a:active:after {
+    border-color:transparent #AAA;
+    background:transparent;
+}
+

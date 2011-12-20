@@ -34,67 +34,9 @@
 <meta charset="utf-8">
 <title>WebGL Dynamic Cubemap</title>
 <style>
-html, body {
-  width: 100%;
-  height: 100%;
-  border: 0px;
-  padding: 0px;
-  margin: 0px;
-  background-color: dark-red;
-  font-family: sans-serif;
-  overflow: hidden;
-  color: #fff;
-}
-a {
- color: #fff;
-}
-#info {
-    font-size: small;
-    position: absolute;
-  	top: 0px; width: 100%;
-  	padding: 5px;
-  	text-align: center;
-  	z-index: 2;
-}
-CANVAS {
-  background-color: gray;
-}
-#uiContainer {
-  z-index: 2;
-  position: absolute;
-  top: 10px;
-  right: 20px;
-  width: 250px;
-  background: rgba(0,0,0,0.5);
-  color: white;
-  font-size: xx-small;
-  border-radius: 10px;
-  padding: 10px;
-}
-#ui {
-}
-#advanced {
-  color: gray;
-}
-#fpsContainer {
-  position: absolute;
-  top: 10px;
-  left: 20px;
-  z-index: 2;
-  color: white;
-  background-color: rgba(0,0,0,0.5);
-  border-radius: 10px;
-  padding: 10px;
-}
-.clickable {
-  cursor: pointer;
-}
-#viewContainer {
-  width: 100%;
-  height: 100%;
-}
 </style>
 <link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
+<link type="text/css" href="../shared/base.css" rel="stylesheet" />
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
 <script type="text/javascript" src="../khronos/webgl-debug.js"></script>
@@ -105,6 +47,7 @@ tdl.require('tdl.buffers');
 tdl.require('tdl.fast');
 tdl.require('tdl.framebuffers');
 tdl.require('tdl.fps');
+tdl.require('tdl.fullscreen');
 tdl.require('tdl.log');
 tdl.require('tdl.math');
 tdl.require('tdl.models');
@@ -525,6 +468,7 @@ function initialize() {
 }
 
 $(function(){
+  tdl.fullscreen.setup("fullscreen", "body");
   main();
 });
 
@@ -534,6 +478,7 @@ $(function(){
 <body>
 <div id="info"><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - dynamic cubemap</div>
 <div id="fpsContainer">
+  <div id="fullscreen"></div>
   <div class="fps">fps: <span id="fps"></div>
 </div>
 <div id="viewContainer">
