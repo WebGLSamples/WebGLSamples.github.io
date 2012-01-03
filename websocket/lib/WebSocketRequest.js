@@ -16,18 +16,33 @@
 
 var crypto = require('crypto');
 var util = require('util');
+var url = require('url');
 var EventEmitter = require('events').EventEmitter;
 var WebSocketConnection = require('./WebSocketConnection');
+var Constants = require('./Constants');
 
 var headerValueSplitRegExp = /,\s*/;
 var headerParamSplitRegExp = /;\s*/;
 var headerSanitizeRegExp = /[\r\n]/g;
-var protocolSeparators = [
-	"(", ")", "<", ">", "@",
-	",", ";", ":", "\\", "\"",
-	"/", "[", "]", "?", "=",
-	"{", "}", " ", String.fromCharCode(9)
+var separators = [
+    "(", ")", "<", ">", "@",
+    ",", ";", ":", "\\", "\"",
+    "/", "[", "]", "?", "=",
+    "{", "}", " ", String.fromCharCode(9)
 ];
+var controlChars = [String.fromCharCode(127) /* DEL */];
+for (var i=0; i < 31; i ++) {
+    /* US-ASCII Control Characters */
+    controlChars.push(String.fromCharCode(i));
+}
+
+var cookieNameValidateRegEx = /([\x00-\x20\x22\x28\x29\x2c\x2f\x3a-\x3f\x40\x5b-\x5e\x7b\x7d\x7f])/;
+var cookieValueValidateRegEx = /[^\x21\x23-\x2b\x2d-\x3a\x3c-\x5b\x5d-\x7e]/;
+var cookieValueDQuoteValidateRegEx = /^"[^"]*"$/;
+var controlCharsAndSemicolonRegEx = /[\x00-\x20\x3b]/g;
+
+var cookieSeparatorRegEx = /; */;
+var cookieCaptureRegEx = /(.*?)=(.*)/;
 
 var httpStatusDescriptions = {
     100: "Continue",
@@ -77,12 +92,16 @@ function WebSocketRequest(socket, httpRequest, serverConfig) {
     this.resource = httpRequest.url;
     this.remoteAddress = socket.remoteAddress;
     this.serverConfig = serverConfig;
-};
+}
 
 util.inherits(WebSocketRequest, EventEmitter);
 
 WebSocketRequest.prototype.readHandshake = function() {
     var request = this.httpRequest;
+
+    // Decode URL
+    this.resourceURL = url.parse(this.resource, true);
+    
     this.host = request.headers['host'];
     if (!this.host) {
         throw new Error("Client must provide a Host header.");
@@ -93,19 +112,32 @@ WebSocketRequest.prototype.readHandshake = function() {
         throw new Error("Client must provide a value for Sec-WebSocket-Key.");
     }
     
-    this.origin = request.headers['sec-websocket-origin'];
+    this.webSocketVersion = parseInt(request.headers['sec-websocket-version'], 10);
+    this.websocketVersion = this.webSocketVersion; // Deprecated websocketVersion (proper casing...)
     
-    this.websocketVersion = request.headers['sec-websocket-version'];
-    if (!this.websocketVersion) {
+    if (!this.webSocketVersion || isNaN(this.webSocketVersion)) {
         throw new Error("Client must provide a value for Sec-WebSocket-Version.");
     }
-    if (this.websocketVersion !== '8') {
-        var e = new Error("Unsupported websocket client version: " + this.websocketVersion);
-        e.httpCode = 426;
-        e.headers = {
-            "Sec-WebSocket-Version": "8"
-        };
-        throw e;
+    
+    switch (this.webSocketVersion) {
+        case 8:
+        case 13:
+            break;
+        default:
+            var e = new Error("Unsupported websocket client version: " + this.webSocketVersion +
+                              "Only versions 8 and 13 are supported.");
+            e.httpCode = 426;
+            e.headers = {
+                "Sec-WebSocket-Version": "13"
+            };
+            throw e;
+    }
+
+    if (this.webSocketVersion === 13) {
+        this.origin = request.headers['origin'];
+    }
+    else if (this.webSocketVersion === 8) {
+        this.origin = request.headers['sec-websocket-origin'];
     }
     
     // Protocol is optional.
@@ -124,6 +156,10 @@ WebSocketRequest.prototype.readHandshake = function() {
     // Extensions are optional.
     var extensionsString = request.headers['sec-websocket-extensions'];
     this.requestedExtensions = this.parseExtensions(extensionsString);
+    
+    // Cookies are optional
+    var cookieString = request.headers['cookie'];
+    this.cookies = this.parseCookies(cookieString);
 };
 
 WebSocketRequest.prototype.parseExtensions = function(extensionsString) {
@@ -150,11 +186,33 @@ WebSocketRequest.prototype.parseExtensions = function(extensionsString) {
         array.splice(index, 1, obj);
     });
     return extensions;
-},
-WebSocketRequest.prototype.accept = function(acceptedProtocol, allowedOrigin) {
+};
+
+WebSocketRequest.prototype.parseCookies = function(cookieString) {
+    if (!cookieString || cookieString.length === 0) {
+        return [];
+    }
+    var cookies = [];
+    var cookieArray = cookieString.split(cookieSeparatorRegEx);
+    
+    cookieArray.forEach(function(cookie) {
+        if (cookie && cookie.length !== 0) {
+            var cookieParts = cookie.match(cookieCaptureRegEx);
+            cookies.push({
+                name: cookieParts[1],
+                value: cookieParts[2]
+            });
+        }
+    });
+    return cookies;
+};
+
+WebSocketRequest.prototype.accept = function(acceptedProtocol, allowedOrigin, cookies) {
     // TODO: Handle extensions
     var connection = new WebSocketConnection(this.socket, [], acceptedProtocol, false, this.serverConfig);
     
+    connection.webSocketVersion = this.webSocketVersion;
+    connection.websocketVersion = this.webSocketVersion; // deprecated.. proper casing
     connection.remoteAddress = this.remoteAddress;
     
     // Create key validation hash
@@ -166,35 +224,176 @@ WebSocketRequest.prototype.accept = function(acceptedProtocol, allowedOrigin) {
                    "Upgrade: websocket\r\n" +
                    "Connection: Upgrade\r\n" +
                    "Sec-WebSocket-Accept: " + acceptKey + "\r\n";
+                   
     if (acceptedProtocol) {
         // validate protocol
-		for (var i=0; i < acceptedProtocol.length; i++) {
-			var charCode = acceptedProtocol.charCodeAt(i);
-			var character = acceptedProtocol.charAt(i);
-			if (charCode < 0x21 || charCode > 0x7E || protocolSeparators.indexOf(character) !== -1) {
-			    this.reject(500);
-				throw new Error("Illegal character '" + String.fromCharCode(character) + "' in subprotocol.");
-			}
-		}
-		if (this.requestedProtocols.indexOf(acceptedProtocol) === -1) {
-		    this.reject(500);
-		    throw new Error("Specified protocol was not requested by the client.");
-		}
-		
+        for (var i=0; i < acceptedProtocol.length; i++) {
+            var charCode = acceptedProtocol.charCodeAt(i);
+            var character = acceptedProtocol.charAt(i);
+            if (charCode < 0x21 || charCode > 0x7E || separators.indexOf(character) !== -1) {
+                this.reject(500);
+                throw new Error("Illegal character '" + String.fromCharCode(character) + "' in subprotocol.");
+            }
+        }
+        if (this.requestedProtocols.indexOf(acceptedProtocol) === -1) {
+            this.reject(500);
+            throw new Error("Specified protocol was not requested by the client.");
+        }
+        
         acceptedProtocol = acceptedProtocol.replace(headerSanitizeRegExp, '');
         response += "Sec-WebSocket-Protocol: " + acceptedProtocol + "\r\n";
     }
     if (allowedOrigin) {
         allowedOrigin = allowedOrigin.replace(headerSanitizeRegExp, '');
-        response += "Sec-WebSocket-Origin: " + allowedOrigin + "\r\n";
+        if (this.webSocketVersion === 13) {
+            response += "Origin: " + allowedOrigin + "\r\n";
+        }
+        else if (this.webSocketVersion === 8) {
+            response += "Sec-WebSocket-Origin: " + allowedOrigin + "\r\n";
+        }
     }
+    
+    if (cookies) {
+        if (!Array.isArray(cookies)) {
+            this.reject(500);
+            throw new Error("Value supplied for 'cookies' argument must be an array.");
+        }
+        var seenCookies = {};
+        cookies.forEach(function(cookie) {
+            if (!cookie.name || !cookie.value) {
+                this.reject(500);
+                throw new Error("Each cookie to set must at least provide a 'name' and 'value'");
+            }
+            
+            // Make sure there are no \r\n sequences inserted
+            cookie.name = cookie.name.replace(controlCharsAndSemicolonRegEx, '');
+            cookie.value = cookie.value.replace(controlCharsAndSemicolonRegEx, '');
+            
+            if (seenCookies[cookie.name]) {
+                this.reject(500);
+                throw new Error("You may not specify the same cookie name twice.");
+            }
+            seenCookies[cookie.name] = true;
+            
+            // token (RFC 2616, Section 2.2)
+            var invalidChar = cookie.name.match(cookieNameValidateRegEx);
+            if (invalidChar) {
+                this.reject(500);
+                throw new Error("Illegal character " + invalidChar[0] + " in cookie name");
+            }
+            
+            // RFC 6265, Section 4.1.1
+            // *cookie-octet / ( DQUOTE *cookie-octet DQUOTE ) | %x21 / %x23-2B / %x2D-3A / %x3C-5B / %x5D-7E
+            if (cookie.value.match(cookieValueDQuoteValidateRegEx)) {
+                invalidChar = cookie.value.slice(1, -1).match(cookieValueValidateRegEx);
+            } else {
+                invalidChar = cookie.value.match(cookieValueValidateRegEx);
+            }
+            if (invalidChar) {
+                this.reject(500);
+                throw new Error("Illegal character " + invalidChar[0] + " in cookie value");
+            }
+            
+            var cookieParts = [cookie.name + "=" + cookie.value];
+            
+            // RFC 6265, Section 4.1.1
+            // "Path=" path-value | <any CHAR except CTLs or ";">
+            if(cookie.path){
+                invalidChar = cookie.path.match(controlCharsAndSemicolonRegEx);
+                if (invalidChar) {
+                    this.reject(500);
+                    throw new Error("Illegal character " + invalidChar[0] + " in cookie path");
+                }
+                cookieParts.push("Path=" + cookie.path);
+            }
+            
+            // RFC 6265, Section 4.1.2.3
+            // "Domain=" subdomain 
+            if (cookie.domain) {
+                if (typeof(cookie.domain) !== 'string') {
+                    this.reject(500);
+                    throw new Error("Domain must be specified and must be a string.");
+                }
+                var domain = cookie.domain.toLowerCase();
+                invalidChar = cookie.domain.match(controlCharsAndSemicolonRegEx);
+                if (invalidChar) {
+                    this.reject(500);
+                    throw new Error("Illegal character " + invalidChar[0] + " in cookie domain");
+                }
+                cookieParts.push("Domain=" + cookie.domain.toLowerCase());
+            }
+            
+            // RFC 6265, Section 4.1.1
+            //"Expires=" sane-cookie-date | Force Date object requirement by using only epoch
+            if (cookie.expires) {
+                if (!(cookie.expires instanceof Date)){
+                    this.reject(500);
+                    throw new Error("Value supplied for cookie 'expires' must be a vaild date object");
+                } 
+                cookieParts.push("Expires=" + cookie.expires.toGMTString());
+            }
+            
+            // RFC 6265, Section 4.1.1
+            //"Max-Age=" non-zero-digit *DIGIT
+            if (cookie.maxage) {
+                var maxage = cookie.maxage;
+                if (typeof(maxage) === 'string') {
+                    maxage = parseInt(maxage, 10);
+                }
+                if (isNaN(maxage) || maxage <= 0 ) {
+                    this.reject(500);
+                    throw new Error("Value supplied for cookie 'maxage' must be a non-zero number");
+                }
+                maxage = Math.round(maxage);
+                cookieParts.push("Max-Age=" + maxage.toString(10));
+            }
+            
+            // RFC 6265, Section 4.1.1
+            //"Secure;"
+            if (cookie.secure) {
+                if (typeof(cookie.secure) !== "boolean") {
+                    this.reject(500);
+                    throw new Error("Value supplied for cookie 'secure' must be of type boolean");
+                }
+                cookieParts.push("Secure");
+            }
+            
+            // RFC 6265, Section 4.1.1
+            //"HttpOnly;"
+            if (cookie.httponly) {
+                if (typeof(cookie.httponly) !== "boolean") {
+                    this.reject(500);
+                    throw new Error("Value supplied for cookie 'httponly' must be of type boolean");
+                }
+                cookieParts.push("HttpOnly");
+            }
+            
+            response += ("Set-Cookie: " + cookieParts.join(';') + "\r\n");
+        }.bind(this));    
+    }
+    
     // TODO: handle negotiated extensions
     // if (negotiatedExtensions) {
     //     response += "Sec-WebSocket-Extensions: " + negotiatedExtensions.join(", ") + "\r\n";
     // }
-    response += "\r\n";
     
-    this.socket.write(response, 'ascii');
+    response += "\r\n";
+    try {
+        this.socket.write(response, 'ascii');
+    }
+    catch(e) {
+        if (Constants.DEBUG) {
+            console.log("Error Writing to Socket: " + e.toString());
+        }
+        // Since we have to return a connection object even if the socket is
+        // already dead in order not to break the API, we schedule a 'close'
+        // event on the connection object to occur immediately.
+        process.nextTick(function() {
+            // WebSocketConnection.CLOSE_REASON_ABNORMAL = 1006
+            // Third param: Skip sending the close frame to a dead socket
+            connection.drop(1006, "TCP connection lost before handshake completed.", true);
+        });
+    }
     
     this.emit('requestAccepted', connection);
     
@@ -216,7 +415,7 @@ WebSocketRequest.prototype.reject = function(status, reason, extraHeaders) {
         for (var key in extraHeaders) {
             var sanitizedValue = extraHeaders[key].toString().replace(headerSanitizeRegExp, '');
             var sanitizedKey = key.replace(headerSanitizeRegExp, '');
-            response += (key + ": " + sanitizedValue + "\r\n");
+            response += (sanitizedKey + ": " + sanitizedValue + "\r\n");
         }
     }
     

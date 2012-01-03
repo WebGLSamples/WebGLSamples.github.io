@@ -15,10 +15,7 @@
  *  limitations under the License.
  ***********************************************************************/
 
-// Enable us to simply require('websocket') from within the examples directory
-require.paths.unshift(__dirname + '/../../lib/');
-
-var WebSocketServer = require('websocket').server;
+var WebSocketServer = require('../../lib/websocket').server;
 var express = require('express');
 
 var app = express.createServer();
@@ -49,7 +46,7 @@ wsServer.on('request', function(request) {
     var connection = request.accept('whiteboard-example', request.origin);
     connections.push(connection);
     
-    console.log(connection.remoteAddress + " connected");
+    console.log(connection.remoteAddress + " connected - Protocol Version " + connection.websocketVersion);
     
     // Send all the existing canvas commands to the new client
     connection.sendUTF(JSON.stringify({

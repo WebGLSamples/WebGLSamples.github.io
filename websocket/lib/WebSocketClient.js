@@ -14,10 +14,15 @@
  *  limitations under the License.
  ***********************************************************************/
 
+var nodeVersion = process.version.slice(1).split('.').map(function(item) { return parseInt(item, 10); });
+var isNode0_4_x = (nodeVersion[0] === 0 && nodeVersion[1] === 4);
+var isGreaterThanNode0_4_x = (nodeVersion[0] > 0 || (nodeVersion[0] === 0 && nodeVersion[1] > 4));
+
 var extend = require('./utils').extend;
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
 var http = require('http');
+var https = require('https');
 var url = require('url');
 var crypto = require('crypto');
 var WebSocketConnection = require('./WebSocketConnection');
@@ -31,10 +36,10 @@ const CLOSED = 3;
 var ID_COUNTER = 0;
 
 var protocolSeparators = [
-	"(", ")", "<", ">", "@",
-	",", ";", ":", "\\", "\"",
-	"/", "[", "]", "?", "=",
-	"{", "}", " ", String.fromCharCode(9)
+    "(", ")", "<", ">", "@",
+    ",", ";", ":", "\\", "\"",
+    "/", "[", "]", "?", "=",
+    "{", "}", " ", String.fromCharCode(9)
 ];
 
 function WebSocketClient(config) {
@@ -56,6 +61,12 @@ function WebSocketClient(config) {
         // Default is 16KiB
         fragmentationThreshold: 0x4000,
         
+        // Which version of the protocol to use for this session.  This
+        // option will be removed once the protocol is finalized by the IETF
+        // It is only available to ease the transition through the
+        // intermediate draft protocol versions.
+        // At present, it only affects the name of the Origin header.
+        websocketVersion: 13,
         
         // If true, fragmented messages will be automatically assembled
         // and the full message will be emitted via a 'message' event.
@@ -77,19 +88,31 @@ function WebSocketClient(config) {
         // The number of milliseconds to wait after sending a close frame
         // for an acknowledgement to come back before giving up and just
         // closing the socket.
-        closeTimeout: 5000
+        closeTimeout: 5000,
+        
+        // Options to pass to https.connect if connecting via TLS
+        tlsOptions: {}
     };
     if (config) {
         extend(this.config, config);
     }
     
+    switch (this.config.websocketVersion) {
+        case 8:
+        case 13:
+            break;
+        default:
+            throw new Error("Requested websocketVersion is not supported. " +
+                            "Allowed values are 8 and 13.");
+    }
+    
     this.readyState = INIT;
-};
+}
 
 util.inherits(WebSocketClient, EventEmitter);
 
 WebSocketClient.prototype.connect = function(requestUrl, protocols, origin) {
-    var s = this;
+    var self = this;
     if (typeof(protocols) === 'string') {
         protocols = [protocols];
     }
@@ -146,13 +169,10 @@ WebSocketClient.prototype.connect = function(requestUrl, protocols, origin) {
         hostHeaderValue += (":" + this.url.port)
     }
     
-    // FIXME: Using old http.createClient interface since Node's new
-    // Agent-based API is buggy.
-    var client = this.httpClient = http.createClient(this.url.port, this.url.hostname);
     var reqHeaders = {
         'Upgrade': 'websocket',
         'Connection': 'Upgrade',
-        'Sec-WebSocket-Version': '8',
+        'Sec-WebSocket-Version': this.config.websocketVersion.toString(10),
         'Sec-WebSocket-Key': this.base64nonce,
         'Host': hostHeaderValue
     };
@@ -160,34 +180,77 @@ WebSocketClient.prototype.connect = function(requestUrl, protocols, origin) {
         reqHeaders['Sec-WebSocket-Protocol'] = this.protocols.join(', ');
     }
     if (this.origin) {
-        reqHeaders['Sec-WebSocket-Origin'] = this.origin;
+        if (this.config.websocketVersion === 13) {
+            reqHeaders['Origin'] = this.origin;
+        }
+        else if (this.config.websocketVersion === 8) {
+            reqHeaders['Sec-WebSocket-Origin'] = this.origin;
+        }
     }
     // TODO: Implement extensions
-
-    var handleRequestError = function(error) {
-        s.emit('connectFailed', error);
-    }
-    client.on('error', handleRequestError);
-
-    client.on('upgrade', function handleClientUpgrade(response, socket, head) {
-        req.removeListener('error', handleRequestError);
-        s.socket = socket;
-        s.response = response;
-        s.firstDataChunk = head;
-        s.validateHandshake();
-    });
-
+    
     var pathAndQuery = this.url.pathname;
     if (this.url.search) {
         pathAndQuery += this.url.search;
     }
-
-    var req = this.request = client.request(pathAndQuery, reqHeaders);
-
-    req.on('response', function(response) {
-        s.failHandshake("Server responded with a non-101 status: " + response.statusCode);
-    });
     
+    function handleRequestError(error) {
+        self.emit('connectFailed', error);
+    }
+    
+    if (isNode0_4_x) {
+        // Using old http.createClient interface since the new Agent-based API
+        // is buggy in Node 0.4.x.
+        if (this.secure) {
+            throw new Error("TLS connections are not supported under Node 0.4.x.  Please use 0.6.2 or newer.");
+        }
+        var client = http.createClient(this.url.port, this.url.hostname);
+        client.on('error', handleRequestError);
+        client.on('upgrade', function handleClientUpgrade(response, socket, head) {
+            client.removeListener('error', handleRequestError);
+            self.socket = socket;
+            self.response = response;
+            self.firstDataChunk = head;
+            self.validateHandshake();
+        });
+        var req = client.request(pathAndQuery, reqHeaders);
+    }
+    else if (isGreaterThanNode0_4_x) {
+        var requestOptions = {
+            hostname: this.url.hostname,
+            port: this.url.port,
+            method: 'GET',
+            path: pathAndQuery,
+            headers: reqHeaders,
+            agent: false
+        };
+        if (this.secure) {
+            ['key','passphrase','cert','ca'].forEach(function(key) {
+                if (self.config.tlsOptions.hasOwnProperty(key)) {
+                    requestOptions[key] = self.config.tlsOptions[key];
+                }
+            });
+            var req = https.request(requestOptions);
+        }
+        else {
+            var req = http.request(requestOptions);
+        }
+        req.on('upgrade', function handleRequestUpgrade(response, socket, head) {
+            req.removeListener('error', handleRequestError);
+            self.socket = socket;
+            self.response = response;
+            self.firstDataChunk = head;
+            self.validateHandshake();
+        });
+        req.on('error', handleRequestError);
+    }
+    else {
+        throw new Error("Unsupported Node version " + process.version);
+    }
+    
+    req.on('response', function(response) {
+        self.failHandshake("Server responded with a non-101 status: " + response.statusCode);
+    });
     req.end();
 };
 
@@ -223,7 +286,7 @@ WebSocketClient.prototype.validateHandshake = function() {
     var expectedKey = sha1.digest('base64');
     
     if (!headers['sec-websocket-accept']) {
-        this.failHandshake("Expected Sec-WebSocket-Accept header from server")
+        this.failHandshake("Expected Sec-WebSocket-Accept header from server");
         return;
     }
     
@@ -246,6 +309,8 @@ WebSocketClient.prototype.failHandshake = function(errorDescription) {
 
 WebSocketClient.prototype.succeedHandshake = function() {
     var connection = new WebSocketConnection(this.socket, [], this.protocol, true, this.config);
+    connection.websocketVersion = this.config.websocketVersion;
+    
     this.emit('connect', connection);
     if (this.firstDataChunk.length > 0) {
         connection.handleSocketData(this.firstDataChunk);

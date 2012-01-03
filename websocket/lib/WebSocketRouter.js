@@ -33,7 +33,7 @@ function WebSocketRouter(config) {
     this.handlers = [];
     
     this._requestHandler = this.handleRequest.bind(this);
-};
+}
 
 util.inherits(WebSocketRouter, EventEmitter);
 
@@ -135,7 +135,7 @@ WebSocketRouter.prototype.handleRequest = function(request) {
         // find the first handler that can process this request 
         for (var j=0, len=this.handlers.length; j < len; j++) {
             var handler = this.handlers[j];
-            if (handler.path.test(request.resource)) {
+            if (handler.path.test(request.resourceURL.pathname)) {
                 if (requestedProtocol === handler.protocol ||
                     handler.protocol === '*')
                 {

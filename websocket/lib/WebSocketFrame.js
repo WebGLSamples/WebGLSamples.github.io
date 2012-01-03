@@ -34,9 +34,10 @@ function WebSocketFrame(maskBytes, frameHeader, config) {
     this.maxReceivedFrameSize = config.maxReceivedFrameSize;
     this.protocolError = false;
     this.frameTooLarge = false;
+    this.invalidCloseFrameLength = false;
     this.parseState = DECODE_HEADER;
     this.closeStatus = -1;
-};
+}
 
 WebSocketFrame.prototype.addData = function(bufferList, fragmentationType) {
     var temp;
@@ -60,7 +61,7 @@ WebSocketFrame.prototype.addData = function(bufferList, fragmentationType) {
             if (this.opcode >= 0x08) {
                 if (this.length > 125) {
                     this.protocolError = true;
-                    this.dropReason = "Illegal control frame longer than 125 bytes."
+                    this.dropReason = "Illegal control frame longer than 125 bytes.";
                     return true;
                 }
                 if (!this.fin) {
@@ -139,8 +140,15 @@ WebSocketFrame.prototype.addData = function(bufferList, fragmentationType) {
             }
             
             if (this.opcode === 0x08) { // WebSocketOpcode.CONNECTION_CLOSE
-                this.closeStatus = ctio.ruint16(this.binaryPayload, 'big', 0);
-                this.binaryPayload = this.binaryPayload.slice(2);
+                if (this.length === 1) {
+                    // Invalid length for a close frame.  Must be zero or at least two.
+                    this.binaryPayload = new Buffer(0);
+                    this.invalidCloseFrameLength = true;
+                }
+                if (this.length >= 2) {
+                    this.closeStatus = ctio.ruint16(this.binaryPayload, 'big', 0);
+                    this.binaryPayload = this.binaryPayload.slice(2);
+                }
             }
             
             this.parseState = COMPLETE;
