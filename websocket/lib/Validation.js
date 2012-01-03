@@ -11,8 +11,11 @@
  
 try {
   module.exports = require('../build/Release/validation');
-} catch (e) { try {
-  module.exports = require('../build/default/validation');
 } catch (e) {
-  throw e;
-}}
+  try {
+    module.exports = require('../build/default/validation');
+  } catch (e) {
+    module.exports = require('../build/none/none.js');
+  }
+}
+
