@@ -321,7 +321,9 @@ function AddUI(uiObj) {
   for (var ii = 0; ii < uiObj.length; ++ii) {
     var ui = uiObj[ii];
     var obj = g[ui.obj];
-    obj[ui.name] = ui.value;
+    if (!obj[ui.name]) {
+      obj[ui.name] = ui.value;
+    }
     var div = document.createElement('div');
     setupSlider($, div, ui, obj);
     uiElem.appendChild(div);

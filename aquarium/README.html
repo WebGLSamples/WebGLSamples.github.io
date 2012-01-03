@@ -53,6 +53,7 @@ Machine E: http://myserver.com:8080/aquarium/aquarium.html?settings={net:{sync:t
 <tr><td>slave:</td><td>boolean</td><td><p>Whether or not to send settings to the server. False = send</p></td></tr>
 <tr><td>rotYMult:</td><td>number</td><td><p>The amount to multiply the field of view for each monitor. Assumes they are all the same size.</p></td></tr>
 <tr><td>fovMult:</td><td>number</td><td><p>The amount to multiply the field of view offset for each monitor.</p><p>The system computes the field of view for the monitor and multiplies by both rotYMult and fovMult to compute how much to rotate the view for each monitor. Think of rotYMult as a per machine setting and fovMult as a global setting. Adjust fovMult to specify the gap between monitors. For example on the Liquid Galaxy in the video above the fovMult is 1.12</p></td></tr>
+<tr><td>fovFudge:</td><td>number</td><td><p>The amount to multiply the global field of view all monitors.</p><p>This is to work around a large array of monitors as the field of view setting is currently for a single monitor. For example if you have 4 monitors across you probably want to set this to 0.25</p></td></tr>
 <tr><td>offset:</td><td>array</td><td><p>The amount to offset the frustum. Used to make a large virtual monitor. Example: offset:[-1,0] would define a monitor 1 unit left of the center monitor.</p></td></tr>
 <tr><td>offsetMult:</td><td>number</td><td><p>Amount to multiply the offset by. Think of offset as a per machine setting and offsetMult as a global setting.</p></tr>
 </table>
