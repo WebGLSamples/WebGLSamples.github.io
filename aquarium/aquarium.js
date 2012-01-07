@@ -1713,6 +1713,10 @@ $(function(){
     }
   }
 
+  if (!g.net.fovFudge) {
+    g.net.fovFudge = 1;
+  }
+
   $('#setSetting8').click(function() {
       $("#uiContainer").toggle('slow'); return false; });
   $("#uiContainer").toggle();
