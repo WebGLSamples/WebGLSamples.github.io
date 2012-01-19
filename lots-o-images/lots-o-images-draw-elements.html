@@ -54,10 +54,10 @@ var canvas;               // the canvas
 var math;                 // the math lib.
 var fast;                 // the fast math lib.
 
-var g_maxImages = 40000;
+var g_maxImages = 250000;
 var g_numImages = 100;
 var g_imageSize = 32;
-var g_targetFrameRate = 60;
+var g_targetFrameRate = 60 - 2;  // add some fudge so browser that runs at 58-59 can still run the test
 
 function CreateApp() {
   var updatePositions = true;

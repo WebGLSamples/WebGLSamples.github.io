@@ -54,10 +54,10 @@ var canvas;               // the canvas
 var math;                 // the math lib.
 var fast;                 // the fast math lib.
 
-var g_maxImages = 240000;
+var g_maxImages = 250000;
 var g_numImages = 100;
 var g_imageSize = 32;
-var g_targetFrameRate = 60;
+var g_targetFrameRate = 60 - 2;  // add some fudge so browser that runs at 58-59 can still run the test
 
 function CreateApp() {
   var updatePositions = true;
@@ -208,10 +208,16 @@ function CreateApp() {
             [instance.x, instance.y]);
         //console.log(instance.x, instance.y);
       }
-      // TODO(gman): update the min number of objects.
-      for (var ii = 0; ii < models.length; ++ii) {
-        var attribBuffer = expanded.arrays[ii].worldPosition;
-        models[ii].setBuffer('worldPosition', attribBuffer);
+
+      var numImages = g_numImages;
+      var index = 0;
+      while (numImages > 0) {
+        var attribBuffer = expanded.arrays[index].worldPosition;
+        var model = models[index];
+        model.setBuffer('worldPosition', attribBuffer);
+        var numImagesInModel = model.buffers.indices.numElements() / 2;
+        numImages -= numImagesInModel;
+        ++index;
       }
     }
   }
@@ -276,7 +282,7 @@ function initialize() {
   var fpsElem = document.getElementById("fps");
   var cntElem = document.getElementById("cnt");
 
-  document.getElementById("title").innerHTML = document.getElementsByTagName("title")[0].innerText;
+  document.getElementById("title").innerHTML = document.getElementsByTagName("title")[0].innerHTML;
 
   gl = tdl.webgl.setupWebGL(canvas, {alpha:false, antialias:false});
   if (!gl) {
