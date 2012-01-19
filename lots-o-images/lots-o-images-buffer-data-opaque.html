@@ -227,8 +227,6 @@ function CreateApp() {
     gl.colorMask(true, true, true, true);
     gl.clearColor(1, 1, 1, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     // Pass in the dimensions of the canvas.
     dimensions[0] = canvas.clientWidth;
