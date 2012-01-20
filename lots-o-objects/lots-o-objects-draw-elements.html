@@ -163,6 +163,8 @@ function CreateApp() {
   function update(elapsedTime) {
     clock += elapsedTime;
 
+    resizeCanvas();
+
     // Make the camera rotate around the scene.
     eyePosition[0] = Math.sin(clock * g_eyeSpeed) * g_eyeRadius;
     eyePosition[1] = g_eyeHeight;

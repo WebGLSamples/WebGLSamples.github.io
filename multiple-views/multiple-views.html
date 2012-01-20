@@ -188,6 +188,8 @@ function CreateApp() {
   function update(elapsedTime) {
     clock += elapsedTime;
 
+    resizeCanvas();
+
     // --Update Instance Positions---------------------------------------
     var advance = elapsedTime / 2;
     for (var ii = 0; ii < instances.length; ++ii) {
@@ -214,10 +216,10 @@ function CreateApp() {
     var m4 = fast.matrix4;
 
     // Set the area we want to render to.
-    var left = canvas.width * viewSettings.left;
-    var bottom = canvas.height * viewSettings.bottom;
-    var width = canvas.width * viewSettings.width;
-    var height = canvas.height * viewSettings.height;
+    var left   = Math.floor(canvas.width  * viewSettings.left);
+    var bottom = Math.floor(canvas.height * viewSettings.bottom);
+    var width  = Math.floor(canvas.width  * viewSettings.width);
+    var height = Math.floor(canvas.height * viewSettings.height);
 
     gl.viewport(left, bottom, width, height);
     gl.scissor(left, bottom, width, height);
