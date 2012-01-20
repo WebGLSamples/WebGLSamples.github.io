@@ -63,22 +63,32 @@ var g_views = [
   bottom: 0,
   width: 0.5,
   height: 1.0,
-  background: [0.5, 0.5, 0.7, 1]
+  background: [0.5, 0.5, 0.7, 1],
+  eye: [0, 2, -9],
+  target: [0, 0, 0],
+  up: [0, 1, 0],
+  fov: 30
 },
 { left: 0.5,
   bottom: 0,
   width: 0.5,
   height: 0.5,
-  background: [0.7, 0.5, 0.5, 1]
+  background: [0.7, 0.5, 0.5, 1],
+  eye: [0, 9, 0],
+  target: [0, 0, 0],
+  up: [0, 0, 1],
+  fov: 45
 },
-/*
 { left: 0.5,
   bottom: 0.5,
   width: 0.5,
   height: 0.5,
-  background: [0.5, 0.7, 0.7, 1]
+  background: [0.5, 0.7, 0.7, 1],
+  eye: [7, 4, 7],
+  target: [0, 0, 0],
+  up: [0, 1, 0],
+  fov: 60
 }
-*/
 ];
 
 function CreateApp() {
@@ -178,11 +188,6 @@ function CreateApp() {
   function update(elapsedTime) {
     clock += elapsedTime;
 
-    // Make the camera rotate around the scene.
-    eyePosition[0] = Math.sin(clock * g_eyeSpeed) * g_eyeRadius;
-    eyePosition[1] = g_eyeHeight;
-    eyePosition[2] = Math.cos(clock * g_eyeSpeed) * g_eyeRadius;
-
     // --Update Instance Positions---------------------------------------
     var advance = elapsedTime / 2;
     for (var ii = 0; ii < instances.length; ++ii) {
@@ -198,23 +203,33 @@ function CreateApp() {
 
   function render() {
     for (var ii = 0; ii < g_views.length; ++ii) {
-      var view = g_views[ii];
-      renderBegin(view);
-      renderScene(view);
-      renderEnd(view);
+      var viewSettings = g_views[ii];
+      renderBegin(viewSettings);
+      renderScene(viewSettings);
+      renderEnd(viewSettings);
     }
   }
 
-  function renderBegin(view) {
+  function renderBegin(viewSettings) {
     var m4 = fast.matrix4;
+
+    // Set the area we want to render to.
+    var left = canvas.width * viewSettings.left;
+    var bottom = canvas.height * viewSettings.bottom;
+    var width = canvas.width * viewSettings.width;
+    var height = canvas.height * viewSettings.height;
+
+    gl.viewport(left, bottom, width, height);
+    gl.scissor(left, bottom, width, height);
+
     // clear the screen.
     gl.colorMask(true, true, true, true);
     gl.depthMask(true);
     gl.clearColor(
-        view.background[0],
-        view.background[1],
-        view.background[2],
-        view.background[3]);
+        viewSettings.background[0],
+        viewSettings.background[1],
+        viewSettings.background[2],
+        viewSettings.background[3]);
     gl.clearDepth(1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
@@ -222,26 +237,18 @@ function CreateApp() {
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.SCISSOR_TEST);
 
-    var left = canvas.width * view.left;
-    var bottom = canvas.height * view.bottom;
-    var width = canvas.width * view.width;
-    var height = canvas.height * view.height;
-
-    gl.viewport(left, bottom, width, height);
-    gl.scissor(left, bottom, width, height);
-
     // Compute a projection and view matrices.
     m4.perspective(
         projection,
-        math.degToRad(60),
+        math.degToRad(viewSettings.fov),
         width / height,
         1,
         5000);
     m4.lookAt(
         view,
-        eyePosition,
-        target,
-        up);
+        viewSettings.eye,
+        viewSettings.target,
+        viewSettings.up);
     m4.mul(viewProjection, view, projection);
     m4.inverse(viewInverse, view);
     m4.inverse(viewProjectionInverse, viewProjection);
@@ -258,7 +265,7 @@ function CreateApp() {
     fast.addVector(lightWorldPos, lightWorldPos, v3t2);
   }
 
-  function renderScene(view) {
+  function renderScene(viewSettings) {
     // -- Render Instances ---------------------------------------
 
     var m4 = fast.matrix4;
