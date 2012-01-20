@@ -32,7 +32,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Lots-O-Images - DrawElements</title>
+<title>Lots-O-Images - BufferData Qpaque</title>
 <link rel="stylesheet" type="text/css" href="../google-io/2011/style.css" />
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
@@ -94,26 +94,63 @@ function CreateApp() {
   var program = tdl.programs.loadProgramFromScriptTags(
       'sphereVertexShader',
       'sphereFragmentShader');
-  var model = new tdl.models.Model(program, planeArrays, textures);
+
+  // --Setup Arrays---------------------------------------
+  var arrays = [
+    planeArrays
+  ];
 
   // -- Setup Instances ----------------------------------
   var instances = [];
   var width = canvas.clientWidth - g_imageSize;
   var height = canvas.clientHeight - g_imageSize;
   for (var ii = 0; ii < g_maxImages; ++ii) {
-    var position = new Float32Array([Math.random() * width, Math.random() * height]);
-    var colorMult = new Float32Array([Math.random(), Math.random(), Math.random(), Math.random()]);
-    var vel = new Float32Array([1 * (Math.random() < 0.5 ? -60 : 60), 1 * (Math.random() < 0.5 ? -60 : 60)]);
-    var instance = {
-      position: position,
-      colorMult: colorMult,
-      vel: vel,
-      uniforms: {
-        translation: position,
-        colorMult: colorMult
-      }
-    };
-    instances.push(instance);
+    instances.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      colorMult: new Float32Array([Math.random(), Math.random(), Math.random(), Math.random()]),
+      arrayIndex: Math.floor(Math.random() * arrays.length),
+      xVel: 1 * (Math.random() < 0.5 ? -60 : 60),
+      yVel: 1 * (Math.random() < 0.5 ? -60 : 60)
+    });
+  }
+
+  // Expand arrays from instances to geometry.
+
+  // Step 1: Add an extra worldPosition and colorMult field to each geometry
+  for (var ii = 0; ii < arrays.length; ++ii) {
+    var numElements = arrays[ii].position.numElements;
+    arrays[ii].worldPosition = new tdl.primitives.AttribBuffer(2, numElements);
+    arrays[ii].colorMult = new tdl.primitives.AttribBuffer(4, numElements);
+  }
+
+  // Step 2: convert instances to expanded geometry
+  var arrayInstances = [];
+  for (var ii = 0; ii < instances.length; ++ii) {
+    arrayInstances.push(arrays[instances[ii].arrayIndex]);
+  }
+  var expanded = tdl.primitives.concatLarge(arrayInstances);
+
+  // Step 3: Make models from our expanded geometry.
+  var models = [];
+  for (var ii = 0; ii < expanded.arrays.length; ++ii) {
+    models.push(new tdl.models.Model(program, expanded.arrays[ii], textures));
+  }
+
+  // Step 4: Copy in Colors
+  for (var ii = 0; ii < instances.length; ++ii) {
+    var instance = instances[ii];
+    var info = expanded.instances[ii];
+    var index = info.arrayIndex;
+    instance.firstVertex = info.firstVertex;
+    instance.numVertices = info.numVertices;
+    instance.expandedArrayIndex = index;
+    var attribBuffer = expanded.arrays[index].colorMult;
+    attribBuffer.fillRange(instance.firstVertex, instance.numVertices, instance.colorMult);
+  }
+  for (var ii = 0; ii < models.length; ++ii) {
+    var attribBuffer = expanded.arrays[ii].colorMult;
+    models[ii].setBuffer('colorMult', attribBuffer);
   }
 
   // pre-allocate a bunch of arrays
@@ -147,22 +184,40 @@ function CreateApp() {
       var advance = elapsedTime;
       for (var ii = 0; ii < g_numImages; ++ii) {
         var instance = instances[ii];
-        instance.position[0] += advance * instance.vel[0];
-        instance.position[1] += advance * instance.vel[1];
-        if (instance.position[0] < 0) {
-          instance.position[0] = 0;
-          instance.vel[0] = -instance.vel[0];
-        } else if (instance.position[0] > width) {
-          instance.position[0] = width;
-          instance.vel[0] = -instance.vel[0];
+        instance.x += advance * instance.xVel;
+        instance.y += advance * instance.yVel;
+        if (instance.x < 0) {
+          instance.x = 0;
+          instance.xVel = -instance.xVel;
+        } else if (instance.x > width) {
+          instance.x = width;
+          instance.xVel = -instance.xVel;
         }
-        if (instance.position[1]  < 0) {
-          instance.position[1]  = 0;
-          instance.vel[1] = -instance.vel[1];
-        } else if (instance.position[1]  > height) {
-          instance.position[1]  = height;
-          instance.vel[1] = -instance.vel[1];
+        if (instance.y < 0) {
+          instance.y = 0;
+          instance.yVel = -instance.yVel;
+        } else if (instance.y > height) {
+          instance.y = height;
+          instance.yVel = -instance.yVel;
         }
+        var index = instance.expandedArrayIndex;
+        var attribBuffer = expanded.arrays[index].worldPosition;
+        attribBuffer.fillRange(
+            instance.firstVertex,
+            instance.numVertices,
+            [instance.x, instance.y]);
+        //console.log(instance.x, instance.y);
+      }
+
+      var numImages = g_numImages;
+      var index = 0;
+      while (numImages > 0) {
+        var attribBuffer = expanded.arrays[index].worldPosition;
+        var model = models[index];
+        model.setBuffer('worldPosition', attribBuffer);
+        var numImagesInModel = model.buffers.indices.numElements() / 2;
+        numImages -= numImagesInModel;
+        ++index;
       }
     }
   }
@@ -178,8 +233,6 @@ function CreateApp() {
     gl.colorMask(true, true, true, true);
     gl.clearColor(1, 1, 1, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     // Pass in the dimensions of the canvas.
     dimensions[0] = canvas.clientWidth;
@@ -190,11 +243,14 @@ function CreateApp() {
     // -- Render Models ---------------------------------------
     // We only need to render each model once
     // as they contain all the instances.
-
-    model.drawPrep(sharedUniforms);
-    for (var ii = 0; ii < g_numImages; ++ii) {
-      var instance = instances[ii];
-      model.draw(instance.uniforms);
+    var numImages = g_numImages;
+    for (var ii = 0; numImages > 0 && ii < models.length; ++ii) {
+      var model = models[ii];
+      var numImagesInModel = model.buffers.indices.numElements() / 2;
+      var numToDraw = Math.min(numImagesInModel, numImages);
+      model.drawPrep(sharedUniforms);
+      model.draw(numToDraw * 6);
+      numImages -= numToDraw;
     }
   }
 
@@ -239,6 +295,10 @@ function initialize() {
   var then = (new Date()).getTime() * 0.001;
   var changeAmount = 1;
 
+  function sign(v) {
+    return v > 0 ? 1 : (v < 0 ? -1 : 0);
+  }
+
   function render() {
     tdl.webgl.requestAnimationFrame(render, canvas);
 
@@ -282,17 +342,17 @@ function initialize() {
 </body>
 <script id="sphereVertexShader" type="text/something-not-javascript">
 uniform vec2 dimensions;
-uniform vec2 translation;
-uniform vec4 colorMult;
 attribute vec2 position;
 attribute vec2 texCoord;
+attribute vec2 worldPosition;
+attribute vec4 colorMult;
 varying vec2 v_texCoord;
 varying vec4 v_colorMult;
 void main() {
   v_texCoord = texCoord;
   v_colorMult = colorMult;
   gl_Position = vec4(
-    (((position + translation) / dimensions) * 2.0 - 1.0) * vec2(1, -1), 0, 1);
+    (((position + worldPosition) / dimensions) * 2.0 - 1.0) * vec2(1, -1), 0, 1);
 }
 
 </script>

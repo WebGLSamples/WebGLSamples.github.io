@@ -14,6 +14,9 @@
  *  limitations under the License.
  ***********************************************************************/
 
+var util = require('util');
+var EventEmitter = require('events').EventEmitter;
+
 function WebSocketRouterRequest(webSocketRequest, resolvedProtocol) {
     this.webSocketRequest = webSocketRequest;
     if (resolvedProtocol === '____no_protocol____') {
@@ -24,16 +27,26 @@ function WebSocketRouterRequest(webSocketRequest, resolvedProtocol) {
     }
     this.origin = webSocketRequest.origin;
     this.resource = webSocketRequest.resource;
+    this.resourceURL = webSocketRequest.resourceURL;
     this.httpRequest = webSocketRequest.httpRequest;
     this.remoteAddress = webSocketRequest.remoteAddress;
+    this.webSocketVersion = webSocketRequest.webSocketVersion;
+    this.websocketVersion = this.webSocketVersion; // Deprecated: proper casing
+    this.requestedExtensions = webSocketRequest.requestedExtensions;
+    this.cookies = webSocketRequest.cookies;
+}
+
+util.inherits(WebSocketRouterRequest, EventEmitter);
+
+WebSocketRouterRequest.prototype.accept = function(origin, cookies) {
+    var connection = this.webSocketRequest.accept(this.protocol, origin, cookies);
+    this.emit('requestAccepted', connection);
+    return connection;
 };
 
-WebSocketRouterRequest.prototype.accept = function(origin) {
-    return this.webSocketRequest.accept(this.protocol, origin);
-};
-
-WebSocketRouterRequest.prototype.reject = function(status, reason) {
-    return this.webSocketRequest.reject(status, reason);
+WebSocketRouterRequest.prototype.reject = function(status, reason, extraHeaders) {
+    this.webSocketRequest.reject(status, reason, extraHeaders);
+    this.emit('requestRejected', this);
 };
 
 module.exports = WebSocketRouterRequest;

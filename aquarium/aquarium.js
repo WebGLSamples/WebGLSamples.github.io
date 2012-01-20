@@ -95,6 +95,7 @@ var g_ui = [
 var g_netUI = [
   { obj: 'net',    name: 'timeout',     value: 3000,  max:  3000},
   { obj: 'net',    name: 'fovMult',     value: 1.21,  max:  2},
+  { obj: 'net',    name: 'fovFudge',    value: 1,     max:  2},
   { obj: 'net',    name: 'offsetMult',  value: 1,     max:  2}
 ];
 
@@ -1184,7 +1185,7 @@ function initialize() {
     var near = 1;
     var far = 25000;
     var aspect = canvas.clientWidth / canvas.clientHeight;
-    var top = Math.tan(math.degToRad(g.globals.fieldOfView) * 0.5) * near;
+    var top = Math.tan(math.degToRad(g.globals.fieldOfView * g.net.fovFudge) * 0.5) * near;
     var bottom = -top;
     var left = aspect * bottom;
     var right = aspect * top;
@@ -1208,7 +1209,7 @@ function initialize() {
         up);
     if (g.net.slave) {
       // compute X fov from y fov
-      var fovy = math.degToRad(g.globals.fieldOfView);
+      var fovy = math.degToRad(g.globals.fieldOfView * g.net.fovFudge);
       var fovx = Math.atan(
           Math.tan(fovy * 0.5) * canvas.clientWidth / canvas.clientHeight) * 2;
       fast.matrix4.rotationY(
@@ -1710,6 +1711,10 @@ $(function(){
       AddUI(g_netUI);
       $("#msgContainer").show();
     }
+  }
+
+  if (!g.net.fovFudge) {
+    g.net.fovFudge = 1;
   }
 
   $('#setSetting8').click(function() {

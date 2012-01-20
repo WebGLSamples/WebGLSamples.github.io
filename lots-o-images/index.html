@@ -1,0 +1,50 @@
+<html>
+<head>
+<meta charset="utf-8">
+<title>WebGL Samples - Lots O Images</title>
+<style>
+body {
+  font-family: sans-serif;
+}
+img {
+  border: 0px;
+}
+</style>
+</head>
+<body>
+<h1>Lots-O-Images benchmarks</h1>
+<p>These samples attempt to draw as many 32x32 images as possible at 60 frames a second using various techniques.</p>
+<p>Before running these tests you should turn off as many other programs as you can</p>
+<p>If you are comparing browsers</p>
+<ul>
+<li>try to make sure the content area is about the same size in all browsers</li>
+<li>only run the test in 1 browser at a time</li>
+<li>make sure all browsers are completely on the same monitior if you have more than 1 monitor</li>
+<li>make sure each browser is complete visible and not overlapped by menus, docks, task bars, notifications</li>
+</ul>
+Also see <a href="../lots-o-objects/index.html">Lots-O-Objects</a>.
+<hr/>
+
+<div><a href="lots-o-images-draw-elements.html">
+<img src="lots-o-images-draw-elements.png" /></a><br/>
+<a href="lots-o-images-draw-elements.html">Lots O Images - DrawElements</a>
+<p>This sample uses the standard drawElements function call, ones for each image quad.</p>
+</div>
+<hr/>
+
+<div><a href="lots-o-images-buffer-data.html">
+<img src="lots-o-images-buffer-data.png" /></a><br/>
+<a href="lots-o-images-buffer-data.html">Lots O Images - BufferData</a>
+<p>This sample puts all images quads in a large buffer. The positions of each image are updated in JavaScript and then sent to the GPU with a call to BufferData.</p>
+</div>
+<hr/>
+
+<div><a href="lots-o-images-buffer-data-opaque.html">
+<img src="lots-o-images-buffer-data-opaque.png" /></a><br/>
+<a href="lots-o-images-buffer-data-opaque.html">Lots O Images - BufferData Opaque</a>
+<p>This is the same as "Lots O Images - BufferData" above except blending is turned off since blending is expensive for the GPU.</p>
+</div>
+<hr/>
+
+</body>
+</html>

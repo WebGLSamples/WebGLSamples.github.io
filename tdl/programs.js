@@ -246,11 +246,35 @@ tdl.programs.Program = function(vertexShader, fragmentShader) {
     if (info.size > 1 && tdl.string.endsWith(info.name, "[0]")) {
       // It's an array.
       if (type == gl.FLOAT)
-        return function(v) { gl.uniform1fv(loc, v); };
+        return function() {
+          var old;
+          return function(v) {
+            if (v !== old) {
+              old = v;
+              gl.uniform1fv(loc, v);
+            }
+          };
+        }();
       if (type == gl.FLOAT_VEC2)
-        return function(v) { gl.uniform2fv(loc, v); };
+        return function() {
+          // I hope they don't use -1,-1 as their first draw
+          var old = new Float32Array([-1, -1]);
+          return function(v) {
+            if (v[0] != old[0] || v[1] != old[1]) {
+              gl.uniform2fv(loc, v);
+            }
+          };
+        }();
       if (type == gl.FLOAT_VEC3)
-        return function(v) { gl.uniform3fv(loc, v); };
+        return function() {
+          // I hope they don't use -1,-1,-1 as their first draw
+          var old = new Float32Array([-1, -1, -1]);
+          return function(v) {
+            if (v[0] != old[0] || v[1] != old[1] || v[2] != old[2]) {
+              gl.uniform3fv(loc, v);
+            }
+          };
+        }();
       if (type == gl.FLOAT_VEC4)
         return function(v) { gl.uniform4fv(loc, v); };
       if (type == gl.INT)

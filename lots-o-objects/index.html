@@ -1,0 +1,42 @@
+<html>
+<head>
+<meta charset="utf-8">
+<title>WebGL Samples - Lots O Objects</title>
+<style>
+body {
+  font-family: sans-serif;
+}
+img {
+  border: 0px;
+}
+</style>
+</head>
+<body>
+<h1>Lots-O-Images Benchmark</h1>
+<p>This sample attempts to draw as many objects as possible at 60 frames.</p>
+<p>Before running this test you should turn off as many other programs as you can</p>
+<p>If you are comparing browsers</p>
+<ul>
+<li>try to make sure the content area is about the same size in all browsers</li>
+<li>only run the test in 1 browser at a time</li>
+<li>make sure all browsers are completely on the same monitior if you have more than 1 monitor</li>
+<li>make sure each browser is complete visible and not overlapped by menus, docks, task bars, notifications</li>
+</ul>
+Also see <a href="../lots-o-images/index.html">Lots-O-Images</a>.
+<hr/>
+
+<div><a href="lots-o-objects-draw-elements.html">
+<img src="lots-o-objects-draw-elements.png" /></a><br/>
+<a href="lots-o-objects-draw-elements.html">Lots O Objects - DrawElements</a>
+<p>This sample uses the standard drawElements function call, once for each object.</p>
+<p>There are 3 types of objects. A sphere, a cube and a cone. They are drawn in batches of 50
+to simulate a semi-optimized game. In other words, WebGL is setup to draw a sphere (setting
+the program, the attributes, and common uniforms), then 50 spheres are drawn one at a time
+(setting the uniforms that are unique for the sphere, then calling gl.drawElements). Followed
+by the next group of 50 and so on.
+</div>
+<hr/>
+
+<a href="../google-io/2011/index.html">Click here to see some other techniques for optmization.</a>
+</body>
+</html>

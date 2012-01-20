@@ -19,6 +19,8 @@ var util = require('util');
 var EventEmitter = require('events').EventEmitter;
 var WebSocketFrame = require('./WebSocketFrame');
 var BufferList = require('../vendor/FastBufferList');
+var Constants = require('./Constants');
+var Validation = require('./Validation').Validation;
 
 const STATE_OPEN = "open";
 const STATE_CLOSING = "closing";
@@ -30,6 +32,8 @@ function WebSocketConnection(socket, extensions, protocol, maskOutgoingPackets, 
     this.protocol = protocol;
     this.extensions = extensions;
     this.remoteAddress = socket.remoteAddress;
+    this.closeReasonCode = -1;
+    this.closeDescription = null;
     
     // We have to mask outgoing packets if we're acting as a WebSocket client.
     this.maskOutgoingPackets = maskOutgoingPackets;
@@ -80,21 +84,129 @@ function WebSocketConnection(socket, extensions, protocol, maskOutgoingPackets, 
     this._closeTimerHandler = this.handleCloseTimer.bind(this);
     
     if (this.config.keepalive) {
-        this._pingIntervalID = setInterval(this.ping.bind(this), this.config.keepaliveInterval);
+        if (typeof(this.config.keepaliveInterval) !== 'number') {
+            throw new Error("keepaliveInterval must be specified and numeric " +
+                            "if keepalive is true.");
+        }
+        this._keepaliveTimerHandler = this.handleKeepaliveTimer.bind(this);
+        this.setKeepaliveTimer();
+        
+        if (this.config.dropConnectionOnKeepaliveTimeout) {
+            if (typeof(this.config.keepaliveGracePeriod) !== 'number') {
+                throw new Error("keepaliveGracePeriod  must be specified and " +
+                                "numeric if dropConnectionOnKeepaliveTimeout " +
+                                "is true.")
+            }
+            this._gracePeriodTimerHandler = this.handleGracePeriodTimer.bind(this);
+        }
     }
-};
+}
 
 WebSocketConnection.CLOSE_REASON_NORMAL = 1000;
 WebSocketConnection.CLOSE_REASON_GOING_AWAY = 1001;
 WebSocketConnection.CLOSE_REASON_PROTOCOL_ERROR = 1002;
 WebSocketConnection.CLOSE_REASON_UNPROCESSABLE_INPUT = 1003;
-WebSocketConnection.CLOSE_REASON_MESSAGE_TOO_LARGE = 1004;
-WebSocketConnection.CLOSE_REASON_NOT_PROVIDED = 1005; // Reserved value, not to be used
-WebSocketConnection.CLOSE_REASON_ABNORMAL = 1006; // Reserved value, not to be used
+WebSocketConnection.CLOSE_REASON_RESERVED = 1004; // Reserved value.  Undefined meaning.
+WebSocketConnection.CLOSE_REASON_NOT_PROVIDED = 1005; // Not to be used on the wire
+WebSocketConnection.CLOSE_REASON_ABNORMAL = 1006; // Not to be used on the wire
+WebSocketConnection.CLOSE_REASON_INVALID_DATA = 1007;
+WebSocketConnection.CLOSE_REASON_POLICY_VIOLATION = 1008;
+WebSocketConnection.CLOSE_REASON_MESSAGE_TOO_BIG = 1009;
+WebSocketConnection.CLOSE_REASON_EXTENSION_REQUIRED = 1010;
+WebSocketConnection.CLOSE_REASON_INTERNAL_SERVER_ERROR = 1011;
+WebSocketConnection.CLOSE_REASON_TLS_HANDSHAKE_FAILED = 1015; // Not to be used on the wire
+
+WebSocketConnection.CLOSE_DESCRIPTIONS = {
+    1000: "Normal connection closure",
+    1001: "Remote peer is going away",
+    1002: "Protocol error",
+    1003: "Unprocessable input",
+    1004: "Reserved",
+    1005: "Reason not provided",
+    1006: "Abnormal closure, no further detail available",
+    1007: "Invalid data received",
+    1008: "Policy violation",
+    1009: "Message too big",
+    1010: "Extension requested by client is required",
+    1011: "Internal Server Error",
+    1015: "TLS Handshake Failed"
+};
+
+function validateReceivedCloseReason(code) {
+    if (code < 1000) {
+        // Status codes in the range 0-999 are not used
+        return false;
+    }
+    if (code >= 1000 && code <= 2999) {
+        // Codes from 1000 - 2999 are reserved for use by the protocol.  Only
+        // a few codes are defined, all others are currently illegal.
+        return [1000, 1001, 1002, 1003, 1007, 1008, 1009, 1010, 1011].indexOf(code) !== -1
+    }
+    if (code >= 3000 && code <= 3999) {
+        // Reserved for use by libraries, frameworks, and applications.
+        // Should be registered with IANA.  Interpretation of these codes is
+        // undefined by the WebSocket protocol.
+        return true;
+    }
+    if (code >= 4000 && code <= 4999) {
+        // Reserved for private use.  Interpretation of these codes is
+        // undefined by the WebSocket protocol.
+        return true;
+    }
+    if (code >= 5000) {
+        return false;
+    }
+}
 
 util.inherits(WebSocketConnection, EventEmitter);
 
+// set or reset the keepalive timer when data is received.
+WebSocketConnection.prototype.setKeepaliveTimer = function() {
+    if (!this.config.keepalive) { return; }
+    if (this._keepaliveTimeoutID) {
+        clearTimeout(this._keepaliveTimeoutID);
+    }
+    if (this._gracePeriodTimeoutID) {
+        clearTimeout(this._gracePeriodTimeoutID);
+    }
+    this._keepaliveTimeoutID = setTimeout(this._keepaliveTimerHandler, this.config.keepaliveInterval);
+};
+
+// No data has been received within config.keepaliveTimeout ms.
+WebSocketConnection.prototype.handleKeepaliveTimer = function() {
+    this._keepaliveTimeoutID = null;
+    this.ping();
+    
+    // If we are configured to drop connections if the client doesn't respond
+    // then set the grace period timer.
+    if (this.config.dropConnectionOnKeepaliveTimeout) {
+        this.setGracePeriodTimer();
+    }
+    else {
+        // Otherwise reset the keepalive timer to send the next ping.
+        this.setKeepaliveTimer();
+    }
+};
+
+WebSocketConnection.prototype.setGracePeriodTimer = function() {
+    if (this._gracePeriodTimeoutID) {
+        clearTimeout(this._gracePeriodTimeoutID);
+    }
+    this._gracePeriodTimeoutID = setTimeout(this._gracePeriodTimerHandler, this.config.keepaliveGracePeriod);
+};
+
+WebSocketConnection.prototype.handleGracePeriodTimer = function() {
+    // If this is called, the client has not responded and is assumed dead.
+    this._gracePeriodTimeoutID = null;
+    this.drop(WebSocketConnection.CLOSE_REASON_ABNORMAL, "Peer not responding.", true);
+};
+
 WebSocketConnection.prototype.handleSocketData = function(data) {
+    // Reset the keepalive timer when receiving data of any kind.
+    this.setKeepaliveTimer();
+    
+    // Add received data to our bufferList, which efficiently holds received
+    // data chunks in a linked list of Buffer objects.
     this.bufferList.write(data);
     
     // currentFrame.addData returns true if all data necessary to parse
@@ -109,7 +221,7 @@ WebSocketConnection.prototype.handleSocketData = function(data) {
             return;
         }
         else if (this.currentFrame.frameTooLarge) {
-            this.drop(WebSocketConnection.CLOSE_REASON_MESSAGE_TOO_LARGE, this.currentFrame.dropReason);
+            this.drop(WebSocketConnection.CLOSE_REASON_MESSAGE_TOO_BIG, this.currentFrame.dropReason);
             return;
         }
         
@@ -148,15 +260,21 @@ WebSocketConnection.prototype.handleSocketClose = function(hadError) {
     // console.log((new Date()) + " - Socket Close");
     this.socketHadError = hadError;
     this.connected = false;
-    this.state = "closed";
+    this.state = STATE_CLOSED;
+    // If closeReasonCode is still set to -1 at this point then we must
+    // not have received a close frame!!
+    if (this.closeReasonCode === -1) {
+        this.closeReasonCode = WebSocketConnection.CLOSE_REASON_ABNORMAL;
+        this.closeDescription = "Connection dropped by remote peer.";
+    }
     if (!this.closeEventEmitted) {
         this.closeEventEmitted = true;
         // console.log((new Date()) + " - Emitting WebSocketConnection close event");
-        this.emit('close', this);
+        this.emit('close', this.closeReasonCode, this.closeDescription);
     }
     this.clearCloseTimer();
-    if (this.config.keepalive) {
-        clearInterval(this._pingIntervalID);
+    if (this._keepaliveTimeoutID) {
+        clearTimeout(this._keepaliveTimeoutID);
     }
 };
 
@@ -168,28 +286,43 @@ WebSocketConnection.prototype.handleSocketDrain = function() {
 WebSocketConnection.prototype.close = function() {
     // console.log((new Date()) + " - Initating clean WebSocket close sequence.");
     if (this.connected) {
+        this.closeReasonCode = WebSocketConnection.CLOSE_REASON_NORMAL;
+        this.closeDescription = WebSocketConnection.CLOSE_DESCRIPTIONS[this.closeReasonCode];
         this.setCloseTimer();
         this.sendCloseFrame();
-        this.state = "closing";
+        this.state = STATE_CLOSING;
         this.connected = false;
     }
 };
 
-WebSocketConnection.prototype.drop = function(closeReason, reasonText) {
-    if (typeof(closeReason) !== 'number') {
-        closeReason = WebSocketConnection.CLOSE_REASON_PROTOCOL_ERROR;
+WebSocketConnection.prototype.drop = function(reasonCode, description, skipCloseFrame) {
+    if (typeof(reasonCode) !== 'number') {
+        reasonCode = WebSocketConnection.CLOSE_REASON_PROTOCOL_ERROR;
     }
-    var logText = "WebSocket: Dropping Connection. Code: " + closeReason.toString(10);
-    if (reasonText) {
-        logText += (" - " + reasonText);
+    var logText = "WebSocket: Dropping Connection. Code: " + reasonCode.toString(10);
+    
+    if (typeof(description) !== 'string') {
+        // If no description is provided, try to look one up based on the
+        // specified reasonCode.
+        description = WebSocketConnection.CLOSE_DESCRIPTIONS[reasonCode];
     }
-    console.error((new Date()) + " " + logText);
+    if (description) {
+        logText += (" - " + description);
+    }
+    // console.error((new Date()) + " " + logText);
+    
+    this.closeReasonCode = reasonCode;
+    this.closeDescription = description;
     this.outgoingFrameQueue = [];
-    this.frameQueue = []
+    this.frameQueue = [];
     this.fragmentationSize = 0;
-    this.sendCloseFrame(closeReason, reasonText, true);
+    if (!skipCloseFrame) {
+        this.sendCloseFrame(reasonCode, description, true);
+    }
     this.connected = false;
-    this.state = "closed";
+    this.state = STATE_CLOSED;
+    this.closeEventEmitted = true;
+    this.emit('close', reasonCode, description);
     this.socket.destroy();
 };
 
@@ -207,7 +340,7 @@ WebSocketConnection.prototype.clearCloseTimer = function() {
         this.waitingForCloseResponse = false;
         this.closeTimer = null;
     }
-}
+};
 
 WebSocketConnection.prototype.handleCloseTimer = function() {
     this.closeTimer = null;
@@ -251,6 +384,11 @@ WebSocketConnection.prototype.processFrame = function(frame) {
         case 0x01: // WebSocketFrame.TEXT_FRAME
             if (this.assembleFragments) {
                 if (frame.fin) {
+                    if (!Validation.isValidUTF8(frame.binaryPayload)) {
+                        this.drop(WebSocketConnection.CLOSE_REASON_INVALID_DATA,
+                                  "Invalid UTF-8 Data Received");
+                        return;
+                    }
                     // Complete single-frame message received
                     this.emit('message', {
                         type: 'utf8',
@@ -275,7 +413,7 @@ WebSocketConnection.prototype.processFrame = function(frame) {
                 this.fragmentationSize += frame.length;
 
                 if (this.fragmentationSize > this.maxReceivedMessageSize) {
-                    this.drop(WebSocketConnection.CLOSE_REASON_PROTOCOL_ERROR,
+                    this.drop(WebSocketConnection.CLOSE_REASON_MESSAGE_TOO_BIG,
                               "Maximum message size exceeded.");
                     return;
                 }
@@ -301,6 +439,11 @@ WebSocketConnection.prototype.processFrame = function(frame) {
                             });
                             break;
                         case 0x01: // WebSocketOpcode.TEXT_FRAME
+                            if (!Validation.isValidUTF8(binaryPayload)) {
+                                this.drop(WebSocketConnection.CLOSE_REASON_INVALID_DATA,
+                                          "Invalid UTF-8 Data Received");
+                                return;
+                            }
                             this.emit('message', {
                                 type: 'utf8',
                                 utf8Data: binaryPayload.toString('utf8')
@@ -330,49 +473,68 @@ WebSocketConnection.prototype.processFrame = function(frame) {
                 // console.log((new Date()) + " - Got close response from peer.");
                 this.clearCloseTimer();
                 this.waitingForCloseResponse = false;
-                this.state = "closed";
+                this.state = STATE_CLOSED;
                 this.socket.end();
             }
             else {
                 // Got request from other party to close connection.
                 // Send back acknowledgement and then hang up.
-                this.state = "closing";
-                if (frame.closeStatus !== WebSocketConnection.CLOSE_REASON_NORMAL) {
-                    var logCloseError;
-                    switch(frame.closeStatus) {
-                        case WebSocketConnection.CLOSE_REASON_PROTOCOL_ERROR:
-                            logCloseError = "Remote peer closed connection: Protocol Error";
-                            break;
-                        case WebSocketConnection.CLOSE_REASON_MESSAGE_TOO_LARGE:
-                            logCloseError = "Remote peer closed connection: Received Message Too Large";
-                            break;
-                        case WebSocketConnection.CLOSE_REASON_UNPROCESSABLE_INPUT:
-                            logCloseError = "Remote peer closed connection: Unprocessable Input";
-                            break;
-                        case WebSocketConnection.CLOSE_REASON_GOING_AWAY:
-                            logCloseError = "Remote peer closed connection: Going Away";
-                            break;
-                        default:
-                            logCloseError = "Remote peer closed connection: Status code " + frame.closeStatus.toString(10);
-                            break;
-                    }
-                    if (frame.binaryPayload) {
-                        logCloseError += (" - Description Provided: " + frame.binaryPayload.toString('utf8'));
-                    }
-                    // console.error((new Date()) + " " + logCloseError);
+                this.state = STATE_CLOSING;
+                var respondCloseReasonCode;
+
+                // Make sure the close reason provided is legal according to
+                // the protocol spec.  Providing no close status is legal.
+                // WebSocketFrame sets closeStatus to -1 by default, so if it
+                // is still -1, then no status was provided.
+                if (frame.invalidCloseFrameLength) {
+                    this.closeReasonCode = 1005; // 1005 = No reason provided.
+                    respondCloseReasonCode = WebSocketConnection.CLOSE_REASON_PROTOCOL_ERROR;
+                }
+                else if (frame.closeStatus === -1 || validateReceivedCloseReason(frame.closeStatus)) {
+                    this.closeReasonCode = frame.closeStatus;
+                    respondCloseReasonCode = WebSocketConnection.CLOSE_REASON_NORMAL;
                 }
                 else {
-                    // console.log((new Date()) + " - Remote peer " + this.remoteAddress + " requested disconnect");
+                    this.closeReasonCode = frame.closeStatus;
+                    respondCloseReasonCode = WebSocketConnection.CLOSE_REASON_PROTOCOL_ERROR;
                 }
-                // console.log((new Date()) + " - Sending close frame in response and closing the socket.");
-                this.sendCloseFrame(WebSocketConnection.CLOSE_REASON_NORMAL);
+                
+                // If there is a textual description in the close frame, extract it.
+                if (frame.binaryPayload.length > 1) {
+                    if (!Validation.isValidUTF8(frame.binaryPayload)) {
+                        this.drop(WebSocketConnection.CLOSE_REASON_INVALID_DATA,
+                                  "Invalid UTF-8 Data Received");
+                        return;
+                    }
+                    this.closeDescription = frame.binaryPayload.toString('utf8');
+                }
+                else {
+                    this.closeDescription = WebSocketConnection.CLOSE_DESCRIPTIONS[this.closeReasonCode];
+                }
+                // console.log((new Date()) + " Remote peer " + this.remoteAddress +
+                // " requested disconnect, code: " + this.closeReasonCode + " - " + this.closeDescription +
+                // " - close frame payload length: " + frame.length);
+                this.sendCloseFrame(respondCloseReasonCode);
                 this.socket.end();
+                this.connected = false;
             }
             break;
         default:
             this.drop(WebSocketConnection.CLOSE_REASON_PROTOCOL_ERROR,
                       "Unrecognized Opcode: 0x" + frame.opcode.toString(16));
             break;
+    }
+};
+
+WebSocketConnection.prototype.send = function(data) {
+    if (Buffer.isBuffer(data)) {
+        this.sendBytes(data);
+    }
+    else if (typeof(data['toString']) === 'function') {
+        this.sendUTF(data);
+    }
+    else {
+        throw new Error("Data provided must either be a Node Buffer or implement toString()")
     }
 };
 
@@ -384,27 +546,41 @@ WebSocketConnection.prototype.sendUTF = function(data) {
 };
     
 WebSocketConnection.prototype.sendBytes = function(data) {
-	if (!Buffer.isBuffer(data)) {
-		throw new Error("You must pass a Node Buffer object to WebSocketConnection.prototype.sendBytes()");
-	}
+    if (!Buffer.isBuffer(data)) {
+        throw new Error("You must pass a Node Buffer object to WebSocketConnection.prototype.sendBytes()");
+    }
     var frame = new WebSocketFrame(this.maskBytes, this.frameHeader, this.config);
     frame.opcode = 0x02; // WebSocketOpcode.BINARY_FRAME
     frame.binaryPayload = data;
     this.fragmentAndSend(frame);
 };
 
-WebSocketConnection.prototype.ping = function() {
+WebSocketConnection.prototype.ping = function(data) {
     var frame = new WebSocketFrame(this.maskBytes, this.frameHeader, this.config);
     frame.opcode = 0x09; // WebSocketOpcode.PING
     frame.fin = true;
+    if (data) {
+        if (!Buffer.isBuffer(data)) {
+            data = new Buffer(data.toString(), 'utf8')
+        }
+        if (data.length > 125) {
+            // console.warn("WebSocket: Data for ping is longer than 125 bytes.  Truncating.");
+            data = data.slice(0,124);
+        }
+        frame.binaryPayload = data;
+    }
     this.sendFrame(frame);
 };
-    
+
 // Pong frames have to echo back the contents of the data portion of the
 // ping frame exactly, byte for byte.
 WebSocketConnection.prototype.pong = function(binaryPayload) {
     var frame = new WebSocketFrame(this.maskBytes, this.frameHeader, this.config);
     frame.opcode = 0x0A; // WebSocketOpcode.PONG
+    if (Buffer.isBuffer(binaryPayload) && binaryPayload.length > 125) {
+        // console.warn("WebSocket: Data for pong is longer than 125 bytes.  Truncating.");
+        binaryPayload = binaryPayload.slice(0,124);
+    }
     frame.binaryPayload = binaryPayload;
     frame.fin = true;
     this.sendFrame(frame);
@@ -471,14 +647,21 @@ WebSocketConnection.prototype.sendFrame = function(frame, force) {
 };
 
 WebSocketConnection.prototype.processOutgoingFrameQueue = function() {
-    if (this.outputPaused) { return; }
+    if (this.outputPaused || !this.connected) { return; }
     if (this.outgoingFrameQueue.length > 0) {
         var buffer = this.outgoingFrameQueue.pop();
         try {
             var flushed = this.socket.write(buffer);
         }
         catch(e) {
-            console.error("Error while writing to socket: " + e.toString());
+            if (this.listeners('error').length > 0) {
+                this.emit("error", "Error while writing to socket: " + e.toString());
+            }
+            else {
+                if (Constants.DEBUG) {
+                    console.warn("Error while writing to socket: " + e.toString());
+                }
+            }
             return;
         }
         this.bytesWaitingToFlush -= buffer.length;

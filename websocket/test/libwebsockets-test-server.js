@@ -21,6 +21,7 @@ var WebSocketRouter = require('../lib/WebSocketRouter');
 var http = require('http');
 var url = require('url');
 var fs = require('fs');
+var os = require('os');
 
 var args = { /* defaults */
     secure: false
@@ -91,10 +92,22 @@ var mirrorConnections = [];
 var mirrorHistory = [];
 
 router.mount('*', 'lws-mirror-protocol', function(request) {
+    var cookies = [
+        {
+            name: "TestCookie",
+            value: "CookieValue" + Math.floor(Math.random()*1000),
+            path: '/',
+            secure: false,
+            maxage: 5000,
+            httponly: true
+        }
+    ];
+    
     // Should do origin verification here. You have to pass the accepted
     // origin into the accept method of the request.
-    var connection = request.accept(request.origin);
-    console.log((new Date()) + " lws-mirror-protocol connection accepted from " + connection.remoteAddress);
+    var connection = request.accept(request.origin, cookies);
+    console.log((new Date()) + " lws-mirror-protocol connection accepted from " + connection.remoteAddress +
+                " - Protocol Version " + connection.webSocketVersion);
 
 
     
@@ -102,7 +115,7 @@ router.mount('*', 'lws-mirror-protocol', function(request) {
         var historyString = mirrorHistory.join('');
         console.log((new Date()) + " sending mirror protocol history to client; " + connection.remoteAddress + " : " + Buffer.byteLength(historyString) + " bytes");
         
-        connection.sendUTF(historyString);
+        connection.send(historyString);
     }
     
     mirrorConnections.push(connection);
@@ -121,15 +134,15 @@ router.mount('*', 'lws-mirror-protocol', function(request) {
 
             // Re-broadcast the command to all connected clients
             mirrorConnections.forEach(function (outputConnection) {
-                outputConnection.sendUTF(message.utf8Data);
+                outputConnection.send(message.utf8Data);
             });
         }
     });
 
-    connection.on('close', function(connection) {
+    connection.on('close', function(closeReason, description) {
         var index = mirrorConnections.indexOf(connection);
         if (index !== -1) {
-            console.log((new Date()) + " lws-mirror-protocol peer " + connection.remoteAddress + " disconnected.");
+            console.log((new Date()) + " lws-mirror-protocol peer " + connection.remoteAddress + " disconnected, code: " + closeReason + ".");
             mirrorConnections.splice(index, 1);
         }
     });
@@ -143,11 +156,12 @@ router.mount('*', 'dumb-increment-protocol', function(request) {
     // Should do origin verification here. You have to pass the accepted
     // origin into the accept method of the request.
     var connection = request.accept(request.origin);
-    console.log((new Date()) + " dumb-increment-protocol connection accepted from " + connection.remoteAddress);
+    console.log((new Date()) + " dumb-increment-protocol connection accepted from " + connection.remoteAddress +
+                " - Protocol Version " + connection.webSocketVersion);
 
     var number = 0;
     connection.timerInterval = setInterval(function() {
-        connection.sendUTF((number++).toString(10));
+        connection.send((number++).toString(10));
     }, 50);
     connection.on('close', function() {
         clearInterval(connection.timerInterval);
@@ -160,8 +174,8 @@ router.mount('*', 'dumb-increment-protocol', function(request) {
             }
         }
     });
-    connection.on('close', function(connection) {
-        console.log((new Date()) + " dumb-increment-protocol peer " + connection.remoteAddress + " disconnected");
+    connection.on('close', function(closeReason, description) {
+        console.log((new Date()) + " dumb-increment-protocol peer " + connection.remoteAddress + " disconnected, code: " + closeReason + ".");
     });
 });
 
