@@ -50,8 +50,14 @@ CANVAS {
   border-radius: 10px;
   padding: 10px;
 }
+.fpsInner {
+  clear: both;
+}
 .clickable {
   cursor: pointer;
+}
+.clear {
+  clear: both;
 }
 #viewContainer {
   width: 100%;

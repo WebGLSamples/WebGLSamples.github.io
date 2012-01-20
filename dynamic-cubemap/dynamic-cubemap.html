@@ -33,21 +33,19 @@
 <head>
 <meta charset="utf-8">
 <title>WebGL Dynamic Cubemap</title>
-<style>
-</style>
 <link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
 <link type="text/css" href="../shared/base.css" rel="stylesheet" />
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
 <script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
 <script type="text/javascript" src="../khronos/webgl-debug.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript" src="../shared/utils.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.webgl');
 tdl.require('tdl.buffers');
 tdl.require('tdl.fast');
 tdl.require('tdl.framebuffers');
 tdl.require('tdl.fps');
-tdl.require('tdl.fullscreen');
 tdl.require('tdl.log');
 tdl.require('tdl.math');
 tdl.require('tdl.models');
@@ -468,7 +466,7 @@ function initialize() {
 }
 
 $(function(){
-  tdl.fullscreen.setup("fullscreen", "body");
+  setupFullscreen("fullscreen", "body");
   main();
 });
 
@@ -478,8 +476,10 @@ $(function(){
 <body>
 <div id="info"><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - dynamic cubemap</div>
 <div id="fpsContainer">
-  <div id="fullscreen"></div>
-  <div class="fps">fps: <span id="fps"></div>
+  <div class="fpsInner">
+    <div id="fullscreen"></div>
+    <div class="fps">fps: <span id="fps"></span></div>
+  </div>
 </div>
 <div id="viewContainer">
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
