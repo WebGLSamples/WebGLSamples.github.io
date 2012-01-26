@@ -834,8 +834,8 @@ function main() {
   // tell the simulator when to lose context.
   //canvas.loseContextInNCalls(1500);
 
-  tdl.webgl.registerContextLostHandler(handleContextLost);
-  tdl.webgl.registerContextRestoredHandler(handleContextRestored);
+  tdl.webgl.registerContextLostHandler(canvas, handleContextLost);
+  tdl.webgl.registerContextRestoredHandler(canvas, handleContextRestored);
 
   g_fpsTimer = new tdl.fps.FPSTimer();
   gl = tdl.webgl.setupWebGL(canvas);

@@ -196,8 +196,8 @@ window.onload = function() {
   // tell the simulator when to lose context.
   //canvas.loseContextInNCalls(10000);
 
-  tdl.webgl.registerContextLostHandler(handleContextLost);
-  tdl.webgl.registerContextRestoredHandler(handleContextRestored);
+  tdl.webgl.registerContextLostHandler(canvas, handleContextLost);
+  tdl.webgl.registerContextRestoredHandler(canvas, handleContextRestored);
 
   canvas = document.getElementById('render_area');
   gl = tdl.webgl.setupWebGL(canvas);

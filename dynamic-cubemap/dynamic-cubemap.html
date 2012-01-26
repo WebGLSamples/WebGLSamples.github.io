@@ -192,8 +192,8 @@ function main() {
   // tell the simulator when to lose context.
   //canvas.loseContextInNCalls(100000);
 
-  tdl.webgl.registerContextLostHandler(handleContextLost);
-  tdl.webgl.registerContextRestoredHandler(handleContextRestored);
+  tdl.webgl.registerContextLostHandler(canvas, handleContextLost);
+  tdl.webgl.registerContextRestoredHandler(canvas, handleContextRestored);
 
   gl = tdl.webgl.setupWebGL(canvas);
   if (!gl) {
@@ -217,6 +217,7 @@ function handleContextRestored() {
 }
 
 function initialize() {
+	g_logGLCalls = true;
   var cubeFBO = tdl.framebuffers.createCubeFramebuffer(g_cubeMapSize, true);
   Log("--Setup Sphere---------------------------------------");
   var sphere = setupSphere();
@@ -416,38 +417,6 @@ function initialize() {
     fast.matrix4.transpose(worldInverseTranspose, worldInverse);
     envSphere.draw(envSpherePer);
     drawScene();
-
-
-//    // Draw to horizontal blur fbo.
-//    horizontalBlurFBO.bind();
-//    gl.disable(gl.BLEND);
-//    gl.disable(gl.DEPTH_TEST);
-//
-//    // Draw HorizontalBlurPlane
-//    horizontalBlurPlane.drawPrep(horizontalBlurConst);
-//    horizontalBlurPlane.draw(blurPer);
-//
-//    // Draw to vertical blur fbo.
-//    verticalBlurFBO.bind();
-//    gl.disable(gl.BLEND);
-//    gl.disable(gl.DEPTH_TEST);
-//
-//    // Draw VerticalBlurPlane
-//    verticalBlurPlane.drawPrep(verticalBlurConst);
-//    verticalBlurPlane.draw(blurPer);
-//
-//    // Draw to backbuffer.
-//    verticalBlurFBO.unbind();
-//    gl.colorMask(true, true, true, true);
-//    gl.depthMask(true);
-//    gl.clearColor(0,0,1,1);
-//    gl.clear(gl.COLOR_BUFFER_BIT);
-//    gl.disable(gl.BLEND);
-//    gl.disable(gl.DEPTH_TEST);
-//
-//    // Draw DofPlane
-//    dofPlane.drawPrep(g.dofConst);
-//    dofPlane.draw(dofPer);
 
     // Set the alpha to 255.
     gl.colorMask(false, false, false, true);

@@ -194,8 +194,9 @@ tdl.webgl.runHandlers_ = function(handlers) {
   }
 };
 
-tdl.webgl.registerContextLostHandler = function(canvas, handler, opt_sysHandler)
-{ tdl.webgl.setupCanvas_(canvas);
+tdl.webgl.registerContextLostHandler = function(
+    canvas, handler, opt_sysHandler) { 
+  tdl.webgl.setupCanvas_(canvas);
   if (!canvas.tdl.contextLostHandlers) {
     canvas.tdl.contextLostHandlers = [[],[]];
   }

@@ -390,7 +390,7 @@ tdl.programs.handleContextLost_ = function() {
 tdl.programs.init_ = function() {
   if (!gl.tdl.programs) {
     gl.tdl.programs = { };
-    tdl.webgl.registerContextLostHandler(tdl.programs.handleContextLost_, true);
+    tdl.webgl.registerContextLostHandler(gl.canvas, tdl.programs.handleContextLost_, true);
   }
   if (!gl.tdl.programs.shaderDB) {
     gl.tdl.programs.shaderDB = { };

@@ -116,7 +116,7 @@ tdl.textures.init_ = function(gl) {
     gl.tdl.textures = { };
     gl.tdl.textures.loadingImages = [];
     tdl.webgl.registerContextLostHandler(
-        tdl.textures.handleContextLost_, true);
+        gl.canvas, tdl.textures.handleContextLost_, true);
   }
   if (!gl.tdl.textures.maxTextureSize) {
     gl.tdl.textures.maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
