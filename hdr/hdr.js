@@ -882,7 +882,7 @@ var HDRDemo = function() {
   //  this.program = createProgramFromTags("diffuseVertexShader", "diffuseFragmentShader");
   this.program = createProgramFromTags("irradianceVertexShader", "irradianceFragmentShader");
 
-  this.load("assets/teapot.js");
+  this.load("assets/teapot-12kverts/scene.js");
 
   var irradianceMap = new HDRCubeMap(
     ["assets/grace_cross_irrad_mmp-posx.bin",
