@@ -1,0 +1,320 @@
+<!--
+ * Copyright 2011, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Lots-O-Images - DrawElements</title>
+<link rel="stylesheet" type="text/css" href="../google-io/2011/style.css" />
+<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript">
+tdl.require('tdl.buffers');
+tdl.require('tdl.fast');
+tdl.require('tdl.fps');
+tdl.require('tdl.log');
+tdl.require('tdl.math');
+tdl.require('tdl.models');
+tdl.require('tdl.primitives');
+tdl.require('tdl.programs');
+tdl.require('tdl.textures');
+tdl.require('tdl.webgl');
+window.onload = initialize;
+
+// globals
+var gl;                   // the gl context.
+var canvas;               // the canvas
+var math;                 // the math lib.
+var fast;                 // the fast math lib.
+
+var g_maxImages = 250000;
+var g_numImages = 100;
+var g_imageSize = 32;
+var g_targetFrameRate = 20 - 2;  // add some fudge so browser that runs at 58-59 can still run the test
+
+function CreateApp() {
+  var updatePositions = true;
+
+  window.addEventListener('keypress', handleKeyPress, false);
+
+  function handleKeyPress(event) {
+    updatePositions = !updatePositions;
+  }
+
+  // Create Geometry.
+  var planeArrays = tdl.primitives.createPlane(g_imageSize, g_imageSize, 1, 1);
+  // Don't need the normals.
+  delete planeArrays.nornal;
+  // rotate from xz plane to xy plane
+  tdl.primitives.reorient(planeArrays,
+      [1, 0, 0, 0,
+       0, 0, 1, 0,
+       0, -1, 0, 0,
+       0, 0, 0, 1]);
+  // translate so we position from top left instead of center.
+  tdl.primitives.reorient(planeArrays,
+      [1, 0, 0, 0,
+       0, 1, 0, 0,
+       0, 0, 1, 0,
+       g_imageSize / 2, g_imageSize / 2, 0, 1]);
+
+  // Load textures
+  var textures = {
+      diffuseSampler: tdl.textures.loadTexture('../google-io/2011/assets/google.png')
+  };
+
+  // Create Shader Program
+  var program = tdl.programs.loadProgramFromScriptTags(
+      'sphereVertexShader',
+      'sphereFragmentShader');
+  var model = new tdl.models.Model(program, planeArrays, textures);
+
+  // -- Setup Instances ----------------------------------
+  var instances = [];
+  var width = canvas.clientWidth - g_imageSize;
+  var height = canvas.clientHeight - g_imageSize;
+  for (var ii = 0; ii < g_maxImages; ++ii) {
+    var position = new Float32Array([Math.random() * width, Math.random() * height]);
+    var colorMult = new Float32Array([Math.random(), Math.random(), Math.random(), Math.random()]);
+    var vel = new Float32Array([1 * (Math.random() < 0.5 ? -60 : 60), 1 * (Math.random() < 0.5 ? -60 : 60)]);
+    var instance = {
+      position: position,
+      colorMult: colorMult,
+      vel: vel,
+      uniforms: {
+        translation: position,
+        colorMult: colorMult
+      }
+    };
+    instances.push(instance);
+  }
+
+  // pre-allocate a bunch of arrays
+  var v3t0 = new Float32Array(3);
+  var v3t1 = new Float32Array(3);
+  var v3t2 = new Float32Array(3);
+  var v3t3 = new Float32Array(3);
+  var m4t0 = new Float32Array(16);
+  var m4t1 = new Float32Array(16);
+  var m4t2 = new Float32Array(16);
+  var m4t3 = new Float32Array(16);
+  var zero4 = new Float32Array(4);
+  var one4 = new Float32Array([1,1,1,1]);
+  var dimensions = new Float32Array([1, 1]);
+
+  // uniforms.
+  var sharedUniforms = {
+      dimensions: dimensions
+  };
+
+  var clock = 0.0;
+  function update(elapsedTime) {
+    clock += elapsedTime;
+
+    resizeCanvas();
+
+    // --Update Instance Positions---------------------------------------
+    if (updatePositions) {
+      var width = canvas.clientWidth - g_imageSize;
+      var height = canvas.clientHeight - g_imageSize;
+      var advance = elapsedTime;
+      for (var ii = 0; ii < g_numImages; ++ii) {
+        var instance = instances[ii];
+        instance.position[0] += advance * instance.vel[0];
+        instance.position[1] += advance * instance.vel[1];
+        if (instance.position[0] < 0) {
+          instance.position[0] = 0;
+          instance.vel[0] = -instance.vel[0];
+        } else if (instance.position[0] > width) {
+          instance.position[0] = width;
+          instance.vel[0] = -instance.vel[0];
+        }
+        if (instance.position[1]  < 0) {
+          instance.position[1]  = 0;
+          instance.vel[1] = -instance.vel[1];
+        } else if (instance.position[1]  > height) {
+          instance.position[1]  = height;
+          instance.vel[1] = -instance.vel[1];
+        }
+      }
+    }
+  }
+
+  function render() {
+    renderBegin();
+    renderScene();
+    renderEnd();
+  }
+
+  function renderBegin() {
+    // clear the screen.
+    gl.colorMask(true, true, true, true);
+    gl.clearColor(1, 1, 1, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    // Pass in the dimensions of the canvas.
+    dimensions[0] = canvas.clientWidth;
+    dimensions[1] = canvas.clientHeight;
+  }
+
+  function renderScene() {
+    // -- Render Models ---------------------------------------
+    // We only need to render each model once
+    // as they contain all the instances.
+
+    model.drawPrep(sharedUniforms);
+    for (var ii = 0; ii < g_numImages; ++ii) {
+      var instance = instances[ii];
+	  textures.diffuseSampler.updateTexture();
+	  gl.flush();
+      model.draw(instance.uniforms);
+    }
+  }
+
+  function renderEnd() {
+    // nothing to do.
+  }
+
+  return {
+    update: update,
+    render: render
+  };
+}
+
+function resizeCanvas() {
+  if (canvas.width != canvas.clientWidth ||
+      canvas.height != canvas.clientHeight) {
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    console.log("resized canvas: " + canvas.width + ", " + canvas.height);
+    gl.viewport(0, 0, canvas.clientWidth, canvas.clientHeight);
+  }
+}
+
+function initialize() {
+  math = tdl.math;
+  fast = tdl.fast;
+  canvas = document.getElementById("canvas");
+  tdl.fps.NUM_FRAMES_TO_AVERAGE = 1;
+  var fpsTimer = new tdl.fps.FPSTimer();
+  var fpsElem = document.getElementById("fps");
+  var cntElem = document.getElementById("cnt");
+
+  document.getElementById("title").innerHTML = document.getElementsByTagName("title")[0].innerHTML;
+
+  gl = tdl.webgl.setupWebGL(canvas, {alpha:false, antialias:false});
+  if (!gl) {
+    return false;
+  }
+
+  resizeCanvas();
+
+  var app = CreateApp();
+  var then = (new Date()).getTime() * 0.001;
+  var changeAmount = 1;
+
+  function render() {
+    tdl.webgl.requestAnimationFrame(render, canvas);
+
+    // Compute the elapsed time since the last rendered frame
+    // in seconds.
+    var now = (new Date()).getTime() * 0.001;
+    var elapsedTime = Math.min(now - then, 0.1);
+    then = now;
+
+    // Update the FPS timer.
+    fpsTimer.update(elapsedTime);
+    fpsElem.innerHTML = fpsTimer.averageFPS;
+
+    var goFaster = fpsTimer.averageFPS >= g_targetFrameRate;
+    if (goFaster) {
+      changeAmount = 11;
+    } else {
+      changeAmount = -9;
+    }
+    g_numImages = Math.max(Math.min(g_numImages + changeAmount, g_maxImages), 1);
+
+    cntElem.innerHTML = g_numImages;
+
+    app.update(elapsedTime);
+    app.render();
+  }
+  render();
+  return true;
+}
+</script>
+  </head>
+<body>
+<div id="info"><span><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - <span id="title"></span></span></div>
+<div id="fpsContainer">
+  <div class="fps">fps: <span id="fps"></div>
+  <div class="fps">cnt: <span id="cnt"></span></div>
+</div>
+<div id="viewContainer">
+<canvas id="canvas" width="512" height="512" style="width: 100%; height: 100%;"></canvas>
+</div>
+</body>
+<script id="sphereVertexShader" type="text/something-not-javascript">
+uniform vec2 dimensions;
+uniform vec2 translation;
+uniform vec4 colorMult;
+attribute vec2 position;
+attribute vec2 texCoord;
+varying vec2 v_texCoord;
+varying vec4 v_colorMult;
+void main() {
+  v_texCoord = texCoord;
+  v_colorMult = colorMult;
+  gl_Position = vec4(
+    (((position + translation) / dimensions) * 2.0 - 1.0) * vec2(1, -1), 0, 1);
+}
+
+</script>
+<script id="sphereFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+varying vec2 v_texCoord;
+varying vec4 v_colorMult;
+
+uniform sampler2D diffuseSampler;
+
+void main() {
+  vec4 diffuse = texture2D(diffuseSampler, v_texCoord) * v_colorMult;
+  gl_FragColor = diffuse;
+}
+</script>
+</html>
+
+
+
+
