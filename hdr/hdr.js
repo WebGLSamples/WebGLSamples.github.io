@@ -223,9 +223,8 @@ HDRCubeMap.prototype.update_ = function() {
     // Upload all faces to the GPU.
     // We assume each face is square and infer its size from the
     // length of the ArrayBuffer.
-    //
-    // FIXME: handle endianness differences between host and incoming data.
     var size = Math.sqrt(this.arrayBuffers[0].byteLength / Float32Array.BYTES_PER_ELEMENT / 3);
+    var tempArray = new Float32Array(this.arrayBuffers[0].byteLength / Float32Array.BYTES_PER_ELEMENT);
     var texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -233,7 +232,13 @@ HDRCubeMap.prototype.update_ = function() {
     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     for (var ii = 0; ii < this.arrayBuffers.length; ++ii) {
-      gl.texImage2D(this.faceTargets[ii], 0, gl.RGB, size, size, 0, gl.RGB, gl.FLOAT, new Float32Array(this.arrayBuffers[ii]));
+      var data = new DataView(this.arrayBuffers[ii]);
+      var len = tempArray.length;
+      // Incoming data is raw floating point values with little-endian byte ordering.
+      for (var jj = 0; jj < len; ++jj) {
+        tempArray[jj] = data.getFloat32(jj * Float32Array.BYTES_PER_ELEMENT, true);
+      }
+      gl.texImage2D(this.faceTargets[ii], 0, gl.RGB, size, size, 0, gl.RGB, gl.FLOAT, tempArray);
     }
     this.arrayBuffers = null;
     this.texture = texture;
