@@ -914,6 +914,8 @@ var HDRDemo = function() {
 
   var skybox = setupSkybox();
 
+  var cameraController = new SphericalCameraController();
+
   var pipeline = new HDRPipeline(backbuffer);
   var source = new TextureInputEffect(pipeline, floatBackbufferTexture);
 
@@ -942,19 +944,33 @@ var HDRDemo = function() {
     var eyeRadius = 100.0;
     var eyeHeight = 30.0;
     var eyeClock = time;
+
+    cameraController.setRadius(eyeRadius);
+    cameraController.setVerticalRadians(eyeHeight / eyeRadius);
+    cameraController.setHorizontalRadians(time);
+    cameraController.setTarget(0, 20, 0);
+    
+/*
+
     eyePosition[0] = Math.sin(eyeClock) * eyeRadius;
     eyePosition[1] = eyeHeight;
     eyePosition[2] = Math.cos(eyeClock) * eyeRadius;
     target[0] = 0.0;
     target[1] = 20.0;
     target[2] = 0.0;
+*/
 
     m4.perspective(projection, math.degToRad(70), aspect, 0.1, 500);
+
+/*
     m4.lookAt(
       view,
       eyePosition,
       target,
       up);
+*/
+    cameraController.generateLookAt(view);
+
     m4.mul(viewProjection, view, projection);
     m4.identity(world);
     m4.mul(worldViewProjection, world, viewProjection);
