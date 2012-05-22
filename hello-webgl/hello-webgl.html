@@ -25,14 +25,20 @@
 </script> 
  
 <script type="text/javascript"> 
-    var gl;
+    var gl = null;
  
     function initGL(canvas) {
-        try {
-            gl = canvas.getContext("experimental-webgl");
-            gl.viewportWidth = canvas.width;
-            gl.viewportHeight = canvas.height;
-        } catch (e) {
+        var contextNames = [ "webgl", "experimental-webgl" ];
+        for (var ii = 0; ii < contextNames.length; ++ii) {
+            try {
+                gl = canvas.getContext(contextNames[ii]);
+                if (gl) {
+                    gl.viewportWidth = canvas.width;
+                    gl.viewportHeight = canvas.height;
+                    break;
+                }
+            } catch (e) {
+            }
         }
         // Not the best error detection logic.
         // Redirect to http://get.webgl.org in failure case.
