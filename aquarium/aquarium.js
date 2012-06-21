@@ -1080,6 +1080,9 @@ function initialize() {
 
   function setCanvasSize(canvas, newWidth, newHeight) {
     var changed = false;
+	var ratio = window.devicePixelRatio ? window.devicePixelRatio : 2;
+	newWidth *= ratio;
+	newHeight *= ratio;
     if (newWidth != canvas.width) {
       canvas.width = newWidth;
       changed = true;

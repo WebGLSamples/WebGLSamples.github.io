@@ -840,7 +840,7 @@ tdl.primitives.CUBE_FACE_INDICES_ = [
   [6, 7, 3, 2], // ??
   [0, 1, 5, 4], // ??
   [7, 6, 4, 5], // front
-  [2, 3, 1, 0], // back
+  [2, 3, 1, 0]  // back
 ];
 
 /**

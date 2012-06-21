@@ -146,7 +146,9 @@ var g_viewSettings = [
 var g = {
   globals: {
     fishSetting: 2,
-    drawLasers: false
+    drawLasers: false,
+	width: 1024,
+	height: 1024
   },
   net: {
     timeout: 3000,
