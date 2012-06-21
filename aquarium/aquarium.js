@@ -1094,7 +1094,7 @@ function initialize() {
       tdl.log("new canvas height:", newHeight);
     }
     if (changed) {
-      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.viewport(0, 0, canvas.drawingBufferWidth, canvas.drawingBuffeHeight);
     }
     return changed;
   }
