@@ -1080,7 +1080,7 @@ function initialize() {
 
   function setCanvasSize(canvas, newWidth, newHeight) {
     var changed = false;
-	var ratio = window.devicePixelRatio ? window.devicePixelRatio : 2;
+	var ratio = window.devicePixelRatio ? window.devicePixelRatio : 1;
 	newWidth *= ratio;
 	newHeight *= ratio;
     if (newWidth != canvas.width) {
@@ -1094,7 +1094,8 @@ function initialize() {
       tdl.log("new canvas height:", newHeight);
     }
     if (changed) {
-      gl.viewport(0, 0, canvas.drawingBufferWidth, canvas.drawingBuffeHeight);
+      //tdl.log("drawingBufferDimensions:" + gl.drawingBufferWidth + ", " + gl.drawingBufferHeight);
+      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     }
     return changed;
   }
