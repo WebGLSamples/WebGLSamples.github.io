@@ -76,10 +76,10 @@ tdl.models.Model.prototype.setProgram = function(program) {
   this.program = program;
 }
 
-tdl.models.Model.prototype.setBuffer = function(name, array) {
+tdl.models.Model.prototype.setBuffer = function(name, array, opt_newBuffer) {
   var target = (name == 'indices') ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER;
   var b = this.buffers[name];
-  if (!b) {
+  if (!b || opt_newBuffer) {
     b = new tdl.buffers.Buffer(array, target);
   } else {
     b.set(array);
@@ -87,9 +87,24 @@ tdl.models.Model.prototype.setBuffer = function(name, array) {
   this.buffers[name] = b;
 };
 
-tdl.models.Model.prototype.setBuffers = function(arrays) {
+tdl.models.Model.prototype.setBuffers = function(arrays, opt_newBuffers) {
+  var that = this;
   for (var name in arrays) {
-    this.setBuffer(name, arrays[name]);
+    this.setBuffer(name, arrays[name], opt_newBuffers);
+  }
+  if (this.buffers.indices) {
+    this.baseBuffer = this.buffers.indices;
+    this.drawFunc = function(totalComponents, startOffset) {
+      gl.drawElements(that.mode, totalComponents, gl.UNSIGNED_SHORT, startOffset);
+    }
+  } else {
+    for (var key in this.buffers) {
+      this.baseBuffer = this.buffers[key];
+      break;
+    }
+    this.drawFunc = function(totalComponents, startOffset) {
+      gl.drawArrays(that.mode, startOffset, totalComponents);
+    }
   }
 };
 
@@ -168,6 +183,5 @@ tdl.models.Model.prototype.draw = function() {
     }
   }
 
-  gl.drawElements(
-      this.mode, totalComponents, gl.UNSIGNED_SHORT, startOffset);
+  this.drawFunc(totalComponents, startOffset);
 };

@@ -146,10 +146,10 @@ tdl.webgl.setupWebGL = function(canvas, opt_attribs, opt_onError) {
  */
 tdl.webgl.create3DContext = function(canvas, opt_attribs) {
   if (opt_attribs === undefined) {
-    opt_attribs = {};
+    opt_attribs = {alpha:false};
     tdl.misc.applyUrlSettings(opt_attribs, 'webgl');
   }
-  var names = ["webgl", "experimental-webgl", "webkit-3d", "moz-webgl"];
+  var names = ["webgl", "experimental-webgl"];
   var context = null;
   for (var ii = 0; ii < names.length; ++ii) {
     try {
@@ -166,6 +166,7 @@ tdl.webgl.create3DContext = function(canvas, opt_attribs) {
     tdl.webgl.makeCurrent(context);
     tdl.webgl.setupCanvas_(canvas);
     context.tdl = {};
+    context.tdl.depthTexture = tdl.webgl.getExtensionWithKnownPrefixes("WEBGL_depth_texture");
 
     // Disallow selection by default. This keeps the cursor from changing to an
     // I-beam when the user clicks and drags.  It's easier on the eyes.
@@ -182,6 +183,35 @@ tdl.webgl.create3DContext = function(canvas, opt_attribs) {
 tdl.webgl.setupCanvas_ = function(canvas) {
   if (!canvas.tdl) {
     canvas.tdl = {};
+  }
+};
+
+/**
+ * Browser prefixes for extensions.
+ * @type {!Array.<string>}
+ */
+tdl.webgl.browserPrefixes_ = [
+  "",
+  "MOZ_",
+  "OP_",
+  "WEBKIT_"
+];
+
+/**
+ * Given an extension name like WEBGL_compressed_texture_s3tc
+ * returns the supported version extension, like
+ * WEBKIT_WEBGL_compressed_teture_s3tc
+ * @param {string} name Name of extension to look for
+ * @return {WebGLExtension} The extension or undefined if not
+ *     found.
+ */
+tdl.webgl.getExtensionWithKnownPrefixes = function(name) {
+  for (var ii = 0; ii < tdl.webgl.browserPrefixes_.length; ++ii) {
+    var prefixedName = tdl.webgl.browserPrefixes_[ii] + name;
+    var ext = gl.getExtension(prefixedName);
+    if (ext) {
+      return ext;
+    }
   }
 };
 

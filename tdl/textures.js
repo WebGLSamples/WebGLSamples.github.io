@@ -190,6 +190,38 @@ tdl.textures.SolidTexture.prototype.bindToUnit = function(unit) {
 };
 
 /**
+ * A depth color texture.
+ * @constructor
+ * @param {number} width
+ * @param {number} height
+ */
+tdl.textures.DepthTexture = function(width, height) {
+  tdl.textures.Texture.call(this, gl.TEXTURE_2D);
+  this.width = width;
+  this.height = height;
+  this.uploadTexture();
+};
+
+tdl.base.inherit(tdl.textures.DepthTexture, tdl.textures.Texture);
+
+tdl.textures.DepthTexture.prototype.uploadTexture = function() {
+  gl.bindTexture(gl.TEXTURE_2D, this.texture);
+  gl.texImage2D(
+    gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, this.width, this.height, 0,
+    gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+};
+
+tdl.textures.DepthTexture.prototype.recoverFromLostContext = function() {
+  tdl.textures.Texture.recoverFromLostContext.call(this);
+  this.uploadTexture();
+};
+
+tdl.textures.DepthTexture.prototype.bindToUnit = function(unit) {
+  gl.activeTexture(gl.TEXTURE0 + unit);
+  gl.bindTexture(gl.TEXTURE_2D, this.texture);
+};
+
+/**
  * A color from an array of values texture.
  * @constructor
  * @param {!{width: number, height: number: pixels:

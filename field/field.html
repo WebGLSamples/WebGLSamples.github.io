@@ -342,7 +342,7 @@ function handleContextRestored() {
 }
 
 function initialize() {
-  var mainFBO = tdl.framebuffers.createFramebuffer(canvas.width, canvas.height, true);
+ mainFBO = tdl.framebuffers.createFramebuffer(canvas.width, canvas.height, true);
   var horizontalBlurFBO = tdl.framebuffers.createFramebuffer(canvas.width / 4, canvas.height);
   var verticalBlurFBO = tdl.framebuffers.createFramebuffer(canvas.width / 4, canvas.height / 4);
   Log("--Setup Grass---------------------------------------");
