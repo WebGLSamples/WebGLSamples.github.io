@@ -190,12 +190,15 @@ tdl.textures.SolidTexture.prototype.bindToUnit = function(unit) {
 };
 
 /**
- * A depth color texture.
+ * A depth texture.
  * @constructor
  * @param {number} width
  * @param {number} height
  */
 tdl.textures.DepthTexture = function(width, height) {
+  if (!gl.tdl.depthTexture) {
+    throw("depth textures not supported");
+  }
   tdl.textures.Texture.call(this, gl.TEXTURE_2D);
   this.width = width;
   this.height = height;
