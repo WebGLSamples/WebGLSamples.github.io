@@ -187,12 +187,20 @@ function setupGrass() {
 /**
  * Sets up dofplane.
  */
-function setupDofPlane(mainTexture, blurTexture) {
-  var textures = { mainSampler: mainTexture,
-                   blurSampler: blurTexture};
+function setupDofPlane(mainFBO, blurTexture) {
+  var textures = {
+    mainSampler: mainFBO.texture,
+    blurSampler: blurTexture
+  };
+  var fshader = 'dofFragmentShaderWithAlphaDepth';
+  if (mainFBO.depthTexture) {
+    textures.depthSampler = mainFBO.depthTexture;
+    fshader = 'dofFragmentShaderWithDepthTexture';
+    tdl.log("using depth texture");
+  }
   var program = tdl.programs.loadProgramFromScriptTags(
       'dofVertexShader',
-      'dofFragmentShader');
+      fshader);
   var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
   tdl.primitives.reorient(arrays,
       [1, 0, 0, 0,
@@ -342,7 +350,7 @@ function handleContextRestored() {
 }
 
 function initialize() {
-  var mainFBO = tdl.framebuffers.createFramebuffer(canvas.width, canvas.height, true);
+ mainFBO = tdl.framebuffers.createFramebuffer(canvas.width, canvas.height, true);
   var horizontalBlurFBO = tdl.framebuffers.createFramebuffer(canvas.width / 4, canvas.height);
   var verticalBlurFBO = tdl.framebuffers.createFramebuffer(canvas.width / 4, canvas.height / 4);
   Log("--Setup Grass---------------------------------------");
@@ -354,7 +362,7 @@ function initialize() {
   Log("--Setup VerticalBlurPlane---------------------------------------");
   var verticalBlurPlane = setupBlurPlane(horizontalBlurFBO.texture);
   Log("--Setup DofPlane---------------------------------------");
-  var dofPlane = setupDofPlane(mainFBO.texture, verticalBlurFBO.texture);
+  var dofPlane = setupDofPlane(mainFBO, verticalBlurFBO.texture);
   Log("--Setup RTPlane---------------------------------------");
   var rtPlane = setupRTPlane();
 
@@ -469,7 +477,6 @@ function initialize() {
     mainFBO.bind();
 
     gl.colorMask(true, true, true, true);
-    gl.depthMask(true);
     gl.clearColor(0,0,0,0);
     gl.clearDepth(1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
@@ -477,7 +484,6 @@ function initialize() {
     gl.disable(gl.BLEND);
     gl.depthFunc(gl.LESS);
     gl.disable(gl.CULL_FACE);
-    gl.enable(gl.DEPTH_TEST);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     fast.matrix4.perspective(
@@ -485,7 +491,7 @@ function initialize() {
         math.degToRad(30),
         canvas.clientWidth / canvas.clientHeight,
         1,
-        5000);
+        20);
     fast.matrix4.lookAt(
         view,
         eyePosition,
@@ -512,8 +518,14 @@ function initialize() {
 //      viewProjection: viewProjection,
 
     // Draw Skybox
+    gl.disable(gl.DEPTH_TEST);
+    gl.depthMask(false);
+
     skybox.drawPrep(skyConst);
     skybox.draw(skyPer);
+
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthMask(true);
 
     Log("--Draw grass---------------------------------------");
     g.grassConst.time = clock;
@@ -562,37 +574,52 @@ function initialize() {
     dofPlane.drawPrep(g.dofConst);
     dofPlane.draw(dofPer);
 
+    function drawPlane(texture, mixAmount, worldViewProjection) {
+      var mixAmount;
+      var texture;
+      rtPlane.draw({
+          worldViewProjection: worldViewProjection,
+          mixAmount: mixAmount
+        }, {
+          texture: texture
+        });
+    }
+
+    function drawRT(rtId, projection) {
+      switch (rtId) {
+      case 1: // main FBO color
+        mixAmount = 0;
+        texture = mainFBO.texture;
+        break;
+      case 2: // blur
+        mixAmount = 0;
+        texture = verticalBlurFBO.texture;
+        break;
+      case 3: // depth (alpha or depth)
+        mixAmount = 1;
+        texture = mainFBO.texture;
+        if (mainFBO.depthTexture) {
+          mixAmount = 0;
+          texture = mainFBO.depthTexture;
+        }
+        break;
+      case 4: // alpha
+        mixAmount = 1;
+        texture = mainFBO.texture;
+        break;
+      }
+      drawPlane(texture, mixAmount, projection);
+    }
+
     if (g.globals.showRT) {
+      rtPlane.drawPrep();
       if (g.globals.showRT == 4) {
-        rtPlane.drawPrep();
-        rtPlane.draw({
-            worldViewProjection: [0.5,0,0,0,0,0.5,0,0,0,0,1,0,-0.6,0,0,1],
-            mixAmount: 0,
-          }, {
-            texture: mainFBO.texture
-          });
-        rtPlane.draw({
-            worldViewProjection: [0.5,0,0,0,0,0.5,0,0,0,0,1,0,-0.0,0,0,1],
-            mixAmount: 0,
-          }, {
-            texture: verticalBlurFBO.texture
-          });
-        rtPlane.draw({
-            worldViewProjection: [0.5,0,0,0,0,0.5,0,0,0,0,1,0,0.6,0,0,1],
-            mixAmount: 1,
-          }, {
-            texture: mainFBO.texture
-          });
+        drawRT(1, [0.5,0,0,0,0,0.5,0,0,0,0,1,0,-0.6,0,0,1]);
+        drawRT(2, [0.5,0,0,0,0,0.5,0,0,0,0,1,0,-0.0,0,0,1]);
+        drawRT(3, [0.5,0,0,0,0,0.5,0,0,0,0,1,0,0.6,0,0,1]);
+        // drawRT(4, [0.5,0,0,0,0,0.5,0,0,0,0,1,0,-0.0,0.6,0,1]);
       } else {
-        rtPlane.drawPrep();
-        rtPlane.draw({
-            worldViewProjection: [2,0,0,0,0,2,0,0,0,0,1,0,0,0,0,1],
-            mixAmount: g.globals.showRT == 3 ? 1 : 0,
-          }, {
-            texture: g.globals.showRT == 1 ?
-                mainFBO.texture :
-                verticalBlurFBO.texture
-          });
+        drawRT(g.globals.showRT, [2,0,0,0,0,2,0,0,0,0,1,0,0,0,0,1]);
       }
     }
 
@@ -714,7 +741,7 @@ void main() {
 }
 </script>
 <script id="rtFragmentShader" type="text/something-not-javascript">
-precision highp float;
+precision mediump float;
 varying vec2 v_texCoord;
 uniform float mixAmount;
 uniform sampler2D texture;
@@ -825,9 +852,7 @@ void main() {
 
 </script>
 <script id="grassFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision highp float;
-#endif
+precision mediump float;
 varying vec4 v_color;
 
 void main() {
@@ -846,9 +871,7 @@ void main() {
 }
 </script>
 <script id="blurFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision highp float;
-#endif
+precision mediump float;
 varying vec2 v_texCoord;
 uniform vec2 blurSize;
 uniform sampler2D mainSampler;
@@ -879,10 +902,8 @@ void main() {
   gl_Position = position;
 }
 </script>
-<script id="dofFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision highp float;
-#endif
+<script id="dofFragmentShaderWithAlphaDepth" type="text/something-not-javascript">
+precision mediump float;
 varying vec2 v_texCoord;
 uniform sampler2D mainSampler;
 uniform sampler2D blurSampler;
@@ -909,6 +930,35 @@ void main() {
   gl_FragColor = color;
 }
 </script>
+<script id="dofFragmentShaderWithDepthTexture" type="text/something-not-javascript">
+precision mediump float;
+varying vec2 v_texCoord;
+uniform sampler2D mainSampler;
+uniform sampler2D blurSampler;
+uniform sampler2D depthSampler;
+uniform float dof;
+uniform float dofInnerRange;
+uniform float dofOuterRange;
+void main() {
+  vec4 mainColor = texture2D(mainSampler, v_texCoord);
+  vec4 blurColor = texture2D(blurSampler, v_texCoord);
+  float depth = texture2D(depthSampler, v_texCoord).r;
+  float mix_ = max(0.0, (abs(dof - depth) - dofInnerRange));
+  float mixAmount = 0.0;
+  float blurRange = dofOuterRange - dofInnerRange;
+  if (mix_ > blurRange) {
+    mixAmount = 1.0;
+  } else {
+    mixAmount = mix_ / blurRange;
+  }
+  vec4 color = mix(mainColor, blurColor, mixAmount);
+  // Uncomment next line to show depth.
+  //color = color * 0.0001 + vec4(depth, depth, depth, 1) * 0.9999;
+  // Uncomment next line to show mix amount/
+  //color = color * 0.0001 + vec4(mixAmount, mixAmount, mixAmount, 1);
+  gl_FragColor = color;
+}
+</script>
 <!-- ===[ SkyBox ]============================================== -->
 <script id="skyboxVertexShader" type="text/something-not-javascript">
 attribute vec4 position;
@@ -919,9 +969,7 @@ void main() {
 }
 </script>
 <script id="skyboxFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision highp float;
-#endif
+precision mediump float;
 uniform samplerCube skybox;
 uniform mat4 viewDirectionProjectionInverse;
 varying vec4 v_position;

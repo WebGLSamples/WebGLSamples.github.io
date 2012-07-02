@@ -212,6 +212,10 @@ tdl.textures.DepthTexture.prototype.uploadTexture = function() {
   gl.texImage2D(
     gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, this.width, this.height, 0,
     gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+  this.setParameter(gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  this.setParameter(gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  this.setParameter(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  this.setParameter(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 };
 
 tdl.textures.DepthTexture.prototype.recoverFromLostContext = function() {
