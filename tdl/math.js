@@ -1719,14 +1719,15 @@ tdl.math.matrix4.setIdentity = function(m) {
  * from 0 to 1 in the z dimension.
  * @param {number} angle The camera angle from top to bottom (in radians).
  * @param {number} aspect The aspect ratio width / height.
- * @param {number} near The depth (negative z coordinate)
+ * @param {number} zNear The depth (negative z coordinate)
  *     of the near clipping plane.
- * @param {number} far The depth (negative z coordinate)
+ * @param {number} zFar The depth (negative z coordinate)
  *     of the far clipping plane.
  * @return {!tdl.math.Matrix4} The perspective matrix.
  */
-tdl.math.matrix4.perspective = function(angle, aspect, near, far) {
+tdl.math.matrix4.perspective = function(angle, aspect, zNear, zFar) {
   var deltaZ = zFar - zNear;
+  angle /= 2;
   var cotangent = Math.cos(angle) / Math.sin(angle);
 
   return [
