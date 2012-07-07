@@ -1032,28 +1032,27 @@ tdl.fast.matrix4.getAxis = function(dst, m, axis) {
  * @return {!tdl.fast.Matrix4} The perspective matrix.
  */
 tdl.fast.matrix4.perspective = function(dst, angle, aspect, zNear, zFar) {
-  var deltaZ = zFar - zNear;
-  angle /= 2;
-  var cotangent = Math.cos(angle) / Math.sin(angle);
+  var f = Math.tan(Math.PI * 0.5 - 0.5 * angle);
+  var rangeInv = 1.0 / (near - far);
 
-  dst[0]  = cotangent / aspect;
+  dst[0]  = f / aspect;
   dst[1]  = 0;
   dst[2]  = 0;
   dst[3]  = 0;
 
   dst[4]  = 0;
-  dst[5]  = cotangent;
+  dst[5]  = f;
   dst[6]  = 0;
   dst[7]  = 0;
 
   dst[8]  = 0;
   dst[9]  = 0;
-  dst[10] = -(zFar + zNear) / deltaZ;
+  dst[10] = (near + far) * rangeInv;
   dst[11] = -1;
 
   dst[12] = 0;
   dst[13] = 0;
-  dst[14] = -2 * zNear * zFar / deltaZ;
+  dst[14] = near * far * rangeInv * 2;
   dst[15] = 0;
 
   return dst;
