@@ -115,7 +115,7 @@ $(document).keydown(keyPressHandler);
 
 function initializeGraphics() {
   canvas = document.getElementById('canvas');
-  gl = tdl.webgl.setupWebGL(canvas);
+  gl = tdl.webgl.setupWebGL(canvas, { alpha: true });
   if (!gl) {
     return false;
   }
