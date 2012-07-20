@@ -33,7 +33,16 @@
 <head>
 <meta charset="utf-8">
 <title>Lots-O-Images - DrawElements</title>
+<link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
 <link rel="stylesheet" type="text/css" href="../google-io/2011/style.css" />
+<style>
+#fpsContainer {
+    width: 200px;
+}
+</style>
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
+<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
+<script type="text/javascript" src="../js/perf-harness.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
@@ -221,10 +230,29 @@ function resizeCanvas() {
 function initialize() {
   math = tdl.math;
   fast = tdl.fast;
+  window.requestAnimFrame = tdl.webgl.requestAnimationFrame;
   canvas = document.getElementById("canvas");
   var fpsTimer = new tdl.fps.FPSTimer();
   var fpsElem = document.getElementById("fps");
   var cntElem = document.getElementById("cnt");
+  var targetFPSElem = document.getElementById("targetFPS");
+
+  var targetFPS = 50;
+
+  var setTargetFPS = function(targetFPS) {
+    PerfHarness.setTargetFPS(targetFPS);
+    targetFPSElem.innerHTML = targetFPS;
+  };
+
+  $("#targetFPSSlider").slider({
+    max: 60,
+    min: 1,
+    value: targetFPS,
+    slide: function(event, ui) {
+      setTargetFPS(ui.value);
+    }
+  });
+  setTargetFPS(targetFPS);
 
   document.getElementById("title").innerHTML = document.getElementsByTagName("title")[0].innerHTML;
 
@@ -236,43 +264,28 @@ function initialize() {
   resizeCanvas();
 
   var app = CreateApp();
-  var then = (new Date()).getTime() * 0.001;
-  var changeAmount = 1;
 
-  function render() {
-    tdl.webgl.requestAnimationFrame(render, canvas);
-
-    // Compute the elapsed time since the last rendered frame
-    // in seconds.
-    var now = (new Date()).getTime() * 0.001;
-    var elapsedTime = Math.min(now - then, 0.1);
-    then = now;
-
+  function render(count, averageCount, elapsedTime) {
     // Update the FPS timer.
     fpsTimer.update(elapsedTime);
     fpsElem.innerHTML = fpsTimer.averageFPS;
 
-    var goFaster = fpsTimer.averageFPS >= g_targetFrameRate;
-    if (goFaster) {
-      changeAmount = 11;
-    } else {
-      changeAmount = -9;
-    }
-    g_numImages = Math.max(Math.min(g_numImages + changeAmount, g_maxImages), 1);
+    g_numImages = Math.min(g_maxImages, count);
 
-    cntElem.innerHTML = g_numImages;
+    cntElem.innerHTML = averageCount;
 
     app.update(elapsedTime);
     app.render();
   }
-  render();
-  return true;
+  PerfHarness.start(canvas, render, 1);
 }
 </script>
   </head>
 <body>
 <div id="info"><span><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - <span id="title"></span></span></div>
 <div id="fpsContainer">
+  <div>target fps: <span id="targetFPS"></span></div>
+  <div id="targetFPSSlider"></div>
   <div class="fps">fps: <span id="fps"></div>
   <div class="fps">cnt: <span id="cnt"></span></div>
 </div>
