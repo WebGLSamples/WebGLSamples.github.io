@@ -1025,15 +1025,15 @@ tdl.fast.matrix4.getAxis = function(dst, m, axis) {
  * @param {!tdl.fast.Matrix4} dst matrix.
  * @param {number} angle The camera angle from top to bottom (in radians).
  * @param {number} aspect The aspect ratio width / height.
- * @param {number} near The depth (negative z coordinate)
+ * @param {number} zNear The depth (negative z coordinate)
  *     of the near clipping plane.
- * @param {number} far The depth (negative z coordinate)
+ * @param {number} zFar The depth (negative z coordinate)
  *     of the far clipping plane.
  * @return {!tdl.fast.Matrix4} The perspective matrix.
  */
-tdl.fast.matrix4.perspective = function(dst, angle, aspect, near, far) {
+tdl.fast.matrix4.perspective = function(dst, angle, aspect, zNear, zFar) {
   var f = Math.tan(Math.PI * 0.5 - 0.5 * angle);
-  var rangeInv = 1.0 / (near - far);
+  var rangeInv = 1.0 / (zNear - zFar);
 
   dst[0]  = f / aspect;
   dst[1]  = 0;
@@ -1047,12 +1047,12 @@ tdl.fast.matrix4.perspective = function(dst, angle, aspect, near, far) {
 
   dst[8]  = 0;
   dst[9]  = 0;
-  dst[10] = (near + far) * rangeInv;
+  dst[10] = (zNear + zFar) * rangeInv;
   dst[11] = -1;
 
   dst[12] = 0;
   dst[13] = 0;
-  dst[14] = near * far * rangeInv * 2;
+  dst[14] = zNear * zFar * rangeInv * 2;
   dst[15] = 0;
 
   return dst;
