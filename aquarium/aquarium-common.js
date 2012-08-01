@@ -158,6 +158,9 @@ var g = {
     offset: [0, 0, 0],
     port: 8080
   },
+  win: {
+    useDevicePixelRatio: true
+  },
   fish: {},
   innerConst: {},
   options: {
