@@ -1,57 +1,64 @@
-// hacks for debugging.
-var g_count;
-var g_elapsedTime;
-var g_targetFPS;
-var g_targetTime;
-var g_velocity;
-var g_direction;
-var g_frames = [];
-
 var PerfHarness = (function(undefined) {
+
+  var g = {
+    count: 1,
+    elapsedTime: 0,
+    targetFPS: 50,
+    targetTime: 1,
+    velocity: 1,
+    direction: 1,
+    frames: []
+  };
 
   var countHistory = [];
   var totalCount = 0;
   var countIndex = 0;
-  var count = 1;
-  var velocity = 1;
-  var direction = 1;
   var framesToAverage;
-  var targetFPS = 50;
-  var targetTime;
   var then;
   var callback;
   var canvas;
 
-  var test = function() {
-    var now = Date.now() * 0.001;
-    var elapsedTime = now - then;
-    then = now;
-    var desiredDirection = (elapsedTime < targetTime) ? 1 : -1;
-    if (direction != desiredDirection) {
-      direction = desiredDirection;
-      velocity = Math.max(Math.abs(Math.floor(velocity / 4)), 1) * direction;
+  var getNow = (function() {
+    var fn;
+    var obj;
+    if (window.performance) {
+      obj = window.performance;
+      fn = window.performance.now ||
+           window.performance.webkitNow ||
+           window.performance.mozNow ||
+           window.performance.opNow;
     }
-    if (g_frames.length < 1000) {
-      g_frames.push(elapsedTime);
+    if (!fn) {
+      obj = Date;
+      fn = Date.now;
     }
-    velocity *= 2;
-    count += velocity;
-    count = Math.max(1, count);
+    return function() {
+      return fn.call(obj) * 0.001;
+    };
+  }());
 
-// hacks for debugging.
-g_direction = direction;
-g_velocity = velocity;
-g_count = count;
-g_elapsedTime = elapsedTime;
-g_targetFPS = targetFPS;
-g_targetTime = targetTime;
+  var test = function() {
+    var now = getNow();
+    g.elapsedTime = now - then;
+    then = now;
+    var desiredDirection = (g.elapsedTime < g.targetTime) ? 1 : -1;
+    if (g.direction != desiredDirection) {
+      g.direction = desiredDirection;
+      g.velocity = Math.max(Math.abs(Math.floor(g.velocity / 4)), 1) * g.direction;
+    }
+    if (g.frames.length < 1000) {
+      g.frames.push(g.elapsedTime);
+    }
+    g.velocity *= 2;
+    g.count += g.velocity;
+    g.count = Math.max(1, g.count);
 
     totalCount -= countHistory[countIndex];
-    totalCount += count;
-    countHistory[countIndex] = count;
+    totalCount += g.count;
+    countHistory[countIndex] = g.count;
     countIndex = (countIndex + 1) % framesToAverage;
 
-    callback(count, Math.floor(totalCount / framesToAverage), elapsedTime);
+    callback(g.count, Math.floor(totalCount / framesToAverage), g.elapsedTime);
 
     window.requestAnimFrame(test, canvas);
   };
@@ -61,8 +68,8 @@ g_targetTime = targetTime;
   };
 
   var setTargetFPS = function(_targetFPS) {
-    targetFPS = _targetFPS;
-    targetTime = 1 / targetFPS;
+    g.targetFPS = _targetFPS;
+    g.targetTime = 1 / g.targetFPS;
   };
 
   var start = function(_canvas, _callback, opt_framesToAverage, opt_targetFPS) {
@@ -75,12 +82,12 @@ g_targetTime = targetTime;
       countHistory.push(0);
     }
 
-    if (opt_targetFPS || !targetTime) {
+    if (opt_targetFPS || !g.targetTime) {
       opt_targetFPS = opt_targetFPS || 50;  // we use 50 instead of 60 since timing is bad.
       setTargetFPS(opt_targetFPS)
     }
 
-    then = Date.now() * 0.001;
+    then = getNow();
 
     test();
   };
@@ -88,6 +95,11 @@ g_targetTime = targetTime;
   return {
     getTargetFPS: getTargetFPS,
     start: start,
-    setTargetFPS: setTargetFPS
+    setTargetFPS: setTargetFPS,
+
+    // This is here for debugging
+    g: g,
+
+    endMarker: undefined
   };
 }());
