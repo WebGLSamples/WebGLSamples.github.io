@@ -26,19 +26,19 @@
  
 <script type="text/javascript"> 
     var gl = null;
+    var viewportWidth = 0;
+    var viewportHeight = 0;
  
     function initGL(canvas) {
-        var contextNames = [ "webgl", "experimental-webgl" ];
-        for (var ii = 0; ii < contextNames.length; ++ii) {
-            try {
-                gl = canvas.getContext(contextNames[ii]);
-                if (gl) {
-                    gl.viewportWidth = canvas.width;
-                    gl.viewportHeight = canvas.height;
-                    break;
-                }
-            } catch (e) {
+        try {
+            gl = canvas.getContext("webgl");
+            if (!gl)
+                gl = canvas.getContext("experimental-webgl");
+            if (gl) {
+                viewportWidth = canvas.width;
+                viewportHeight = canvas.height;
             }
+        } catch (e) {
         }
         // Not the best error detection logic.
         // Redirect to http://get.webgl.org in failure case.
@@ -76,8 +76,8 @@
     var program;
  
     function initShaders() {
-        var fragmentShader = getShader(gl, "shader-fs");
         var vertexShader = getShader(gl, "shader-vs");
+        var fragmentShader = getShader(gl, "shader-fs");
  
         program = gl.createProgram();
         gl.attachShader(program, vertexShader);
@@ -104,24 +104,18 @@
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         // Interleave vertex positions and colors
         var vertexData = [
-            // Vertex 1 position
-            0.0,  0.8,  0.0,
-            // Vertex 1 Color
-            1.0, 0.0, 0.0, 1.0,
-            // Vertex 2 position
-            -0.8, -0.8,  0.0,
-            // Vertex 2 color
-            0.0, 1.0, 0.0, 1.0,
-            // Vertex 3 position
-            0.8, -0.8,  0.0,
-            // Vertex 3 color
-            0.0, 0.0, 1.0, 1.0
+            // X    Y     Z     R     G     B     A
+            0.0,   0.8,  0.0,  1.0,  0.0,  0.0,  1.0,
+            // X    Y     Z     R     G     B     A
+            -0.8, -0.8,  0.0,  0.0,  1.0,  0.0,  1.0,
+            // X    Y     Z     R     G     B     A
+            0.8,  -0.8,  0.0,  0.0,  0.0,  1.0,  1.0
         ];
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexData), gl.STATIC_DRAW);
     }
  
     function drawScene() {
-        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        gl.viewport(0, 0, viewportWidth, viewportHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
  
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
