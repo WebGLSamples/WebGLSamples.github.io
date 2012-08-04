@@ -203,10 +203,13 @@ SpriteAtlas.prototype.spriteSheetLoaded_ = function(sheet, image, params) {
 // SpriteSystem
 //
 
-function SpriteSystem() {
+// "options" is a JavaScript object containing key/value pairs. The
+// current options the sprite system watches for are:
+//   slow: [true|false]   Whether to use the legacy bandwidth-intensive shader for comparison purposes.
+function SpriteSystem(options) {
   SpriteSystem.initialize_();
   this.dumpOffsets();
-  this.loadProgram_();
+  this.loadProgram_(options);
   this.frameOffset_ = 0;
   this.spriteBuffer_ = gl.createBuffer();
   this.clearAllSprites();
@@ -221,9 +224,11 @@ SpriteSystem.prototype.clearAllSprites = function() {
   this.precisePositionView_ = null;
 };
 
-SpriteSystem.prototype.loadProgram_ = function() {
+SpriteSystem.prototype.loadProgram_ = function(options) {
+  var fragmentShaderName = (options && options['slow']) ? 'slowSpriteFragmentShader' : 'spriteFragmentShader';
+  console.log("SpriteSystem using fragment shader " + fragmentShaderName);
   var vertexShader = loadShader(getScriptText('spriteVertexShader'), gl.VERTEX_SHADER);
-  var fragmentShader = loadShader(getScriptText('spriteFragmentShader'), gl.FRAGMENT_SHADER);
+  var fragmentShader = loadShader(getScriptText(fragmentShaderName), gl.FRAGMENT_SHADER);
   var program = gl.createProgram();
   gl.attachShader(program, vertexShader);
   gl.attachShader(program, fragmentShader);

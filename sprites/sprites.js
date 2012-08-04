@@ -51,6 +51,30 @@ var countElements = [];
 var browserWidth;
 var browserHeight;
 
+function parseURLQuery() {
+  // Parses URL query into key/value pairs, returning a newly created object.
+  var result = {};
+  try {
+    var s = window.location.href;
+    var q = s.indexOf("?");
+    var e = s.indexOf("#");
+    if (e < 0) {
+      e = s.length;
+    }
+    var query = s.substring(q + 1, e);
+    var pairs = query.split("&");
+    for (var ii = 0; ii < pairs.length; ++ii) {
+      var keyValue = pairs[ii].split("=");
+      var key = keyValue[0];
+      var value = decodeURIComponent(keyValue[1]);
+      var parsedValue = window.JSON.parse(value);
+      result[key] = parsedValue;
+    }
+  } catch (e) {
+  }
+  return result;
+}
+
 function init() {
   canvas = document.getElementById('canvas');
   gl = tdl.webgl.setupWebGL(canvas, { antialias: false });
@@ -58,7 +82,7 @@ function init() {
     return;
 //  gl = tdl.webgl.makeDebugContext(gl);
 
-  spriteSystem = new SpriteSystem();
+  spriteSystem = new SpriteSystem(parseURLQuery());
   fpsTimer = new tdl.fps.FPSTimer();
   fpsElem = document.getElementById("fps");
 
@@ -111,8 +135,8 @@ function init() {
 }
 
 function start() {
-  setSelected(countElements[1]);
-  generateSprites(1000);
+  setSelected(countElements[3]);
+  generateSprites(2000);
   render();
 }
 
