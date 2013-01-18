@@ -121,6 +121,7 @@ function CreateApp() {
     for (var xx = 0; xx < g_gridWidth; ++xx) {
       instances.push({
         colorMult: new Float32Array(g_glColors[math.randomInt(g_glColors.length)]),
+        column: xx,
         row: yy,
         flag: 1,
         timeOffset: Math.random() * 40,
@@ -138,7 +139,7 @@ function CreateApp() {
       // Add the other per vertex data.
       var numElements = cubeArrays.position.numElements;
       cubeArrays.flag = new tdl.primitives.AttribBuffer(1, numElements);
-      cubeArrays.timeOffsetRow = new tdl.primitives.AttribBuffer(2, numElements);
+      cubeArrays.columnRowTimeOffset = new tdl.primitives.AttribBuffer(3, numElements);
       cubeArrays.colorMult = new tdl.primitives.AttribBuffer(4, numElements);
 
       arrayInstances.push(cubeArrays);
@@ -167,9 +168,9 @@ function CreateApp() {
     arrays.colorMult.fillRange(
         instance.firstVertex, instance.numVertices, instance.colorMult);
 
-    arrays.timeOffsetRow.fillRange(
+    arrays.columnRowTimeOffset.fillRange(
         instance.firstVertex, instance.numVertices,
-        [instance.timeOffset, instance.row]);
+        [instance.column * Math.PI * 2 * 4 / g_gridWidth, instance.row, instance.timeOffset]);
 
     arrays.flag.fillRange(
         instance.firstVertex, instance.numVertices,
@@ -178,7 +179,7 @@ function CreateApp() {
   for (var ii = 0; ii < models.length; ++ii) {
     var arrays = expanded.arrays[index];
     models[ii].setBuffer('colorMult', arrays.colorMult);
-    models[ii].setBuffer('timeOffsetRow', arrays.timeOffsetRow);
+    models[ii].setBuffer('columnRowTimeOffset', arrays.columnRowTimeOffset);
     models[ii].setBuffer('flag', arrays.flag);
   }
 
@@ -449,7 +450,7 @@ attribute vec4 position;
 attribute vec3 normal;
 attribute vec2 texCoord;
 attribute vec4 colorMult;
-attribute vec2 timeOffsetRow;
+attribute vec3 columnRowTimeOffset;
 attribute float flag;
 
 varying vec4 v_position;
@@ -468,14 +469,27 @@ vec4 jiggle(vec4 position, float time) {
 }
 
 void main() {
-  v_texCoord = texCoord;
-  float yOffset = mod(timeOffsetRow.y + rowOffset, towerHeight);
-  float localTime = mod(time - timeOffsetRow.x, kTimeRange);
+  // move the cube to the correct Y for this ring
+  float yOffset = mod(columnRowTimeOffset.y + rowOffset, towerHeight);
+
+  // Add in some up/down motion for this column
+  yOffset += sin(time * 4.0 + columnRowTimeOffset.x) * 0.3;
+
+  // If the time offset for this cube is in same range make it jiggle
+  // Note: Like the flag field you could set the timeRange on demand
+  // to make a particular cube jiggle at a specific time.
+  float localTime = mod(time - columnRowTimeOffset.z, kTimeRange);
   vec4 pos = position;
   if (localTime > 0.0 && localTime < 1.0) {
     pos = jiggle(pos, localTime);
   }
+
+  // Compute at world position but multiple by flag. I'm only using flag as 0 or 1
+  // but this is effectively a scale. 0 = invisible.
   vec4 wp = (pos + vec4(0, yOffset, 0, 0)) * flag;
+
+  // Everything below here is a standard point light shader with a single texture.
+  v_texCoord = texCoord;
   v_position = (worldViewProjection * wp);
   v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
   v_colorMult = colorMult;
