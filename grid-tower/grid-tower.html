@@ -1,0 +1,575 @@
+<!--
+ * Copyright 2013, Google Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Grid Tower</title>
+<link rel="stylesheet" type="text/css" href="../google-io/2011/style.css" />
+<script type="text/javascript" src="../google-io/2011/colors.js"></script>
+<script type="text/javascript" src="../tdl/base.js"></script>
+<script type="text/javascript">
+tdl.require('tdl.buffers');
+tdl.require('tdl.fast');
+tdl.require('tdl.fps');
+tdl.require('tdl.log');
+tdl.require('tdl.math');
+tdl.require('tdl.models');
+tdl.require('tdl.primitives');
+tdl.require('tdl.programs');
+tdl.require('tdl.textures');
+tdl.require('tdl.webgl');
+window.onload = initialize;
+
+// globals
+var gl;                   // the gl context.
+var canvas;               // the canvas
+var math;                 // the math lib.
+var fast;                 // the fast math lib.
+
+var g_eyeSpeed          = 0.5;
+var g_eyeHeight         = 10;
+var g_eyeRadius         = 20;
+var g_targetHeight      = 8;
+var g_cubeSize          = 1;
+var g_ringRadius        = 3;
+var g_gridWidth         = 16;
+var g_gridHeight        = 16;
+var g_numCubes          = g_gridWidth / g_gridHeight;
+
+function CreateApp() {
+  var updatePositions = true;
+
+  window.addEventListener('keypress', handleKeyPress, false);
+
+  function handleKeyPress(event) {
+    updatePositions = !updatePositions;
+  }
+
+  var randInt = function(range) {
+    return Math.floor(Math.random() * range);
+  }
+
+  // Create Geometry.
+  // Load textures
+  var textures = {
+      diffuseSampler: tdl.textures.loadTexture('../google-io/2011/assets/google.png')
+  };
+
+  var waterArrays = tdl.primitives.createPlane(80, 80, 1, 1);
+  // Move the water up 1 unit. (could do this at draw time but doing it here
+  // means no need to change the world matrix between drawing the cubes and drawing the ground.
+  tdl.primitives.reorient(
+      waterArrays,
+      [1, 0, 0, 0,
+       0, 1, 0, 0,
+       0, 0, 1, 0,
+       0, 1, 0, 1]);
+  var water = new tdl.models.Model(
+      tdl.programs.loadProgramFromScriptTags('waterVertexShader', 'waterFragmentShader'),
+      waterArrays,
+      {});
+
+
+  // Create Shader Program
+  var program = tdl.programs.loadProgramFromScriptTags(
+      'sphereVertexShader',
+      'sphereFragmentShader');
+
+  // -- Setup Instances ----------------------------------
+  var instances = [];
+  var arrayInstances = [];
+  for (var yy = 0; yy < g_gridHeight; ++yy) {
+    for (var xx = 0; xx < g_gridWidth; ++xx) {
+      instances.push({
+        colorMult: new Float32Array(g_glColors[math.randomInt(g_glColors.length)]),
+        row: yy,
+        flag: 1,
+        timeOffset: Math.random() * 40,
+      });
+
+      // make a cube
+      var cubeArrays = tdl.primitives.createCube(g_cubeSize);
+
+      // move it to the edge of a ring
+      var orientation = fast.matrix4.identity(new Float32Array(16));
+      fast.matrix4.rotateY(orientation, Math.PI * 2 * xx / g_gridWidth);
+      fast.matrix4.translate(orientation, [0, 0, g_ringRadius]);
+      tdl.primitives.reorient(cubeArrays, orientation);
+
+      // Add the other per vertex data.
+      var numElements = cubeArrays.position.numElements;
+      cubeArrays.flag = new tdl.primitives.AttribBuffer(1, numElements);
+      cubeArrays.timeOffsetRow = new tdl.primitives.AttribBuffer(2, numElements);
+      cubeArrays.colorMult = new tdl.primitives.AttribBuffer(4, numElements);
+
+      arrayInstances.push(cubeArrays);
+    }
+  }
+
+  // Expand arrays from instances to geometry.
+  var expanded = tdl.primitives.concatLarge(arrayInstances);
+
+  // Step 3: Make models from our expanded geometry.
+  var models = [];
+  for (var ii = 0; ii < expanded.arrays.length; ++ii) {
+    models.push(new tdl.models.Model(program, expanded.arrays[ii], textures));
+  }
+
+  // Step 4: Copy in the per vertex data.
+  for (var ii = 0; ii < instances.length; ++ii) {
+    var instance = instances[ii];
+    var info = expanded.instances[ii];
+    var index = info.arrayIndex;
+    instance.firstVertex = info.firstVertex;
+    instance.numVertices = info.numVertices;
+    instance.expandedArrayIndex = index;
+    var arrays = expanded.arrays[index];
+
+    arrays.colorMult.fillRange(
+        instance.firstVertex, instance.numVertices, instance.colorMult);
+
+    arrays.timeOffsetRow.fillRange(
+        instance.firstVertex, instance.numVertices,
+        [instance.timeOffset, instance.row]);
+
+    arrays.flag.fillRange(
+        instance.firstVertex, instance.numVertices,
+        [instance.flag]);
+  }
+  for (var ii = 0; ii < models.length; ++ii) {
+    var arrays = expanded.arrays[index];
+    models[ii].setBuffer('colorMult', arrays.colorMult);
+    models[ii].setBuffer('timeOffsetRow', arrays.timeOffsetRow);
+    models[ii].setBuffer('flag', arrays.flag);
+  }
+
+  // pre-allocate a bunch of arrays
+  var projection = new Float32Array(16);
+  var view = new Float32Array(16);
+  var world = new Float32Array(16);
+  var worldInverse = new Float32Array(16);
+  var worldInverseTranspose = new Float32Array(16);
+  var viewProjection = new Float32Array(16);
+  var worldViewProjection = new Float32Array(16);
+  var viewInverse = new Float32Array(16);
+  var viewProjectionInverse = new Float32Array(16);
+  var eyePosition = new Float32Array(3);
+  var target = new Float32Array(3);
+  var up = new Float32Array([0,1,0]);
+  var lightWorldPos = new Float32Array(3);
+  var v3t0 = new Float32Array(3);
+  var v3t1 = new Float32Array(3);
+  var v3t2 = new Float32Array(3);
+  var v3t3 = new Float32Array(3);
+  var m4t0 = new Float32Array(16);
+  var m4t1 = new Float32Array(16);
+  var m4t2 = new Float32Array(16);
+  var m4t3 = new Float32Array(16);
+  var zero4 = new Float32Array(4);
+  var one4 = new Float32Array([1,1,1,1]);
+
+  // uniforms.
+  var sharedUniforms = {
+    viewInverse: viewInverse,
+    lightWorldPos: lightWorldPos,
+    specular: one4,
+    shininess: 50,
+    specularFactor: 0.2,
+    world: world,
+    worldViewProjection: worldViewProjection,
+    worldInverse: worldInverse,
+    worldInverseTranspose: worldInverseTranspose,
+    towerHeight: g_gridHeight,
+    rowOffset: 0,
+    time: 0,
+  };
+
+  var clock = 0.0;
+  var oldTopRow = g_gridHeight - 1;
+  var availableCubes = [];
+  var frameCount = 0;
+
+  function update(elapsedTime) {
+    clock += elapsedTime;
+    ++frameCount;
+
+    sharedUniforms.rowOffset = (sharedUniforms.rowOffset + elapsedTime) % g_gridHeight;
+    sharedUniforms.time = clock;
+
+    // Make the camera rotate around the scene.
+    eyePosition[0] = Math.sin(clock * g_eyeSpeed) * g_eyeRadius;
+    eyePosition[1] = g_eyeHeight;
+    eyePosition[2] = Math.cos(clock * g_eyeSpeed) * g_eyeRadius;
+
+    target[1] = g_targetHeight;
+
+    // Pick a random cube to turn on or off
+    // pick from the top row
+    var rowOffset = Math.floor(sharedUniforms.rowOffset);
+    var topRow = g_gridHeight - rowOffset - 1;
+
+    // If a new row scrolled on...
+    if (topRow != oldTopRow) {
+      // Put the old top row
+      // Note: this should be optimized to do the entire row at
+      // once since all the cubes' flags for a single row are consecutive in memory
+      // but I'm lazy so I'm doing a cube at a time.
+      for (var ii = 0; ii < g_gridWidth; ++ii) {
+        var cubeId = oldTopRow * g_gridWidth + ii;
+        var instance = instances[cubeId];
+        var index = instance.expandedArrayIndex;
+        var attribBuffer = expanded.arrays[index].flag;
+        attribBuffer.fillRange(instance.firstVertex, instance.numVertices, [1]);
+        // Rely on the fact that we send all the flags to the GPU every frame below.
+        // Ideally we'd upload just the flags we set here.
+      }
+
+      // fill an array with choices of cubes to remove.
+      for (var ii = 0; ii < g_gridWidth; ++ii) {
+        availableCubes.push(ii);
+      }
+      oldTopRow = topRow;
+    }
+
+    // pick a cube in the top row and remove it.
+    if (availableCubes.length > 0 && frameCount & 1) {  // framecount & 1 will fail if the framerate slows.
+      var inRow = randInt(availableCubes.length);
+      var cubeId = topRow * g_gridWidth + availableCubes[inRow];
+      availableCubes.splice(inRow, 1);
+      var instance = instances[cubeId];
+      var index = instance.expandedArrayIndex;
+      var attribBuffer = expanded.arrays[index].flag;
+      attribBuffer.fillRange(instance.firstVertex, instance.numVertices, [0]);
+    }
+
+    // Upload the changed data. Note: This calls gl.bufferData uploading the entire
+    // buffer. It could be optimized to upload only the tiny part changed.
+    for (var ii = 0; ii < models.length; ++ii) {
+      var attribBuffer = expanded.arrays[ii].flag;
+      models[ii].setBuffer('flag', attribBuffer);
+    }
+
+    // --Update Instance Positions---------------------------------------
+    //if (updatePositions) {
+    //  var advance = elapsedTime / 2;
+    //  for (var ii = 0; ii < instances.length; ++ii) {
+    //    var instance = instances[ii];
+    //    instance.xClock += advance * instance.xClockSpeed;
+    //    instance.yClock += advance * instance.yClockSpeed;
+    //    instance.zClock += advance * instance.zClockSpeed;
+    //    var x = instance.x = Math.sin(instance.xClock) * instance.xRadius;
+    //    var y = instance.y = Math.sin(instance.yClock) * instance.yRadius;
+    //    var z = instance.z = Math.cos(instance.zClock) * instance.zRadius;
+    //    var index = instance.expandedArrayIndex;
+    //    var attribBuffer = expanded.arrays[index].worldPosition;
+    //    attribBuffer.fillRange(instance.firstVertex, instance.numVertices, [x, y, z]);
+    //  }
+    //  for (var ii = 0; ii < models.length; ++ii) {
+    //    var attribBuffer = expanded.arrays[ii].worldPosition;
+    //    models[ii].setBuffer('worldPosition', attribBuffer);
+    //  }
+    //}
+  }
+
+  function render() {
+    renderBegin();
+    renderScene();
+    renderEnd();
+  }
+
+  function renderBegin() {
+    var m4 = fast.matrix4;
+    // clear the screen.
+    gl.colorMask(true, true, true, true);
+    gl.depthMask(true);
+    gl.clearColor(1,1,1,0);
+    gl.clearDepth(1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+    gl.enable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST);
+
+    // Compute a projection and view matrices.
+    m4.perspective(
+        projection,
+        math.degToRad(60),
+        canvas.clientWidth / canvas.clientHeight,
+        1,
+        5000);
+    m4.lookAt(
+        view,
+        eyePosition,
+        target,
+        up);
+    m4.mul(viewProjection, view, projection);
+    m4.inverse(viewInverse, view);
+    m4.inverse(viewProjectionInverse, viewProjection);
+
+    // Put the light near the camera
+    m4.getAxis(v3t0, viewInverse, 0); // x
+    m4.getAxis(v3t1, viewInverse, 1); // y
+    m4.getAxis(v3t2, viewInverse, 2); // z
+    fast.mulScalarVector(v3t0, 10, v3t0);
+    fast.mulScalarVector(v3t1, 10, v3t1);
+    fast.mulScalarVector(v3t2, 10, v3t2);
+    fast.addVector(lightWorldPos, eyePosition, v3t0);
+    fast.addVector(lightWorldPos, lightWorldPos, v3t1);
+    fast.addVector(lightWorldPos, lightWorldPos, v3t2);
+
+    // compute shared matrices
+    m4.translation(world, [0, 0, 0]);
+    m4.mul(worldViewProjection, world, viewProjection);
+    m4.inverse(worldInverse, world);
+    m4.transpose(worldInverseTranspose, worldInverse);
+  }
+
+  function renderScene() {
+    // -- Render Models ---------------------------------------
+    // We only need to render each model once
+    // as they contain all the instances.
+    for (var ii = 0; ii < models.length; ++ii) {
+      var model = models[ii];
+      model.drawPrep(sharedUniforms);
+      model.draw();
+    }
+    water.drawPrep(sharedUniforms);
+    water.draw()
+;  }
+
+  function renderEnd() {
+    // Set the alpha to 255.
+    gl.colorMask(false, false, false, true);
+    gl.clearColor(0,0,0,1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+
+  return {
+    update: update,
+    render: render
+  };
+}
+
+function initialize() {
+  math = tdl.math;
+  fast = tdl.fast;
+  canvas = document.getElementById("canvas");
+  var fpsTimer = new tdl.fps.FPSTimer();
+  var fpsElem = document.getElementById("fps");
+
+  gl = tdl.webgl.setupWebGL(canvas);
+  if (!gl) {
+    return false;
+  }
+
+  var app = CreateApp();
+  var then = (new Date()).getTime() * 0.001;
+
+  function render() {
+    tdl.webgl.requestAnimationFrame(render, canvas);
+
+    // Compute the elapsed time since the last rendered frame
+    // in seconds.
+    var now = (new Date()).getTime() * 0.001;
+    var elapsedTime = now - then;
+    then = now;
+
+    // Update the FPS timer.
+    fpsTimer.update(elapsedTime);
+    fpsElem.innerHTML = fpsTimer.averageFPS;
+
+    app.update(elapsedTime);
+    app.render();
+  }
+  render();
+  return true;
+}
+</script>
+</head>
+<body>
+<div id="info"><span><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - grid tower</span></div>
+<div id="fpsContainer">
+  <div class="fps">fps: <span id="fps"></div>
+</div>
+<div id="viewContainer">
+<canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
+</div>
+</body>
+<script id="sphereVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+uniform float rowOffset;
+uniform float towerHeight;  // This should probably be a const for speed
+uniform float time;
+
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+attribute vec4 colorMult;
+attribute vec2 timeOffsetRow;
+attribute float flag;
+
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+varying vec4 v_colorMult;
+
+const float kTimeRange = 40.0;  // should be setable?
+
+vec4 jiggle(vec4 position, float time) {
+  float timeOff = time * 3.14159 * 8.0;
+  float scale = sin(timeOff) * 0.1 + 1.0;
+  return vec4(position.xyz * scale, 1);
+}
+
+void main() {
+  v_texCoord = texCoord;
+  float yOffset = mod(timeOffsetRow.y + rowOffset, towerHeight);
+  float localTime = mod(time - timeOffsetRow.x, kTimeRange);
+  vec4 pos = position;
+  if (localTime > 0.0 && localTime < 1.0) {
+    pos = jiggle(pos, localTime);
+  }
+  vec4 wp = (pos + vec4(0, yOffset, 0, 0)) * flag;
+  v_position = (worldViewProjection * wp);
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_colorMult = colorMult;
+  v_surfaceToLight = lightWorldPos - wp.xyz;
+  v_surfaceToView = (viewInverse[3] - wp).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="sphereFragmentShader" type="text/something-not-javascript">
+#ifdef GL_ES
+precision highp float;
+#endif
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+varying vec4 v_colorMult;
+
+uniform sampler2D diffuseSampler;
+uniform vec4 specular;
+uniform sampler2D bumpSampler;
+uniform float shininess;
+uniform float specularFactor;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec4 diffuse = texture2D(diffuseSampler, v_texCoord) * v_colorMult;
+  vec3 normal = normalize(v_normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  gl_FragColor = vec4((
+  vec4(1,1,1,1) * (diffuse * litR.y
+                        + specular * litR.z * specularFactor)).rgb,
+      diffuse.a);
+}
+</script>
+<script id="waterVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+uniform vec3 lightWorldPos;
+uniform mat4 world;
+uniform mat4 viewInverse;
+uniform mat4 worldInverseTranspose;
+
+attribute vec4 position;
+attribute vec3 normal;
+attribute vec2 texCoord;
+
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+void main() {
+  v_texCoord = texCoord;
+  v_position = (worldViewProjection * position);
+  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+  v_surfaceToLight = lightWorldPos - position.xyz;
+  v_surfaceToView = (viewInverse[3] - position).xyz;
+  gl_Position = v_position;
+}
+
+</script>
+<script id="waterFragmentShader" type="text/something-not-javascript">
+precision highp float;
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform vec4 specular;
+uniform float shininess;
+uniform float specularFactor;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+void main() {
+  vec4 diffuse = vec4(0,0,1,1);
+  vec3 normal = normalize(v_normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(normal, surfaceToLight),
+                    dot(normal, halfVector), shininess);
+  gl_FragColor = vec4((
+  vec4(1,1,1,1) * (diffuse * litR.y
+                        + specular * litR.z * specularFactor)).rgb,
+      diffuse.a);
+}
+</script>
+</html>
+
+
+
+
