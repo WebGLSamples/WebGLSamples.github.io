@@ -261,7 +261,7 @@ function CreateApp() {
     }
 
     // pick a cube in the top row and remove it.
-    if (availableCubes.length > 0 && frameCount & 1) {  // framecount & 1 will fail if the framerate slows.
+    if (availableCubes.length > 0) {
       var inRow = randInt(availableCubes.length);
       var cubeId = topRow * g_gridWidth + availableCubes[inRow];
       availableCubes.splice(inRow, 1);
