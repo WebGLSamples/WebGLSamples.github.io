@@ -74,6 +74,16 @@ function CreateApp() {
     updatePositions = !updatePositions;
   }
 
+  function resizeCanvas(canvas) {
+    if (canvas.width != canvas.clientWidth ||
+        canvas.height != canvas.clientHeight) {
+      canvas.width = canvas.clientWidth;
+      canvas.height = canvas.clientHeight;
+      //console.log("resized canvas: " + canvas.width + ", " + canvas.height);
+      gl.viewport(0, 0, canvas.clientWidth, canvas.clientHeight);
+    }
+  }
+
   var randInt = function(range) {
     return Math.floor(Math.random() * range);
   }
@@ -221,6 +231,8 @@ function CreateApp() {
   function update(elapsedTime) {
     clock += elapsedTime;
     ++frameCount;
+
+    resizeCanvas(canvas);
 
     sharedUniforms.rowOffset = (sharedUniforms.rowOffset + elapsedTime) % g_gridHeight;
     sharedUniforms.time = clock;
