@@ -228,6 +228,10 @@ function CreateApp() {
   var oldTopRow = g_gridHeight - 1;
   var availableCubes = [];
   var frameCount = 0;
+  var goup = 0;
+  var upOffset = 0;
+  var rowOffset = 0;
+  var waitTime = 0;
 
   function update(elapsedTime) {
     clock += elapsedTime;
@@ -235,8 +239,18 @@ function CreateApp() {
 
     resizeCanvas(canvas);
 
-    sharedUniforms.rowOffset = (sharedUniforms.rowOffset + elapsedTime) % g_gridHeight;
+    if (goup) {
+      upOffset += elapsedTime;
+      if (upOffset >= 1) {
+        waitTime = 1;
+        upOffset = 0;
+        goup = 0;
+        rowOffset = (rowOffset + 1) % g_gridHeight;
+      }
+      sharedUniforms.rowOffset = rowOffset + upOffset;
+    }
     sharedUniforms.time = clock;
+
 
     // Make the camera rotate around the scene.
     eyePosition[0] = Math.sin(clock * g_eyeSpeed) * g_eyeRadius;
@@ -247,7 +261,6 @@ function CreateApp() {
 
     // Pick a random cube to turn on or off
     // pick from the top row
-    var rowOffset = Math.floor(sharedUniforms.rowOffset);
     var topRow = g_gridHeight - rowOffset - 1;
 
     // If a new row scrolled on...
@@ -274,7 +287,7 @@ function CreateApp() {
     }
 
     // pick a cube in the top row and remove it.
-    if (availableCubes.length > 0) {
+    if (Math.random() < 0.2 && availableCubes.length > 0) {
       var inRow = randInt(availableCubes.length);
       var cubeId = topRow * g_gridWidth + availableCubes[inRow];
       availableCubes.splice(inRow, 1);
@@ -282,6 +295,11 @@ function CreateApp() {
       var index = instance.expandedArrayIndex;
       var attribBuffer = expanded.arrays[index].flag;
       attribBuffer.fillRange(instance.firstVertex, instance.numVertices, [0]);
+    }
+
+    // If all the cubes in the top row are gone go up.
+    if (availableCubes.length == 0) {
+      goup = 1;
     }
 
     // Upload the changed data. Note: This calls gl.bufferData uploading the entire
@@ -473,7 +491,7 @@ void main() {
   float yOffset = mod(columnRowTimeOffset.y + rowOffset, towerHeight);
 
   // Add in some up/down motion for this column
-  yOffset += sin(time * 4.0 + columnRowTimeOffset.x) * 0.3;
+  yOffset += sin(time * 4.0 + columnRowTimeOffset.x) * 0.15;
 
   // If the time offset for this cube is in same range make it jiggle
   // Note: Like the flag field you could set the timeRange on demand
