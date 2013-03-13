@@ -838,7 +838,7 @@ function main() {
   tdl.webgl.registerContextRestoredHandler(canvas, handleContextRestored);
 
   g_fpsTimer = new tdl.fps.FPSTimer();
-  gl = tdl.webgl.setupWebGL(canvas);
+  gl = tdl.webgl.setupWebGL(canvas, g.globals.canvasAttributes);
   if (!gl) {
     return false;
   }
