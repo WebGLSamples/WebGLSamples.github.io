@@ -28,7 +28,7 @@
 
 var radialBlur_fshader = [
 "#ifdef GL_ES",
-"precision highp float;",
+"precision mediump float;",
 "#endif",
 
 "vec2 poissonDisk[16];",

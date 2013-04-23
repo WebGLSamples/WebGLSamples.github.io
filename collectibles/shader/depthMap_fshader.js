@@ -28,7 +28,7 @@
 var depthMapFShader = [
 
 "#ifdef GL_ES",
-"precision highp float;",
+"precision mediump float;",
 "#endif",                     
 "varying vec4 vPos;",
 

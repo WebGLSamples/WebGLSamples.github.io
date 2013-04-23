@@ -28,7 +28,7 @@
 
 var linesFShader = [
 "#ifdef GL_ES",
-"precision highp float;",
+"precision mediump float;",
 "#endif",                     
 "uniform vec4 u_lineColor;",
 "void main()",

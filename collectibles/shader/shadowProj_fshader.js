@@ -27,7 +27,7 @@
 //
 var shadowProj_fshader = [
 "#ifdef GL_ES",
-"precision highp float;",
+"precision mediump float;",
 "#endif",
 
 "uniform sampler2D shadowMap;",

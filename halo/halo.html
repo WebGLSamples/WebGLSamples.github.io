@@ -54,37 +54,37 @@
     <body id="viewContainer">
         <canvas id="c"></canvas>
         <script id="halo_vertex" type="x-glsl-shader/x-fragment">
-            attribute highp vec2 position;
-            attribute highp vec2 control_point;
-            uniform highp mat2 view_transform;
-            varying highp vec2 direction;
+            attribute mediump vec2 position;
+            attribute mediump vec2 control_point;
+            uniform mediump mat2 view_transform;
+            varying mediump vec2 direction;
             void main() {
                 direction = position - control_point;
                 gl_Position = vec4(view_transform * position, 0., 1.);
             }
         </script>
         <script id="halo_fragment" type="x-glsl-shader/x-fragment">
-            varying highp vec2 direction;
+            varying mediump vec2 direction;
 
             // scale and bias for radius
-            uniform highp float inv_width;
-            uniform highp float offset;
+            uniform mediump float inv_width;
+            uniform mediump float offset;
 
             // screen-space antialiasing factor
-            uniform highp float blur;
+            uniform mediump float blur;
 
             // Texture containing stripe colors and its size.
             uniform lowp sampler2D tex;
-            uniform highp float inv_texture_size;
+            uniform mediump float inv_texture_size;
 
             void main() {
                 // radius, i.e. distance from the control point
-                highp float r = inv_width * length(direction) + offset;
+                mediump float r = inv_width * length(direction) + offset;
 
                 // "Bilinear optimization."  We want the texture coordinates
                 // to stick around the texel centers, sort of like in a toon
                 // shader.
-                highp float fv = fract(r - .5);
+                mediump float fv = fract(r - .5);
                 r += smoothstep(.5 - blur, .5 + blur, fv) - fv;
                 //  clamp((fv - (.5 - blur)) / (2. * blur), 0., 1.);
 
@@ -97,14 +97,14 @@
             }
         </script>
         <script id="base_effect_vertex" type="x-glsl-shader/x-vertex">
-            attribute highp vec2 position;
-            uniform highp mat2 view_transform;
+            attribute mediump vec2 position;
+            uniform mediump mat2 view_transform;
 
-            varying highp vec2 view_position;
-            varying highp vec2 screen_position;
+            varying mediump vec2 view_position;
+            varying mediump vec2 screen_position;
 
             void main() {
-                highp vec2 view = view_transform * position;
+                mediump vec2 view = view_transform * position;
 
                 view_position = view;
                 screen_position = position;
@@ -112,45 +112,45 @@
             }
         </script>
         <script id="circle_fragment" type="x-glsl-shader/x-fragment">
-            varying highp vec2 view_position;
-            varying highp vec2 screen_position;
+            varying mediump vec2 view_position;
+            varying mediump vec2 screen_position;
             uniform lowp sampler2D tex0;
             uniform lowp sampler2D tex1;
-            uniform highp float alpha;
-            uniform highp float blur;
-            uniform highp float sign;
+            uniform mediump float alpha;
+            uniform mediump float blur;
+            uniform mediump float sign;
             void main() {
-                highp vec2 tex_position = .5 * screen_position + .5;
+                mediump vec2 tex_position = .5 * screen_position + .5;
                 lowp vec4 color0 = texture2D(tex0, tex_position);
                 lowp vec4 color1 = texture2D(tex1, tex_position);
-                highp float v = sign * (length(view_position) + alpha);
+                mediump float v = sign * (length(view_position) + alpha);
 
-                highp float line_width = 3. * blur;
-                highp float mix1 = 1. - smoothstep(-line_width - blur,
+                mediump float line_width = 3. * blur;
+                mediump float mix1 = 1. - smoothstep(-line_width - blur,
                     -line_width, v);
-                highp float mix2 = smoothstep(line_width, line_width + blur, v);
+                mediump float mix2 = smoothstep(line_width, line_width + blur, v);
 
                 gl_FragColor = vec4(mix1 * color0.rgb + mix2 * color1.rgb, 1.);
             }
         </script>
         <script id="sweep_fragment" type="x-glsl-shader/x-fragment">
-            varying highp vec2 view_position;
-            varying highp vec2 screen_position;
+            varying mediump vec2 view_position;
+            varying mediump vec2 screen_position;
             uniform lowp sampler2D tex0;
             uniform lowp sampler2D tex1;
-            uniform highp float blur;
-            uniform highp vec3 line;
+            uniform mediump float blur;
+            uniform mediump vec3 line;
             void main() {
-                highp vec2 tex_position = .5 * screen_position + .5;
+                mediump vec2 tex_position = .5 * screen_position + .5;
                 lowp vec4 color0 = texture2D(tex0, tex_position);
                 lowp vec4 color1 = texture2D(tex1, tex_position);
 
-                highp float v = dot(line.xy, view_position) + line.z;
+                mediump float v = dot(line.xy, view_position) + line.z;
 
-                highp float line_width = 3. * blur;
-                highp float mix1 = 1. - smoothstep(-line_width - blur,
+                mediump float line_width = 3. * blur;
+                mediump float mix1 = 1. - smoothstep(-line_width - blur,
                     -line_width, v);
-                highp float mix2 = smoothstep(line_width, line_width + blur, v);
+                mediump float mix2 = smoothstep(line_width, line_width + blur, v);
 
                 gl_FragColor = vec4(mix1 * color0.rgb + mix2 * color1.rgb, 1.);
             }

@@ -511,7 +511,7 @@ void main() {
 </script>
 <script id="baseFragmentShader" type="text/something-not-javascript">
 #ifdef GL_ES
-precision highp float;
+precision mediump float;
 #endif
 uniform vec4 lightColor;
 varying vec4 v_position;
@@ -566,7 +566,7 @@ void main() {
 </script>
 <script id="envFragmentShader" type="text/something-not-javascript">
 #ifdef GL_ES
-precision highp float;
+precision mediump float;
 #endif
 varying vec4 v_position;
 varying vec2 v_texCoord;
@@ -591,7 +591,7 @@ void main() {
 </script>
 <script id="skyboxFragmentShader" type="text/something-not-javascript">
 #ifdef GL_ES
-precision highp float;
+precision mediump float;
 #endif
 uniform samplerCube skybox;
 uniform mat4 viewDirectionProjectionInverse;

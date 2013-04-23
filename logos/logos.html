@@ -83,7 +83,7 @@ void main() {
 </script>
 <script id="groundFShader" type="text/something-not-javascript">
 #ifdef GL_ES
-precision highp float;
+precision mediump float;
 #endif
 void main() {
   gl_FragColor = vec4(1, 1, 0, 1);
@@ -101,7 +101,7 @@ void main() {
 </script>
 <script id="skyboxFShader" type="text/something-not-javascript">
 #ifdef GL_ES
-precision highp float;
+precision mediump float;
 #endif
 uniform samplerCube skybox;
 uniform mat4 viewProjectionInverse;

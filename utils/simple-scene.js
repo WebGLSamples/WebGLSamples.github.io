@@ -39,7 +39,7 @@ function SimpleScene(canvas, id, undefined){
   ].join("\n");
 
   var fragmentShader = [
-    "precision highp float;",
+    "precision mediump float;",
     "uniform vec4 lightColor;",
     "varying vec4 v_position;",
     "varying vec2 v_texCoord;",
