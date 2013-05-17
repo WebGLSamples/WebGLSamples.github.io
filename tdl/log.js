@@ -69,9 +69,9 @@ tdl.error = function() {
       window.console.error(str);
     } else if (window.console.log) {
       window.console.log(str);
-    } else if (window.dump) {
-      window.dump(str + "\n");
     }
+  } else if (window.dump) {
+    window.dump(str + "\n");
   }
 };
 
