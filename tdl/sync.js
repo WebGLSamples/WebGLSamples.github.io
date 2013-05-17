@@ -100,7 +100,7 @@ tdl.sync.SyncManager.prototype.init = function(url, slave) {
   };
   this.socket.onmessage = function(event) {
     ++that.getCount;
-    tdl.log("--GET:[", g_getCount, ":", event.type, "]-------------");
+    tdl.log("--GET:[", that.getCount, ":", event.type, "]-------------");
     var obj = JSON.parse(event.data);
     tdl.dumpObj(obj);
     tdl.misc.copyProperties(obj, that.settings);
