@@ -44,6 +44,12 @@ tdl.require('tdl.log');
  */
 tdl.misc = tdl.misc || {};
 
+tdl.misc.parseUnquotedJSObjectString = function(str) {
+  // NOTE: does not handle strings with : in them.
+  var quoted = str.replace(/([a-zA-Z0-9_]+):/g,'"$1":')
+  return JSON.parse(quoted);
+};
+
 tdl.misc.applyUrlSettings = function(obj, opt_argumentName) {
   var argumentName = opt_argumentName || 'settings';
   try {
@@ -65,7 +71,7 @@ tdl.misc.applyUrlSettings = function(obj, opt_argumentName) {
       switch (key) {
       case argumentName:
         //tdl.log(value);
-        var settings = eval("(" + value + ")");
+        var settings = tdl.misc.parseUnquotedJSObjectString(value)
         //tdl.log("settings:", settings);
         tdl.misc.copyProperties(settings, obj);
         break;
