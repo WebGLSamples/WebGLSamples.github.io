@@ -46,6 +46,7 @@ tdl.require('tdl.buffers');
 tdl.require('tdl.fast');
 tdl.require('tdl.framebuffers');
 tdl.require('tdl.fps');
+tdl.require('tdl.fullscreen');
 tdl.require('tdl.log');
 tdl.require('tdl.math');
 tdl.require('tdl.models');
@@ -141,7 +142,7 @@ function setupSkybox() {
       [1, 0, 0, 0,
        0, 0, 1, 0,
        0,-1, 0, 0,
-       0, 0, 0.9999, 1]);
+       0, 0, 0.999, 1]);
   return new tdl.models.Model(program, arrays, textures);
 }
 
