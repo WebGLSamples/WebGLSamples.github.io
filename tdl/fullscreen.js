@@ -44,7 +44,11 @@ tdl.provide('tdl.fullscreen');
 tdl.fullscreen = tdl.fullscreen || {};
 
 tdl.fullscreen.requestFullScreen = function(element) {
-  if (element.webkitRequestFullScreen) {
+  if (element.requestFullscreen) {
+    element.requestFullscreen();
+  } else if (element.msRequestFullscreen) {
+    element.msRequestFullscreen();
+  } else if (element.webkitRequestFullScreen) {
     element.webkitRequestFullScreen(Element.ALLOW_KEYBOARD_INPUT);
   } else if (element.mozRequestFullScreen) {
     element.mozRequestFullScreen();
@@ -52,7 +56,11 @@ tdl.fullscreen.requestFullScreen = function(element) {
 };
 
 tdl.fullscreen.cancelFullScreen = function(element) {
-  if (document.webkitCancelFullScreen) {
+  if (document.exitFullscreen) {
+    document.exitFullscreen();
+  } else if (document.msExitFullscreen) {
+    document.msExitFullscreen();
+  } else if (document.webkitCancelFullScreen) {
     document.webkitCancelFullScreen();
   } else if (document.mozCancelFullScreen) {
     document.mozCancelFullScreen();
@@ -60,22 +68,19 @@ tdl.fullscreen.cancelFullScreen = function(element) {
 };
 
 tdl.fullscreen.onFullScreenChange = function(element, callback) {
-  element.addEventListener('fullscreenchange', function(event) {
-      callback(document.fullscreenEnabled);
+  var isFullScreen = function() {
+    return document.fullscreenElement || document.mozFullScreenElement ||
+           document.webkitFullscreenElement || document.msFullscreenElement ||
+           document.mozFullScreen || document.webkitIsFullScreen;
+  };
+  document.addEventListener('fullscreenchange', function(event) {
+      callback(isFullScreen());
     });
   element.addEventListener('webkitfullscreenchange', function(event) {
-      var fullscreenEnabled = document.webkitFullscreenEnabled;
-      if (fullscreenEnabled === undefined) {
-        fullscreenEnabled = document.webkitIsFullScreen;
-      }
-      callback(fullscreenEnabled);
+      callback(isFullScreen());
     });
-  element.addEventListener('mozfullscreenchange', function(event) {
-      var fullscreenEnabled = document.mozFullscreenEnabled;
-      if (fullscreenEnabled === undefined) {
-        fullscreenEnabled = document.mozFullScreen;
-      }
-      callback(fullscreenEnabled);
+  document.addEventListener('mozfullscreenchange', function(event) {
+      callback(isFullScreen());
     });
 };
 
