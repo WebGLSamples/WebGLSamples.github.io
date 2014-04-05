@@ -102,7 +102,7 @@ var g_netUI = [
 var g_fishTable = [
   {
     name: 'SmallFishA',
-    num: [0, 3, 36, 76, 206, 500, 1000, 50],
+    num: [0, 3, 36, 76, 206, 500-40-40-2-2, 1000-80-80-2-2, 2000-80-80-2-2, 4000-80-80-2-2, 50],
     speed: 1,
     speedRange: 1.5,
     radius: 30,
@@ -118,7 +118,7 @@ var g_fishTable = [
   },
   {
     name: 'MediumFishA',
-    num: [0, 3, 6, 10, 20, 0, 0, 10],
+    num: [0, 3, 6, 10, 20, 40, 80, 80, 80, 10],
     speed: 1,
     speedRange: 2,
     radius: 10,
@@ -134,7 +134,7 @@ var g_fishTable = [
   },
   {
     name: 'MediumFishB',
-    num: [0, 2, 6, 10, 20, 0, 0, 10],
+    num: [0, 2, 6, 10, 20, 40, 80, 80, 80, 10],
     speed: 0.5,
     speedRange: 4,
     radius: 10,
@@ -150,7 +150,7 @@ var g_fishTable = [
   },
   {
     name: 'BigFishA',
-    num: [1, 1, 1, 2, 2, 0, 0, 3],
+    num: [1, 1, 1, 2, 2, 2, 2, 2, 2, 3],
     speed: 0.5,
     speedRange: 0.5,
     radius: 50,
@@ -170,7 +170,7 @@ var g_fishTable = [
   },
   {
     name: 'BigFishB',
-    num: [0, 1, 1, 2, 2, 0, 0, 1],
+    num: [0, 1, 1, 2, 2, 2, 2, 2, 2, 1],
     speed: 0.5,
     speedRange: 0.5,
     radius: 45,
@@ -783,9 +783,9 @@ function advanceViewSettings() {
  */
 function setSetting(elem, id) {
   switch (id) {
-  case 8:
+  case 10:
     break;
-  case 7:
+  case 9:
     advanceViewSettings();
     break;
   default:
@@ -796,30 +796,6 @@ function setSetting(elem, id) {
     }
     elem.style.color = "red";
   }
-}
-
-/**
- * Sets up the count buttons.
- */
-function setupCountButtons() {
-  for (var ii = 0; ii < 100; ++ii) {
-    var elem = document.getElementById("setSetting" + ii);
-    if (!elem) {
-      break;
-    }
-    g_setSettingElements.push(elem);
-    elem.onclick = function(elem, id) {
-      return function () {
-        setSetting(elem, id);
-      }}(elem, ii);
-  }
-
-  if (g.net.sync) {
-    setSetting(document.getElementById("setSetting4"), 4);
-  } else {
-    setSetting(document.getElementById("setSetting2"), 2);
-  }
-  setSetting(document.getElementById("setSetting7"), 7);
 }
 
 /**
@@ -1640,7 +1616,7 @@ function setupCountButtons() {
   } else {
     setSetting(document.getElementById("setSetting2"), 2);
   }
-  setSetting(document.getElementById("setSetting7"), 7);
+  setSetting(document.getElementById("setSetting9"), 9);
 }
 
 function initUIStuff() {
@@ -1721,7 +1697,7 @@ $(function(){
     g.net.fovFudge = 1;
   }
 
-  $('#setSetting8').click(function() {
+  $('#setSetting10').click(function() {
       $("#uiContainer").toggle('slow'); return false; });
   $("#uiContainer").toggle();
   $('#options').click(function() {
