@@ -1708,17 +1708,17 @@ $(function(){
     $('#topUI').hide();
   } else {
     $(document).keypress(function(event) {
-      if (event.keyCode == 'l'.charCodeAt(0) ||
-          event.keyCode == 'L'.charCodeAt(0)) {
+      if (event.which == 'l'.charCodeAt(0) ||
+          event.which == 'L'.charCodeAt(0)) {
         setSettings({drawLasers: !g.drawLasers});
-      } else if (event.keyCode == ' '.charCodeAt(0)) {
+      } else if (event.which == ' '.charCodeAt(0)) {
         advanceViewSettings();
-      } else if (event.keyCode == 's'.charCodeAt(0) ||
-                 event.keyCode == 'S'.charCodeAt(0)) {
+      } else if (event.which == 's'.charCodeAt(0) ||
+                 event.which == 'S'.charCodeAt(0)) {
         tdl.screenshot.takeScreenshot(
           document.getElementById("canvas"));
-      } else if (event.keyCode == 'h'.charCodeAt(0) ||
-                 event.keyCode == 'H'.charCodeAt(0)) {
+      } else if (event.which == 'h'.charCodeAt(0) ||
+                 event.which == 'H'.charCodeAt(0)) {
         $('#topUI').toggle();
       }
     });

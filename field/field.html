@@ -693,8 +693,8 @@ $(function(){
     uiElem.appendChild(div);
   }
   $(document).keypress(function(event) {
-    if (event.keyCode == 'd'.charCodeAt(0) ||
-        event.keyCode == 'D'.charCodeAt(0)) {
+    if (event.which == 'd'.charCodeAt(0) ||
+        event.which == 'D'.charCodeAt(0)) {
       g.globals.showRT = (g.globals.showRT + 1) % 5;
     }
   });
