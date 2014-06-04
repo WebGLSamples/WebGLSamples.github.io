@@ -56,7 +56,7 @@ function PostProcessor(w, h) {
   var bounce_fb = tdl.framebuffers.createFramebuffer(w, h, true)
 
   var qw_fb = tdl.framebuffers.createFramebuffer(w / 4, h, true)
-  var qw_qh_fb = tdl.framebuffers.createFramebuffer(w / 4, h, true)
+  var qw_qh_fb = tdl.framebuffers.createFramebuffer(w / 4, h / 4, true)
 
   // Re-bind the backbuffer.
   backbuffer.bind()
