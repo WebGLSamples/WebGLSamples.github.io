@@ -1,95 +1,298 @@
+﻿<!DOCTYPE HTML>
+<!--
+  Verti by HTML5 UP
+  html5up.net | @n33co
+  Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
 <html>
-<head>
-<meta charset="utf-8">
-<title>WebGL Samples</title>
-<style>
-body {
-  font-family: sans-serif;
-}
-img {
-  border: 0px;
-}
-</style>
-</head>
-<body>
-The <a href="google-io/2011/index.html">Google I/O 2011 samples can be found
-here</a>. <hr/>
-<div><a href="aquarium/aquarium.html">
-<img src="aquarium/aquarium.jpg" /></a><br/>
-<a href="aquarium/aquarium.html">Aquarium</a></div>
-<hr/>
-<div><a href="blob/blob.html">
-<img src="blob/blob.jpg" /></a><br/>
-<a href="blob/blob.html">Blob</a></div>
-<hr/>
-<div><a href="caves/caves.html">
-<img src="caves/caves.jpg" /></a><br/>
-<a href="caves/caves.html">Caves</a></div>
-<hr/>
-<div><a href="color-adjust/color-adjust.html">
-<img src="color-adjust/color-adjust.png" /></a><br/>
-<a href="color-adjust/color-adjust.html">Color-Adjust</a></div>
-<hr/>
-<div><a href="city/city.html">
-<img src="city/city.jpg" /></a><br/>
-<a href="city/city.html">City</a></div>
-<hr/>
-<div><a href="collectibles/collectibles.html">
-<img src="collectibles/collectibles.jpg" /></a><br/>
-<a href="collectibles/collectibles.html">Collectibles</a></div>
-<hr/>
-<div><a href="dynamic-cubemap/dynamic-cubemap.html">
-<img src="dynamic-cubemap/dynamic-cubemap.jpg" /></a><br/>
-<a href="dynamic-cubemap/dynamic-cubemap.html">Dynamic Cubemap</a></div>
-<hr/>
-<div><a href="electricflower/electricflower.html">
-<img src="electricflower/electricflower.jpg" /></a><br/>
-<a href="electricflower/electricflower.html">Electricflower</a></div>
-<hr/>
-<div><a href="field/field.html">
-<img src="field/field.jpg" /></a><br/>
-<a href="field/field.html">Field</a></div>
-<hr/>
-<div><a href="fishtank/fishtank.html">
-<img src="fishtank/fishtank.jpg" /></a><br/>
-<a href="fishtank/fishtank.html">Fishtank</a></div>
-<hr/>
-<div><a href="halo/halo.html">
-<img src="halo/halo.jpg" /></a><br/>
-<a href="halo/halo.html">Halo</a></div>
-<hr/>
-<div><a href="imagesphere/imagesphere.html">
-<img src="imagesphere/imagesphere.jpg" /></a><br/>
-<a href="imagesphere/imagesphere.html">Imagesphere</a></div>
-<hr/>
-<div><a href="lots-o-images/index.html">
-<img src="lots-o-images/lots-o-images-draw-elements.png" /></a><br/>
-<a href="lots-o-images/index.html">Lots-O-Images</a></div>
-<hr/>
-<div><a href="lots-o-objects/index.html">
-<img src="lots-o-objects/lots-o-objects-draw-elements.png" /></a><br/>
-<a href="lots-o-objects/index.html">Lots-O-Objects</a></div>
-<hr/>
-<div><a href="multiple-views/multiple-views.html">
-<img src="multiple-views/multiple-views.png" /></a><br/>
-<a href="multiple-views/multiple-views.html">Multiple Views</a></div>
-<hr/>
-<div><a href="persistence/persistence.html">
-<img src="persistence/persistence.png" /></a><br/>
-<a href="persistence/persistence.html">Persistence</a></div>
-<hr/>
-<div><a href="spacerocks/spacerocks.html">
-<img src="spacerocks/spacerocks.jpg" /></a><br/>
-<a href="spacerocks/spacerocks.html">Spacerocks</a></div>
-<hr/>
-<div><a href="toon-shading/toon-shading.html">
-<img src="toon-shading/toon-shading.jpg" /></a><br/>
-<a href="toon-shading/toon-shading.html">Toon-Shading</a></div>
-<hr/>
-<div><a href="book/book.html">
-<img src="book/book.jpg" /></a><br/>
-<a href="book/book.html">Book</a></div>
-<hr/>
+  <head>
+    <title>WebGL Samples</title>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="description" content="" />
+    <meta name="keywords" content="" />
+    <!--[if lte IE 8]><script src="css/ie/html5shiv.js"></script><![endif]-->
+    <script src="js/jquery.min.js"></script>
+    <script src="js/jquery.dropotron.min.js"></script>
+    <script src="js/skel.min.js"></script>
+    <script src="js/skel-layers.min.js"></script>
+    <script src="js/init.js"></script>
+    <script id="sample-template" type="foo">
+            <div class="4u">
 
-</body>
+              <!-- Box -->
+                <section class="box feature">
+                  <a href="%(url)s" class="image featured"><img src="%(img)s" alt="%(name)s" /></a>
+                  <div class="inner">
+                    <header>
+                      <h2><a href="%(url)s">%(name)s</a></h2>
+                      <p>by %(by)s</p>
+                    </header>
+                    <p>%(desc)s</p>
+                  </div>
+                </section>
+
+            </div>
+    </script>
+    <script>
+$(function() {
+
+  /**
+   * Replace %(id)s in strings with values in objects(s)
+   *
+   * Given a string like `"Hello %(name)s from $(user.country)s"`
+   * and an object like `{name:"Joe",user:{country:"USA"}}` would
+   * return `"Hello Joe from USA"`.
+   *
+   * @function
+   * @param {string} str string to do replacements in
+   * @param {Object|Object[]} params one or more objects.
+   * @returns {string} string with replaced parts
+   * @memberOf module:Strings
+   */
+  var replaceParams = (function() {
+    var replaceParamsRE = /%\(([^\)]+)\)s/g;
+
+    return function(str, params) {
+      if (!params.length) {
+        params = [params];
+      }
+
+      return str.replace(replaceParamsRE, function(match, key) {
+        var keys = key.split('.');
+        for (var ii = 0; ii < params.length; ++ii) {
+          var obj = params[ii];
+          for (var jj = 0; jj < keys.length; ++jj) {
+            var key = keys[jj]
+            var obj = obj[key];
+            if (obj === undefined) {
+              break;
+            }
+          }
+          if (obj !== undefined) {
+            return obj;
+          }
+        }
+        console.error("unknown key: " + key);
+        return "%(" + key + ")s";
+      });
+    };
+  }());
+
+  var template = document.getElementById("sample-template").text;
+
+  var html = [
+    { url: 'aquarium/aquarium.html',
+      img: 'aquarium/aquarium.jpg',
+      name: 'Aquarium',
+      by: "Greggman and Human Engines",
+      desc: 'You can also run the Aquarium synced across multiple machines. <a href="/aquarium/README.html">See here for more info</a>.',
+    },
+    { url: 'blob/blob.html',
+      img: 'blob/blob.jpg',
+      name: 'Blob',
+      by: "Henrik Rydgård",
+      desc: 'Metaballs in JS/WebGL',
+    },
+    { url: 'caves/caves.html',
+      img: 'caves/caves.jpg',
+      name: 'Caves',
+      by: "Jasmine Kent Langridge",
+      desc: 'Dig your own caves in realtime',
+    },
+    { url: 'color-adjust/color-adjust.html',
+      img: 'color-adjust/color-adjust.png',
+      name: 'Color-Adjust',
+      by: "Greggman",
+      desc: 'Use a color cube to adjust colors in realtime. See <a href="https://www.youtube.com/watch?v=rfQ8rKGTVlg#t=24m30s">this presentation</a>.',
+    },
+    { url: 'city/city.html',
+      img: 'city/city.jpg',
+      name: 'City',
+      by: "Greggman",
+      desc: 'An unfinished demo inspired by <a href="http://www.geeks3d.com/20090615/pixel-city-procedurally-generated-city-in-opengl/">Pixel City</a>.',
+    },
+    { url: 'collectibles/collectibles.html',
+      img: 'collectibles/collectibles.jpg',
+      name: 'Collectibles',
+      by: "Human Engines",
+    },
+    { url: 'dynamic-cubemap/dynamic-cubemap.html',
+      img: 'dynamic-cubemap/dynamic-cubemap.jpg',
+      name: 'Dynamic Cubemap',
+      by: "Greggman",
+      desc: "Realtime reflections",
+    },
+    { url: 'electricflower/electricflower.html',
+      img: 'electricflower/electricflower.jpg',
+      name: 'Electricflower',
+      by: "Henrik Rydgård",
+    },
+    { url: 'field/field.html',
+      img: 'field/field.jpg',
+      name: 'Field',
+      by: "Greggman",
+      desc: "GPU grass",
+    },
+    { url: 'fishtank/fishtank.html',
+      img: 'fishtank/fishtank.jpg',
+      name: 'Fishtank',
+      by: "Greggman",
+      desc: "Programmer Art Fish",
+    },
+    { url: 'halo/halo.html',
+      img: 'halo/halo.jpg',
+      name: 'Halo',
+      by: "Kenneth Waters",
+    },
+    { url: 'imagesphere/imagesphere.html',
+      img: 'imagesphere/imagesphere.jpg',
+      name: 'Imagesphere',
+      by: "Greggman",
+    },
+    { url: 'lots-o-images/index.html',
+      img: 'lots-o-images/lots-o-images-draw-elements.png',
+      name: 'Lots-O-Images',
+      by: "Greggman",
+    },
+    { url: 'lots-o-objects/index.html',
+      img: 'lots-o-objects/lots-o-objects-draw-elements.png',
+      name: 'Lots-O-Objects',
+      by: "Greggman",
+    },
+    { url: 'multiple-views/multiple-views.html',
+      img: 'multiple-views/multiple-views.png',
+      name: 'Multiple Views',
+      by: "Greggman",
+    },
+    { url: 'persistence/persistence.html',
+      img: 'persistence/persistence.png',
+      name: 'Persistence',
+      by: "Greggman",
+      desc: 'See <a href="https://www.youtube.com/watch?v=rfQ8rKGTVlg#t=31m42s">this presentation</a> for details.',
+    },
+    { url: 'spacerocks/spacerocks.html',
+      img: 'spacerocks/spacerocks.jpg',
+      name: 'Spacerocks',
+      by: "Greggman",
+    },
+    { url: 'toon-shading/toon-shading.html',
+      img: 'toon-shading/toon-shading.jpg',
+      name: 'Flexible Toon Shading',
+      by: "Greggman",
+    },
+    { url: 'book/book.html',
+      img: 'book/book.jpg',
+      name: 'Book (Cloth Simulation Demo)',
+      by: "Joshua Trask",
+    },
+    { url: '/google-io/2011/index.html',
+      img: '/google-io/2011/google-io.jpg',
+      name: 'Google I/O 2011 WebGL Techniques and Performance Samples',
+      by: 'Greggman',
+    },
+
+  ].map(function(sample, ndx) {
+    var col = ndx % 3;
+    return (col == 0 ? '<div class="row">' : "") +
+           replaceParams(template, [sample, {desc: "", by: ""}]) +
+           ((col == 2 || ndx == samples.length - 1) ? '</div>' : "");
+  }).join("\n");
+
+  $("#samples").html(html);
+});
+
+    </script>
+    <noscript>
+      <link rel="stylesheet" href="css/skel.css" />
+      <link rel="stylesheet" href="css/style.css" />
+      <link rel="stylesheet" href="css/style-desktop.css" />
+    </noscript>
+    <!--[if lte IE 8]><link rel="stylesheet" href="css/ie/v8.css" /><![endif]-->
+  </head>
+  <body class="homepage">
+
+    <!-- Header -->
+      <div id="header-wrapper">
+        <header id="header" class="container">
+
+          <!-- Logo -->
+          <!-- Nav -->
+            <nav id="nav">
+              <ul>
+              </ul>
+            </nav>
+
+        </header>
+      </div>
+
+    <!-- Banner -->
+      <div id="banner-wrapper">
+        <div id="banner" class="box container">
+          <div class="row">
+            <div class="7u">
+              <h2>WebGL Samples</h2>
+              <p>This is collection of WebGL Samples. Feel free to add more</p>
+            </div>
+            <div class="5u">
+              <ul>
+                <li><a href="http://github.com/WebGLSamples/WebGLSamples.github.io" class="button big icon fa-arrow-circle-right">Ok let's go</a></li>
+                <li><a href="http://webglfundamentals.org" class="button alt big icon fa-question-circle">More info</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    <!-- Features -->
+      <div id="features-wrapper">
+        <div id="samples" class="container">
+        </div>
+      </div>
+
+    <!-- Main -->
+
+    <!-- Footer -->
+      <div id="footer-wrapper">
+        <footer id="footer" class="container">
+          <div class="row">
+            <div class="9u">
+
+              <!-- Links -->
+                <section class="widget links">
+                  <h3>WebGL Resources</h3>
+                  <ul class="style2">
+                    <li><a href="http://webglfundamentals.org">WebGL Fundamentals (start here to learn WebGL)</a></li>
+                    <li><a href="http://threejs.org">Three.js (start here to get stuff done)</a></li>
+                    <li><a href="https://www.khronos.org/registry/webgl/specs/latest/1.0/">The WebGL Spec</a></li>
+                    <li><a href="https://www.khronos.org/webgl/wiki/Main_Page">The official WebGL Wiki</a></li>
+                  </ul>
+                </section>
+
+            </div>
+            <div class="3u">
+
+              <!-- Contact -->
+                <section class="widget contact last">
+                  <h3>Share</h3>
+                  <ul>
+                    <li><a href="https://twitter.com/home?status=http://webglsamples.org" class="icon fa-twitter"><span class="label">Twitter</span></a></li>
+                    <li><a href="https://www.facebook.com/sharer/sharer.php?u=http://webglsamples.org" class="icon fa-facebook"><span class="label">Facebook</span></a></li>
+                  </ul>
+                </section>
+
+            </div>
+          </div>
+          <div class="row">
+            <div class="12u">
+              <div id="copyright">
+                <ul class="menu">
+                  <li>Design: <a href="http://html5up.net">HTML5 UP</a></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </footer>
+      </div>
+
+  </body>
 </html>

@@ -1,0 +1,366 @@
+/*
+	Verti by HTML5 UP
+	html5up.net | @n33co
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+*/
+
+/*********************************************************************************/
+/* Basic                                                                         */
+/*********************************************************************************/
+
+	body
+	{
+		line-height: 2.25em;
+	}
+
+	h2
+	{
+		font-size: 2.25em;
+		margin: 0 0 1.1em 0;
+		line-height: 1em;
+	}
+	
+	h3
+	{
+		font-size: 1.35em;
+		margin: 0 0 1em 0;
+	}
+	
+	/* Button */
+
+		input[type="button"],
+		input[type="submit"],
+		input[type="reset"],
+		.button
+		{
+			font-size: 1.35em;
+			padding: 0.6em 1.5em;
+		}
+
+			input[type="button"].big,
+			input[type="submit"].big,
+			input[type="reset"].big,
+			.button.big
+			{
+				font-size: 2.25em;
+				padding: 0.8em 0.9em;
+			}
+
+			.button.icon
+			{
+			}
+
+				.button.icon:before
+				{
+					margin-right: 0.5em;
+					top: 0.05em;
+				}
+
+	/* Box */	
+	
+		.box
+		{
+			padding: 2em;
+		}
+			
+			.box.feature
+			{
+				padding: 0;
+			}
+				
+				.box.feature .inner
+				{
+					padding: 4em 2em 3em 2em;
+				}
+				
+				.box.feature h2
+				{
+					font-size: 1.35em;
+				}
+
+				.box.feature p
+				{
+					margin: 0;
+				}
+
+				.box.feature .image
+				{
+					position: relative;
+					margin: 0;
+				}
+
+					.box.feature .image img
+					{
+						border-bottom-left-radius: 0;
+						border-bottom-right-radius: 0;
+					}
+
+/*********************************************************************************/
+/* Widgets                                                                       */
+/*********************************************************************************/
+
+	.widget
+	{
+	}
+
+		.widget.thumbnails
+		{
+		}
+
+			.widget.thumbnails .grid
+			{
+				margin: 0 0 3em 0;
+			}
+
+			.widget.thumbnails .image
+			{
+				margin: 0;
+			}
+	
+/*********************************************************************************/
+/* Wrappers                                                                      */
+/*********************************************************************************/
+
+	#header-wrapper
+	{
+		padding: 4.5em 0 1em 0;
+	}
+	
+	#features-wrapper
+	{
+		padding: 3em 0 3em 0;
+	}
+	
+	#main-wrapper
+	{
+		padding: 5em 0 5em 0;
+	}
+	
+	#footer-wrapper
+	{
+		padding: 6em 0 8em 0;
+	}
+
+/*********************************************************************************/
+/* Logo                                                                          */
+/*********************************************************************************/
+
+	#logo
+	{
+	}
+
+		#logo h1
+		{
+			float: left;
+			margin: 0 0.35em 0 0;
+			padding: 0.25em 0.2em 0.25em 0.2em;
+			font-size: 3.25em;
+			letter-spacing: 0.05em;
+		}
+
+		#logo span
+		{
+			line-height: 4.5em;
+			letter-spacing: 0.025em;
+			font-size: 0.9em;
+		}
+
+/*********************************************************************************/
+/* Nav                                                                           */
+/*********************************************************************************/
+
+	#nav
+	{
+		position: absolute;
+		right: 0;
+		top: 0;
+		font-size: 0.9em;
+	}
+	
+		#nav ul
+		{
+		}
+			
+			#nav ul li
+			{
+				float: left;
+				line-height: 4.5em;
+				padding-left: 1.5em;
+			}
+
+				#nav ul li a,
+				#nav ul li span
+				{
+					font-weight: 800;
+					letter-spacing: 0.025em;
+					color: #696969;
+					text-decoration: none;
+					border-radius: 6px;
+					padding: 0.5em 1em 0.5em 1em;
+					-moz-transition: background-color .25s ease-in-out;
+					-webkit-transition: background-color .25s ease-in-out;
+					-o-transition: background-color .25s ease-in-out;
+					-ms-transition: background-color .25s ease-in-out;
+					transition: background-color .25s ease-in-out;
+				}
+				
+				#nav ul li > ul
+				{
+					display: none;
+				}
+
+			#nav ul li:hover
+			{
+			}
+
+				#nav ul li:hover a,
+				#nav ul li:hover span
+				{
+					background: #fff;
+				}
+
+			#nav ul li.active
+			{
+			}
+
+				#nav ul li.active a,
+				#nav ul li.active span
+				{
+					background: #fff;
+				}
+
+			#nav ul li.current
+			{
+			}
+
+				#nav ul li.current a
+				{
+					background: #444;
+					color: #fff;
+				}
+				
+	.dropotron
+	{
+		background: #fff;
+		letter-spacing: 0.025em;
+		color: #696969;
+		text-decoration: none;
+		border-radius: 6px;
+		padding: 0.75em 0;
+		min-width: 15em;
+		box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1), 0 0.25em 0.25em 0.1em rgba(0,0,0,0.025);
+		margin-top: calc(-0.75em + 1px);
+		margin-left: -1px;
+	}
+
+		.dropotron li
+		{
+			border-top: solid 1px #eee;
+			line-height: 3em;
+		}
+
+			.dropotron li:first-child
+			{
+				border-top: 0;
+			}
+	
+			.dropotron li > a,
+			.dropotron li > span
+			{
+				text-decoration: none;
+				color: inherit;
+				display: block;
+				padding: 0 1.5em;
+				-moz-transition: color .25s ease-in-out, background-color .25s ease-in-out;
+				-webkit-transition: color .25s ease-in-out, background-color .25s ease-in-out;
+				-o-transition: color .25s ease-in-out, background-color .25s ease-in-out;
+				-ms-transition: color .25s ease-in-out, background-color .25s ease-in-out;
+				transition: color .25s ease-in-out, background-color .25s ease-in-out;
+			}
+
+				.dropotron li > a:hover,
+				.dropotron li > span:hover,
+				.dropotron li.active > a,
+				.dropotron li.active > span
+				{
+					background: #eee;
+				}
+	
+		.dropotron.level-0
+		{
+			font-size: 0.8em;
+			margin-left: 1.5em;
+			margin-top: 0;
+		}
+		
+			.dropotron.level-0:before
+			{
+				content: '';
+				position: absolute;
+				top: -0.5em;
+				left: 1em;
+				border-bottom: solid 0.75em #ffffff;
+				border-left: solid 0.75em transparent;
+				border-right: solid 0.75em transparent;
+				z-index: 1;
+			}
+
+/*********************************************************************************/
+/* Banner                                                                        */
+/*********************************************************************************/
+
+	#banner
+	{
+		padding: 4.5em;
+	}
+
+		#banner h2
+		{
+			font-size: 3.5em;
+			margin: 0.1em 0 0.35em 0;
+		}
+
+		#banner p
+		{
+			font-size: 2.75em;
+			line-height: 1.35em;
+			margin: 0;
+		}
+		
+		#banner .button
+		{
+			width: 100%;
+			margin-bottom: 0.5em;
+		}
+		
+			#banner .button.icon:before
+			{
+				position: absolute;
+				right: 0.15em;
+				top: 50%;
+				margin-top: -0.5em;
+			}
+
+		#banner .button.alt
+		{
+			margin-bottom: 0;
+		}
+		
+		#banner ul
+		{
+			margin: 0 0 0 2em;
+		}
+
+/*********************************************************************************/
+/* Footer                                                                        */
+/*********************************************************************************/
+
+	#footer
+	{
+	}
+	
+	#copyright
+	{
+		padding: 4em 0 0 0;
+		text-align: center;
+	}
