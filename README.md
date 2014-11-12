@@ -44,7 +44,7 @@ By Human Engines
 
 [Color Adjust](http://webglsamples.org/color-adjust/color-adjust.html)
 
-[http://webglsamples.org/color-adjust/color-adjust.png](http://webglsamples.org/color-adjust/color-adjust.html)
+<a href="http://webglsamples.org/color-adjust/color-adjust.html"><img src="http://webglsamples.org/color-adjust/color-adjust.png" /></a>
 
 By Greggman
 
@@ -100,7 +100,7 @@ By Greggman
 
 [Lots-O-Images](http://webglsamples.org/lots-o-images/index.html)
 
-[http://webglsamples.org/lots-o-images/lots-o-images-draw-elements.png](http://webglsamples.org/lots-o-images/index.html)
+<a href="http://webglsamples.org/lots-o-images/index.html"><img src="http://webglsamples.org/lots-o-images/lots-o-images-draw-elements.png" /></a>
 
 By Greggman
 
@@ -108,7 +108,7 @@ By Greggman
 
 [Lots-O-Objects](http://webglsamples.org/lots-o-objects/index.html)
 
-[http://webglsamples.org/lots-o-objects/lots-o-objects-draw-elements.png](http://webglsamples.org/lots-o-objects/index.html)
+<a href="http://webglsamples.org/lots-o-objects/index.html"><img src="http://webglsamples.org/lots-o-objects/lots-o-objects-draw-elements.png" /></a>
 
 By Greggman
 
@@ -116,14 +116,14 @@ By Greggman
 
 [Multiple Views](http://webglsamples.org/multiple-views/multiple-views.html)
 
-[http://webglsamples.org/multiple-views/multiple-views.png](http://webglsamples.org/multiple-views/multiple-views.html)
+<a href="http://webglsamples.org/multiple-views/multiple-views.html"><img src="http://webglsamples.org/multiple-views/multiple-views.png" /></a>
 
 By Greggman
 
 ----
 [Persistence](http://webglsamples.org/persistence/persistence.html)
 
-[http://webglsamples.org/persistence/persistence.png](http://webglsamples.org/persistence/persistence.html)
+<a href="http://webglsamples.org/persistence/persistence.html"><img src="http://webglsamples.org/persistence/persistence.png" /></a>
 
 By Greggman
 
