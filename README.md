@@ -4,150 +4,150 @@ WebGL Samples
 A place to host and work on some WebGL sample applications. Feel free to contribute if you want.
 
 Looking for the Google IO Samples?
-[http://webglsamples.org/google-io/2011/index.html](Google I/O 2011 WebGL Techniques and Performance Samples)
+[Google I/O 2011 WebGL Techniques and Performance Samples](http://webglsamples.org/google-io/2011/index.html)
 
 ----
 
-[http://webglsamples.org/aquarium/aquarium.html](Aquarium)
+[Aquarium](http://webglsamples.org/aquarium/aquarium.html)
 
-[http://webglsamples.org/aquarium/aquarium.html](http://webglsamples.org/aquarium/aquarium.jpg)
+<a href="http://webglsamples.org/aquarium/aquarium.html"><img src="http://webglsamples.org/aquarium/aquarium.jpg" /></a>
 
 By Greggman and Human Engines
 
-You can also run the Aquarium synced across multiple machines. [http://webglsamples.org/aquarium/README.html](See here for more info).
+You can also run the Aquarium synced across multiple machines. [See here for more info](http://webglsamples.org/aquarium/README.html).
 ----
 
-[http://webglsamples.org/blob/blob.html](Blob)
+[Blob](http://webglsamples.org/blob/blob.html)
 
-[http://webglsamples.org/blob/blob.html](http://webglsamples.org/blob/blob.jpg)
+<a href="http://webglsamples.org/blob/blob.html"><img src="http://webglsamples.org/blob/blob.jpg" /></a>
 
 By Henrik Rydgård
 
 
 ----
 
-[http://webglsamples.org/caves/caves.html](Caves)
+[Caves](http://webglsamples.org/caves/caves.html)
 
-[http://webglsamples.org/caves/caves.html](http://webglsamples.org/caves/caves.jpg)
+<a href="http://webglsamples.org/caves/caves.html"><img src="http://webglsamples.org/caves/caves.jpg" /></a>
 
 by Jasmine Kent Langridge
 
 ----
 
-[http://webglsamples.org/collectibles/index.html](Collectibles)
+[Collectibles](http://webglsamples.org/collectibles/index.html)
 
-[http://webglsamples.org/collectibles/index.html](http://webglsamples.org/collectibles/collectibles.jpg)
+<a href="http://webglsamples.org/collectibles/index.html"><img src="http://webglsamples.org/collectibles/collectibles.jpg" /></a>
 
 By Human Engines
 
 ----
 
-[http://webglsamples.org/color-adjust/color-adjust.html](Color Adjust)
+[Color Adjust](http://webglsamples.org/color-adjust/color-adjust.html)
 
-[http://webglsamples.org/color-adjust/color-adjust.html](http://webglsamples.org/color-adjust/color-adjust.png)
-
-By Greggman
-
-----
-
-[http://webglsamples.org/dynamic-cubemap/dynamic-cubemap.html](Dynamic Cubemap)
-
-[http://webglsamples.org/dynamic-cubemap/dynamic-cubemap.html](http://webglsamples.org/dynamic-cubemap/dynamic-cubemap.jpg)
+[http://webglsamples.org/color-adjust/color-adjust.png](http://webglsamples.org/color-adjust/color-adjust.html)
 
 By Greggman
 
 ----
 
-[http://webglsamples.org/electricflower/electricflower.html](Electricflower)
+[Dynamic Cubemap](http://webglsamples.org/dynamic-cubemap/dynamic-cubemap.html)
 
-[http://webglsamples.org/electricflower/electricflower.html](http://webglsamples.org/electricflower/electricflower.jpg)
+<a href="http://webglsamples.org/dynamic-cubemap/dynamic-cubemap.html"><img src="http://webglsamples.org/dynamic-cubemap/dynamic-cubemap.jpg" /></a>
+
+By Greggman
+
+----
+
+[Electricflower](http://webglsamples.org/electricflower/electricflower.html)
+
+<a href="http://webglsamples.org/electricflower/electricflower.html"><img src="http://webglsamples.org/electricflower/electricflower.jpg" /></a>
 
 By Henrik Rydgård
 
 ----
 
-[http://webglsamples.org/field/field.html](Field)
+[Field](http://webglsamples.org/field/field.html)
 
-[http://webglsamples.org/field/field.html](http://webglsamples.org/field/field.jpg)
-
-By Greggman
-
-----
-
-[http://webglsamples.org/fishtank/fishtank.html](Fishtank)
-
-[http://webglsamples.org/fishtank/fishtank.html](http://webglsamples.org/fishtank/fishtank.jpg)
+<a href="http://webglsamples.org/field/field.html"><img src="http://webglsamples.org/field/field.jpg" /></a>
 
 By Greggman
 
 ----
 
-[http://webglsamples.org/halo/halo.html](Halo)
+[Fishtank](http://webglsamples.org/fishtank/fishtank.html)
 
-[http://webglsamples.org/halo/halo.html](http://webglsamples.org/halo/halo.jpg)
+<a href="http://webglsamples.org/fishtank/fishtank.html"><img src="http://webglsamples.org/fishtank/fishtank.jpg" /></a>
+
+By Greggman
+
+----
+
+[Halo](http://webglsamples.org/halo/halo.html)
+
+<a href="http://webglsamples.org/halo/halo.html"><img src="http://webglsamples.org/halo/halo.jpg" /></a>
 
 By Kenneth Waters
 
 ----
 
-[http://webglsamples.org/imagesphere/imagesphere.html](Imagesphere)
+[Imagesphere](http://webglsamples.org/imagesphere/imagesphere.html)
 
-[http://webglsamples.org/imagesphere/imagesphere.html](http://webglsamples.org/imagesphere/imagesphere.jpg)
-
-By Greggman
-
-----
-
-[http://webglsamples.org/lots-o-images/index.html](Lots-O-Images)
-
-[http://webglsamples.org/lots-o-images/index.html](http://webglsamples.org/lots-o-images/lots-o-images-draw-elements.png)
+<a href="http://webglsamples.org/imagesphere/imagesphere.html"><img src="http://webglsamples.org/imagesphere/imagesphere.jpg" /></a>
 
 By Greggman
 
 ----
 
-[http://webglsamples.org/lots-o-objects/index.html](Lots-O-Objects)
+[Lots-O-Images](http://webglsamples.org/lots-o-images/index.html)
 
-[http://webglsamples.org/lots-o-objects/index.html](http://webglsamples.org/lots-o-objects/lots-o-objects-draw-elements.png)
-
-By Greggman
-
-----
-
-[http://webglsamples.org/multiple-views/multiple-views.html](Multiple Views)
-
-[http://webglsamples.org/multiple-views/multiple-views.html](http://webglsamples.org/multiple-views/multiple-views.png)
-
-By Greggman
-
-----
-[http://webglsamples.org/persistence/persistence.html](Persistence)
-
-[http://webglsamples.org/persistence/persistence.html](http://webglsamples.org/persistence/persistence.png)
+[http://webglsamples.org/lots-o-images/lots-o-images-draw-elements.png](http://webglsamples.org/lots-o-images/index.html)
 
 By Greggman
 
 ----
 
-[http://webglsamples.org/spacerocks/spacerocks.html](Spacerocks)
+[Lots-O-Objects](http://webglsamples.org/lots-o-objects/index.html)
 
-[http://webglsamples.org/spacerocks/spacerocks.html](http://webglsamples.org/spacerocks/spacerocks.jpg)
-
-By Greggman
-
-----
-
-[http://webglsamples.org/toon-shading/toon-shading.html](Flexible Toon Shading)
-
-[http://webglsamples.org/toon-shading/toon-shading.html](http://webglsamples.org/toon-shading/toon-shading.jpg)
+[http://webglsamples.org/lots-o-objects/lots-o-objects-draw-elements.png](http://webglsamples.org/lots-o-objects/index.html)
 
 By Greggman
 
 ----
 
-[http://webglsamples.org/book/book.html](Book (Cloth Simulation Demo))
+[Multiple Views](http://webglsamples.org/multiple-views/multiple-views.html)
 
-[http://webglsamples.org/book/book.html](http://webglsamples.org/book/book.jpg)
+[http://webglsamples.org/multiple-views/multiple-views.png](http://webglsamples.org/multiple-views/multiple-views.html)
+
+By Greggman
+
+----
+[Persistence](http://webglsamples.org/persistence/persistence.html)
+
+[http://webglsamples.org/persistence/persistence.png](http://webglsamples.org/persistence/persistence.html)
+
+By Greggman
+
+----
+
+[Spacerocks](http://webglsamples.org/spacerocks/spacerocks.html)
+
+<a href="http://webglsamples.org/spacerocks/spacerocks.html"><img src="http://webglsamples.org/spacerocks/spacerocks.jpg" /></a>
+
+By Greggman
+
+----
+
+[Flexible Toon Shading](http://webglsamples.org/toon-shading/toon-shading.html)
+
+<a href="http://webglsamples.org/toon-shading/toon-shading.html"><img src="http://webglsamples.org/toon-shading/toon-shading.jpg" /></a>
+
+By Greggman
+
+----
+
+[Book (Cloth Simulation Demo)](http://webglsamples.org/book/book.html)
+
+<a href="http://webglsamples.org/book/book.html"><img src="http://webglsamples.org/book/book.jpg" /></a>
 
 By Joshua Trask
 
