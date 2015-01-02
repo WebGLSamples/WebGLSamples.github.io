@@ -49,6 +49,23 @@ tdl.require('tdl.textures');
 tdl.require('tdl.webgl');
 window.onload = initialize;
 
+var AverageOverSamples = function(numSamples) {
+  var samples = [];
+  var sampleNdx = 0;
+  var sum = 0;
+
+  this.addSample = function(v) {
+    var oldSample = samples[sampleNdx] || 0;
+    sum += v - oldSample;
+    samples[sampleNdx++] = v;
+    sampleNdx = sampleNdx % numSamples;
+  };
+
+  this.getAverage = function() {
+    return sum / samples.length;
+  };
+};
+
 // globals
 var gl;                   // the gl context.
 var canvas;               // the canvas
@@ -63,6 +80,8 @@ var g_maxObjects        = 250000;
 var g_numObjects        = 100;
 var g_modelsPerBlock    = 50;
 var g_targetFrameRate   = 60 - 2;  // add some fudge so browser that runs at 58-59 can still run the test
+var g_averageFrames     = 60 * 10;
+var g_average = new AverageOverSamples(g_averageFrames);
 
 function CreateApp() {
   // Create Geometry.
@@ -279,6 +298,7 @@ function initialize() {
   var fpsTimer = new tdl.fps.FPSTimer();
   var fpsElem = document.getElementById("fps");
   var cntElem = document.getElementById("cnt");
+  var avgElem = document.getElementById("avg");
 
   document.getElementById("title").innerHTML = document.getElementsByTagName("title")[0].innerHTML;
 
@@ -320,8 +340,10 @@ function initialize() {
       changeAmount = -9;
     }
     g_numObjects = Math.max(Math.min(g_numObjects + changeAmount, g_maxObjects), 1);
+    g_average.addSample(g_numObjects);
 
     cntElem.innerHTML = g_numObjects;
+    avgElem.innerHTML = g_average.getAverage().toFixed(0);
 
     app.update(elapsedTime);
     app.render();
@@ -336,6 +358,7 @@ function initialize() {
 <div id="fpsContainer">
   <div class="fps">fps: <span id="fps"></div>
   <div class="fps">cnt: <span id="cnt"></span></div>
+  <div class="fps">avg: <span id="avg"></span></div>
 </div>
 <div id="viewContainer">
 <canvas id="canvas" width="512" height="512" style="width: 100%; height: 100%;"></canvas>
