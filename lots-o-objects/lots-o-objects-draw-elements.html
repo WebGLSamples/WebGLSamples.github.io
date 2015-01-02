@@ -41,6 +41,7 @@ tdl.require('tdl.fast');
 tdl.require('tdl.fps');
 tdl.require('tdl.log');
 tdl.require('tdl.math');
+tdl.require('tdl.misc');
 tdl.require('tdl.models');
 tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
@@ -281,7 +282,14 @@ function initialize() {
 
   document.getElementById("title").innerHTML = document.getElementsByTagName("title")[0].innerHTML;
 
-  gl = tdl.webgl.setupWebGL(canvas, {alpha:false, antialias:false});
+  var ctxOptions = {
+    alpha: false,
+    antialias: false,
+    preserveDrawingBuffer: false,
+  };
+  tdl.misc.applyUrlSettings(ctxOptions);
+
+  gl = tdl.webgl.setupWebGL(canvas, ctxOptions);
   if (!gl) {
     return false;
   }
