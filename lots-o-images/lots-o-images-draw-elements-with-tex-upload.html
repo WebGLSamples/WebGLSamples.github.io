@@ -34,6 +34,7 @@
 <meta charset="utf-8">
 <title>Lots-O-Images - DrawElements</title>
 <link rel="stylesheet" type="text/css" href="../google-io/2011/style.css" />
+<script type="text/javascript" src="../js/perf-harness.js"></script>
 <script type="text/javascript" src="../tdl/base.js"></script>
 <script type="text/javascript">
 tdl.require('tdl.buffers');
@@ -57,7 +58,7 @@ var fast;                 // the fast math lib.
 var g_maxImages = 250000;
 var g_numImages = 100;
 var g_imageSize = 32;
-var g_targetFrameRate = 20 - 2;  // add some fudge so browser that runs at 58-59 can still run the test
+var g_targetFrameRate = 60 - 5;  // add some fudge so browser that runs at 58-59 can still run the test
 
 function CreateApp() {
   var updatePositions = true;
@@ -242,33 +243,22 @@ function initialize() {
   var then = (new Date()).getTime() * 0.001;
   var changeAmount = 1;
 
-  function render() {
-    tdl.webgl.requestAnimationFrame(render, canvas);
+  PerfHarness.setTargetFPS(g_targetFrameRate);
 
-    // Compute the elapsed time since the last rendered frame
-    // in seconds.
-    var now = (new Date()).getTime() * 0.001;
-    var elapsedTime = Math.min(now - then, 0.1);
-    then = now;
-
+  function render(count, averageCount, elapsedTime) {
     // Update the FPS timer.
     fpsTimer.update(elapsedTime);
     fpsElem.innerHTML = fpsTimer.averageFPS;
 
-    var goFaster = fpsTimer.averageFPS >= g_targetFrameRate;
-    if (goFaster) {
-      changeAmount = 11;
-    } else {
-      changeAmount = -9;
-    }
-    g_numImages = Math.max(Math.min(g_numImages + changeAmount, g_maxImages), 1);
+    g_numImages = count;
 
     cntElem.innerHTML = g_numImages;
 
     app.update(elapsedTime);
     app.render();
   }
-  render();
+  var framesToAverage = 60;
+  PerfHarness.start(canvas, render, 60);
   return true;
 }
 </script>

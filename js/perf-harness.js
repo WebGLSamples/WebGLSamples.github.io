@@ -7,12 +7,13 @@ var PerfHarness = (function(undefined) {
     targetTime: 1,
     velocity: 1,
     direction: 1,
-    frames: []
+    frames: [],
   };
 
   var countHistory = [];
   var totalCount = 0;
   var countIndex = 0;
+  var skipFrames = 0;
   var framesToAverage;
   var then;
   var callback;
@@ -45,12 +46,19 @@ var PerfHarness = (function(undefined) {
     if (g.direction != desiredDirection) {
       g.direction = desiredDirection;
       g.velocity = Math.max(Math.abs(Math.floor(g.velocity / 4)), 1) * g.direction;
+      if (g.direction < 0) {
+        skipFrames = 3;
+      }
+    } else if (skipFrames) {
+      --skipFrames;
     } else {
       g.velocity *= 2;
     }
+
     if (g.frames.length < 1000) {
       g.frames.push(g.elapsedTime);
     }
+
     g.count += g.velocity;
     g.count = Math.max(1, g.count);
 
@@ -61,7 +69,7 @@ var PerfHarness = (function(undefined) {
 
     callback(g.count, Math.floor(totalCount / framesToAverage), g.elapsedTime);
 
-    window.requestAnimFrame(test, canvas);
+    requestAnimationFrame(test, canvas);
   };
 
   var getTargetFPS = function() {

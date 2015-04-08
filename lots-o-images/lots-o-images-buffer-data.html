@@ -340,7 +340,8 @@ function initialize() {
     app.update(elapsedTime);
     app.render();
   }
-  PerfHarness.start(canvas, render, 1);
+  var framesToAverage = 60;
+  PerfHarness.start(canvas, render, 60);
   return true;
 }
 </script>
