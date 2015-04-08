@@ -317,15 +317,13 @@ function initialize() {
   resizeCanvas();
 
   var app = CreateApp();
-  var then = (new Date()).getTime() * 0.001;
+  var then = 0;
   var changeAmount = 1;
 
-  function render() {
-    tdl.webgl.requestAnimationFrame(render, canvas);
-
+  function render(now) {
     // Compute the elapsed time since the last rendered frame
     // in seconds.
-    var now = (new Date()).getTime() * 0.001;
+    now = now * 0.001;
     var elapsedTime = Math.min(now - then, 0.1);
     then = now;
 
@@ -347,8 +345,10 @@ function initialize() {
 
     app.update(elapsedTime);
     app.render();
+
+    requestAnimationFrame(render, canvas);
   }
-  render();
+  render(0);
   return true;
 }
 </script>

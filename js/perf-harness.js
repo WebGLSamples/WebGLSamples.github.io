@@ -45,11 +45,12 @@ var PerfHarness = (function(undefined) {
     if (g.direction != desiredDirection) {
       g.direction = desiredDirection;
       g.velocity = Math.max(Math.abs(Math.floor(g.velocity / 4)), 1) * g.direction;
+    } else {
+      g.velocity *= 2;
     }
     if (g.frames.length < 1000) {
       g.frames.push(g.elapsedTime);
     }
-    g.velocity *= 2;
     g.count += g.velocity;
     g.count = Math.max(1, g.count);
 
