@@ -137,6 +137,13 @@ By Greggman
 By Greggman
 
 ----
+[Sprites](http://webglsamples.org/sprites/index.html)
+
+<a href="http://webglsamples.org/sprites/index.html"><img src="http://webglsamples.org/sprites/sprites.jpg" /></a>
+
+By Ken Russell
+
+----
 
 [Flexible Toon Shading](http://webglsamples.org/toon-shading/toon-shading.html)
 
