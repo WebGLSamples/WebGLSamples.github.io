@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf8">
+    <!--
+
+    @license twgl.js Copyright (c) 2015, Gregg Tavares All Rights Reserved.
+    Available via the MIT license.
+    see: http://github.com/greggman/twgl.js for details
+
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>twgl.js - video texture</title>
+    <style>
+      body {
+          margin: 0;
+          font-family: monospace;
+          color: white;
+      }
+      canvas {
+          display: block;
+          width: 100vw;
+          height: 100vh;
+      }
+      #b {
+        position: absolute;
+        top: 10px;
+        width: 100%;
+        text-align: center;
+        z-index: 2;
+      }
+      a {
+          color: red;
+      }
+      .fulldialog {
+        display: flex;
+        display: -webkit-flex;
+        flex-flow: column;
+        -webkit-flex-flow: column;
+        justify-content: center;
+        align-content: center;
+        align-items: center;
+        -webkit-justify-content: center;
+        -webkit-align-content: center;
+        -webkit-align-items: center;
+
+        position: absolute;
+        z-index: 10;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.8);
+      }
+      .fulldialog > * {
+        padding: 1em;
+        background-color: rgba(0,0,0,0.8);
+        border: 1px solid #666;
+        border-radius: 0.5em;
+      }
+#start {
+  background-color: rgba(0,0,0,0.0);
+}
+#start>div {
+  text-align: center;
+}
+#start>div>div {
+  text-align: left;
+  color: red;
+  font-weight: bold;
+}
+#start img {
+  display: inline-block;
+  width: 10em;
+  height: 10em;
+}
+#start:after {
+ box-shadow: inset 0 0 10em rgba(0,0,0,0.9);
+ position: absolute;
+ top: 0;
+ left: 0;
+ width: 100%;
+ height: 100%;
+ z-index: 12;
+ content: "";
+}
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <div id="b"><a href="http://twgljs.org">twgl.js</a> - video texture</div>
+    <video id="vid" style="display: none;">
+      <source src="../color-adjust/sample-video.mp4" type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"' />
+      <source src="../color-adjust/sample-video.theora.ogv" type='video/ogg; codecs="theora, vorbis"' />
+      <source src="../color-adjust/sample-video.webmvp8.webm" type='video/webm; codecs="vp8, vorbis"' />
+    </video>
+    <div id="start" class="fulldialog" style="display: none;">
+        <div>
+          <img src="start.svg" />
+        </div>
+    </div>
+  </body>
+  <script id="one-point-vs" type="notjs">
+uniform mat4 u_worldViewProjection;
+uniform vec3 u_lightWorldPos;
+uniform mat4 u_world;
+uniform mat4 u_viewInverse;
+uniform mat4 u_worldInverseTranspose;
+
+attribute vec4 a_position;
+attribute vec3 a_normal;
+attribute vec2 a_texcoord;
+
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+void main() {
+  v_texCoord = a_texcoord;
+  v_position = (u_worldViewProjection * a_position);
+  v_normal = (u_worldInverseTranspose * vec4(a_normal, 0)).xyz;
+  v_surfaceToLight = u_lightWorldPos - (u_world * a_position).xyz;
+  v_surfaceToView = (u_viewInverse[3] - (u_world * a_position)).xyz;
+  gl_Position = v_position;
+}
+  </script>
+  <script id="one-point-fs" type="notjs">
+precision mediump float;
+
+varying vec4 v_position;
+varying vec2 v_texCoord;
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+uniform vec4 u_lightColor;
+uniform vec4 u_diffuseMult;
+uniform sampler2D u_diffuse;
+uniform vec4 u_specular;
+uniform float u_shininess;
+uniform float u_specularFactor;
+
+vec4 lit(float l ,float h, float m) {
+  return vec4(1.0,
+              abs(l),//max(l, 0.0),
+              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+              1.0);
+}
+
+void main() {
+  vec4 diffuseColor = texture2D(u_diffuse, v_texCoord) * u_diffuseMult;
+  if (diffuseColor.a < 0.1) {
+    discard;
+  }
+  vec3 a_normal = normalize(v_normal);
+  vec3 surfaceToLight = normalize(v_surfaceToLight);
+  vec3 surfaceToView = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+  vec4 litR = lit(dot(a_normal, surfaceToLight),
+                    dot(a_normal, halfVector), u_shininess);
+  vec4 outColor = vec4((
+  u_lightColor * (diffuseColor * litR.y +
+                u_specular * litR.z * u_specularFactor)).rgb,
+      diffuseColor.a);
+  gl_FragColor = outColor;
+}
+  </script>
+  <script src="../js/twgl-full.min.js"></script>
+  <script>
+    "use strict";
+    var isMobile = window.navigator.userAgent.match(/Android|iPhone|iPad|iPod|Windows Phone/i);
+    var isiOS = window.navigator.userAgent.match(/iPhone|iPad|iPod/i);
+    twgl.setDefaults({attribPrefix: "a_"});
+    var m4 = twgl.m4;
+    var gl = twgl.getWebGLContext(document.getElementById("c"));
+    var onePointProgramInfo = twgl.createProgramInfo(gl, ["one-point-vs", "one-point-fs"]);
+
+    var shapes = [
+      twgl.primitives.createCubeBufferInfo(gl, 2),
+      twgl.primitives.createSphereBufferInfo(gl, 1, 24, 12),
+      twgl.primitives.createPlaneBufferInfo(gl, 2, 2),
+      twgl.primitives.createTruncatedConeBufferInfo(gl, 1, 0, 2, 24, 1),
+    ];
+
+    function rand(min, max) {
+      if (max === undefined) {
+        max = min;
+        min = 0;
+      }
+      return min + Math.random() * (max - min);
+    }
+
+    // Shared values
+    var baseHue = rand(360);
+    var lightWorldPosition = [1, 8, -10];
+    var lightColor = [1, 1, 1, 1];
+    var camera = m4.identity();
+    var view = m4.identity();
+    var viewProjection = m4.identity();
+
+    var texture = twgl.createTexture(gl, {
+      src: [0, 0, 255],
+      format: gl.RGB,
+      min: gl.LINEAR,
+      wrap: gl.CLAMP_TO_EDGE,
+    });
+
+    var objects = [];
+    var drawObjects = [];
+    var numObjects = 100;
+    for (var ii = 0; ii < numObjects; ++ii) {
+      var uniforms;
+      var programInfo;
+      var shape = shapes[ii % shapes.length];
+      var programInfo = onePointProgramInfo;
+      var uniforms = {
+        u_lightWorldPos: lightWorldPosition,
+        u_lightColor: lightColor,
+        u_diffuseMult: [1, 1, 1, 1],
+        u_specular: [1, 1, 1, 1],
+        u_shininess: 50,
+        u_specularFactor: 1,
+        u_diffuse: texture,
+        u_viewInverse: camera,
+        u_world: m4.identity(),
+        u_worldInverseTranspose: m4.identity(),
+        u_worldViewProjection: m4.identity(),
+      };
+      drawObjects.push({
+        programInfo: programInfo,
+        bufferInfo: shape,
+        uniforms: uniforms,
+      });
+      objects.push({
+        translation: [rand(-5, 5), rand(-5, 5), rand(-5, 5)],
+        xSpeed: rand(0.01, 0.03),
+        ySpeed: rand(0.01, 0.03),
+        zSpeed: rand(0.01, 0.03),
+        offset: rand(0, Math.PI * 2),
+        uniforms: uniforms,
+      });
+    }
+
+    var audio;
+    var copyVideo;
+    var setVideo;
+    var video = document.getElementById("vid");
+    video.addEventListener("playing", function() {
+      copyVideo = true;
+    }, true);
+    video.addEventListener("canplaythrough", function() {
+      setVideo = true;
+    }, true);
+    video.addEventListener("ended", function() {
+      if (!audio) {
+        video.currentTime = 0;
+        video.play();
+      }
+    }, true);
+    video.addEventListener("error", function() {
+      console.log("could not play video");
+    }, true);
+
+    if (!isMobile) {
+      // If it's desktop we can start the video automaically
+      video.play();
+    } else {
+      // otherwise we need to start inside a touch event
+      var start = document.querySelector("#start");
+      start.style.display = "";
+      start.addEventListener('touchstart', function() {
+        start.style.display = "none";
+        if (isiOS) {
+          // iOS9 doesn't let us play video without going fullscreen :(
+          // so a workaround, which I'm sure Apple will *fix* as in "make it not work"
+          // is to create an audio tag using the same video
+          // play the audio. DON'T PLAY THE VIDEO. Set the video's currentTime to match
+          // the audio.  I can't believe this works
+          audio = document.createElement("audio");
+          audio.src = "../color-adjust/sample-video.mp4";
+          audio.addEventListener("ended", function() {
+            audio.currentTime = 0;
+            audio.play();
+          });
+          audio.play();
+          video.load();
+        } else {
+          video.play();
+        }
+      });
+    }
+
+    function render(time) {
+      time *= 0.001;
+      twgl.resizeCanvasToDisplaySize(gl.canvas);
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+      gl.enable(gl.DEPTH_TEST);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.clearColor(0.1, 0.1, 0.1, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      var radius = 10;
+      var orbitSpeed = time * 0.01;
+      var projection = m4.perspective(30 * Math.PI / 180, gl.canvas.clientWidth / gl.canvas.clientHeight, 0.5, 100);
+      var eye = [Math.cos(orbitSpeed) * radius, 4, Math.sin(orbitSpeed) * radius];
+      var target = [0, 0, 0];
+      var up = [0, 1, 0];
+
+      if (copyVideo || setVideo) {
+        if (setVideo) {
+          video.currentTime = audio.currentTime;
+        }
+        gl.bindTexture(gl.TEXTURE_2D, texture)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, video);
+      }
+
+      m4.lookAt(eye, target, up, camera);
+      m4.inverse(camera, view);
+      m4.multiply(view, projection, viewProjection);
+
+      objects.forEach(function(obj) {
+        var uni = obj.uniforms;
+        var world = uni.u_world;
+        var t = time;
+        m4.identity(world);
+        m4.rotateY(world, t * obj.ySpeed + obj.offset, world);
+        m4.rotateZ(world, t * obj.zSpeed + obj.offset, world);
+        m4.translate(world, obj.translation, world);
+        m4.rotateX(world, t * obj.xSpeed + obj.offset, world);
+        m4.transpose(m4.inverse(world, uni.u_worldInverseTranspose), uni.u_worldInverseTranspose);
+        m4.multiply(uni.u_world, viewProjection, uni.u_worldViewProjection);
+      });
+
+      twgl.drawObjectList(gl, drawObjects);
+
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+
+  </script>
+</html>
+
+
+
+
+
