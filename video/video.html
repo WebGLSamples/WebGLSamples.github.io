@@ -250,9 +250,6 @@ void main() {
     video.addEventListener("playing", function() {
       copyVideo = true;
     }, true);
-    video.addEventListener("canplaythrough", function() {
-      setVideo = true;
-    }, true);
     video.addEventListener("ended", function() {
       if (!audio) {
         video.currentTime = 0;
@@ -285,6 +282,9 @@ void main() {
             audio.play();
           });
           audio.play();
+          video.addEventListener("canplaythrough", function() {
+            setVideo = true;
+          }, true);
           video.load();
         } else {
           video.play();
