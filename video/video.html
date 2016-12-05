@@ -180,7 +180,6 @@ void main() {
     var shapes = [
       twgl.primitives.createCubeBufferInfo(gl, 2),
       twgl.primitives.createSphereBufferInfo(gl, 1, 24, 12),
-      twgl.primitives.createPlaneBufferInfo(gl, 2, 2),
       twgl.primitives.createTruncatedConeBufferInfo(gl, 1, 0, 2, 24, 1),
     ];
 
@@ -320,19 +319,22 @@ void main() {
 
       m4.lookAt(eye, target, up, camera);
       m4.inverse(camera, view);
-      m4.multiply(view, projection, viewProjection);
+      m4.multiply(projection, view, viewProjection);
 
       objects.forEach(function(obj) {
         var uni = obj.uniforms;
         var world = uni.u_world;
         var t = time;
         m4.identity(world);
+
         m4.rotateY(world, t * obj.ySpeed + obj.offset, world);
         m4.rotateZ(world, t * obj.zSpeed + obj.offset, world);
         m4.translate(world, obj.translation, world);
         m4.rotateX(world, t * obj.xSpeed + obj.offset, world);
+
         m4.transpose(m4.inverse(world, uni.u_worldInverseTranspose), uni.u_worldInverseTranspose);
-        m4.multiply(uni.u_world, viewProjection, uni.u_worldViewProjection);
+
+        m4.multiply(viewProjection, uni.u_world, uni.u_worldViewProjection);
       });
 
       twgl.drawObjectList(gl, drawObjects);
