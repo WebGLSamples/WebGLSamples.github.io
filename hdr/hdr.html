@@ -190,6 +190,45 @@ void main(void) {
 }
 </script>
 
+<!----- Reflection shader ----->
+
+<script id="reflectionVertexShader" type="text/something-not-javascript">
+attribute vec3 position;
+attribute vec3 normal;
+
+uniform mat4 u_world;
+uniform mat4 u_view;
+uniform mat4 u_worldViewProjection;
+
+varying vec3 v_normal;
+varying vec3 v_worldEyeVec;
+
+void main(void) {
+  v_normal = (u_world * vec4(normalize(normal), 0.0)).xyz;
+  vec4 worldPosition = u_worldViewProjection * vec4(position, 1.0);
+  vec3 worldEyePos = u_view[3].xyz;
+  gl_Position = worldPosition;
+  v_worldEyeVec = normalize(worldPosition.xyz - worldEyePos);
+}
+</script>
+
+<script id="reflectionFragmentShader" type="text/something-not-javascript">
+precision mediump float;
+
+varying vec3 v_normal;
+varying vec3 v_worldEyeVec;
+uniform vec3 u_diffuseColor;
+uniform float u_shininess;
+uniform samplerCube u_irradianceMap;
+uniform samplerCube u_reflectionMap;
+void main(void) {
+  vec3 normal = normalize(v_normal);
+  vec4 irradiance = textureCube(u_irradianceMap, normal);
+  vec4 reflection = textureCube(u_reflectionMap, reflect(v_worldEyeVec, normal));
+  gl_FragColor = vec4(u_diffuseColor, 1.0) + (1.0 - u_shininess) * irradiance + u_shininess * reflection;
+}
+</script>
+
 <!----- HDRPipeline vertex shader ----->
 
 <script id="hdrPipelineVertexShader" type="text/something-not-javascript">

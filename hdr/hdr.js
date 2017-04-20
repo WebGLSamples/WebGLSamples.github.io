@@ -32,6 +32,9 @@ var exposure = 1.0;
 var kMaxLocalSigma = 4.0;
 var kMaxKernelWidth = 25;
 
+var irradianceMap;
+var reflectionMap;
+
 function makeInt(value) {
   return value | 0;
 }
@@ -251,13 +254,6 @@ HDRCubeMap.prototype.update_ = function() {
  * Sets up the Skybox
  */
 function setupSkybox() {
-  var reflectionMap = new HDRCubeMap(
-    ["assets/grace_cross_mmp-posx.bin",
-     "assets/grace_cross_mmp-negx.bin",
-     "assets/grace_cross_mmp-posy.bin",
-     "assets/grace_cross_mmp-negy.bin",
-     "assets/grace_cross_mmp-posz.bin",
-     "assets/grace_cross_mmp-negz.bin"]);
   var textures = {
     u_skybox: reflectionMap
   };
@@ -875,7 +871,6 @@ var HDRDemo = function() {
   var view = new Float32Array(16);
   var world = new Float32Array(16);
 
-  var worldView = new Float32Array(16);
   var viewProjection = new Float32Array(16);
   var viewDirectionProjectionInverse = new Float32Array(16);
   var worldViewProjection = new Float32Array(16);
@@ -885,11 +880,19 @@ var HDRDemo = function() {
   this.models = [];
 
   //  this.program = createProgramFromTags("diffuseVertexShader", "diffuseFragmentShader");
-  this.program = createProgramFromTags("irradianceVertexShader", "irradianceFragmentShader");
+  // this.program = createProgramFromTags("irradianceVertexShader", "irradianceFragmentShader");
+  this.program = createProgramFromTags("reflectionVertexShader", "reflectionFragmentShader");
 
   this.load("assets/teapot-12kverts/scene.js");
 
-  var irradianceMap = new HDRCubeMap(
+  reflectionMap = new HDRCubeMap(
+    ["assets/grace_cross_mmp-posx.bin",
+     "assets/grace_cross_mmp-negx.bin",
+     "assets/grace_cross_mmp-posy.bin",
+     "assets/grace_cross_mmp-negy.bin",
+     "assets/grace_cross_mmp-posz.bin",
+     "assets/grace_cross_mmp-negz.bin"]);
+  irradianceMap = new HDRCubeMap(
     ["assets/grace_cross_irrad_mmp-posx.bin",
      "assets/grace_cross_irrad_mmp-negx.bin",
      "assets/grace_cross_irrad_mmp-posy.bin",
@@ -965,7 +968,7 @@ var HDRDemo = function() {
     m4.setTranslation(m4t0, [0, 0, 0]);
     m4.mul(m4t1, m4t0, projection);
     m4.inverse(viewDirectionProjectionInverse, m4t1);
-    
+
     gl.depthMask(false);
 
     // Draw the skybox.
@@ -980,16 +983,19 @@ var HDRDemo = function() {
 
     var uniformsConst = {
       u_worldViewProjection: worldViewProjection,
-      u_worldView: worldView,
+      u_view: view,
       u_world: world,
       // u_lightDir: [-1.0, 1.0, 1.0],
       // u_lightColor: [0.8, 0.7, 0.6, 1.0],
+      u_diffuseColor: [ 0.0, 0.0, 0.0 ],
+      u_shininess: 0.95,
       u_irradianceMap: irradianceMap,
+      u_reflectionMap: reflectionMap,
     };
     var uniformsPer = {};
 
     for (var ii = 0; ii < this.models.length; ++ii) {
-      var model = this.models[0];
+      var model = this.models[ii];
       model.drawPrep(uniformsConst);
       model.draw(uniformsPer);
     }
