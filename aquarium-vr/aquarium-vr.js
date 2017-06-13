@@ -30,6 +30,8 @@ var g_scenes = {};  // each of the models
 var g_sceneGroups = {};  // the placement of the models
 var g_fog = true;
 var g_requestId;
+var g_frameData;
+var g_vrDisplay;
 
 //g_debug = true;
 //g_drawOnce = true;
@@ -1101,7 +1103,8 @@ function initialize() {
     setCanvasSize(canvas, g.globals.width, g.globals.height);
   }
 
-  function render() {
+  function render(elapsedTime, projectionMatrix, viewMatrix) {
+    /*
     var now = theClock.getTime();
     var elapsedTime;
     if(then == 0.0) {
@@ -1115,6 +1118,7 @@ function initialize() {
 
     g_fpsTimer.update(elapsedTime);
     fpsElem.innerHTML = g_fpsTimer.averageFPS;
+    */
 
     // If we are running > 40hz then turn on a few more options.
     if (setPretty && g_fpsTimer.averageFPS > 40) {
@@ -1158,9 +1162,11 @@ function initialize() {
     ambient[1] = g.globals.ambientGreen;
     ambient[2] = g.globals.ambientBlue;
 
+    /*
     gl.colorMask(true, true, true, true);
     gl.clearColor(0,0.8,1,0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+    */
 
     var near = 1;
     var far = 25000;
@@ -1173,20 +1179,26 @@ function initialize() {
     var height = Math.abs(top - bottom);
     var xOff = width * g.net.offset[0] * g.net.offsetMult;
     var yOff = height * g.net.offset[1] * g.net.offsetMult;
-    fast.matrix4.frustum(
-      projection,
-      left + xOff,
-      right + xOff,
-      bottom + yOff,
-      top + yOff,
-      near,
-      far);
+    if (g_vrDisplay && g_vrDisplay.isPresenting) {
+      fast.matrix4.copy(projection, projectionMatrix);
+      fast.matrix4.inverse(viewInverse, viewMatrix);
+    } else {
+      fast.matrix4.frustum(
+        projection,
+        left + xOff,
+        right + xOff,
+        bottom + yOff,
+        top + yOff,
+        near,
+        far);
 
-    fast.matrix4.cameraLookAt(
+      fast.matrix4.cameraLookAt(
         viewInverse,
         eyePosition,
         target,
         up);
+    }
+
     if (g.net.slave) {
       // compute X fov from y fov
       var fovy = math.degToRad(g.globals.fieldOfView * g.net.fovFudge);
@@ -1579,19 +1591,75 @@ function initialize() {
       gl.depthMask(true);
     }
 
+    /*
     // Set the alpha to 255.
     gl.colorMask(false, false, false, true);
     gl.clearColor(0,0,0,1);
     gl.clear(gl.COLOR_BUFFER_BIT);
+    */
 
     // turn off logging after 1 frame.
     g_logGLCalls = false;
 
+    /*
     if (!g_drawOnce) {
       g_requestId = tdl.webgl.requestAnimationFrame(render, canvas);
     }
+    */
   }
-  render();
+
+  function onAnimationFrame() {
+    var now = theClock.getTime();
+    var elapsedTime;
+    if(then == 0.0) {
+      elapsedTime = 0.0;
+    } else {
+      elapsedTime = now - then;
+    }
+    then = now;
+
+    frameCount++;
+
+    g_fpsTimer.update(elapsedTime);
+    fpsElem.innerHTML = g_fpsTimer.averageFPS;
+
+    gl.colorMask(true, true, true, true);
+    gl.clearColor(0,0.8,1,0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+    if (g_vrDisplay) {
+      if (!g_drawOnce) {
+        g_requestId = g_vrDisplay.requestAnimationFrame(onAnimationFrame);
+      }
+      g_vrDisplay.getFrameData(g_frameData);
+      if (g_vrDisplay.isPresenting) {
+        gl.viewport(0, 0, canvas.width * 0.5, canvas.height);
+        render(elapsedTime, g_frameData.leftProjectionMatrix, g_frameData.leftViewMatrix);
+
+        gl.viewport(canvas.width * 0.5, 0, canvas.width * 0.5, canvas.height);
+        render(elapsedTime, g_frameData.rightProjectionMatrix, g_frameData.rightViewMatrix);
+
+        g_vrDisplay.submitFrame();
+      } else {
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        render(elapsedTime);
+      }
+    } else {
+      if (!g_drawOnce) {
+        g_requestId = tdl.webgl.requestAnimationFrame(onAnimationFrame, canvas);
+      }
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      render(elapsedTime);
+    }
+
+    // Set the alpha to 255.
+    gl.colorMask(false, false, false, true);
+    gl.clearColor(0,0,0,1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+
+  //render();
+  onAnimationFrame();
   return true;
 }
 
@@ -1726,4 +1794,181 @@ $(function(){
   main();
 });
 
+VR = (function() {
+  "use strict";
+  var vrButton;
 
+  function getButtonContainer () {
+    var buttonContainer = document.getElementById("vr-button-container");
+    if (!buttonContainer) {
+      buttonContainer = document.createElement("div");
+      buttonContainer.id = "vr-button-container";
+      buttonContainer.style.fontFamily = "sans-serif";
+      buttonContainer.style.position = "absolute";
+      buttonContainer.style.zIndex = "999";
+      buttonContainer.style.left = "0";
+      buttonContainer.style.bottom = "0";
+      buttonContainer.style.right = "0";
+      buttonContainer.style.margin = "0";
+      buttonContainer.style.padding = "0";
+      buttonContainer.align = "right";
+      document.body.appendChild(buttonContainer);
+    }
+    return buttonContainer;
+  }
+
+  function addButtonElement (message, key, icon) {
+    var buttonElement = document.createElement("div");
+    buttonElement.classList.add = "vr-button";
+    buttonElement.style.color = "#FFF";
+    buttonElement.style.fontWeight = "bold";
+    buttonElement.style.backgroundColor = "#888";
+    buttonElement.style.borderRadius = "5px";
+    buttonElement.style.border = "3px solid #555";
+    buttonElement.style.position = "relative";
+    buttonElement.style.display = "inline-block";
+    buttonElement.style.margin = "0.5em";
+    buttonElement.style.padding = "0.75em";
+    buttonElement.style.cursor = "pointer";
+    buttonElement.align = "center";
+
+    if (icon) {
+      buttonElement.innerHTML = "<img src='" + icon + "'/><br/>" + message;
+    } else {
+      buttonElement.innerHTML = message;
+    }
+
+    if (key) {
+      var keyElement = document.createElement("span");
+      keyElement.classList.add = "vr-button-accelerator";
+      keyElement.style.fontSize = "0.75em";
+      keyElement.style.fontStyle = "italic";
+      keyElement.innerHTML = " (" + key + ")";
+
+      buttonElement.appendChild(keyElement);
+    }
+
+    getButtonContainer().appendChild(buttonElement);
+
+    return buttonElement;
+  }
+
+  function addButton (message, key, icon, callback) {
+    var keyListener = null;
+    if (key) {
+      var keyCode = key.charCodeAt(0);
+      keyListener = function (event) {
+        if (event.keyCode === keyCode) {
+          callback(event);
+        }
+      };
+      document.addEventListener("keydown", keyListener, false);
+    }
+    var element = addButtonElement(message, key, icon);
+    element.addEventListener("click", function (event) {
+      callback(event);
+      event.preventDefault();
+    }, false);
+
+    return {
+      element: element,
+      keyListener: keyListener
+    };
+  }
+
+  function removeButton (button) {
+    if (!button)
+      return;
+    if (button.element.parentElement)
+      button.element.parentElement.removeChild(button.element);
+    if (button.keyListener)
+      document.removeEventListener("keydown", button.keyListener, false);
+  }
+
+  function getCurrentUrl() {
+    var path = window.location.pathname;
+    return path.substring(0, path.lastIndexOf('/'));
+  }
+
+  function onPresentChange() {
+    // When we begin or end presenting, the canvas should be resized
+    // to the recommended dimensions for the display.
+    onResize();
+
+    if (g_vrDisplay.isPresenting) {
+      if (g_vrDisplay.capabilities.hasExternalDisplay) {
+        removeButton(vrButton);
+        vrButton = addButton("Exit VR", "E", getCurrentUrl() + "/vr_assets/button.png", onExitPresent);
+      }
+    } else {
+      if (g_vrDisplay.capabilities.hasExternalDisplay) {
+        removeButton(vrButton);
+        vrButton = addButton("Enter VR", "E", getCurrentUrl() + "/vr_assets/button.png", onRequestPresent);
+      }
+    }
+  }
+
+  function onRequestPresent() {
+    g_vrDisplay.requestPresent([{ source: canvas }]).then(function() {}, function() {
+      console.error("request present failed.");
+    });
+  }
+
+  function onExitPresent() {
+    if (!g_vrDisplay.isPresenting)
+      return;
+
+    g_vrDisplay.exitPresent().then(function() {}, function() {
+      console.error("exit present failed.");
+    });
+  }
+
+  function onResize() {
+    if (g_vrDisplay && g_vrDisplay.isPresenting) {
+      // If we're presenting we want to use the drawing buffer size
+      // recommended by the VRDisplay, since that will ensure the best
+      // results post-distortion.
+      var leftEye = g_vrDisplay.getEyeParameters("left");
+      var rightEye = g_vrDisplay.getEyeParameters("right");
+
+      canvas.width = Math.max(leftEye.renderWidth, rightEye.renderWidth) * 2;
+      canvas.height = Math.max(leftEye.renderHeight, rightEye.renderHeight);
+    } else {
+      // When we're not presenting, we want to change the size of the canvas
+      // to match the window dimensions.
+      canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+      canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+    }
+  }
+
+  function init() {
+    if(navigator.getVRDisplays) {
+      g_frameData = new VRFrameData();
+
+      navigator.getVRDisplays().then(function(displays) {
+        if (displays.length > 0) {
+          g_vrDisplay = displays[0];
+          g_vrDisplay.depthNear = 0.1;
+          g_vrDisplay.depthFar = 1024.0;
+
+          if (g_vrDisplay.capabilities.canPresent) {
+            vrButton = addButton("Enter VR", "E", getCurrentUrl() + "/vr_assets/button.png", onRequestPresent);
+          }
+
+          window.addEventListener('vrdisplaypresentchange', onPresentChange, false);
+          window.addEventListener('vrdisplayactivate', onRequestPresent, false);
+          window.addEventListener('vrdisplaydeactivate', onExitPresent, false);
+          window.addEventListener('resize', function() {onResize();}, false);
+        } else {
+          console.log("WebVR supported, but no VRDisplays found.")
+        }
+      });
+    } else if (navigator.getVRDevices) {
+      console.log("Your browser supports WebVR but not the latest version. See webvr.info for more info.");
+    } else {
+      console.log("Your browser does not support WebVR. See webvr.info for assistance");
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', init, false);
+})();
