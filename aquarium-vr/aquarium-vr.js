@@ -343,12 +343,12 @@ var g_sceneInfo = [
 ];
 
 var g_skyBoxUrls = [
-  'assets/GlobeOuter_EM_positive_x.jpg',
-  'assets/GlobeOuter_EM_negative_x.jpg',
-  'assets/GlobeOuter_EM_positive_y.jpg',
-  'assets/GlobeOuter_EM_negative_y.jpg',
-  'assets/GlobeOuter_EM_positive_z.jpg',
-  'assets/GlobeOuter_EM_negative_z.jpg'
+  '../aquarium/assets/GlobeOuter_EM_positive_x.jpg',
+  '../aquarium/assets/GlobeOuter_EM_negative_x.jpg',
+  '../aquarium/assets/GlobeOuter_EM_positive_y.jpg',
+  '../aquarium/assets/GlobeOuter_EM_negative_y.jpg',
+  '../aquarium/assets/GlobeOuter_EM_positive_z.jpg',
+  '../aquarium/assets/GlobeOuter_EM_negative_z.jpg'
 //  'static_assets/skybox/InteriorCubeEnv_EM.png'
 ]
 
@@ -498,7 +498,7 @@ Scene.prototype.onload_ = function(data, exception) {
       var textures = {};
       for (var name in model.textures) {
         textures[name] = tdl.textures.loadTexture(
-            'assets/' + model.textures[name], true);
+            '../aquarium/assets/' + model.textures[name], true);
       }
       // setup vertices
       var arrays = {};
@@ -603,7 +603,7 @@ function setShaders() {
 
 function loadScene(name, opt_programIds, fog) {
   var scene = new Scene(opt_programIds, fog);
-  scene.load("assets/" + name + ".js");
+  scene.load("../aquarium/assets/" + name + ".js");
   return scene;
 }
 
@@ -616,7 +616,7 @@ function loadScenes() {
 }
 
 function loadPlacement() {
-  tdl.io.loadJSON('assets/PropPlacement.js', function(json, exception) {
+  tdl.io.loadJSON('../aquarium/assets/PropPlacement.js', function(json, exception) {
     if (exception) {
       throw exception
     } else {
@@ -656,7 +656,7 @@ function initLightRay(info) {
  */
 function setupLaser() {
   var textures = {
-      colorMap: tdl.textures.loadTexture('static_assets/beam.png')};
+      colorMap: tdl.textures.loadTexture('../aquarium/static_assets/beam.png')};
   var program = createProgramFromTags(
       'laserVertexShader',
       'laserFragmentShader');
@@ -686,7 +686,7 @@ function setupLightRay() {
   }
 
   var textures = {
-      colorMap: tdl.textures.loadTexture('assets/LightRay.png') };
+      colorMap: tdl.textures.loadTexture('../aquarium/assets/LightRay.png') };
   var program = createProgramFromTags(
       'texVertexShader',
       'texFragmentShader');
@@ -701,7 +701,7 @@ function setupLightRay() {
 }
 
 function setupBubbles(particleSystem) {
-    var texture = tdl.textures.loadTexture('static_assets/bubble.png');
+    var texture = tdl.textures.loadTexture('../aquarium/static_assets/bubble.png');
     var emitter = particleSystem.createParticleEmitter(texture.texture);
     emitter.setTranslation(0, 0, 0);
     emitter.setState(tdl.particles.ParticleStateIds.ADD);
