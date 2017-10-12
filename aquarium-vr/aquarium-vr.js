@@ -1103,7 +1103,35 @@ function initialize() {
     setCanvasSize(canvas, g.globals.width, g.globals.height);
   }
 
-  function render(elapsedTime, projectionMatrix, viewMatrix) {
+  function calculateViewMatrix(viewMatrix, q, v) {
+    // According to webvr 1.1 spec, orientation is a quaternion.
+    // 1. normalize orientation quaternion.
+    var normFactor = Math.sqrt(Math.pow(q[0], 2) + Math.pow(q[1], 2) + Math.pow(q[2], 2) + Math.pow(q[3], 2));
+    var b = q[0] / normFactor;
+    var c = q[1] / normFactor;
+    var d = q[2] / normFactor;
+    var a = q[3] / normFactor;
+
+    //2. calculate rotation matrix and combine transform vector to generate view matrix.
+    viewMatrix[0] = Math.pow(a, 2) + Math.pow(b, 2) - Math.pow(c, 2) - Math.pow(d, 2);
+    viewMatrix[1] = 2 * b * c + 2 * a * d;
+    viewMatrix[2] = 2 * b * d - 2 * a * c;
+    viewMatrix[3] = 0;
+    viewMatrix[4] = 2 * b * c - 2 * a * d;
+    viewMatrix[5] = Math.pow(a, 2) - Math.pow(b, 2) + Math.pow(c, 2) - Math.pow(d, 2);
+    viewMatrix[6] = 2 * c * d + 2 * a * b;
+    viewMatrix[7] = 0;
+    viewMatrix[8] = 2 * b * d + 2 * a * c;
+    viewMatrix[9] = 2 * c * d - 2 * a * b;
+    viewMatrix[10] = Math.pow(a, 2) - Math.pow(b, 2) - Math.pow(c, 2) + Math.pow(d, 2);
+    viewMatrix[11] = 0;
+    viewMatrix[12] = v[0];
+    viewMatrix[13] = v[1];
+    viewMatrix[14] = v[2];
+    viewMatrix[15] = 1;
+  }
+
+  function render(elapsedTime, projectionMatrix, pose) {
     /*
     var now = theClock.getTime();
     var elapsedTime;
@@ -1151,12 +1179,6 @@ function initialize() {
       clock += elapsedTime * g.globals.speed;
       eyeClock += elapsedTime * g.globals.eyeSpeed;
     }
-    eyePosition[0] = Math.sin(eyeClock) * g.globals.eyeRadius;
-    eyePosition[1] = g.globals.eyeHeight;
-    eyePosition[2] = Math.cos(eyeClock) * g.globals.eyeRadius;
-    target[0] = Math.sin(eyeClock + Math.PI) * g.globals.targetRadius;
-    target[1] = g.globals.targetHeight;
-    target[2] = Math.cos(eyeClock + Math.PI) * g.globals.targetRadius;
 
     ambient[0] = g.globals.ambientRed;
     ambient[1] = g.globals.ambientGreen;
@@ -1179,9 +1201,15 @@ function initialize() {
     var height = Math.abs(top - bottom);
     var xOff = width * g.net.offset[0] * g.net.offsetMult;
     var yOff = height * g.net.offset[1] * g.net.offsetMult;
-    if (g_vrDisplay && g_vrDisplay.isPresenting) {
+    if (g_vrDisplay && g_vrDisplay.isPresenting && pose.position) {
+      // Using head-neck model in VR mode due to unclear distance measurement(vr return position using meters),
+      // user could see around but couldn't move around.
+      eyePosition[0] = g.globals.eyeRadius;
+      eyePosition[1] = g.globals.eyeHeight;
+      eyePosition[2] = g.globals.eyeRadius;
+
       fast.matrix4.copy(projection, projectionMatrix);
-      fast.matrix4.inverse(viewInverse, viewMatrix);
+      calculateViewMatrix(viewInverse, pose.orientation, eyePosition);
     } else {
       fast.matrix4.frustum(
         projection,
@@ -1191,6 +1219,13 @@ function initialize() {
         top + yOff,
         near,
         far);
+
+      eyePosition[0] = Math.sin(eyeClock) * g.globals.eyeRadius;
+      eyePosition[1] = g.globals.eyeHeight;
+      eyePosition[2] = Math.cos(eyeClock) * g.globals.eyeRadius;
+      target[0] = Math.sin(eyeClock + Math.PI) * g.globals.targetRadius;
+      target[1] = g.globals.targetHeight;
+      target[2] = Math.cos(eyeClock + Math.PI) * g.globals.targetRadius;
 
       fast.matrix4.cameraLookAt(
         viewInverse,
@@ -1634,10 +1669,10 @@ function initialize() {
       g_vrDisplay.getFrameData(g_frameData);
       if (g_vrDisplay.isPresenting) {
         gl.viewport(0, 0, canvas.width * 0.5, canvas.height);
-        render(elapsedTime, g_frameData.leftProjectionMatrix, g_frameData.leftViewMatrix);
+        render(elapsedTime, g_frameData.leftProjectionMatrix, g_frameData.pose);
 
         gl.viewport(canvas.width * 0.5, 0, canvas.width * 0.5, canvas.height);
-        render(elapsedTime, g_frameData.rightProjectionMatrix, g_frameData.rightViewMatrix);
+        render(elapsedTime, g_frameData.rightProjectionMatrix, g_frameData.pose);
 
         g_vrDisplay.submitFrame();
       } else {
