@@ -1,3 +1,5 @@
+"use strict";
+
 tdl.require('tdl.buffers');
 tdl.require('tdl.clock');
 tdl.require('tdl.fast');
@@ -14,6 +16,7 @@ tdl.require('tdl.textures');
 tdl.require('tdl.webgl');
 
 // globals
+const g_query = parseQueryString(window.location.search);
 var gl;                   // the gl context.
 var canvas;               // the canvas
 var math;                 // the math lib.
@@ -30,6 +33,7 @@ var g_scenes = {};  // each of the models
 var g_sceneGroups = {};  // the placement of the models
 var g_fog = true;
 var g_requestId;
+var g_numFish = [1, 100, 500, 1000, 5000, 10000, 15000, 20000, 25000, 30000];
 var g_frameData;
 var g_vrDisplay;
 
@@ -348,6 +352,15 @@ var g_skyBoxUrls = [
   '../aquarium/assets/GlobeOuter_EM_negative_z.jpg'
 //  'static_assets/skybox/InteriorCubeEnv_EM.png'
 ]
+
+function parseQueryString(s) {
+  const q = {};
+  (s.startsWith('?') ? s.substring(1) : s).split('&').forEach(pair => {
+    const parts = pair.split('=').map(decodeURIComponent);
+    q[parts[0]] = parts[1];
+  });
+  return q;
+}
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -831,7 +844,10 @@ function handleContextRestored() {
 }
 
 function initialize() {
-  var maxViewportDims = gl.getParameter(gl.MAX_VIEWPORT_DIMS);
+  const maxViewportDims = gl.getParameter(gl.MAX_VIEWPORT_DIMS);
+  if (g_query.numFish) {
+    g_numFish[0] = parseInt(g_query.numFish);
+  }
 
   gl.enable(gl.DEPTH_TEST);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -846,37 +862,36 @@ function initialize() {
   var num = [1, 100, 500, 1000, 5000, 10000, 15000, 20000, 25000, 30000];
   var changeViewElem = document.getElementById("setSettingChangeView");
   var parentElem = changeViewElem.parentNode;
-  for (var i = 0; i < num.length; ++i) {
+  g_numFish.forEach((numFish, ndx) => {
     var div = document.createElement("div");
     div.className = "clickable";
-    div.id = "setSetting" + i;
-    div.innerHTML = num[i];
+    div.id = "setSetting" + ndx;
+    div.innerHTML = numFish;
     parentElem.insertBefore(div, changeViewElem);
-  }
+  });
 
-  for (var ff = 0; ff < g_fishTable.length; ++ff) {
-    g_fishTable[ff].fishData = [];
-    g_fishTable[ff].num = [];
-  }
+  g_fishTable.forEach(info => {
+    info.fishData = [];
+    info.num = [];
+  });
 
-  var type = ["Big", "Medium", "Small"];
-  for (var i = 0; i < num.length; ++i) {
-    var numLeft = num[i];
-    for (var j = 0; j < type.length; ++j) {
-      for (var ff = 0; ff < g_fishTable.length; ++ff) {
-        var fishInfo = g_fishTable[ff];
+  var types = ["Big", "Medium", "Small"];
+  g_numFish.forEach((totalFish) => {
+    var numLeft = totalFish;
+    types.forEach((type) => {
+      g_fishTable.forEach((fishInfo) => {
         var fishName = fishInfo.name;
-        if (!fishName.startsWith(type[j])) {
-          continue;
+        if (!fishName.startsWith(type)) {
+          return;
         }
 
         var numType = numLeft;
-        if (type[j] == "Big") {
-          numType = Math.min(numLeft, num[i] < 100 ? 1 : 2);
-        } else if (type[j] == "Medium") {
-          if (num[i] < 1000) {
-            numType = Math.min(numLeft, num[i] / 10 | 0);
-          } else if (num[i] < 10000) {
+        if (type == "Big") {
+          numType = Math.min(numLeft, totalFish < 100 ? 1 : 2);
+        } else if (type == "Medium") {
+          if (totalFish < 1000) {
+            numType = Math.min(numLeft, totalFish / 10 | 0);
+          } else if (totalFish < 10000) {
             numType = Math.min(numLeft, 80);
           } else {
             numType = Math.min(numLeft, 160);
@@ -884,9 +899,9 @@ function initialize() {
         }
         numLeft = numLeft - numType;
         fishInfo.num.push(numType);
-      }
-    }
-  }
+      });
+    })
+  });
 
   var particleSystem = new tdl.particles.ParticleSystem(
       gl, null, math.pseudoRandom);
@@ -1742,7 +1757,9 @@ function setupCountButtons() {
       }}(elem, ii);
   }
 
-  if (g.net.sync) {
+  if (g_query.numFish) {
+    setSetting(document.getElementById("setSetting0"), 0);
+  } else if (g.net.sync) {
     setSetting(document.getElementById("setSetting4"), 4);
   } else {
     setSetting(document.getElementById("setSetting2"), 2);
@@ -1861,7 +1878,7 @@ $(function(){
   main();
 });
 
-VR = (function() {
+var VR = (function() {
   "use strict";
   var vrButton;
 
