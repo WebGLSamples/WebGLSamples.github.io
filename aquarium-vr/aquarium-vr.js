@@ -104,7 +104,6 @@ var g_netUI = [
 var g_fishTable = [
   {
     name: 'SmallFishA',
-    num: [0, 3, 36, 76, 206, 500-40-40-2-2, 1000-80-80-2-2, 2000-80-80-2-2, 4000-80-80-2-2, 50],
     speed: 1,
     speedRange: 1.5,
     radius: 30,
@@ -120,7 +119,6 @@ var g_fishTable = [
   },
   {
     name: 'MediumFishA',
-    num: [0, 3, 6, 10, 20, 40, 80, 80, 80, 10],
     speed: 1,
     speedRange: 2,
     radius: 10,
@@ -136,7 +134,6 @@ var g_fishTable = [
   },
   {
     name: 'MediumFishB',
-    num: [0, 2, 6, 10, 20, 40, 80, 80, 80, 10],
     speed: 0.5,
     speedRange: 4,
     radius: 10,
@@ -152,7 +149,6 @@ var g_fishTable = [
   },
   {
     name: 'BigFishA',
-    num: [1, 1, 1, 2, 2, 2, 2, 2, 2, 3],
     speed: 0.5,
     speedRange: 0.5,
     radius: 50,
@@ -172,7 +168,6 @@ var g_fishTable = [
   },
   {
     name: 'BigFishB',
-    num: [0, 1, 1, 2, 2, 2, 2, 2, 2, 1],
     speed: 0.5,
     speedRange: 0.5,
     radius: 45,
@@ -784,20 +779,12 @@ function advanceViewSettings() {
  * Sets the count
  */
 function setSetting(elem, id) {
-  switch (id) {
-  case 10:
-    break;
-  case 9:
-    advanceViewSettings();
-    break;
-  default:
-    g_numSettingElements[id] = elem;
-    setSettings({globals:{fishSetting:id}});
-    for (var otherElem in g_numSettingElements) {
-      g_numSettingElements[otherElem].style.color = "gray";
-    }
-    elem.style.color = "red";
+  g_numSettingElements[id] = elem;
+  setSettings({globals:{fishSetting:id}});
+  for (var otherElem in g_numSettingElements) {
+    g_numSettingElements[otherElem].style.color = "gray";
   }
+  elem.style.color = "red";
 }
 
 /**
@@ -856,8 +843,49 @@ function initialize() {
   Log("--Setup Laser----------------------------------------");
   var laser = setupLaser();
 
+  var num = [1, 100, 500, 1000, 5000, 10000, 15000, 20000, 25000, 30000];
+  var changeViewElem = document.getElementById("setSettingChangeView");
+  var parentElem = changeViewElem.parentNode;
+  for (var i = 0; i < num.length; ++i) {
+    var div = document.createElement("div");
+    div.className = "clickable";
+    div.id = "setSetting" + i;
+    div.innerHTML = num[i];
+    parentElem.insertBefore(div, changeViewElem);
+  }
+
   for (var ff = 0; ff < g_fishTable.length; ++ff) {
     g_fishTable[ff].fishData = [];
+    g_fishTable[ff].num = [];
+  }
+
+  var type = ["Big", "Medium", "Small"];
+  for (var i = 0; i < num.length; ++i) {
+    var numLeft = num[i];
+    for (var j = 0; j < type.length; ++j) {
+      for (var ff = 0; ff < g_fishTable.length; ++ff) {
+        var fishInfo = g_fishTable[ff];
+        var fishName = fishInfo.name;
+        if (!fishName.startsWith(type[j])) {
+          continue;
+        }
+
+        var numType = numLeft;
+        if (type[j] == "Big") {
+          numType = Math.min(numLeft, num[i] < 100 ? 1 : 2);
+        } else if (type[j] == "Medium") {
+          if (num[i] < 1000) {
+            numType = Math.min(numLeft, num[i] / 10 | 0);
+          } else if (num[i] < 10000) {
+            numType = Math.min(numLeft, 80);
+          } else {
+            numType = Math.min(numLeft, 160);
+          }
+        }
+        numLeft = numLeft - numType;
+        fishInfo.num.push(numType);
+      }
+    }
   }
 
   var particleSystem = new tdl.particles.ParticleSystem(
@@ -1719,11 +1747,15 @@ function setupCountButtons() {
   } else {
     setSetting(document.getElementById("setSetting2"), 2);
   }
-  setSetting(document.getElementById("setSetting9"), 9);
 }
 
 function initUIStuff() {
   setupCountButtons();
+  var elem = document.getElementById("setSettingChangeView");
+  elem.onclick = function() {
+    advanceViewSettings();
+  };
+  advanceViewSettings();
 
   function toggleOption(name, option, elem) {
     var options = { };
@@ -1800,7 +1832,7 @@ $(function(){
     g.net.fovFudge = 1;
   }
 
-  $('#setSetting10').click(function() {
+  $('#setSettingAdvanced').click(function() {
       $("#uiContainer").toggle('slow'); return false; });
   $("#uiContainer").toggle();
   $('#options').click(function() {
