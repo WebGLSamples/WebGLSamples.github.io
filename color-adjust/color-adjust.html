@@ -84,11 +84,99 @@ img {
   border: solid black 2px;
 }
 </style>
-<link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
-<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
-<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
-<script type="text/javascript" src="../tdl/base.js"></script>
-<script type="text/javascript">
+</head>
+<body>
+<div id="info">
+  <div><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - color adjust</div>
+  <div><a href="http://www.youtube.com/watch?v=rfQ8rKGTVlg#t=25m03s">click here to see how it works</a></div>
+</div>
+<div id="uiContainer">
+  <div>Adjustment</div>
+  <div id="adjustments">
+    <div><input type="checkbox" value="false" id="nearest"><label for="nearest">nearest</label></div>
+  </div>
+</div>
+<div id="viewContainer">
+<canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
+</div>
+  <div style="display:none;">
+  <video id="vid">
+    <!--
+    <source src="http://studio.html5rocks.com/samples/video-player/chromeicon.mp4" type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"' />
+    <source src="http://videos-cdn.mozilla.net/firefox/3.6/getpersonas.ogv" type='video/ogg; codecs="theora, vorbis"' /> 
+    <source src="sample-video.theora.ogv" type='video/ogg; codecs="theora, vorbis"' /> 
+    -->
+    <source src="sample-video.theora.ogv" type='video/ogg; codecs="theora, vorbis"' /> 
+    <source src="sample-video.webmvp8.webm" type='video/webm; codecs="vp8, vorbis"' /> 
+    <source src="sample-video.mp4" type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"' />
+  </video>
+  </div>
+</body>
+<!-- ===[ basic ]============================================== -->
+<script id="basicVertexShader" type="text/something-not-javascript">
+uniform mat4 worldViewProjection;
+attribute vec4 position;
+attribute vec2 texCoord;
+varying vec2 v_texCoord;
+void main() {
+  gl_Position = worldViewProjection * position;
+  v_texCoord = texCoord;
+}
+</script>
+<script id="basicFragmentShader" type="text/something-not-javascript">
+precision mediump float;
+uniform sampler2D texture;
+varying vec2 v_texCoord;
+void main() {
+  gl_FragColor = texture2D(texture, v_texCoord);
+}
+</script>
+<!-- ===[ colorAdjust ]============================================== -->
+<script id="colorAdjustVertexShader" type="text/something-not-javascript">
+attribute vec4 position;
+attribute vec2 texCoord;
+varying vec2 v_texCoord;
+void main() {
+  gl_Position = position;
+  v_texCoord = texCoord;
+}
+</script>
+<script id="colorAdjustFragmentShader" type="text/something-not-javascript">
+precision mediump float;
+uniform float mixAmount;
+uniform sampler2D inTexture;
+uniform sampler2D colorCube0;
+uniform sampler2D colorCube1;
+varying vec2 v_texCoord;
+
+vec4 sampleAs3DTexture(sampler2D tex, vec3 texCoord, float size) {
+   float sliceSize = 1.0 / size;                         // space of 1 slice
+   float slicePixelSize = sliceSize / size;              // space of 1 pixel
+   float sliceInnerSize = slicePixelSize * (size - 1.0); // space of size pixels
+   float zSlice0 = min(floor(texCoord.z * size), size - 1.0);
+   float zSlice1 = min(zSlice0 + 1.0, size - 1.0);
+   float xOffset = slicePixelSize * 0.5 + texCoord.x * sliceInnerSize;
+   float s0 = xOffset + (zSlice0 * sliceSize);
+   float s1 = xOffset + (zSlice1 * sliceSize);
+   vec4 slice0Color = texture2D(tex, vec2(s0, texCoord.y));
+   vec4 slice1Color = texture2D(tex, vec2(s1, texCoord.y));
+   float zOffset = mod(texCoord.z * size, 1.0);
+   #if defined(USE_NEAREST)
+     return mix(slice0Color, slice1Color, step(0.5, zOffset));
+   #else
+     return mix(slice0Color, slice1Color, zOffset);
+   #endif
+}
+
+void main() {
+  vec4 originalColor = texture2D(inTexture, v_texCoord);
+  vec4 color0 = sampleAs3DTexture(colorCube0, originalColor.rgb, 8.0);
+  vec4 color1 = sampleAs3DTexture(colorCube1, originalColor.rgb, 8.0);
+  gl_FragColor = vec4(mix(color0, color1, mixAmount).rgb, originalColor.a);
+}
+</script>
+<script src="../tdl/base.js"></script>
+<script>
 tdl.require('tdl.buffers');
 tdl.require('tdl.fast');
 tdl.require('tdl.framebuffers');
@@ -112,6 +200,7 @@ var g_drawOnce = false;   // draw just one frame.
 var g_setCountElements = [];
 var g_autoSet = true;
 var g_autoSetting = 0;
+var g_useNearest = false;
 var g_videoTexture;
 var g_colorCube0Texture;
 var g_colorCube1Texture;
@@ -120,6 +209,7 @@ var g_mixTimer = 0;
 var g_mixAmount = 0;
 var g_eyeClock = 0;
 
+var g_adjustmentNames;
 var g_mixDuration = 1;
 var g_applyColorAdjust = true;
 var g_targetHeight = 0.0;
@@ -137,6 +227,10 @@ var g_adjustmentImages = [
   { name: 'sepia',          url: "adjustments/sepia.png" },
   { name: 'saturated',      url: "adjustments/saturated.png", },
   { name: 'posterize',      url: "adjustments/posterize.png", },
+  { name: 'posterize-3-rgb',url: "adjustments/posterize-3-rgb.png", },
+  { name: 'posterize-3-lab',url: "adjustments/posterize-3-lab.png", },
+  { name: 'posterize-4-lab',url: "adjustments/posterize-4-lab.png", },
+  { name: 'posterize-more', url: "adjustments/posterize-more.png", },
   { name: 'inverse',        url: "adjustments/inverse.png", },
   { name: 'color negative', url: "adjustments/color-negative.png", },
   { name: 'high contrast',  url: "adjustments/high-contrast-bw.png", },
@@ -242,9 +336,7 @@ function setupColorAdjustPlane(inTexture) {
     colorCube0: g_colorCubeTexture0,
     colorCube1: g_colorCubeTexture1
   };
-  var program = tdl.programs.loadProgramFromScriptTags(
-      'colorAdjustVertexShader',
-      'colorAdjustFragmentShader');
+
   var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
   tdl.primitives.reorient(arrays,
       [1, 0, 0, 0,
@@ -252,7 +344,16 @@ function setupColorAdjustPlane(inTexture) {
        0, 1, 0, 0,
        0, 0, 0, 1]);
   delete arrays.normal;
-  return new tdl.models.Model(program, arrays, textures);
+
+  const models = [];
+  for (var i = 0; i < 2; ++i) {
+      var program = tdl.programs.loadProgram(
+          document.querySelector('#colorAdjustVertexShader').text,
+          (i ? '#define USE_NEAREST 1\n' : '') +
+          document.querySelector('#colorAdjustFragmentShader').text);
+      models.push(new tdl.models.Model(program, arrays, textures));
+  }
+  return models;
 }
 
 function initialize() {
@@ -303,9 +404,8 @@ function setupAdjustments() {
   tdl.log("setupAdjustments")
   var loadingCount = 1;
   var adjustmentsElement = document.getElementById("adjustments");
-  for (var ii = 0; ii < g_adjustmentImages.length; ++ii) {
+  g_adjustmentNames = g_adjustmentImages.map(function(info, ii) {
     ++loadingCount;
-    var info = g_adjustmentImages[ii];
     var div = document.createElement("div");
     info.div = div;
     div.innerHTML = info.name;
@@ -331,14 +431,24 @@ function setupAdjustments() {
         });
       }
     }(img, info);
-  }
+    return info.name;
+  });
   loadingCount--;
+}
+
+function parseQuery(s) {
+  const q = {};
+  s.substring(s.startsWith('?') ? 1 : 0).split('&').forEach(pair => {
+    const parts = pair.split('=').map(decodeURIComponent);
+    q[parts[0]] = parts[1];
+  });
+  return q;
 }
 
 function continueSetup() {
   var mainFBO = tdl.framebuffers.createFramebuffer(canvas.width, canvas.height, true);
   var videoPlane = setupPlane();
-  var colorAdjustPlane = setupColorAdjustPlane(mainFBO.texture);
+  var colorAdjustPlanes = setupColorAdjustPlane(mainFBO.texture);
   var rtPlane = setupRTPlane(mainFBO.texture);
 
   var projection = new Float32Array(16);
@@ -369,20 +479,20 @@ function continueSetup() {
   var copyVideo = false;
   var madeVideoTexture = false;
   var video = document.getElementById("vid");
-  video.addEventListener("playing", function() { 
-        copyVideo = true; 
+  video.addEventListener("playing", function() {
+        copyVideo = true;
       }, true);
-  video.addEventListener("ended", function() { 
-        video.currentTime = startTime; video.play(); 
+  video.addEventListener("ended", function() {
+        video.currentTime = startTime; video.play();
       }, true);
-  video.addEventListener("error", function() { 
-        tdl.log("could not play video"); 
+  video.addEventListener("error", function() {
+        tdl.log("could not play video");
       }, true);
   video.volume = 0;
   video.play();
 
   var showRT = false;
-  $(document).keypress(function(event) {
+  document.addEventListener('keypress', function(event) {
     if (event.which == 'd'.charCodeAt(0) ||
         event.which == 'D'.charCodeAt(0)) {
       showRT = !showRT;
@@ -390,13 +500,32 @@ function continueSetup() {
     }
   });
 
-  var videoPlanePer = {
+  const videoPlanePer = {
     worldViewProjection: worldViewProjection
   };
 
-  var rtPlanePer = {
+  const rtPlanePer = {
     worldViewProjection: worldViewProjection
   };
+
+  const nearestElem =  document.querySelector("#nearest");
+  nearestElem.addEventListener('change', function(e) {
+    g_useNearest = e.target.checked;
+  });
+
+  const q = parseQuery(window.location.search);
+
+  if (q.nearest && q.nearest !== 'false') {
+    g_useNearest = true;
+    nearestElem.checked = true;
+  }
+
+  if (q.adjustment) {
+    const ndx = g_adjustmentNames.indexOf(q.adjustment);
+    if (ndx >= 0) {
+      updateSelection(ndx);
+    }
+  }
 
   var frameCount = 0;
   var then = (new Date()).getTime() * 0.001;
@@ -504,6 +633,15 @@ function continueSetup() {
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
       gl.disable(gl.BLEND);
       gl.disable(gl.DEPTH_TEST);
+
+      const colorAdjustPlane = g_useNearest ? colorAdjustPlanes[1] : colorAdjustPlanes[0];
+
+      const filter = g_useNearest ? gl.NEAREST : gl.LINEAR;
+      g_colorCubeTexture0.setParameter(gl.TEXTURE_MIN_FILTER, filter);
+      g_colorCubeTexture0.setParameter(gl.TEXTURE_MAG_FILTER, filter);
+      g_colorCubeTexture1.setParameter(gl.TEXTURE_MIN_FILTER, filter);
+      g_colorCubeTexture1.setParameter(gl.TEXTURE_MAG_FILTER, filter);
+
       colorAdjustPlane.drawPrep();
       colorAdjustPlane.draw({
           mixAmount: g_mixAmount
@@ -543,99 +681,7 @@ function continueSetup() {
   return true;
 }
 
-$(function(){
-  initialize();
-});
-</script>
-</head>
-<body>
-<div id="info">
-  <div><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - color adjust</div>
-  <div><a href="http://www.youtube.com/watch?v=rfQ8rKGTVlg#t=25m03s">click here to see how it works</a></div>
-</div>
-<div id="uiContainer">
-  <div>Adjustment</div>
-  <div id="adjustments">
-  </div>
-</div>
-<div id="viewContainer">
-<canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
-</div>
-  <div style="display:none;">
-  <video id="vid">
-    <!--
-    <source src="http://studio.html5rocks.com/samples/video-player/chromeicon.mp4" type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"' />
-    <source src="http://videos-cdn.mozilla.net/firefox/3.6/getpersonas.ogv" type='video/ogg; codecs="theora, vorbis"' /> 
-    <source src="sample-video.theora.ogv" type='video/ogg; codecs="theora, vorbis"' /> 
-    -->
-    <source src="sample-video.theora.ogv" type='video/ogg; codecs="theora, vorbis"' /> 
-    <source src="sample-video.webmvp8.webm" type='video/webm; codecs="vp8, vorbis"' /> 
-    <source src="sample-video.mp4" type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"' />
-  </video>
-  </div>
-</body>
-<!-- ===[ basic ]============================================== -->
-<script id="basicVertexShader" type="text/something-not-javascript">
-uniform mat4 worldViewProjection;
-attribute vec4 position;
-attribute vec2 texCoord;
-varying vec2 v_texCoord;
-void main() {
-  gl_Position = worldViewProjection * position;
-  v_texCoord = texCoord;
-}
-</script>
-<script id="basicFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision mediump float;
-#endif
-uniform sampler2D texture;
-varying vec2 v_texCoord;
-void main() {
-  gl_FragColor = texture2D(texture, v_texCoord);
-}
-</script>
-<!-- ===[ colorAdjust ]============================================== -->
-<script id="colorAdjustVertexShader" type="text/something-not-javascript">
-attribute vec4 position;
-attribute vec2 texCoord;
-varying vec2 v_texCoord;
-void main() {
-  gl_Position = position;
-  v_texCoord = texCoord;
-}
-</script>
-<script id="colorAdjustFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision mediump float;
-#endif
-uniform float mixAmount;
-uniform sampler2D inTexture;
-uniform sampler2D colorCube0;
-uniform sampler2D colorCube1;
-varying vec2 v_texCoord;
-
-vec4 sampleAs3DTexture(sampler2D tex, vec3 texCoord, float size) {
-   float sliceSize = 1.0 / size;                         // space of 1 slice
-   float slicePixelSize = sliceSize / size;              // space of 1 pixel
-   float sliceInnerSize = slicePixelSize * (size - 1.0); // space of size pixels
-   float zSlice0 = min(floor(texCoord.z * size), size - 1.0);
-   float zSlice1 = min(zSlice0 + 1.0, size - 1.0);
-   float xOffset = slicePixelSize * 0.5 + texCoord.x * sliceInnerSize;
-   float s0 = xOffset + (zSlice0 * sliceSize);
-   float s1 = xOffset + (zSlice1 * sliceSize);
-   vec4 slice0Color = texture2D(tex, vec2(s0, texCoord.y));
-   vec4 slice1Color = texture2D(tex, vec2(s1, texCoord.y));
-   float zOffset = mod(texCoord.z * size, 1.0);
-   return mix(slice0Color, slice1Color, zOffset);
-}
-
-void main() {
-  vec4 originalColor = texture2D(inTexture, v_texCoord);
-  vec4 color0 = sampleAs3DTexture(colorCube0, originalColor.rgb, 8.0);
-  vec4 color1 = sampleAs3DTexture(colorCube1, originalColor.rgb, 8.0);
-  gl_FragColor = vec4(mix(color0, color1, mixAmount).rgb, originalColor.a);
-}
+window.onload = initialize;
 </script>
 </html>
 
