@@ -1,3 +1,5 @@
+"use strict";
+
 tdl.require('tdl.buffers');
 tdl.require('tdl.clock');
 tdl.require('tdl.fast');
@@ -14,6 +16,7 @@ tdl.require('tdl.textures');
 tdl.require('tdl.webgl');
 
 // globals
+const g_query = parseQueryString(window.location.search);
 var gl;                   // the gl context.
 var canvas;               // the canvas
 var math;                 // the math lib.
@@ -30,8 +33,10 @@ var g_scenes = {};  // each of the models
 var g_sceneGroups = {};  // the placement of the models
 var g_fog = true;
 var g_requestId;
+var g_numFish = [1, 100, 500, 1000, 5000, 10000, 15000, 20000, 25000, 30000];
 var g_frameData;
 var g_vrDisplay;
+var g_vrUi;
 
 //g_debug = true;
 //g_drawOnce = true;
@@ -104,7 +109,6 @@ var g_netUI = [
 var g_fishTable = [
   {
     name: 'SmallFishA',
-    num: [0, 3, 36, 76, 206, 500-40-40-2-2, 1000-80-80-2-2, 2000-80-80-2-2, 4000-80-80-2-2, 50],
     speed: 1,
     speedRange: 1.5,
     radius: 30,
@@ -120,7 +124,6 @@ var g_fishTable = [
   },
   {
     name: 'MediumFishA',
-    num: [0, 3, 6, 10, 20, 40, 80, 80, 80, 10],
     speed: 1,
     speedRange: 2,
     radius: 10,
@@ -136,7 +139,6 @@ var g_fishTable = [
   },
   {
     name: 'MediumFishB',
-    num: [0, 2, 6, 10, 20, 40, 80, 80, 80, 10],
     speed: 0.5,
     speedRange: 4,
     radius: 10,
@@ -152,7 +154,6 @@ var g_fishTable = [
   },
   {
     name: 'BigFishA',
-    num: [1, 1, 1, 2, 2, 2, 2, 2, 2, 3],
     speed: 0.5,
     speedRange: 0.5,
     radius: 50,
@@ -172,7 +173,6 @@ var g_fishTable = [
   },
   {
     name: 'BigFishB',
-    num: [0, 1, 1, 2, 2, 2, 2, 2, 2, 1],
     speed: 0.5,
     speedRange: 0.5,
     radius: 45,
@@ -353,6 +353,15 @@ var g_skyBoxUrls = [
   '../aquarium/assets/GlobeOuter_EM_negative_z.jpg'
 //  'static_assets/skybox/InteriorCubeEnv_EM.png'
 ]
+
+function parseQueryString(s) {
+  const q = {};
+  (s.startsWith('?') ? s.substring(1) : s).split('&').forEach(pair => {
+    const parts = pair.split('=').map(decodeURIComponent);
+    q[parts[0]] = parts[1];
+  });
+  return q;
+}
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
@@ -784,20 +793,12 @@ function advanceViewSettings() {
  * Sets the count
  */
 function setSetting(elem, id) {
-  switch (id) {
-  case 10:
-    break;
-  case 9:
-    advanceViewSettings();
-    break;
-  default:
-    g_numSettingElements[id] = elem;
-    setSettings({globals:{fishSetting:id}});
-    for (var otherElem in g_numSettingElements) {
-      g_numSettingElements[otherElem].style.color = "gray";
-    }
-    elem.style.color = "red";
+  g_numSettingElements[id] = elem;
+  setSettings({globals:{fishSetting:id}});
+  for (var otherElem in g_numSettingElements) {
+    g_numSettingElements[otherElem].style.color = "gray";
   }
+  elem.style.color = "red";
 }
 
 /**
@@ -844,7 +845,10 @@ function handleContextRestored() {
 }
 
 function initialize() {
-  var maxViewportDims = gl.getParameter(gl.MAX_VIEWPORT_DIMS);
+  const maxViewportDims = gl.getParameter(gl.MAX_VIEWPORT_DIMS);
+  if (g_query.numFish) {
+    g_numFish[0] = parseInt(g_query.numFish);
+  }
 
   gl.enable(gl.DEPTH_TEST);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -856,16 +860,55 @@ function initialize() {
   Log("--Setup Laser----------------------------------------");
   var laser = setupLaser();
 
-  for (var ff = 0; ff < g_fishTable.length; ++ff) {
-    g_fishTable[ff].fishData = [];
-  }
+  var num = [1, 100, 500, 1000, 5000, 10000, 15000, 20000, 25000, 30000];
+  var changeViewElem = document.getElementById("setSettingChangeView");
+  var parentElem = changeViewElem.parentNode;
+  g_numFish.forEach((numFish, ndx) => {
+    var div = document.createElement("div");
+    div.className = "clickable";
+    div.id = "setSetting" + ndx;
+    div.innerHTML = numFish;
+    parentElem.insertBefore(div, changeViewElem);
+  });
+
+  g_fishTable.forEach(info => {
+    info.fishData = [];
+    info.num = [];
+  });
+
+  var types = ["Big", "Medium", "Small"];
+  g_numFish.forEach((totalFish) => {
+    var numLeft = totalFish;
+    types.forEach((type) => {
+      g_fishTable.forEach((fishInfo) => {
+        var fishName = fishInfo.name;
+        if (!fishName.startsWith(type)) {
+          return;
+        }
+
+        var numType = numLeft;
+        if (type == "Big") {
+          numType = Math.min(numLeft, totalFish < 100 ? 1 : 2);
+        } else if (type == "Medium") {
+          if (totalFish < 1000) {
+            numType = Math.min(numLeft, totalFish / 10 | 0);
+          } else if (totalFish < 10000) {
+            numType = Math.min(numLeft, 80);
+          } else {
+            numType = Math.min(numLeft, 160);
+          }
+        }
+        numLeft = numLeft - numType;
+        fishInfo.num.push(numType);
+      });
+    })
+  });
 
   var particleSystem = new tdl.particles.ParticleSystem(
       gl, null, math.pseudoRandom);
   setupBubbles(particleSystem);
   var bubbleTimer = 0;
   var bubbleIndex = 0;
-
   var lightRay = setupLightRay();
 
   var then = 0.0;
@@ -1201,8 +1244,9 @@ function initialize() {
     var height = Math.abs(top - bottom);
     var xOff = width * g.net.offset[0] * g.net.offsetMult;
     var yOff = height * g.net.offset[1] * g.net.offsetMult;
+    var uiMatrix = new Float32Array(16);
     if (g_vrDisplay && g_vrDisplay.isPresenting && pose.position) {
-      // Using head-neck model in VR mode due to unclear distance measurement(vr return position using meters),
+      // Using head-neck model in VR mode because of unclear distance measurement(vr return position using meters),
       // user could see around but couldn't move around.
       eyePosition[0] = g.globals.eyeRadius;
       eyePosition[1] = g.globals.eyeHeight;
@@ -1210,6 +1254,11 @@ function initialize() {
 
       fast.matrix4.copy(projection, projectionMatrix);
       calculateViewMatrix(viewInverse, pose.orientation, eyePosition);
+
+      // Hard coded FPS translation vector and pin the whole UI in front of the user in VR mode. This hard coded position 
+      // vector used only once here.
+      calculateViewMatrix(uiMatrix, pose.orientation, [0, 0, 10]);
+      g_vrUi.render(projection, fast.matrix4.inverse(uiMatrix, uiMatrix), [pose.orientation]);
     } else {
       fast.matrix4.frustum(
         projection,
@@ -1233,7 +1282,10 @@ function initialize() {
         target,
         up);
     }
-
+      var uiMatrix = new Float32Array(16);
+    //calculateViewMatrix(uiMatrix, pose.orientation, [0, 0, 10]);
+    //g_ui.render(projection, fast.matrix4.inverse(uiMatrix, fast.matrix4.translation(uiMatrix, [0, 0, 6])));
+    //var uiMatrix = new Float32Array(16);
     if (g.net.slave) {
       // compute X fov from y fov
       var fovy = math.degToRad(g.globals.fieldOfView * g.net.fovFudge);
@@ -1246,6 +1298,7 @@ function initialize() {
     fast.matrix4.inverse(view, viewInverse);
     fast.matrix4.mul(viewProjection, view, projection);
     fast.matrix4.inverse(viewProjectionInverse, viewProjection);
+    //g_ui.render(projection, fast.matrix4.inverse(uiMatrix, fast.matrix4.translation(uiMatrix, [0, 0, 16])));
 
     fast.matrix4.copy(skyView, view);
     skyView[12] = 0;
@@ -1657,7 +1710,6 @@ function initialize() {
 
     g_fpsTimer.update(elapsedTime);
     fpsElem.innerHTML = g_fpsTimer.averageFPS;
-
     gl.colorMask(true, true, true, true);
     gl.clearColor(0,0.8,1,0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
@@ -1668,6 +1720,44 @@ function initialize() {
       }
       g_vrDisplay.getFrameData(g_frameData);
       if (g_vrDisplay.isPresenting) {
+
+        /* VR UI is enabled in VR Mode. VR UI has two mode, menu mode is the mirror of control panel of 
+         * aquarium and non-menu mode may presents fps(could be turn off) in front of user. These two
+         * mode is controlled by isMenuMode flag and this flag is set by any keyboard event or gamepad
+         * button click.
+        */
+
+        // Set fps and prepare rendering it.
+        g_vrUi.setFps(g_fpsTimer.averageFPS);
+
+        // Query gamepad button clicked event. 
+        g_vrUi.queryGamepadStatus();
+
+        if (g_vrUi.isMenuMode) {
+
+          // When VR UI in menu mode, UI need a cursor to help user do select operation. Currently, cursor uses
+          // head-neck model which means a point in front of user and user could move the point by rotating their head(with HMD).
+          // A click event will be triggered when user stare at a label 2 seconds.
+          // TODO : add gamepad support to control cursor and trigger select event with VR controllers.
+
+          // Jquery selector description.
+          var selectorDescription;
+
+          // VR UI return whether there is an option been selected in VR mode.
+          var clickedLabel = g_vrUi.queryClickedLabel([0, 0, 0], g_frameData.pose.orientation);
+          if (clickedLabel != null) {
+            if (clickedLabel.isAdvancedSettings) {
+              selectorDescription = "#optionsContainer > div:contains(" + clickedLabel.name + ")";
+              $(selectorDescription).click();
+            } else if (clickedLabel.name == "options") {
+              $("#options").click();
+            } else {
+              selectorDescription = "#setSetting" + clickedLabel.name;
+              $(selectorDescription).click();
+            }
+          }
+        }
+      
         gl.viewport(0, 0, canvas.width * 0.5, canvas.height);
         render(elapsedTime, g_frameData.leftProjectionMatrix, g_frameData.pose);
 
@@ -1714,16 +1804,22 @@ function setupCountButtons() {
       }}(elem, ii);
   }
 
-  if (g.net.sync) {
+  if (g_query.numFish) {
+    setSetting(document.getElementById("setSetting0"), 0);
+  } else if (g.net.sync) {
     setSetting(document.getElementById("setSetting4"), 4);
   } else {
     setSetting(document.getElementById("setSetting2"), 2);
   }
-  setSetting(document.getElementById("setSetting9"), 9);
 }
 
 function initUIStuff() {
   setupCountButtons();
+  var elem = document.getElementById("setSettingChangeView");
+  elem.onclick = function() {
+    advanceViewSettings();
+  };
+  advanceViewSettings();
 
   function toggleOption(name, option, elem) {
     var options = { };
@@ -1800,7 +1896,7 @@ $(function(){
     g.net.fovFudge = 1;
   }
 
-  $('#setSetting10').click(function() {
+  $('#setSettingAdvanced').click(function() {
       $("#uiContainer").toggle('slow'); return false; });
   $("#uiContainer").toggle();
   $('#options').click(function() {
@@ -1829,7 +1925,7 @@ $(function(){
   main();
 });
 
-VR = (function() {
+var VR = (function() {
   "use strict";
   var vrButton;
 
@@ -1989,11 +2085,14 @@ VR = (function() {
           if (g_vrDisplay.capabilities.canPresent) {
             vrButton = addButton("Enter VR", "E", getCurrentUrl() + "/vr_assets/button.png", onRequestPresent);
           }
+          g_vrUi = new Ui(gl, g_numFish);
+          g_vrUi.load("./vr_assets/ui/config.js");
 
           window.addEventListener('vrdisplaypresentchange', onPresentChange, false);
           window.addEventListener('vrdisplayactivate', onRequestPresent, false);
           window.addEventListener('vrdisplaydeactivate', onExitPresent, false);
           window.addEventListener('resize', function() {onResize();}, false);
+          window.addEventListener('keydown', function() { g_vrUi.isMenuMode = !g_vrUi.isMenuMode; }, false);
         } else {
           console.log("WebVR supported, but no VRDisplays found.")
         }
