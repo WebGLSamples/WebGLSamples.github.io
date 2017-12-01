@@ -44,16 +44,17 @@ OL>LI {
 
 <iframe width="800" height="450" src="https://www.youtube.com/embed/64TcBiqmVko?rel=0" frameborder="0" allowfullscreen></iframe>
 
-<p>To run it across multiple machines each machine must be running a browser that supports WebGL and WebSockets. Chromium for example. Next, the clocks of the 5 machines must be in sync. Then start the server. <a href="../server/README.html">See here for instructions</a>. Finally run the Aquarium with a URL in the following format.</p>
+<p>To run it across multiple machines each machine must be running a browser that supports WebGL and WebSockets.
+Chromium for example. Next, the clocks of the 5 machines must be in sync. Then start the server. <a href="../server/README.html">See here for instructions</a>. Finally run the Aquarium with a URL in the following format.</p>
 <pre>http://address_of_server:port_of_server/aquarium/aquarium.html?settings={net:{sync:true,rotYMult:mult}}</pre>
 <p>Where <i>address_of_server</i> is the domain name or ip address of the server, <i>port_of_server</i> is the port of the server, and <i>mult</i> is 0 for the center machine, positive for machines to the right of the server and negative for machines to the left.</p>
 <p>In other words, if the server is "myserver.com" and your running on port 8080 and you had 5 machines, A, B, C, D, E in that order left to right and you wanted machine C to be the master the URLs would for each machine would be:</p>
 <pre>
-Machine A: http://myserver.com:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-2}}
-Machine B: http://myserver.com:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-1}}
-Machine C: http://myserver.com:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:true,slave:false,fovMult:1.0,rotYMult:0}}
-Machine D: http://myserver.com:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-1}}
-Machine E: http://myserver.com:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-2}}
+Machine A: http://&lt;ipaddressofserver&gt;.com:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-2}}
+Machine B: http://&lt;ipaddressofserver&gt;.com:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-1}}
+Machine C: http://&lt;ipaddressofserver&gt;.com:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:true,slave:false,fovMult:1.0,rotYMult:0}}
+Machine D: http://&lt;ipaddressofserver&gt;.com:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-1}}
+Machine E: http://&lt;ipaddressofserver&gt;.com:8080/aquarium/aquarium.html?settings={net:{sync:true,ui:false,slave:true,fovMult:1.0,rotYMult:-2}}
 </pre>
 <p>At that point, settings changed on the master should be propagated to the slaves.</p>
 <h3>Options:</h3>
@@ -68,24 +69,20 @@ Machine E: http://myserver.com:8080/aquarium/aquarium.html?settings={net:{sync:t
 <tr><td>offsetMult:</td><td>number</td><td><p>Amount to multiply the offset by. Think of offset as a per machine setting and offsetMult as a global setting.</p></tr>
 </table>
 <h3>Terse Setup</h3>
-<p>These steps worked for me as of 2011/10/13</p>
-<p>On Windows 7</p>
+<p>These steps worked for me as of 2017/12/1</p>
+<p>On macOS</p>
 <ol>
 <li>download the source</li>
-<li>download node.js binary for windows from <a href="http://nodejs.org/#download">http://nodejs.org/#download</a><br/>
-Mine was 0.5.9</li>
-<li>cd to the root folder of the samples (ie, "cd webglsamples")</li>
-<li>open a command prompt and type &lt;path_to_node.js&gt;/node.exe server\server.js<br/><br/>
-
-On my system it was<br/>
-f:\Users\gman\Downloads\node.exe server\server.js<br/><br/>
-
-You'll probably get firefall warning from windows. Allow it.</li>
-<li>Start Chrome 14 or newer<br/><br/>
-Note: it doesn't have to be Chrome 14 but it does have to be a browser that supports WebSockets draft-8, 9 or 10</li>
+<li>install node.js  from <a href="http://nodejs.org/">http://nodejs.org/</a><br/>
+Mine was 8.9.1</li>
+<li>
+<li>cd to the server folder of the samples (ie, "cd webglsamples/server")</li>
+<li>install node deps by typing "npm install"</li>
+<li>type node server.js</li>
+<li>Start Chrome or Firefox</li>
 <li>Make the window horizontally about 1/2 the size of your monitor or less</li>
 
-<li>Make a new tab. Pull it off the window so you now have 2 chrome
+<li>Make a new tab. Pull it off the window so you now have 2 browser
 windows and arrange the 2 windows (which would both be the same size now)
 side by side</li>
 
