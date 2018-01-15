@@ -39,7 +39,7 @@ var shadow_fshader = [
 "#define texMapScale 1.0/SMAP_SIZE",
 
 "#ifdef GL_ES",
-"precision mediump float;",
+"precision highp float;",
 "#endif",
 
 "uniform sampler2D shadowMap;",

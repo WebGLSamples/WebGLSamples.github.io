@@ -160,7 +160,7 @@ MeshManager.prototype.addOnLoadedCallback = function(callback)
 
 MeshManager.prototype.onLoaded = function()
 {
-    for(var index = 0 in this.postMeshLoadCallbackList)
+    for(var index in this.postMeshLoadCallbackList)
     {
         // call the functions
         this.postMeshLoadCallbackList[index]();

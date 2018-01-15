@@ -28,7 +28,7 @@
 
 var screenQuad_fShader = [
 "#ifdef GL_ES",
-"precision mediump float;",
+"precision highp float;",
 "#endif",
 
 //texture uniforms             

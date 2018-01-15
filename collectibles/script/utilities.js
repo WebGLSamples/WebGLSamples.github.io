@@ -338,9 +338,9 @@ function loadShader(ctx, shaderType, shaderStr)
     if (!compiled) {
         // Something went wrong during compilation; get the error
         var error = ctx.getShaderInfoLog(shader);
-/*
+
         ctx.console.log("*** Error compiling shader '"+shaderType+"':"+error);
-*/
+
         ctx.deleteShader(shader);
         return null;
     }
@@ -380,9 +380,9 @@ function createShader(ctx, vShader, fShader, attribs)
     if (!linked) {
         // something went wrong with the link
         var error = ctx.getProgramInfoLog (program);
-/*
+
         ctx.console.log("Error in program linking:"+error);
-*/
+
 
         ctx.deleteProgram(program);
         ctx.deleteProgram(fragmentShader);

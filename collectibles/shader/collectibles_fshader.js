@@ -28,7 +28,7 @@
 var vortexFShader = [
 
 "#ifdef GL_ES",
-"precision mediump float;",
+"precision highp float;",
 "#endif",                     
 
 // layer textures (ie face, hair, or shirt pants)       

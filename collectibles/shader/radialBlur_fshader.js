@@ -28,7 +28,7 @@
 
 var radialBlur_fshader = [
 "#ifdef GL_ES",
-"precision mediump float;",
+"precision highp float;",
 "#endif",
 
 "vec2 poissonDisk[16];",
@@ -37,7 +37,7 @@ var radialBlur_fshader = [
 "uniform sampler2D basemap;",
 "uniform float u_mapSize;",
 "uniform float u_sampRadius;",
-"uniform int u_numSamples;",
+"const int u_numSamples = 16;",
 
 "varying vec2 vTexcoord;",				// tex coords
 

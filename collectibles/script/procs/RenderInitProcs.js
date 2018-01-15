@@ -276,7 +276,7 @@ function __renderInitRadialBlur(quad, shader)
 	quad.renderObj.addUniform("u_inv_viewport_width", 1.0/g_width, UNIFORMTYPE.FLOAT);
 	quad.renderObj.addUniform("u_inv_viewport_height", 1.0/g_height, UNIFORMTYPE.FLOAT);
 	quad.renderObj.addUniform("u_sampRadius", 5.0, UNIFORMTYPE.FLOAT);
-	quad.renderObj.addUniform("u_numSamples", 16, UNIFORMTYPE.INT);
+	// quad.renderObj.addUniform("u_numSamples", 16, UNIFORMTYPE.INT);
 	quad.renderObj.addUniform("u_mapSize", 256.0, UNIFORMTYPE.FLOAT);
 	
 	quad.renderObj.addBuffers(quad.vertBuffer, 	gl.ARRAY_BUFFER,  3, 0, gl.FLOAT);
