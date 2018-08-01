@@ -147,8 +147,9 @@ var g = {
   globals: {
     fishSetting: 2,
     drawLasers: false,
-	width: 1024,
-	height: 1024
+    width: 1024,
+    height: 1024,
+    fitWindow: false
   },
   net: {
     timeout: 3000,
