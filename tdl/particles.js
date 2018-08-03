@@ -66,7 +66,7 @@ tdl.particles.ParticleStateIds = {
  */
 tdl.particles.SHADER_STRINGS = [
   // 3D (oriented) vertex shader
-  'uniform mat4 worldViewProjection;\n' +
+  'uniform mat4 viewProjection;\n' +
   'uniform mat4 world;\n' +
   'uniform vec3 worldVelocity;\n' +
   'uniform vec3 worldAcceleration;\n' +
@@ -151,7 +151,7 @@ tdl.particles.SHADER_STRINGS = [
   '      center.x, center.y, center.z, 1);\n' +
   '  rotatedPoint = localMatrix * rotatedPoint;\n' +
   '  outputPercentLife = percentLife;\n' +
-  '  gl_Position = worldViewProjection * rotatedPoint;\n' +
+  '  gl_Position = viewProjection * world * rotatedPoint;\n' +
   '}\n',
 
   // 2D (billboarded) vertex shader
@@ -695,6 +695,11 @@ tdl.particles.ParticleSystem.prototype.draw = function(viewProjection, world, vi
   gl.depthMask(false);
   gl.enable(gl.DEPTH_TEST);
   // Set up certain uniforms once per shader per draw.
+  var shader = this.shaders[0];
+  shader.bind();
+  gl.uniformMatrix4fv(shader.viewProjectionLoc,
+                      false,
+                      viewProjection);
   var shader = this.shaders[1];
   shader.bind();
   gl.uniformMatrix4fv(shader.viewProjectionLoc,
@@ -707,7 +712,7 @@ tdl.particles.ParticleSystem.prototype.draw = function(viewProjection, world, vi
   // FIXME: this is missing O3D's z-sorting logic from the
   // zOrderedDrawList
   for (var ii = 0; ii < this.drawables_.length; ++ii) {
-    this.drawables_[ii].draw(world, viewProjection, 0);
+    this.drawables_[ii].draw(world, 0);
   }
 };
 
@@ -1073,7 +1078,7 @@ tdl.particles.ParticleEmitter.prototype.setParameters = function(
       opt_perParticleParamSetter);
 };
 
-tdl.particles.ParticleEmitter.prototype.draw = function(world, viewProjection, timeOffset) {
+tdl.particles.ParticleEmitter.prototype.draw = function(world, timeOffset) {
   if (!this.createdParticles_) {
     return;
   }
@@ -1100,13 +1105,6 @@ tdl.particles.ParticleEmitter.prototype.draw = function(world, viewProjection, t
   gl.uniformMatrix4fv(shader.worldLoc,
                       false,
                       tmpWorld);
-  if (!this.billboard_) {
-    var worldViewProjection = new Float32Array(16);
-    tdl.fast.matrix4.mul.mulMatrixMatrix4(worldViewProjection, tmpWorld, viewProjection);
-    gl.uniformMatrix4fv(shader.worldViewProjectionLoc,
-                        false,
-                        worldViewProjection);
-  }
 
   gl.uniform3f(shader.worldVelocityLoc,
                this.worldVelocity_[0],
@@ -1246,10 +1244,10 @@ tdl.particles.OneShot.prototype.trigger = function(opt_world) {
  *
  * @private
  */
-tdl.particles.OneShot.prototype.draw = function(world, viewProjection, timeOffset) {
+tdl.particles.OneShot.prototype.draw = function(world, timeOffset) {
   if (this.visible_) {
     tdl.fast.matrix4.mul(this.tempWorld_, this.world_, world);
-    this.emitter_.draw(this.tempWorld_, viewProjection, this.timeOffset_);
+    this.emitter_.draw(this.tempWorld_, this.timeOffset_);
   }
 };
 
