@@ -1113,11 +1113,9 @@ function initialize() {
     ambient[1] = g.globals.ambientGreen;
     ambient[2] = g.globals.ambientBlue;
 
-    /*
     gl.colorMask(true, true, true, true);
     gl.clearColor(0,0.8,1,0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
-    */
 
     var near = 1;
     var far = 25000;
@@ -1498,12 +1496,10 @@ function initialize() {
       gl.depthMask(true);
     }
 
-    /*
     // Set the alpha to 255.
     gl.colorMask(false, false, false, true);
     gl.clearColor(0,0,0,1);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    */
 
     // turn off logging after 1 frame.
     g_logGLCalls = false;
@@ -1559,9 +1555,6 @@ function initialize() {
 
     g_fpsTimer.update(elapsedTime);
     fpsElem.innerHTML = g_fpsTimer.averageFPS;
-    gl.colorMask(true, true, true, true);
-    gl.clearColor(0,0.8,1,0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
     if (g_vrDisplay) {
       g_requestId = g_vrDisplay.requestAnimationFrame(onAnimationFrame);
@@ -1604,28 +1597,28 @@ function initialize() {
             }
           }
         }
-      
+
+        gl.enable(gl.SCISSOR_TEST);
         gl.viewport(0, 0, canvas.width * 0.5, canvas.height);
+        gl.scissor(0, 0, canvas.width * 0.5, canvas.height);
         render(g_frameData.leftProjectionMatrix, g_frameData.pose);
 
         gl.viewport(canvas.width * 0.5, 0, canvas.width * 0.5, canvas.height);
+        gl.scissor(canvas.width * 0.5, 0, canvas.width * 0.5, canvas.height);
         render(g_frameData.rightProjectionMatrix, g_frameData.pose);
 
         g_vrDisplay.submitFrame();
       } else {
+        gl.disable(gl.SCISSOR_TEST);
         gl.viewport(0, 0, canvas.width, canvas.height);
         render();
       }
     } else {
       g_requestId = tdl.webgl.requestAnimationFrame(onAnimationFrame, canvas);
+      gl.disable(gl.SCISSOR_TEST);
       gl.viewport(0, 0, canvas.width, canvas.height);
       render();
     }
-
-    // Set the alpha to 255.
-    gl.colorMask(false, false, false, true);
-    gl.clearColor(0,0,0,1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
   }
 
   onAnimationFrame();
