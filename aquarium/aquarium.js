@@ -936,7 +936,7 @@ function initialize() {
   var worldInverse = new Float32Array(16);
   var worldInverseTranspose = new Float32Array(16);
   var viewProjection = new Float32Array(16);
-  var worldViewProjection = new Float32Array(16);
+  var viewProjectionNoRotation = new Float32Array(16);
   var viewInverse = new Float32Array(16);
   var eyePosition = new Float32Array(3);
   var target = new Float32Array(3);
@@ -957,6 +957,7 @@ function initialize() {
   // Generic uniforms.
   var genericConst = {
     viewInverse: viewInverse,
+    viewProjection: viewProjection,
     lightWorldPos: lightWorldPos,
     lightColor: one4,
     specular: one4,
@@ -965,13 +966,13 @@ function initialize() {
     ambient: ambient};
   var genericPer = {
     world: world,
-    worldViewProjection: worldViewProjection,
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose};
 
   // outside uniforms.
   var outsideConst = {
     viewInverse: viewInverse,
+    viewProjection: viewProjection,
     lightWorldPos: lightWorldPos,
     lightColor: one4,
     specular: one4,
@@ -980,13 +981,13 @@ function initialize() {
     ambient: ambient};
   var outsidePer = {
     world: world,
-    worldViewProjection: worldViewProjection,
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose};
 
   // Seaweed uniforms.
   var seaweedConst = {
     viewInverse: viewInverse,
+    viewProjection: viewProjection,
     lightWorldPos: lightWorldPos,
     lightColor: one4,
     specular: one4,
@@ -995,17 +996,19 @@ function initialize() {
     ambient: ambient};
   var seaweedPer = {
     world: world,
-    viewProjection: viewProjection,
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose};
 
   // Laser uniforms
-  var laserConst = {};
+  var laserConst = {
+    viewProjection: viewProjection,
+  };
   var laserPer = {
-    worldViewProjection: worldViewProjection};
+    world: world};
 
   // Inner uniforms.
   g.innerConst.viewInverse = viewInverse;
+  g.innerConst.viewProjection = viewProjection;
   g.innerConst.lightWorldPos = lightWorldPos;
   g.innerConst.lightColor = one4;
   g.innerConst.specular = one4;
@@ -1013,7 +1016,6 @@ function initialize() {
   g.innerConst.specularFactor = 1;
   var innerPer = {
     world: world,
-    worldViewProjection: worldViewProjection,
     worldInverse: worldInverse,
     worldInverseTranspose: worldInverseTranspose};
 
@@ -1033,9 +1035,11 @@ function initialize() {
     scale: 1};
 
   // lightRay uniforms.
-  var lightRayConst = {};
+  var lightRayConst = {
+    viewProjection: viewProjectionNoRotation
+  };
   var lightRayPer = {
-    worldViewProjection: worldViewProjection,
+    world: world,
     colorMult: new Float32Array([1,1,1,1])};
 
   function DrawGroup(group, constUniforms, perUniforms) {
@@ -1069,7 +1073,6 @@ function initialize() {
           model.drawPrep(constUniforms);
         }
         fast.matrix4.copy(world, object.worldMatrix);
-        fast.matrix4.mul(worldViewProjection, world, viewProjection);
         fast.matrix4.inverse(worldInverse, world);
         fast.matrix4.transpose(worldInverseTranspose, worldInverse);
         perUniforms.time = clock + ii;
@@ -1401,7 +1404,6 @@ function initialize() {
                          fishInfo.laserScale[1],
                          len]),
                     world);
-                fast.matrix4.mul(worldViewProjection, world, viewProjection);
                 laser.draw(laserPer);
                 var surfaceNorm = math.normalize(intersection);
                 var newDir = refract(
@@ -1441,6 +1443,9 @@ function initialize() {
     if (g.options.lightRays.enabled && !presentingVR) {
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
       gl.depthMask(false);
+      // compute a view with no rotation
+      fast.matrix4.translation(m4t1, [view[12], view[13], view[14]]);
+      fast.matrix4.mul(viewProjectionNoRotation, m4t1, projection);
       lightRay.drawPrep(lightRayConst);
       for (var ii = 0; ii < g_lightRayInfo.length; ++ii) {
         var info = g_lightRayInfo[ii];
@@ -1455,10 +1460,6 @@ function initialize() {
             fast.matrix4.scaling(m4t0, [10, -100, 10]),
             m4t1
         );
-        // compute a view with no rotation
-        fast.matrix4.translation(m4t1, [view[12], view[13], view[14]]);
-        fast.matrix4.mul(m4t0, m4t1, projection);
-        fast.matrix4.mul(worldViewProjection, world, m4t0);
         lightRayPer.colorMult[3] = Math.sin(lerp * Math.PI);
         lightRay.draw(lightRayPer);
       }
@@ -1504,7 +1505,6 @@ function initialize() {
                       laserInfo.position,
                       laserInfo.target,
                       up));
-                fast.matrix4.mul(worldViewProjection, world, viewProjection);
                 laser.draw(laserPer);
               }
             }
