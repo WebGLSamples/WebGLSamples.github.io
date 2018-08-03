@@ -16,8 +16,19 @@ tdl.require('tdl.sync');
 tdl.require('tdl.textures');
 tdl.require('tdl.webgl');
 
+const g_query = parseQueryString(window.location.search);
+
+function isMultiviewSupportEnabled() {
+  return g_aquariumConfig.enableVR && g_query.enableMultiview && g_query.enableMultiview == 'true';
+}
+
+if (isMultiviewSupportEnabled()) {
+  g.options.useMultiview = { enabled: true, text: 'Use multiview' };
+}
+
 // globals
 var gl;                   // the gl context.
+var multiview;            // multiview extension.
 var canvas;               // the canvas
 var math;                 // the math lib.
 var fast;                 // the fast math lib.
@@ -33,7 +44,6 @@ var g_numFish = [1, 100, 500, 1000, 5000, 10000, 15000, 20000, 25000, 30000];
 
 var g_requestId;
 var g_syncManager;
-const g_query = parseQueryString(window.location.search);
 
 var g_viewSettingsIndex = 0;
 var g_getCount = 0;
@@ -42,6 +52,13 @@ var g_putCount = 0;
 var g_frameData;
 var g_vrDisplay;
 var g_vrUi;
+
+var g_multiviewFb;        // multiview framebuffer.
+var g_multiviewViewFb;    // single views inside the multiview framebuffer.
+var g_multiviewTex;       // Color texture for multiview framebuffer.
+var g_multiviewDepth;     // Depth texture for multiview framebuffer.
+var g_multiviewFbWidth = 0;
+var g_multiviewFbHeight = 0;
 
 //g_debug = true;
 
@@ -472,9 +489,11 @@ function createProgramFromTags(
     fragmentTagId,
     fog,
     opt_reflection,
-    opt_normalMaps) {
+    opt_normalMaps,
+    opt_multiview) {
   opt_reflection = (opt_reflection === undefined) ? true : opt_reflection;
   opt_normalMaps = (opt_normalMaps === undefined) ? true : opt_normalMaps;
+  opt_multiview = (opt_multiview === undefined) ? false : opt_multiview;
 
   var fogUniforms = '' +
     'uniform float fogPower;\n' +
@@ -503,7 +522,47 @@ function createProgramFromTags(
     fs = fs.replace(/^.*?\/\/ #normalMap\n/gm, "");
   }
 
-  return tdl.programs.loadProgram(getScriptText(vertexTagId), fs);
+  var vs = getScriptText(vertexTagId);
+
+  if (multiview) {
+    // Replace shader code to get ESSL3 shader code and enable multiview (huge hack, do not do this at home kids)
+
+    var vsPrefix = ["#version 300 es"];
+    if (opt_multiview) {
+        vsPrefix.push("#extension GL_OVR_multiview : require");
+        vsPrefix.push("layout(num_views = 2) in;");
+
+        var addToMain = '';
+        if (vs.indexOf('uniform mat4 viewProjection;') >= 0) {
+            vs = vs.replace('uniform mat4 viewProjection;', 'uniform mat4 viewProjectionArray[2];\nmat4 viewProjection;');
+            addToMain += 'viewProjection = viewProjectionArray[gl_ViewID_OVR];';
+        }
+
+        if (addToMain.length > 0) {
+            vs = vs.replace('void main() {', 'void main() {\n' + addToMain);
+        }
+    }
+    vs = vsPrefix.join('\n') + vs;
+
+    vs = vs.replace(/attribute/g, 'in');
+    vs = vs.replace(/varying/g, 'out');
+
+    var fsPrefix = ["#version 300 es"];
+    if (opt_multiview) {
+        fsPrefix.push("#extension GL_OVR_multiview : require");
+    }
+    fsPrefix.push("out mediump vec4 my_FragColor;");
+    fs = fsPrefix.join('\n') + fs;
+    fs = fs.replace(/varying/g, 'in');
+    fs = fs.replace(/gl_FragColor/g, 'my_FragColor');
+
+    vs = vs.replace(/textureCube\(/g, 'texture(');
+    vs = vs.replace(/texture2D\(/g, 'texture(');
+    fs = fs.replace(/textureCube\(/g, 'texture(');
+    fs = fs.replace(/texture2D\(/g, 'texture(');
+  }
+
+  return tdl.programs.loadProgram(vs, fs);
 }
 
 var Scene = function(opt_programIds, fog) {
@@ -546,6 +605,9 @@ ProgramSet.prototype.getKey = function(shadingSettings) {
   if (shadingSettings.normalMap) {
     key += 'Normalmap';
   }
+  if (shadingSettings.multiview) {
+    key += 'Multiview';
+  }
   return key;
 };
 
@@ -553,7 +615,7 @@ ProgramSet.prototype.getProgram = function(shadingSettings) {
   var key = this.getKey(shadingSettings);
   if (!this.cache.hasOwnProperty(key)) {
     var fog = this.fogMask && shadingSettings.fog;
-    this.cache[key] = createProgramFromTags(this.vsId, this.fsId, fog, shadingSettings.reflection, shadingSettings.normalMap);
+    this.cache[key] = createProgramFromTags(this.vsId, this.fsId, fog, shadingSettings.reflection, shadingSettings.normalMap, shadingSettings.multiview);
   }
   return this.cache[key];
 };
@@ -615,7 +677,7 @@ Scene.prototype.onload_ = function(data, exception) {
       }
 
       var programSet = new ProgramSet(vsId, fsId, this.fog);
-      var program = programSet.getProgram(getShadingSettings());
+      var program = programSet.getProgram(getShadingSettings(false));
 
       tdl.log(this.url, ": ", type);
       var model = new tdl.models.Model(program, arrays, textures);
@@ -626,27 +688,14 @@ Scene.prototype.onload_ = function(data, exception) {
   }
 };
 
-function getShadingSettings() {
+function getShadingSettings(enableMultiview) {
   return {
     fog: g.options.fog.enabled,
     reflection: g.options.reflection.enabled,
-    normalMap: g.options.normalMaps.enabled
+    normalMap: g.options.normalMaps.enabled,
+    multiview: enableMultiview
   };
 }
-
-function setShaders() {
-  var shadingSettings = getShadingSettings();
-  for (var sceneName in g_scenes) {
-    var scene = g_scenes[sceneName];
-    var models = scene.models;
-    var numModels = models.length;
-    for (var jj = 0; jj < numModels; ++jj) {
-      var model = models[jj];
-      model.setProgram(model.programSet.getProgram(shadingSettings));
-    }
-  }
-}
-
 
 function loadScene(name, opt_programIds, fog) {
   var scene = new Scene(opt_programIds, fog);
@@ -719,7 +768,7 @@ function setupLaser() {
       beam2Arrays,
       beam3Arrays]);
   var programSet = new ProgramSet('laserVertexShader', 'laserFragmentShader', false);
-  var program = programSet.getProgram(getShadingSettings());
+  var program = programSet.getProgram(getShadingSettings(false));
   var model = new tdl.models.Model(program, arrays, textures);
   model.programSet = programSet;
   return model;
@@ -743,7 +792,7 @@ function setupLightRay() {
        0, 0.5, 0, 1]);
   delete arrays.normal;
   var programSet = new ProgramSet('texVertexShader', 'texFragmentShader', false);
-  var program = programSet.getProgram(getShadingSettings());
+  var program = programSet.getProgram(getShadingSettings(false));
   var model = new tdl.models.Model(program, arrays, textures);
   model.programSet = programSet;
   return model;
@@ -826,7 +875,12 @@ function main() {
   tdl.webgl.registerContextRestoredHandler(canvas, handleContextRestored);
 
   g_fpsTimer = new tdl.fps.FPSTimer();
-  gl = tdl.webgl.setupWebGL(canvas, g.globals.canvasAttributes);
+  if (isMultiviewSupportEnabled()) {
+    gl = tdl.webgl.setupWebGL(canvas, {antialias: false}, undefined, 'webgl2');
+    multiview = gl.getExtension('WEBGL_multiview');
+  } else {
+    gl = tdl.webgl.setupWebGL(canvas);
+  }
   if (!gl) {
     return false;
   }
@@ -936,13 +990,16 @@ function initialize() {
   var fpsElem = document.getElementById("fps");
 
   var projection = new Float32Array(16);
+  var projectionArray = [new Float32Array(16), new Float32Array(16)];
   var view = new Float32Array(16);
   var world = new Float32Array(16);
   var worldInverse = new Float32Array(16);
   var worldInverseTranspose = new Float32Array(16);
   var viewProjection = new Float32Array(16);
   var viewProjectionNoRotation = new Float32Array(16);
+  var viewProjectionNoRotationArray = new Float32Array(32);
   var viewInverse = new Float32Array(16);
+  var viewProjectionArray = new Float32Array(32);
   var eyePosition = new Float32Array(3);
   var target = new Float32Array(3);
   var up = new Float32Array([0,1,0]);
@@ -959,6 +1016,24 @@ function initialize() {
   var ambient = new Float32Array(4);
   var fogColor = new Float32Array([1,1,1,1]);
 
+  function createMultiviewConst(nonMultiviewConst) {
+    var multiviewConst = {};
+    for (var key in nonMultiviewConst) {
+      if (nonMultiviewConst.hasOwnProperty(key)) {
+        if (key == 'viewProjection') {
+          if (nonMultiviewConst[key] == viewProjection) {
+            multiviewConst['viewProjectionArray'] = viewProjectionArray;
+          } else if (nonMultiviewConst[key] == viewProjectionNoRotation) {
+            multiviewConst['viewProjectionArray'] = viewProjectionNoRotationArray;
+          }
+        } else {
+          multiviewConst[key] = nonMultiviewConst[key];
+        }
+      }
+    }
+    return multiviewConst;
+  }
+
   // Generic uniforms.
   var genericConst = {
     viewInverse: viewInverse,
@@ -969,6 +1044,7 @@ function initialize() {
     shininess: 50,
     specularFactor: 1,
     ambient: ambient};
+  var genericConstMultiview = createMultiviewConst(genericConst);
   var genericPer = {
     world: world,
     worldInverse: worldInverse,
@@ -984,6 +1060,7 @@ function initialize() {
     shininess: 50,
     specularFactor: 0,
     ambient: ambient};
+  var outsideConstMultiview = createMultiviewConst(outsideConst);
   var outsidePer = {
     world: world,
     worldInverse: worldInverse,
@@ -999,6 +1076,7 @@ function initialize() {
     shininess: 50,
     specularFactor: 1,
     ambient: ambient};
+  var seaweedConstMultiview = createMultiviewConst(seaweedConst);
   var seaweedPer = {
     world: world,
     worldInverse: worldInverse,
@@ -1008,17 +1086,24 @@ function initialize() {
   var laserConst = {
     viewProjection: viewProjection,
   };
+  var laserConstMultiview = createMultiviewConst(laserConst);
   var laserPer = {
     world: world};
 
   // Inner uniforms.
-  g.innerConst.viewInverse = viewInverse;
-  g.innerConst.viewProjection = viewProjection;
-  g.innerConst.lightWorldPos = lightWorldPos;
-  g.innerConst.lightColor = one4;
-  g.innerConst.specular = one4;
-  g.innerConst.shininess = 50;
-  g.innerConst.specularFactor = 1;
+  var innerConst = {
+    viewInverse: viewInverse,
+    viewProjection: viewProjection,
+    lightWorldPos: lightWorldPos,
+    lightColor: one4,
+    specular: one4,
+    shininess: 50,
+    specularFactor: 1,
+    refractionFudge: 0,
+    eta: 0,
+    tankColorFudge: 0
+  };
+  var innerConstMultiview = createMultiviewConst(innerConst);
   var innerPer = {
     world: world,
     worldInverse: worldInverse,
@@ -1034,6 +1119,8 @@ function initialize() {
     shininess: 5,
     specularFactor: 0.3,
     ambient: ambient};
+  var fishConstMultiview = createMultiviewConst(fishConst);
+
   var fishPer = {
     worldPosition: new Float32Array(3), //[0,0,0],
     nextPosition: new Float32Array(3), //[0,0,0],
@@ -1043,6 +1130,7 @@ function initialize() {
   var lightRayConst = {
     viewProjection: viewProjectionNoRotation
   };
+  var lightRayConstMultiview = createMultiviewConst(lightRayConst);
   var lightRayPer = {
     world: world,
     colorMult: new Float32Array([1,1,1,1])};
@@ -1128,7 +1216,30 @@ function initialize() {
     viewMatrix[15] = 1;
   }
 
-  function render(projectionMatrix, pose) {
+  function setShaders(enableMultiview) {
+    var shadingSettings = getShadingSettings(enableMultiview);
+    for (var sceneName in g_scenes) {
+      var scene = g_scenes[sceneName];
+      var models = scene.models;
+      var numModels = models.length;
+      for (var jj = 0; jj < numModels; ++jj) {
+        var model = models[jj];
+        model.setProgram(model.programSet.getProgram(shadingSettings));
+      }
+    }
+    laser.setProgram(laser.programSet.getProgram(shadingSettings));
+    lightRay.setProgram(lightRay.programSet.getProgram(shadingSettings));
+  }
+
+  function render(projectionMatrix, pose, useMultiview) {
+    var genericConstInUse = useMultiview ? genericConstMultiview : genericConst;
+    var outsideConstInUse = useMultiview ? outsideConstMultiview : outsideConst;
+    var innerConstInUse = useMultiview ? innerConstMultiview : innerConst;
+    var seaweedConstInUse = useMultiview ? seaweedConstMultiview : seaweedConst;
+    var laserConstInUse = useMultiview ? laserConstMultiview : laserConst;
+    var lightRayConstInUse = useMultiview ? lightRayConstMultiview : lightRayConst;
+    var fishConstInUse = useMultiview ? fishConstMultiview : fishConst;
+
     // If we are running > 40hz then turn on a few more options.
     if (setPretty && g_fpsTimer.averageFPS > 40) {
       setPretty = false;
@@ -1165,13 +1276,22 @@ function initialize() {
       eyePosition[1] = g.globals.eyeHeight;
       eyePosition[2] = g.globals.eyeRadius;
 
-      fast.matrix4.copy(projection, projectionMatrix);
+      if (useMultiview) {
+        for (var viewIndex = 0; viewIndex < projectionMatrix.length; ++viewIndex) {
+          fast.matrix4.copy(projectionArray[viewIndex], projectionMatrix[viewIndex]);
+        }
+      } else {
+        fast.matrix4.copy(projection, projectionMatrix);
+      }
       calculateViewMatrix(viewInverse, pose.orientation, eyePosition);
 
-      // Hard coded FPS translation vector and pin the whole UI in front of the user in VR mode. This hard coded position
-      // vector used only once here.
-      calculateViewMatrix(uiMatrix, pose.orientation, [0, 0, 10]);
-      g_vrUi.render(projection, fast.matrix4.inverse(uiMatrix, uiMatrix), [pose.orientation]);
+      // TODO: Support VRUI when using multiview? Would require adding multiview shaders to UI and changing UI matrices when multiview is on.
+      if (!useMultiview) {
+        // Hard coded FPS translation vector and pin the whole UI in front of the user in VR mode. This hard coded position
+        // vector used only once here.
+        calculateViewMatrix(uiMatrix, pose.orientation, [0, 0, 10]);
+        g_vrUi.render(projection, fast.matrix4.inverse(uiMatrix, uiMatrix), [pose.orientation]);
+      }
     } else {
       fast.matrix4.frustum(
         projection,
@@ -1205,7 +1325,14 @@ function initialize() {
       fast.matrix4.mul(viewInverse, m4t0, viewInverse);
     }
     fast.matrix4.inverse(view, viewInverse);
-    fast.matrix4.mul(viewProjection, view, projection);
+    if (useMultiview) {
+      for (var viewIndex = 0; viewIndex < projectionArray.length; ++viewIndex) {
+        fast.matrix4.mul(viewProjection, view, projectionArray[viewIndex]);
+        viewProjectionArray.set(viewProjection, viewIndex * 16);
+      }
+    } else {
+      fast.matrix4.mul(viewProjection, view, projection);
+    }
 
     fast.matrix4.getAxis(v3t0, viewInverse, 0); // x
     fast.matrix4.getAxis(v3t1, viewInverse, 1); // y;
@@ -1224,24 +1351,27 @@ function initialize() {
 
     gl.depthMask(true);
 
+    innerConstInUse.eta = g.innerConst.eta;
+    innerConstInUse.tankColorFudge = g.innerConst.tankColorFudge;
+    innerConstInUse.refractionFudge = g.innerConst.refractionFudge;
     if (g_fog) {
-      genericConst.fogPower  = g.globals.fogPower;
-      genericConst.fogMult   = g.globals.fogMult;
-      genericConst.fogOffset = g.globals.fogOffset;
-      genericConst.fogOffset = g.globals.fogOffset;
-      genericConst.fogColor  = fogColor;
-      fishConst.fogPower     = g.globals.fogPower;
-      fishConst.fogMult      = g.globals.fogMult;
-      fishConst.fogOffset    = g.globals.fogOffset;
-      fishConst.fogColor     = fogColor;
-      g.innerConst.fogPower  = g.globals.fogPower;
-      g.innerConst.fogMult   = g.globals.fogMult;
-      g.innerConst.fogOffset = g.globals.fogOffset;
-      g.innerConst.fogColor  = fogColor;
-      seaweedConst.fogPower  = g.globals.fogPower;
-      seaweedConst.fogMult   = g.globals.fogMult;
-      seaweedConst.fogOffset = g.globals.fogOffset;
-      seaweedConst.fogColor  = fogColor;
+      genericConstInUse.fogPower  = g.globals.fogPower;
+      genericConstInUse.fogMult   = g.globals.fogMult;
+      genericConstInUse.fogOffset = g.globals.fogOffset;
+      genericConstInUse.fogOffset = g.globals.fogOffset;
+      genericConstInUse.fogColor  = fogColor;
+      fishConstInUse.fogPower     = g.globals.fogPower;
+      fishConstInUse.fogMult      = g.globals.fogMult;
+      fishConstInUse.fogOffset    = g.globals.fogOffset;
+      fishConstInUse.fogColor     = fogColor;
+      innerConstInUse.fogPower  = g.globals.fogPower;
+      innerConstInUse.fogMult   = g.globals.fogMult;
+      innerConstInUse.fogOffset = g.globals.fogOffset;
+      innerConstInUse.fogColor  = fogColor;
+      seaweedConstInUse.fogPower  = g.globals.fogPower;
+      seaweedConstInUse.fogMult   = g.globals.fogMult;
+      seaweedConstInUse.fogOffset = g.globals.fogOffset;
+      seaweedConstInUse.fogColor  = fogColor;
       fogColor[0] = g.globals.fogRed;
       fogColor[1] = g.globals.fogGreen;
       fogColor[2] = g.globals.fogBlue;
@@ -1249,7 +1379,7 @@ function initialize() {
 
     // Draw Scene
     if (g_sceneGroups.base) {
-      DrawGroup(g_sceneGroups.base, genericConst, genericPer);
+      DrawGroup(g_sceneGroups.base, genericConstInUse, genericPer);
     }
 
     // Draw Fishes.
@@ -1270,9 +1400,9 @@ function initialize() {
         var fish = scene.models[0];
         var f = g.fish;
         for (var p in fishInfo.constUniforms) {
-          fishConst[p] = fishInfo.constUniforms[p];
+          fishConstInUse[p] = fishInfo.constUniforms[p];
         }
-        fish.drawPrep(fishConst);
+        fish.drawPrep(fishConstInUse);
         var fishBaseClock = clock * f.fishSpeed;
         var fishRadius = fishInfo.radius;
         var fishRadiusRange = fishInfo.radiusRange;
@@ -1334,13 +1464,13 @@ function initialize() {
     if (g.options.tank.enabled) {
       if (g_sceneGroups.inner) {
         Log("--Draw GlobeInner----------------");
-        DrawGroup(g_sceneGroups.inner, g.innerConst, innerPer);
+        DrawGroup(g_sceneGroups.inner, innerConstInUse, innerPer);
       }
     }
 
     if (g_sceneGroups.seaweed) {
       Log("--Draw Seaweed----------------");
-      DrawGroup(g_sceneGroups.seaweed, seaweedConst, seaweedPer);
+      DrawGroup(g_sceneGroups.seaweed, seaweedConstInUse, seaweedPer);
     }
 
     // Draw Lasers
@@ -1351,9 +1481,9 @@ function initialize() {
       gl.disable(gl.CULL_FACE);
       gl.depthMask(false);
 
-      laser.drawPrep(laserConst);
+      laser.drawPrep(laserConstInUse);
       var c = 0.5 + (frameCount % 2) + 0.5;
-      laserConst.colorMult = [c * 1, c * 0.1, c * 0.1, c];
+      laserConstInUse.colorMult = [c * 1, c * 0.1, c * 0.1, c];
       for (var ff = 0; ff < g_fishTable.length; ++ff) {
         var fishInfo = g_fishTable[ff];
         var numFish = fishInfo.num[g.globals.fishSetting];
@@ -1433,13 +1563,13 @@ function initialize() {
     if (g.options.museum.enabled) {
       if (g_sceneGroups.outside) {
         Log("--Draw outside----------------");
-        DrawGroup(g_sceneGroups.outside, outsideConst, outsidePer);
+        DrawGroup(g_sceneGroups.outside, outsideConstInUse, outsidePer);
       }
     }
 
     fast.matrix4.translation(world, [0, 0, 0]);
     if (g.options.bubbles.enabled) {
-      particleSystem.draw(viewProjection, world, viewInverse);
+      particleSystem.draw(useMultiview ? viewProjectionArray : viewProjection, world, viewInverse, useMultiview);
     }
 
     gl.enable(gl.BLEND);
@@ -1450,8 +1580,15 @@ function initialize() {
       gl.depthMask(false);
       // compute a view with no rotation
       fast.matrix4.translation(m4t1, [view[12], view[13], view[14]]);
-      fast.matrix4.mul(viewProjectionNoRotation, m4t1, projection);
-      lightRay.drawPrep(lightRayConst);
+      if (useMultiview) {
+        for (var viewIndex = 0; viewIndex < projectionArray.length; ++viewIndex) {
+          fast.matrix4.mul(m4t0, m4t1, projectionArray[viewIndex]);
+          viewProjectionNoRotationArray.set(m4t0, viewIndex * 16);
+        }
+      } else {
+        fast.matrix4.mul(viewProjectionNoRotation, m4t1, projection);
+      }
+      lightRay.drawPrep(lightRayConstInUse);
       for (var ii = 0; ii < g_lightRayInfo.length; ++ii) {
         var info = g_lightRayInfo[ii];
         var lerp = info.timer / info.duration;
@@ -1477,7 +1614,7 @@ function initialize() {
     if (g.options.tank.enabled) {
       if (g_sceneGroups.outer) {
         Log("--Draw GlobeOuter----------------");
-        DrawGroup(g_sceneGroups.outer, g.innerConst, innerPer);
+        DrawGroup(g_sceneGroups.outer, innerConstInUse, innerPer);
       }
     }
 
@@ -1489,7 +1626,7 @@ function initialize() {
       gl.disable(gl.CULL_FACE);
       gl.depthMask(false);
 
-      laser.drawPrep(laserConst);
+      laser.drawPrep(laserConstInUse);
       for (var ff = 0; ff < g_fishTable.length; ++ff) {
         var fishInfo = g_fishTable[ff];
         var numFish = fishInfo.num[g.globals.fishSetting];
@@ -1600,7 +1737,10 @@ function initialize() {
         // Query gamepad button clicked event.
         g_vrUi.queryGamepadStatus();
 
-        if (g_vrUi.isMenuMode) {
+        var useMultiview = multiview && g.options.useMultiview.enabled;
+
+        // TODO: Support VRUI when doing multiview rendering.
+        if (!useMultiview && g_vrUi.isMenuMode) {
 
           // When VR UI in menu mode, UI need a cursor to help user do select operation. Currently, cursor uses
           // head-neck model which means a point in front of user and user could move the point by rotating their head(with HMD).
@@ -1625,31 +1765,93 @@ function initialize() {
           }
         }
 
-        gl.enable(gl.SCISSOR_TEST);
-        gl.viewport(0, 0, canvas.width * 0.5, canvas.height);
-        gl.scissor(0, 0, canvas.width * 0.5, canvas.height);
-        render(g_frameData.leftProjectionMatrix, g_frameData.pose);
+        if (useMultiview) {
+          setupMultiviewFbIfNeeded();
+          var halfWidth = Math.floor(canvas.width * 0.5);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, g_multiviewFb);
+          gl.viewport(0, 0, halfWidth, canvas.height);
+          gl.disable(gl.SCISSOR_TEST);
+          setShaders(true);
+          render([g_frameData.leftProjectionMatrix, g_frameData.rightProjectionMatrix], g_frameData.pose, true);
 
-        gl.viewport(canvas.width * 0.5, 0, canvas.width * 0.5, canvas.height);
-        gl.scissor(canvas.width * 0.5, 0, canvas.width * 0.5, canvas.height);
-        render(g_frameData.rightProjectionMatrix, g_frameData.pose);
+          gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+          gl.bindFramebuffer(gl.READ_FRAMEBUFFER, g_multiviewViewFb[0]);
+          gl.blitFramebuffer(0, 0, halfWidth, canvas.height, 0, 0, halfWidth, canvas.height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+          gl.bindFramebuffer(gl.READ_FRAMEBUFFER, g_multiviewViewFb[1]);
+          gl.blitFramebuffer(0, 0, halfWidth, canvas.height, halfWidth, 0, canvas.width, canvas.height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+        } else { // not multiview
+          gl.viewport(0, 0, canvas.width * 0.5, canvas.height);
+          gl.enable(gl.SCISSOR_TEST);
+          setShaders(false);
+          gl.scissor(0, 0, canvas.width * 0.5, canvas.height);
+          render(g_frameData.leftProjectionMatrix, g_frameData.pose);
+
+          gl.viewport(canvas.width * 0.5, 0, canvas.width * 0.5, canvas.height);
+          gl.scissor(canvas.width * 0.5, 0, canvas.width * 0.5, canvas.height);
+          render(g_frameData.rightProjectionMatrix, g_frameData.pose);
+        }
 
         g_vrDisplay.submitFrame();
       } else {
         gl.disable(gl.SCISSOR_TEST);
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        setShaders(false);
         render();
       }
     } else {
       g_requestId = tdl.webgl.requestAnimationFrame(onAnimationFrame, canvas);
       gl.disable(gl.SCISSOR_TEST);
       gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      setShaders(false);
       render();
     }
   }
 
   onAnimationFrame();
   return true;
+}
+
+function setupMultiviewFbIfNeeded() {
+  var halfWidth = Math.floor(canvas.width * 0.5);
+  if (!g_multiviewFb) {
+    console.log('Setting up multiview FBO with dimensions: ', halfWidth, canvas.height);
+    g_multiviewFb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, g_multiviewFb);
+
+    g_multiviewTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, g_multiviewTex);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA8, halfWidth, canvas.height, 2, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    multiview.framebufferTextureMultiviewWEBGL(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, g_multiviewTex, 0, 0, 2);
+
+    g_multiviewDepth = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, g_multiviewDepth);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH24_STENCIL8, halfWidth, canvas.height, 2, 0, gl.DEPTH_STENCIL, gl.UNSIGNED_INT_24_8, null);
+    multiview.framebufferTextureMultiviewWEBGL(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, g_multiviewDepth, 0, 0, 2);
+
+    g_multiviewViewFb = [null, null];
+    for (var viewIndex = 0; viewIndex < 2; ++viewIndex) {
+      g_multiviewViewFb[viewIndex] = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, g_multiviewViewFb[viewIndex]);
+      gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, g_multiviewTex, 0, viewIndex);
+    }
+    g_multiviewFbWidth = halfWidth;
+    g_multiviewFbHeight = canvas.height;
+  }
+  if (g_multiviewFbWidth < halfWidth || g_multiviewFbHeight < canvas.height)
+  {
+    console.log('Updating multiview FBO with dimensions: ', halfWidth, canvas.height);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, g_multiviewTex);
+    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA8, halfWidth, canvas.height, 2, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, g_multiviewDepth);
+    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH24_STENCIL8, halfWidth, canvas.height, 2, 0, gl.DEPTH_STENCIL, gl.UNSIGNED_INT_24_8, null);
+    g_multiviewFbWidth = halfWidth;
+    g_multiviewFbHeight = canvas.height;
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
 
 /**
@@ -1695,19 +1897,6 @@ function initUIStuff() {
     options[name] = {enabled:!option.enabled};
     setSettings({options:options});
     elem.style.color = option.enabled ? "red" : "gray";
-    switch (option.name) {
-    case 'normalMaps':
-      setShaders();
-      break;
-    case 'reflection':
-      setShaders();
-      break;
-    case 'tank':
-      break;
-    case 'fog':
-      setShaders();
-      break;
-    }
   }
 
   var optionsContainer = document.getElementById("optionsContainer");

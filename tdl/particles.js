@@ -285,11 +285,56 @@ tdl.particles.ParticleSystem = function(gl,
 
   var shaders = [];
   shaders.push(new tdl.shader.Shader(gl,
-                                       tdl.particles.SHADER_STRINGS[0],
-                                       tdl.particles.SHADER_STRINGS[2]));
+                                     tdl.particles.SHADER_STRINGS[0],
+                                     tdl.particles.SHADER_STRINGS[2]));
   shaders.push(new tdl.shader.Shader(gl,
-                                       tdl.particles.SHADER_STRINGS[1],
-                                       tdl.particles.SHADER_STRINGS[2]));
+                                     tdl.particles.SHADER_STRINGS[1],
+                                     tdl.particles.SHADER_STRINGS[2]));
+
+  var makeShaderSourceMultiview = function(shaderType, shaderString) {
+    // Replace shader code to get ESSL3 shader code and enable multiview (huge hack, do not do this at home kids)
+    var prefix = ["#version 300 es"];
+    prefix.push("#extension GL_OVR_multiview : require");
+    if (shaderType == 'vs') {
+      prefix.push("layout(num_views = 2) in;");
+    } else {
+      prefix.push("out mediump vec4 my_FragColor;");
+    }
+    prefix.push('\n');
+    shaderString = prefix.join('\n') + shaderString;
+
+    var addToMain = '';
+    if (shaderString.indexOf('uniform mat4 viewProjection;') >= 0) {
+      shaderString = shaderString.replace('uniform mat4 viewProjection;', 'uniform mat4 viewProjectionArray[2];\nmat4 viewProjection;');
+      addToMain += 'viewProjection = viewProjectionArray[gl_ViewID_OVR];';
+    }
+
+    if (addToMain.length > 0) {
+      shaderString = shaderString.replace('void main() {', 'void main() {\n' + addToMain);
+    }
+
+    if (shaderType == 'vs') {
+      shaderString = shaderString.replace(/attribute/g, 'in');
+      shaderString = shaderString.replace(/varying/g, 'out');
+    } else {
+      shaderString = shaderString.replace(/varying/g, 'in');
+      shaderString = shaderString.replace(/gl_FragColor/g, 'my_FragColor');
+    }
+
+    shaderString = shaderString.replace(/textureCube\(/g, 'texture(');
+    shaderString = shaderString.replace(/texture2D\(/g, 'texture(');
+    return shaderString;
+  };
+
+  var multiviewShaders = [];
+  if (gl.getExtension('WEBGL_multiview')) {
+    multiviewShaders.push(new tdl.shader.Shader(gl,
+                                                makeShaderSourceMultiview('vs', tdl.particles.SHADER_STRINGS[0]),
+                                                makeShaderSourceMultiview('fs', tdl.particles.SHADER_STRINGS[2])));
+    multiviewShaders.push(new tdl.shader.Shader(gl,
+                                                makeShaderSourceMultiview('vs', tdl.particles.SHADER_STRINGS[1]),
+                                                makeShaderSourceMultiview('fs', tdl.particles.SHADER_STRINGS[2])));
+  }
 
   var blendFuncs = {};
   blendFuncs[tdl.particles.ParticleStateIds.BLEND] = {
@@ -355,6 +400,8 @@ tdl.particles.ParticleSystem = function(gl,
    * @type {!Array.<!Shader>}
    */
   this.shaders = shaders;
+
+  this.multiviewShaders = multiviewShaders;
 
   /**
    * The default color texture for particles.
@@ -683,11 +730,13 @@ tdl.particles.ParticleSystem.prototype.createTrail = function(
  * enabling, array buffer binding, element array buffer binding, the
  * textures bound to texture units 0 and 1, and which is the active
  * texture unit.
- * @param {!Matrix4x4} viewProjection The viewProjection matrix.
+ * @param {!Matrix4x4} viewProjection The viewProjection matrix or in case
+ *     of multiview rendering several viewProjection matrices in an array.
  * @param {!Matrix4x4} world The world matrix.
  * @param {!Matrix4x4} viewInverse The viewInverse matrix.
+ * @param {bool} useMultiview Set to true when multiview rendering is in use.
  */
-tdl.particles.ParticleSystem.prototype.draw = function(viewProjection, world, viewInverse) {
+tdl.particles.ParticleSystem.prototype.draw = function(viewProjection, world, viewInverse, useMultiview) {
   // Update notion of current time
   this.now_ = new Date();
   // Set up global state
@@ -695,16 +744,30 @@ tdl.particles.ParticleSystem.prototype.draw = function(viewProjection, world, vi
   gl.depthMask(false);
   gl.enable(gl.DEPTH_TEST);
   // Set up certain uniforms once per shader per draw.
-  var shader = this.shaders[0];
+  var shaders = useMultiview ? this.multiviewShaders : this.shaders;
+
+  var shader = shaders[0];
   shader.bind();
-  gl.uniformMatrix4fv(shader.viewProjectionLoc,
-                      false,
-                      viewProjection);
-  var shader = this.shaders[1];
+  if (useMultiview) {
+    gl.uniformMatrix4fv(shader.viewProjectionArrayLoc,
+                        false,
+                        viewProjection);
+  } else {
+    gl.uniformMatrix4fv(shader.viewProjectionLoc,
+                        false,
+                        viewProjection);
+  }
+  var shader = shaders[1];
   shader.bind();
-  gl.uniformMatrix4fv(shader.viewProjectionLoc,
-                      false,
-                      viewProjection);
+  if (useMultiview) {
+    gl.uniformMatrix4fv(shader.viewProjectionArrayLoc,
+                        false,
+                        viewProjection);
+  } else {
+    gl.uniformMatrix4fv(shader.viewProjectionLoc,
+                        false,
+                        viewProjection);
+  }
   gl.uniformMatrix4fv(shader.viewInverseLoc,
                       false,
                       viewInverse);
@@ -712,7 +775,7 @@ tdl.particles.ParticleSystem.prototype.draw = function(viewProjection, world, vi
   // FIXME: this is missing O3D's z-sorting logic from the
   // zOrderedDrawList
   for (var ii = 0; ii < this.drawables_.length; ++ii) {
-    this.drawables_[ii].draw(world, 0);
+    this.drawables_[ii].draw(world, 0, shaders);
   }
 };
 
@@ -1078,7 +1141,7 @@ tdl.particles.ParticleEmitter.prototype.setParameters = function(
       opt_perParticleParamSetter);
 };
 
-tdl.particles.ParticleEmitter.prototype.draw = function(world, timeOffset) {
+tdl.particles.ParticleEmitter.prototype.draw = function(world, timeOffset, shaders) {
   if (!this.createdParticles_) {
     return;
   }
@@ -1095,7 +1158,7 @@ tdl.particles.ParticleEmitter.prototype.draw = function(world, timeOffset) {
     gl.blendEquation(gl.FUNC_ADD);
   }
 
-  var shader = this.particleSystem.shaders[this.billboard_ ? 1 : 0];
+  var shader = shaders[this.billboard_ ? 1 : 0];
   shader.bind();
 
   var tmpWorld = this.tmpWorld_;
@@ -1244,10 +1307,10 @@ tdl.particles.OneShot.prototype.trigger = function(opt_world) {
  *
  * @private
  */
-tdl.particles.OneShot.prototype.draw = function(world, timeOffset) {
+tdl.particles.OneShot.prototype.draw = function(world, timeOffset, shaders) {
   if (this.visible_) {
     tdl.fast.matrix4.mul(this.tempWorld_, this.world_, world);
-    this.emitter_.draw(this.tempWorld_, this.timeOffset_);
+    this.emitter_.draw(this.tempWorld_, this.timeOffset_, shaders);
   }
 };
 
