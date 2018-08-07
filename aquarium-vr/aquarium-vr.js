@@ -1148,23 +1148,7 @@ function initialize() {
     viewMatrix[15] = 1;
   }
 
-  function render(elapsedTime, projectionMatrix, pose) {
-    /*
-    var now = theClock.getTime();
-    var elapsedTime;
-    if(then == 0.0) {
-      elapsedTime = 0.0;
-    } else {
-      elapsedTime = now - then;
-    }
-    then = now;
-
-    frameCount++;
-
-    g_fpsTimer.update(elapsedTime);
-    fpsElem.innerHTML = g_fpsTimer.averageFPS;
-    */
-
+  function render(projectionMatrix, pose) {
     // If we are running > 40hz then turn on a few more options.
     if (setPretty && g_fpsTimer.averageFPS > 40) {
       setPretty = false;
@@ -1174,15 +1158,6 @@ function initialize() {
 
     if (g.globals.fitWindow) {
       setCanvasSize(canvas, canvas.clientWidth, canvas.clientHeight);
-    }
-
-    if (g.net.sync) {
-      clock = now * g.globals.speed;
-      eyeClock = now * g.globals.eyeSpeed;
-    } else {
-      // we have our own clock.
-      clock += elapsedTime * g.globals.speed;
-      eyeClock += elapsedTime * g.globals.eyeSpeed;
     }
 
     ambient[0] = g.globals.ambientRed;
@@ -1515,20 +1490,6 @@ function initialize() {
       }
     }
 
-    bubbleTimer -= elapsedTime * g.globals.speed;
-    if (bubbleTimer < 0) {
-      bubbleTimer = 2 + Math.random() * 8;
-      var radius = Math.random() * 50;
-      var angle = Math.random() * Math.PI * 2;
-      fast.matrix4.translation(
-          world,
-          [Math.sin(angle) * radius,
-           0,
-           Math.cos(angle) * radius]);
-      g_bubbleSets[bubbleIndex].trigger(world);
-      ++bubbleIndex;
-      bubbleIndex = bubbleIndex % g_numBubbleSets;
-    }
     fast.matrix4.translation(world, [0, 0, 0]);
     if (g.options.bubbles.enabled) {
       particleSystem.draw(viewProjection, world, viewInverse);
@@ -1544,10 +1505,6 @@ function initialize() {
         var info = g_lightRayInfo[ii];
         var lerp = info.timer / info.duration;
         var y = Math.max(70, Math.min(120, g_lightRayY + g.globals.eyeHeight));
-        info.timer -= elapsedTime * g.globals.speed;
-        if (info.timer < 0) {
-          initLightRay(info);
-        }
         fast.matrix4.mul(
             m4t1,
             fast.matrix4.rotationZ(m4t0, info.rot + lerp * g_lightRayRotLerp),
@@ -1662,6 +1619,42 @@ function initialize() {
     }
     then = now;
 
+    if (g.net.sync) {
+      clock = now * g.globals.speed;
+      eyeClock = now * g.globals.eyeSpeed;
+    } else {
+      // we have our own clock.
+      clock += elapsedTime * g.globals.speed;
+      eyeClock += elapsedTime * g.globals.eyeSpeed;
+    }
+
+    if (g.options.lightRays.enabled) {
+      for (var ii = 0; ii < g_lightRayInfo.length; ++ii) {
+        var info = g_lightRayInfo[ii];
+        info.timer -= elapsedTime * g.globals.speed;
+        if (info.timer < 0) {
+          initLightRay(info);
+        }
+      }
+    }
+
+    if (g.options.bubbles.enabled) {
+      bubbleTimer -= elapsedTime * g.globals.speed;
+      if (bubbleTimer < 0) {
+        bubbleTimer = 2 + Math.random() * 8;
+        var radius = Math.random() * 50;
+        var angle = Math.random() * Math.PI * 2;
+        fast.matrix4.translation(
+            world,
+            [Math.sin(angle) * radius,
+             0,
+             Math.cos(angle) * radius]);
+        g_bubbleSets[bubbleIndex].trigger(world);
+        ++bubbleIndex;
+        bubbleIndex = bubbleIndex % g_numBubbleSets;
+      }
+    }
+
     frameCount++;
 
     g_fpsTimer.update(elapsedTime);
@@ -1715,22 +1708,22 @@ function initialize() {
         }
       
         gl.viewport(0, 0, canvas.width * 0.5, canvas.height);
-        render(elapsedTime, g_frameData.leftProjectionMatrix, g_frameData.pose);
+        render(g_frameData.leftProjectionMatrix, g_frameData.pose);
 
         gl.viewport(canvas.width * 0.5, 0, canvas.width * 0.5, canvas.height);
-        render(elapsedTime, g_frameData.rightProjectionMatrix, g_frameData.pose);
+        render(g_frameData.rightProjectionMatrix, g_frameData.pose);
 
         g_vrDisplay.submitFrame();
       } else {
         gl.viewport(0, 0, canvas.width, canvas.height);
-        render(elapsedTime);
+        render();
       }
     } else {
       if (!g_drawOnce) {
         g_requestId = tdl.webgl.requestAnimationFrame(onAnimationFrame, canvas);
       }
       gl.viewport(0, 0, canvas.width, canvas.height);
-      render(elapsedTime);
+      render();
     }
 
     // Set the alpha to 255.
@@ -1739,7 +1732,6 @@ function initialize() {
     gl.clear(gl.COLOR_BUFFER_BIT);
   }
 
-  //render();
   onAnimationFrame();
   return true;
 }
