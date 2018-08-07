@@ -363,6 +363,27 @@ function parseQueryString(s) {
   return q;
 }
 
+function setCanvasSize(canvas, newWidth, newHeight) {
+  var changed = false;
+  if (newWidth != canvas.width) {
+    canvas.width = newWidth;
+    changed = true;
+    tdl.log("new canvas width:", newWidth);
+  }
+  if (newHeight != canvas.height) {
+    canvas.height = newHeight;
+    changed = true;
+    tdl.log("new canvas height:", newHeight);
+  }
+  if (changed) {
+    var widthElem = document.getElementById("canvasWidth");
+    widthElem.innerHTML = canvas.width;
+    var heightElem = document.getElementById("canvasHeight");
+    heightElem.innerHTML = canvas.height;
+  }
+  return changed;
+}
+
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
   for (var ii = 0; ii < args.length; ++ii) {
     if (args[ii] === undefined) {
@@ -1095,54 +1116,6 @@ function initialize() {
     eyeClock = now;
   }
 
-  function setCanvasSize(canvas, newWidth, newHeight) {
-    var changed = false;
-    var ratio = (g.win.useDevicePixelRation && window.devicePixelRatio) ? window.devicePixelRatio : 1;
-    newWidth *= ratio;
-    newHeight *= ratio;
-    if (newWidth != canvas.width) {
-      canvas.width = newWidth;
-      changed = true;
-      tdl.log("new canvas width:", newWidth);
-    }
-    if (newHeight != canvas.height) {
-      canvas.height = newHeight;
-      changed = true;
-      tdl.log("new canvas height:", newHeight);
-    }
-    if (changed) {
-      var widthElem = document.getElementById("canvasWidth");
-      widthElem.innerHTML = canvas.width;
-      var heightElem = document.getElementById("canvasHeight");
-      heightElem.innerHTML = canvas.height;
-
-      //tdl.log("drawingBufferDimensions:" + gl.drawingBufferWidth + ", " + gl.drawingBufferHeight);
-      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-    }
-    return changed;
-  }
-
-  function increaseCanvasSize(canvas) {
-//tdl.log(canvas.width, canvas.clientWidth, canvas.width / canvas.clientWidth);
-//tdl.log(canvas.height, canvas.clientHeight, canvas.height / canvas.clientHeight);
-    var newWidth = Math.min(maxViewportDims[0],
-        canvas.width * ((canvas.clientWidth / canvas.width > 1.2) ? 2 : 1));
-    var newHeight = Math.min(maxViewportDims[1],
-        canvas.height * ((canvas.clientHeight / canvas.height > 1.2) ? 2 : 1));
-    return setCanvasSize(canvas, newWidth, newHeight);
-  }
-
-  function decreaseCanvasSize(canvas) {
-    var newWidth = Math.max(512,
-        canvas.width * ((canvas.clientWidth / canvas.width < 0.5) ? 0.5 : 1));
-    var newHeight = Math.max(512,
-        canvas.height * ((canvas.clientHeight / canvas.height < 0.5) ? 0.5 :
-                         1));
-    return setCanvasSize(canvas, newWidth, newHeight);
-  }
-
-  var checkResTimer = 2;
-
   if (g.globals.width && g.globals.height) {
     setCanvasSize(canvas, g.globals.width, g.globals.height);
   }
@@ -1197,22 +1170,6 @@ function initialize() {
       setPretty = false;
       if (!g.options.normalMaps.enabled) { g.options.normalMaps.toggle(); }
       if (!g.options.reflection.enabled) { g.options.reflection.toggle(); }
-    }
-
-    // See if we should increase/decrease the rendering resolution
-    checkResTimer -= elapsedTime;
-    if (checkResTimer < 0) {
-      if (g.win && g.win.adjustRes) {
-        if (g_fpsTimer.averageFPS > 35) {
-          if (increaseCanvasSize(canvas)) {
-            checkResTimer = 2;
-          }
-        } else if (g_fpsTimer.averageFPS < 15) {
-          if (decreaseCanvasSize(canvas)) {
-            checkResTimer = 2;
-          }
-        }
-      }
     }
 
     if (g.globals.fitWindow) {
@@ -2066,13 +2023,11 @@ var VR = (function() {
       var leftEye = g_vrDisplay.getEyeParameters("left");
       var rightEye = g_vrDisplay.getEyeParameters("right");
 
-      canvas.width = Math.max(leftEye.renderWidth, rightEye.renderWidth) * 2;
-      canvas.height = Math.max(leftEye.renderHeight, rightEye.renderHeight);
+      setCanvasSize(canvas, Math.max(leftEye.renderWidth, rightEye.renderWidth) * 2, Math.max(leftEye.renderHeight, rightEye.renderHeight));
     } else {
       // When we're not presenting, we want to change the size of the canvas
       // to match the window dimensions.
-      canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-      canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+      setCanvasSize(canvas, canvas.offsetWidth * window.devicePixelRatio, canvas.offsetHeight * window.devicePixelRatio);
     }
   }
 
@@ -2106,6 +2061,8 @@ var VR = (function() {
     } else {
       console.log("Your browser does not support WebVR. See webvr.info for assistance");
     }
+
+    onResize();
   }
 
   window.addEventListener('DOMContentLoaded', init, false);
