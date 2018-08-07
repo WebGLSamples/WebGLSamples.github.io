@@ -140,30 +140,6 @@ CANVAS {
 </div>
 <div id="msgContainer"></div>
 </body>
-<!--
-<script id="constVertexShader" type="text/something-not-javascript">
-attribute vec4 position;
-//attribute vec3 normal;
-//attribute vec2 texCoord;
-//varying vec2 v_texCoord;
-//varying vec3 v_normal;
-uniform mat4 worldViewProjection;
-void main() {
-  //v_texCoord = texCoord;
-  //v_normal = normal;
-  gl_Position = (worldViewProjection * position);
-}
-</script>
-<script id="constFragmentShader" type="text/something-not-javascript">
-precision mediump float;
-//varying vec2 v_texCoord;
-//varying vec3 v_normal;
-void main() {
-//  gl_FragColor = vec4(vec3(v_texCoord, 1) + v_normal, 1);
-  gl_FragColor = vec4(1, 1, 0, 1);
-}
-</script>
--->
 <script id="texVertexShader" type="text/something-not-javascript">
 attribute vec4 position;
 attribute vec2 texCoord;
@@ -868,36 +844,6 @@ void main() {
       skyColor,
       reflectColor,
       ((r + 0.3) * (reflection.r))).rgb, 1.0 - r);
-}
-</script>
-<!-- ===[ SkyBox ]============================================== -->
-<script id="refractSkyboxVertexShader" type="text/something-not-javascript">
-attribute vec4 position;
-varying vec4 v_position;
-
-void main() {
-  v_position = position;
-  gl_Position = position;
-}
-</script>
-<script id="skyboxVertexShader" type="text/something-not-javascript">
-attribute vec4 position;
-varying vec4 v_position;
-void main() {
-  v_position = position;
-  gl_Position = position;
-}
-</script>
-<script id="skyboxFragmentShader" type="text/something-not-javascript">
-precision mediump float;
-uniform samplerCube skybox;
-uniform mat4 viewDirectionProjectionInverse;
-varying vec4 v_position;
-void main() {
-  vec4 t = viewDirectionProjectionInverse * v_position;
-  gl_FragColor = textureCube(
-      skybox,
-      normalize(t.xyz));
 }
 </script>
 </html>
