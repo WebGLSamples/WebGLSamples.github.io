@@ -1,13 +1,8 @@
-tdl.require('tdl.fast');
 tdl.require('tdl.io');
 tdl.require('tdl.log');
-tdl.require('tdl.math');
-tdl.require('tdl.screenshot');
 tdl.require('tdl.sync');
 
 // globals
-var math;                 // the math lib.
-var fast;                 // the fast math lib.
 var g_syncManager;
 
 var g_viewSettingsIndex = 0;
@@ -176,21 +171,6 @@ var g = {
 };
 
 var g_uiWidgets = {};
-
-function Log(msg) {
-  if (g_logGLCalls) {
-    tdl.log(msg);
-  }
-}
-
-function getScriptText(id) {
-  //tdl.log("loading: ", id);
-  var elem = document.getElementById(id);
-  if (!elem) {
-    throw 'no element: ' + id
-  }
-  return elem.text;
-}
 
 function updateUI(settings) {
   function updateUIInner(obj, dst) {
