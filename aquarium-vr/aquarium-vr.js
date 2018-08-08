@@ -1117,6 +1117,8 @@ function initialize() {
     gl.clearColor(0,0.8,1,0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
+    var presentingVR = g_vrDisplay && g_vrDisplay.isPresenting && pose.position;
+
     var near = 1;
     var far = 25000;
     var aspect = canvas.clientWidth / canvas.clientHeight;
@@ -1129,7 +1131,7 @@ function initialize() {
     var xOff = width * g.net.offset[0] * g.net.offsetMult;
     var yOff = height * g.net.offset[1] * g.net.offsetMult;
     var uiMatrix = new Float32Array(16);
-    if (g_vrDisplay && g_vrDisplay.isPresenting && pose.position) {
+    if (presentingVR) {
       // Using head-neck model in VR mode because of unclear distance measurement(vr return position using meters),
       // user could see around but couldn't move around.
       eyePosition[0] = g.globals.eyeRadius;
@@ -1416,7 +1418,8 @@ function initialize() {
 
     gl.enable(gl.BLEND);
     gl.disable(gl.CULL_FACE);
-    if (g.options.lightRays.enabled) {
+    // Light rays are not supported in VR mode - they are rendered in a way that they can't handle headset rotation.
+    if (g.options.lightRays.enabled && !presentingVR) {
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
       gl.depthMask(false);
       lightRay.drawPrep(lightRayConst);
