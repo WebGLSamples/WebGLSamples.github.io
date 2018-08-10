@@ -528,6 +528,36 @@ Scene.prototype.stop = function() {
   this.ignore = false;
 };
 
+var ProgramSet = function(vsId, fsId, fogMask) {
+  this.vsId = vsId;
+  this.fsId = fsId;
+  this.fogMask = fogMask; // If fogMask is false, then programs from this program set never have fog turned on.
+  this.cache = {};
+};
+
+ProgramSet.prototype.getKey = function(shadingSettings) {
+  var key = 'p';
+  if (this.fogMask && shadingSettings.fog) {
+    key += 'Fog';
+  }
+  if (shadingSettings.reflection) {
+    key += 'Reflect';
+  }
+  if (shadingSettings.normalMap) {
+    key += 'Normalmap';
+  }
+  return key;
+};
+
+ProgramSet.prototype.getProgram = function(shadingSettings) {
+  var key = this.getKey(shadingSettings);
+  if (!this.cache.hasOwnProperty(key)) {
+    var fog = this.fogMask && shadingSettings.fog;
+    this.cache[key] = createProgramFromTags(this.vsId, this.fsId, fog, shadingSettings.reflection, shadingSettings.normalMap);
+  }
+  return this.cache[key];
+};
+
 Scene.prototype.onload_ = function(data, exception) {
   if (this.ignore) {
     return;
@@ -553,11 +583,6 @@ Scene.prototype.onload_ = function(data, exception) {
           field.data,
           field.type);
       }
-      // setup program
-      // There are 3 programs
-      // DM
-      // DM+NM
-      // DM+NM+RM
       var type;
       var vsId;
       var fsId;
@@ -588,58 +613,36 @@ Scene.prototype.onload_ = function(data, exception) {
         vsId = 'diffuseVertexShader';
         fsId = 'diffuseFragmentShader';
       }
-      var program = createProgramFromTags(vsId, fsId, this.fog);
-      var noFog = createProgramFromTags(vsId, fsId, false);
-      var noReflection = createProgramFromTags(vsId, fsId, this.fog, false);
-      var noFognoReflection = createProgramFromTags(vsId, fsId, false, false);
-      var noNormalMaps = createProgramFromTags(vsId, fsId, this.fog, false);
-      var noFognoNormalMaps =
-          createProgramFromTags(vsId, fsId, false, false);
-      var noReflectionnoNormalMaps =
-          createProgramFromTags(vsId, fsId, this.fog, false, false);
-      var noFognoReflectionnoNormalMaps =
-          createProgramFromTags(vsId, fsId, false, false, false);
+
+      var programSet = new ProgramSet(vsId, fsId, this.fog);
+      var program = programSet.getProgram(getShadingSettings());
 
       tdl.log(this.url, ": ", type);
       var model = new tdl.models.Model(program, arrays, textures);
-      model.programs = {
-        base: program,
-        noFog: noFog,
-        noReflection: noReflection,
-        noFognoReflection: noFognoReflection,
-        noNormalMaps: noNormalMaps,
-        noFognoNormalMaps: noFognoNormalMaps,
-        noReflectionnoNormalMaps: noReflectionnoNormalMaps,
-        noFognoReflectionnoNormalMaps: noFognoReflectionnoNormalMaps
-      };
+      model.programSet = programSet;
       model.extents = arrays.position.computeExtents();
       this.models.push(model);
     }
-    setShaders();
   }
 };
 
+function getShadingSettings() {
+  return {
+    fog: g.options.fog.enabled,
+    reflection: g.options.reflection.enabled,
+    normalMap: g.options.normalMaps.enabled
+  };
+}
+
 function setShaders() {
-  var name = '';
-  if (!g.options.fog.enabled) {
-    name += 'noFog';
-  }
-  if (!g.options.reflection.enabled) {
-    name += 'noReflection';
-  }
-  if (!g.options.normalMaps.enabled) {
-    name += 'noNormalMaps';
-  }
-  if (name == '') {
-    name = 'base';
-  }
+  var shadingSettings = getShadingSettings();
   for (var sceneName in g_scenes) {
     var scene = g_scenes[sceneName];
     var models = scene.models;
     var numModels = models.length;
     for (var jj = 0; jj < numModels; ++jj) {
       var model = models[jj];
-      model.setProgram(model.programs[name]);
+      model.setProgram(model.programSet.getProgram(shadingSettings));
     }
   }
 }
@@ -701,9 +704,6 @@ function initLightRay(info) {
 function setupLaser() {
   var textures = {
       colorMap: tdl.textures.loadTexture(g_aquariumConfig.aquariumRoot + 'static_assets/beam.png')};
-  var program = createProgramFromTags(
-      'laserVertexShader',
-      'laserFragmentShader');
   var beam1Arrays = tdl.primitives.createPlane(1, 1, 1, 1);
   delete beam1Arrays.normal;
   tdl.primitives.reorient(beam1Arrays,
@@ -718,7 +718,11 @@ function setupLaser() {
       beam1Arrays,
       beam2Arrays,
       beam3Arrays]);
-  return new tdl.models.Model(program, arrays, textures);
+  var programSet = new ProgramSet('laserVertexShader', 'laserFragmentShader', false);
+  var program = programSet.getProgram(getShadingSettings());
+  var model = new tdl.models.Model(program, arrays, textures);
+  model.programSet = programSet;
+  return model;
 }
 
 function setupLightRay() {
@@ -731,9 +735,6 @@ function setupLightRay() {
 
   var textures = {
       colorMap: tdl.textures.loadTexture(g_aquariumConfig.aquariumRoot + 'assets/LightRay.png') };
-  var program = createProgramFromTags(
-      'texVertexShader',
-      'texFragmentShader');
   var arrays = tdl.primitives.createPlane(1, 1, 1, 1);
   tdl.primitives.reorient(arrays,
       [1, 0, 0, 0,
@@ -741,7 +742,11 @@ function setupLightRay() {
        0, 1, 0, 0,
        0, 0.5, 0, 1]);
   delete arrays.normal;
-  return new tdl.models.Model(program, arrays, textures);
+  var programSet = new ProgramSet('texVertexShader', 'texFragmentShader', false);
+  var program = programSet.getProgram(getShadingSettings());
+  var model = new tdl.models.Model(program, arrays, textures);
+  model.programSet = programSet;
+  return model;
 }
 
 function setupBubbles(particleSystem) {
