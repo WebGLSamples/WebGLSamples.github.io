@@ -24,11 +24,8 @@ var fast;                 // the fast math lib.
 var g_fpsTimer;           // object to measure frames per second;
 var g_logGLCalls = true   // whether or not to log webgl calls
 var g_debug = false;      // whether or not to debug.
-var g_drawOnce = false;
 var g_setSettingElements = [];
 var g_numSettingElements = {};
-var g_sharkWorldMats = [];
-var g_beamWorldMats = [];
 var g_scenes = {};  // each of the models
 var g_sceneGroups = {};  // the placement of the models
 var g_fog = true;
@@ -39,19 +36,10 @@ var g_vrDisplay;
 var g_vrUi;
 
 //g_debug = true;
-//g_drawOnce = true;
 
-var g_numSharks        = 0;
 var g_tailOffsetMult   = 1;
-var g_endOfDome        = Math.PI / 8;
 var g_tankRadius       = 74;
 var g_tankHeight       = 36;
-var g_standHeight      = 25;
-var g_sharkSpeed       = 0.3;
-var g_sharkClockOffset = 17;
-var g_sharkXClock      = 1;
-var g_sharkYClock      = 0.17;
-var g_sharkZClock      = 1;
 var g_numBubbleSets    = 10;
 var g_laserEta = 1.2;
 var g_laserLenFudge = 1;
@@ -761,38 +749,9 @@ function setupBubbles(particleSystem) {
         accelerationRange: [0,0.02,0],
         velocityRange: [0.05,0,0.05],
         colorMult: [0.7,0.8,1,1]});
-        //function(index, parameters) {
-        //    var speed = Math.random() * 0.6 + 0.2;
-        //    var speed2 = Math.random() * 0.2 + 0.1;
-        //    var angle = Math.random() * 2 * Math.PI;
-        //    parameters.velocity = math.matrix4.transformPoint(
-        //        math.matrix4.rotationZ(angle), [speed, speed2, 0]);
-        //}
-        //);
     for (var ii = 0; ii < g_numBubbleSets; ++ii) {
         g_bubbleSets[ii] = emitter.createOneShot();
     }
-}
-
-/**
- * Sets up the Skybox
- */
-function setupSkybox() {
-  var textures = {
-    skybox: tdl.textures.loadTexture(g_skyBoxUrls)};
-  var program;
-  program = createProgramFromTags(
-      'skyboxVertexShader',
-      'skyboxFragmentShader');
-  var arrays = tdl.primitives.createPlane(2, 2, 1, 1);
-  delete arrays['normal'];
-  delete arrays['texCoord'];
-  tdl.primitives.reorient(arrays,
-      [1, 0, 0, 0,
-       0, 0, 1, 0,
-       0,-1, 0, 0,
-       0, 0, 0.99, 1]);
-  return new tdl.models.Model(program, arrays, textures);
 }
 
 function setViewSettings(index) {
@@ -886,13 +845,10 @@ function initialize() {
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
   loadPlacement();
-  Log("--Setup Skybox---------------------------------------");
-  var skybox = setupSkybox();
   loadScenes();
   Log("--Setup Laser----------------------------------------");
   var laser = setupLaser();
 
-  var num = [1, 100, 500, 1000, 5000, 10000, 15000, 20000, 25000, 30000];
   var changeViewElem = document.getElementById("setSettingChangeView");
   var parentElem = changeViewElem.parentNode;
   g_numFish.forEach((numFish, ndx) => {
@@ -955,9 +911,6 @@ function initialize() {
   var viewProjection = new Float32Array(16);
   var worldViewProjection = new Float32Array(16);
   var viewInverse = new Float32Array(16);
-  var skyView = new Float32Array(16);
-  var skyViewProjection = new Float32Array(16);
-  var skyViewProjectionInverse = new Float32Array(16);
   var eyePosition = new Float32Array(3);
   var target = new Float32Array(3);
   var up = new Float32Array([0,1,0]);
@@ -973,10 +926,6 @@ function initialize() {
   var colorMult = new Float32Array([1,1,1,1]);
   var ambient = new Float32Array(4);
   var fogColor = new Float32Array([1,1,1,1]);
-
-  // Sky uniforms.
-  var skyConst = {viewProjectionInverse: skyViewProjectionInverse};
-  var skyPer = {};
 
   // Generic uniforms.
   var genericConst = {
@@ -1164,11 +1113,11 @@ function initialize() {
     ambient[1] = g.globals.ambientGreen;
     ambient[2] = g.globals.ambientBlue;
 
-    /*
     gl.colorMask(true, true, true, true);
     gl.clearColor(0,0.8,1,0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
-    */
+
+    var presentingVR = g_vrDisplay && g_vrDisplay.isPresenting && pose.position;
 
     var near = 1;
     var far = 25000;
@@ -1182,7 +1131,7 @@ function initialize() {
     var xOff = width * g.net.offset[0] * g.net.offsetMult;
     var yOff = height * g.net.offset[1] * g.net.offsetMult;
     var uiMatrix = new Float32Array(16);
-    if (g_vrDisplay && g_vrDisplay.isPresenting && pose.position) {
+    if (presentingVR) {
       // Using head-neck model in VR mode because of unclear distance measurement(vr return position using meters),
       // user could see around but couldn't move around.
       eyePosition[0] = g.globals.eyeRadius;
@@ -1231,23 +1180,12 @@ function initialize() {
     fast.matrix4.inverse(view, viewInverse);
     fast.matrix4.mul(viewProjection, view, projection);
 
-    fast.matrix4.copy(skyView, view);
-    skyView[12] = 0;
-    skyView[13] = 0;
-    skyView[14] = 0;
-    fast.matrix4.mul(skyViewProjection, skyView, projection);
-    fast.matrix4.inverse(skyViewProjectionInverse, skyViewProjection);
-
     fast.matrix4.getAxis(v3t0, viewInverse, 0); // x
     fast.matrix4.getAxis(v3t1, viewInverse, 1); // y;
     fast.mulScalarVector(v3t0, 20, v3t0);
     fast.mulScalarVector(v3t1, 30, v3t1);
     fast.addVector(lightWorldPos, eyePosition, v3t0);
     fast.addVector(lightWorldPos, lightWorldPos, v3t1);
-
-//      view: view,
-//      projection: projection,
-//      viewProjection: viewProjection,
 
     gl.disable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -1256,17 +1194,7 @@ function initialize() {
 
     math.resetPseudoRandom();
     var pseudoRandom = math.pseudoRandom;
-    //var pseudoRandom = function() {
-    //  return 0.5;
-    //};
 
-    // Draw Skybox
-    //Log("--Draw Sky---------------------------------------");
-    //if (g.options.skybox.enabled) {
-    //  gl.depthMask(false);
-    //  skybox.drawPrep(skyConst);
-    //  skybox.draw(skyPer);
-    //}
     gl.depthMask(true);
 
     if (g_fog) {
@@ -1353,13 +1281,6 @@ function initialize() {
           fishNextPosition[2] = Math.cos(zClock - 0.04) * zRadius;
           fishPer.scale = scale;
 
-//          matMul(world,
-//              matScaling(m4t0, [scale, scale, scale]),
-//              matCameraLookAt(
-//                  m4t1, [x, y, z], [nextX, nextY, nextZ], [0, 1, 0]));
-//          matMul(worldViewProjection, world, viewProjection);
-//          matInverse(worldInverse, world);
-//          matTranspose(worldInverseTranspose, worldInverse);
           fishPer.time =
               ((clock + ii * g_tailOffsetMult) * fishTailSpeed * speed) %
               (Math.PI * 2);
@@ -1497,7 +1418,8 @@ function initialize() {
 
     gl.enable(gl.BLEND);
     gl.disable(gl.CULL_FACE);
-    if (g.options.lightRays.enabled) {
+    // Light rays are not supported in VR mode - they are rendered in a way that they can't handle headset rotation.
+    if (g.options.lightRays.enabled && !presentingVR) {
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
       gl.depthMask(false);
       lightRay.drawPrep(lightRayConst);
@@ -1565,21 +1487,6 @@ function initialize() {
                       up));
                 fast.matrix4.mul(worldViewProjection, world, viewProjection);
                 laser.draw(laserPer);
-                //for (var jj = 0; jj < 3; ++jj) {
-                //  fast.matrix4.mul(
-                //    world,
-                //    fast.matrix4.axisRotation(
-                //        m4t0,
-                //        math.normalize([
-                //            Math.random() - 0.5,
-                //            Math.random() - 0.5,
-                //            Math.random() - 0.5]),
-                //        Math.random() * Math.PI * 2),
-                //    fast.matrix4.translation(m4t1, laserInfo.position));
-                //  fast.matrix4.mul(
-                //      worldViewProjection, world, viewProjection);
-                //  laser.draw(laserPer);
-                //}
               }
             }
           }
@@ -1592,21 +1499,13 @@ function initialize() {
       gl.depthMask(true);
     }
 
-    /*
     // Set the alpha to 255.
     gl.colorMask(false, false, false, true);
     gl.clearColor(0,0,0,1);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    */
 
     // turn off logging after 1 frame.
     g_logGLCalls = false;
-
-    /*
-    if (!g_drawOnce) {
-      g_requestId = tdl.webgl.requestAnimationFrame(render, canvas);
-    }
-    */
   }
 
   function onAnimationFrame() {
@@ -1659,14 +1558,9 @@ function initialize() {
 
     g_fpsTimer.update(elapsedTime);
     fpsElem.innerHTML = g_fpsTimer.averageFPS;
-    gl.colorMask(true, true, true, true);
-    gl.clearColor(0,0.8,1,0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
     if (g_vrDisplay) {
-      if (!g_drawOnce) {
-        g_requestId = g_vrDisplay.requestAnimationFrame(onAnimationFrame);
-      }
+      g_requestId = g_vrDisplay.requestAnimationFrame(onAnimationFrame);
       g_vrDisplay.getFrameData(g_frameData);
       if (g_vrDisplay.isPresenting) {
 
@@ -1706,30 +1600,28 @@ function initialize() {
             }
           }
         }
-      
+
+        gl.enable(gl.SCISSOR_TEST);
         gl.viewport(0, 0, canvas.width * 0.5, canvas.height);
+        gl.scissor(0, 0, canvas.width * 0.5, canvas.height);
         render(g_frameData.leftProjectionMatrix, g_frameData.pose);
 
         gl.viewport(canvas.width * 0.5, 0, canvas.width * 0.5, canvas.height);
+        gl.scissor(canvas.width * 0.5, 0, canvas.width * 0.5, canvas.height);
         render(g_frameData.rightProjectionMatrix, g_frameData.pose);
 
         g_vrDisplay.submitFrame();
       } else {
+        gl.disable(gl.SCISSOR_TEST);
         gl.viewport(0, 0, canvas.width, canvas.height);
         render();
       }
     } else {
-      if (!g_drawOnce) {
-        g_requestId = tdl.webgl.requestAnimationFrame(onAnimationFrame, canvas);
-      }
+      g_requestId = tdl.webgl.requestAnimationFrame(onAnimationFrame, canvas);
+      gl.disable(gl.SCISSOR_TEST);
       gl.viewport(0, 0, canvas.width, canvas.height);
       render();
     }
-
-    // Set the alpha to 255.
-    gl.colorMask(false, false, false, true);
-    gl.clearColor(0,0,0,1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
   }
 
   onAnimationFrame();

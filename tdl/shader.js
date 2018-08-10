@@ -116,19 +116,24 @@ tdl.shader.Shader = function(gl, vertex, fragment) {
   }
 
   // find uniforms and attributes
-  var re = /(uniform|attribute)\s+\S+\s+(\S+)\s*;/g;
+  var re = /(uniform|attribute|in)\s+\S+\s+(\w+)\s*(\[\d+\])?\s*;/g;
   var match = null;
-  while ((match = re.exec(vertex + '\n' + fragment)) != null) {
+  while ((match = re.exec(vertex)) != null) {
     var glslName = match[2];
     var jsName = tdl.shader.glslNameToJs_(glslName);
-    var loc = -1;
     if (match[1] == "uniform") {
       this[jsName + "Loc"] = this.getUniform(glslName);
-    } else if (match[1] == "attribute") {
+    } else if (match[1] == "attribute" || match[1] == "in") {
       this[jsName + "Loc"] = this.getAttribute(glslName);
     }
-    if (loc >= 0) {
-      this[jsName + "Loc"] = loc;
+  }
+  re = /(uniform)\s+\S+\s+(\w+)\s*(\[\d+\])?\s*;/g;
+  match = null;
+  while ((match = re.exec(fragment)) != null) {
+    var glslName = match[2];
+    var jsName = tdl.shader.glslNameToJs_(glslName);
+    if (match[1] == "uniform") {
+      this[jsName + "Loc"] = this.getUniform(glslName);
     }
   }
 }
