@@ -42,6 +42,8 @@ var g_sceneGroups = {};  // the placement of the models
 var g_fog = true;
 var g_numFish = [1, 100, 500, 1000, 5000, 10000, 15000, 20000, 25000, 30000];
 
+var g_stereoDemoActive = false;
+
 var g_requestId;
 var g_syncManager;
 
@@ -989,6 +991,9 @@ function initialize() {
   var clock = 0.0;
   var fpsElem = document.getElementById("fps");
 
+  var monoProjection = new Float32Array(16);
+  var leftProjectionStereoDemo = new Float32Array(16);
+  var rightProjectionStereoDemo = new Float32Array(16);
   var projection = new Float32Array(16);
   var projectionArray = [new Float32Array(16), new Float32Array(16)];
   var view = new Float32Array(16);
@@ -999,6 +1004,7 @@ function initialize() {
   var viewProjectionNoRotation = new Float32Array(16);
   var viewProjectionNoRotationArray = new Float32Array(32);
   var viewInverse = new Float32Array(16);
+  var viewInverseTemp = new Float32Array(16);
   var viewProjectionArray = new Float32Array(32);
   var eyePosition = new Float32Array(3);
   var target = new Float32Array(3);
@@ -1231,7 +1237,7 @@ function initialize() {
     lightRay.setProgram(lightRay.programSet.getProgram(shadingSettings));
   }
 
-  function render(projectionMatrix, pose, useMultiview) {
+  function render(projectionMatrix, viewInverseMatrix, useMultiview, pose) {
     var genericConstInUse = useMultiview ? genericConstMultiview : genericConst;
     var outsideConstInUse = useMultiview ? outsideConstMultiview : outsideConst;
     var innerConstInUse = useMultiview ? innerConstMultiview : innerConst;
@@ -1255,65 +1261,24 @@ function initialize() {
     gl.clearColor(0,0.8,1,0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
-    var presentingVR = g_vrDisplay && g_vrDisplay.isPresenting && pose.position;
+    var presentingVR = g_vrDisplay && g_vrDisplay.isPresenting;
 
-    var near = 1;
-    var far = 25000;
-    var aspect = canvas.clientWidth / canvas.clientHeight;
-    var top = Math.tan(math.degToRad(g.globals.fieldOfView * g.net.fovFudge) * 0.5) * near;
-    var bottom = -top;
-    var left = aspect * bottom;
-    var right = aspect * top;
-    var width = Math.abs(right - left);
-    var height = Math.abs(top - bottom);
-    var xOff = width * g.net.offset[0] * g.net.offsetMult;
-    var yOff = height * g.net.offset[1] * g.net.offsetMult;
     var uiMatrix = new Float32Array(16);
-    if (presentingVR) {
-      // Using head-neck model in VR mode because of unclear distance measurement(vr return position using meters),
-      // user could see around but couldn't move around.
-      eyePosition[0] = g.globals.eyeRadius;
-      eyePosition[1] = g.globals.eyeHeight;
-      eyePosition[2] = g.globals.eyeRadius;
 
-      if (useMultiview) {
-        for (var viewIndex = 0; viewIndex < projectionMatrix.length; ++viewIndex) {
-          fast.matrix4.copy(projectionArray[viewIndex], projectionMatrix[viewIndex]);
-        }
-      } else {
-        fast.matrix4.copy(projection, projectionMatrix);
-      }
-      calculateViewMatrix(viewInverse, pose.orientation, eyePosition);
-
-      // TODO: Support VRUI when using multiview? Would require adding multiview shaders to UI and changing UI matrices when multiview is on.
-      if (!useMultiview) {
-        // Hard coded FPS translation vector and pin the whole UI in front of the user in VR mode. This hard coded position
-        // vector used only once here.
-        calculateViewMatrix(uiMatrix, pose.orientation, [0, 0, 10]);
-        g_vrUi.render(projection, fast.matrix4.inverse(uiMatrix, uiMatrix), [pose.orientation]);
+    if (useMultiview) {
+      for (var viewIndex = 0; viewIndex < projectionMatrix.length; ++viewIndex) {
+        fast.matrix4.copy(projectionArray[viewIndex], projectionMatrix[viewIndex]);
       }
     } else {
-      fast.matrix4.frustum(
-        projection,
-        left + xOff,
-        right + xOff,
-        bottom + yOff,
-        top + yOff,
-        near,
-        far);
-
-      eyePosition[0] = Math.sin(eyeClock) * g.globals.eyeRadius;
-      eyePosition[1] = g.globals.eyeHeight;
-      eyePosition[2] = Math.cos(eyeClock) * g.globals.eyeRadius;
-      target[0] = Math.sin(eyeClock + Math.PI) * g.globals.targetRadius;
-      target[1] = g.globals.targetHeight;
-      target[2] = Math.cos(eyeClock + Math.PI) * g.globals.targetRadius;
-
-      fast.matrix4.cameraLookAt(
-        viewInverse,
-        eyePosition,
-        target,
-        up);
+      fast.matrix4.copy(projection, projectionMatrix);
+    }
+    fast.matrix4.copy(viewInverse, viewInverseMatrix);
+    // TODO: Support VRUI when using multiview? Would require adding multiview shaders to UI and changing UI matrices when multiview is on.
+    if (!useMultiview && presentingVR && pose) {
+      // Hard coded FPS translation vector and pin the whole UI in front of the user in VR mode. This hard coded position
+      // vector used only once here.
+      calculateViewMatrix(uiMatrix, pose.orientation, [0, 0, 10]);
+      g_vrUi.render(projection, fast.matrix4.inverse(uiMatrix, uiMatrix), [pose.orientation]);
     }
     if (g.net.slave) {
       // compute X fov from y fov
@@ -1669,6 +1634,79 @@ function initialize() {
     g_logGLCalls = false;
   }
 
+  function renderStereo(leftProjectionMatrix, rightProjectionMatrix, viewInverseMatrix, pose) {
+    var useMultiview = multiview && g.options.useMultiview.enabled;
+    if (useMultiview) {
+      setupMultiviewFbIfNeeded();
+      var halfWidth = Math.floor(canvas.width * 0.5);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, g_multiviewFb);
+      gl.viewport(0, 0, halfWidth, canvas.height);
+      gl.disable(gl.SCISSOR_TEST);
+      setShaders(true);
+      render([leftProjectionMatrix, rightProjectionMatrix], viewInverseMatrix, true, pose);
+
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, g_multiviewViewFb[0]);
+      gl.blitFramebuffer(0, 0, halfWidth, canvas.height, 0, 0, halfWidth, canvas.height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, g_multiviewViewFb[1]);
+      gl.blitFramebuffer(0, 0, halfWidth, canvas.height, halfWidth, 0, canvas.width, canvas.height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    } else { // not multiview
+      gl.viewport(0, 0, canvas.width * 0.5, canvas.height);
+      gl.enable(gl.SCISSOR_TEST);
+      setShaders(false);
+      gl.scissor(0, 0, canvas.width * 0.5, canvas.height);
+      render(leftProjectionMatrix, viewInverseMatrix, false, pose);
+
+      gl.viewport(canvas.width * 0.5, 0, canvas.width * 0.5, canvas.height);
+      gl.scissor(canvas.width * 0.5, 0, canvas.width * 0.5, canvas.height);
+      render(rightProjectionMatrix, viewInverseMatrix, false, pose);
+    }
+  }
+
+  function setToCameraLookAt(viewInverseMatrix) {
+    eyePosition[0] = Math.sin(eyeClock) * g.globals.eyeRadius;
+    eyePosition[1] = g.globals.eyeHeight;
+    eyePosition[2] = Math.cos(eyeClock) * g.globals.eyeRadius;
+    target[0] = Math.sin(eyeClock + Math.PI) * g.globals.targetRadius;
+    target[1] = g.globals.targetHeight;
+    target[2] = Math.cos(eyeClock + Math.PI) * g.globals.targetRadius;
+
+    fast.matrix4.cameraLookAt(
+      viewInverseMatrix,
+      eyePosition,
+      target,
+      up);
+  }
+
+  function renderMono() {
+    var near = 1;
+    var far = 25000;
+    var aspect = canvas.clientWidth / canvas.clientHeight;
+    var top = Math.tan(math.degToRad(g.globals.fieldOfView * g.net.fovFudge) * 0.5) * near;
+    var bottom = -top;
+    var left = aspect * bottom;
+    var right = aspect * top;
+    var width = Math.abs(right - left);
+    var height = Math.abs(top - bottom);
+    var xOff = width * g.net.offset[0] * g.net.offsetMult;
+    var yOff = height * g.net.offset[1] * g.net.offsetMult;
+    fast.matrix4.frustum(
+        monoProjection,
+        left + xOff,
+        right + xOff,
+        bottom + yOff,
+        top + yOff,
+        near,
+        far);
+
+    setToCameraLookAt(viewInverseTemp);
+
+    gl.disable(gl.SCISSOR_TEST);
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    setShaders(false);
+    render(monoProjection, viewInverseTemp);
+  }
+
   function onAnimationFrame() {
     var now = theClock.getTime();
     var elapsedTime;
@@ -1723,87 +1761,99 @@ function initialize() {
     if (g_vrDisplay) {
       g_requestId = g_vrDisplay.requestAnimationFrame(onAnimationFrame);
       g_vrDisplay.getFrameData(g_frameData);
-      if (g_vrDisplay.isPresenting) {
-
-        /* VR UI is enabled in VR Mode. VR UI has two mode, menu mode is the mirror of control panel of
-         * aquarium and non-menu mode may presents fps(could be turn off) in front of user. These two
-         * mode is controlled by isMenuMode flag and this flag is set by any keyboard event or gamepad
-         * button click.
-        */
-
-        // Set fps and prepare rendering it.
-        g_vrUi.setFps(g_fpsTimer.averageFPS);
-
-        // Query gamepad button clicked event.
-        g_vrUi.queryGamepadStatus();
-
-        var useMultiview = multiview && g.options.useMultiview.enabled;
-
-        // TODO: Support VRUI when doing multiview rendering.
-        if (!useMultiview && g_vrUi.isMenuMode) {
-
-          // When VR UI in menu mode, UI need a cursor to help user do select operation. Currently, cursor uses
-          // head-neck model which means a point in front of user and user could move the point by rotating their head(with HMD).
-          // A click event will be triggered when user stare at a label 2 seconds.
-          // TODO : add gamepad support to control cursor and trigger select event with VR controllers.
-
-          // Jquery selector description.
-          var selectorDescription;
-
-          // VR UI return whether there is an option been selected in VR mode.
-          var clickedLabel = g_vrUi.queryClickedLabel([0, 0, 0], g_frameData.pose.orientation);
-          if (clickedLabel != null) {
-            if (clickedLabel.isAdvancedSettings) {
-              selectorDescription = "#optionsContainer > div:contains(" + clickedLabel.name + ")";
-              $(selectorDescription).click();
-            } else if (clickedLabel.name == "options") {
-              $("#options").click();
-            } else {
-              selectorDescription = "#setSetting" + clickedLabel.name;
-              $(selectorDescription).click();
-            }
-          }
-        }
-
-        if (useMultiview) {
-          setupMultiviewFbIfNeeded();
-          var halfWidth = Math.floor(canvas.width * 0.5);
-          gl.bindFramebuffer(gl.FRAMEBUFFER, g_multiviewFb);
-          gl.viewport(0, 0, halfWidth, canvas.height);
-          gl.disable(gl.SCISSOR_TEST);
-          setShaders(true);
-          render([g_frameData.leftProjectionMatrix, g_frameData.rightProjectionMatrix], g_frameData.pose, true);
-
-          gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-          gl.bindFramebuffer(gl.READ_FRAMEBUFFER, g_multiviewViewFb[0]);
-          gl.blitFramebuffer(0, 0, halfWidth, canvas.height, 0, 0, halfWidth, canvas.height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
-          gl.bindFramebuffer(gl.READ_FRAMEBUFFER, g_multiviewViewFb[1]);
-          gl.blitFramebuffer(0, 0, halfWidth, canvas.height, halfWidth, 0, canvas.width, canvas.height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
-        } else { // not multiview
-          gl.viewport(0, 0, canvas.width * 0.5, canvas.height);
-          gl.enable(gl.SCISSOR_TEST);
-          setShaders(false);
-          gl.scissor(0, 0, canvas.width * 0.5, canvas.height);
-          render(g_frameData.leftProjectionMatrix, g_frameData.pose);
-
-          gl.viewport(canvas.width * 0.5, 0, canvas.width * 0.5, canvas.height);
-          gl.scissor(canvas.width * 0.5, 0, canvas.width * 0.5, canvas.height);
-          render(g_frameData.rightProjectionMatrix, g_frameData.pose);
-        }
-
-        g_vrDisplay.submitFrame();
-      } else {
-        gl.disable(gl.SCISSOR_TEST);
-        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-        setShaders(false);
-        render();
-      }
     } else {
       g_requestId = tdl.webgl.requestAnimationFrame(onAnimationFrame, canvas);
-      gl.disable(gl.SCISSOR_TEST);
-      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-      setShaders(false);
-      render();
+    }
+
+    if (g_vrDisplay && g_vrDisplay.isPresenting) {
+      /* VR UI is enabled in VR Mode. VR UI has two mode, menu mode is the mirror of control panel of
+       * aquarium and non-menu mode may presents fps(could be turn off) in front of user. These two
+       * mode is controlled by isMenuMode flag and this flag is set by any keyboard event or gamepad
+       * button click.
+      */
+
+      // Set fps and prepare rendering it.
+      g_vrUi.setFps(g_fpsTimer.averageFPS);
+
+      // Query gamepad button clicked event.
+      g_vrUi.queryGamepadStatus();
+
+      var useMultiview = multiview && g.options.useMultiview.enabled;
+
+      // TODO: Support VRUI when doing multiview rendering.
+      if (!useMultiview && g_vrUi.isMenuMode) {
+
+        // When VR UI in menu mode, UI need a cursor to help user do select operation. Currently, cursor uses
+        // head-neck model which means a point in front of user and user could move the point by rotating their head(with HMD).
+        // A click event will be triggered when user stare at a label 2 seconds.
+        // TODO : add gamepad support to control cursor and trigger select event with VR controllers.
+
+        // Jquery selector description.
+        var selectorDescription;
+
+        // VR UI return whether there is an option been selected in VR mode.
+        var clickedLabel = g_vrUi.queryClickedLabel([0, 0, 0], g_frameData.pose.orientation);
+        if (clickedLabel != null) {
+          if (clickedLabel.isAdvancedSettings) {
+            selectorDescription = "#optionsContainer > div:contains(" + clickedLabel.name + ")";
+            $(selectorDescription).click();
+          } else if (clickedLabel.name == "options") {
+            $("#options").click();
+          } else {
+            selectorDescription = "#setSetting" + clickedLabel.name;
+            $(selectorDescription).click();
+          }
+        }
+      }
+
+      // Using head-neck model in VR mode because of unclear distance measurement(vr return position using meters),
+      // user could see around but couldn't move around.
+      eyePosition[0] = g.globals.eyeRadius;
+      eyePosition[1] = g.globals.eyeHeight;
+      eyePosition[2] = g.globals.eyeRadius;
+
+      calculateViewMatrix(viewInverseTemp, g_frameData.pose.orientation, eyePosition);
+
+      renderStereo(g_frameData.leftProjectionMatrix, g_frameData.rightProjectionMatrix, viewInverseTemp, g_frameData.pose);
+
+      g_vrDisplay.submitFrame();
+    } else if (g_stereoDemoActive) {
+      var near = 1;
+      var far = 25000;
+      var aspect = (canvas.clientWidth * 0.5) / canvas.clientHeight;
+      var top = Math.tan(math.degToRad(g.globals.fieldOfView * g.net.fovFudge) * 0.5) * near;
+      var bottom = -top;
+      var left = aspect * bottom;
+      var right = aspect * top;
+      var width = Math.abs(right - left);
+      var height = Math.abs(top - bottom);
+      var xOff = width * g.net.offset[0] * g.net.offsetMult;
+      var yOff = height * g.net.offset[1] * g.net.offsetMult;
+      // The extra offset for aspect below is just to ensure that there's always a seam between the two views regardless of aspect ratio.
+      // The matrices are used just to show stereo rendering on a 2D screen so performance can be tested. They are not usable for VR.
+      var xSkew = 0.05;
+      fast.matrix4.frustum(
+          leftProjectionStereoDemo,
+          left + xOff + xSkew,
+          right + xOff + xSkew,
+          bottom + yOff,
+          top + yOff,
+          near,
+          far);
+      fast.matrix4.frustum(
+          rightProjectionStereoDemo,
+          left + xOff - xSkew,
+          right + xOff - xSkew,
+          bottom + yOff,
+          top + yOff,
+          near,
+          far);
+
+      setToCameraLookAt(viewInverseTemp);
+
+      renderStereo(leftProjectionStereoDemo, rightProjectionStereoDemo, viewInverseTemp);
+    } else {
+      renderMono();
     }
   }
 
@@ -1986,6 +2036,7 @@ $(function(){
 (function() {
   "use strict";
   var vrButton;
+  var stereoDemoButton;
 
   function getButtonContainer () {
     var buttonContainer = document.getElementById("vr-button-container");
@@ -2112,6 +2163,10 @@ $(function(){
     });
   }
 
+  function toggleStereoDemo() {
+    g_stereoDemoActive = !g_stereoDemoActive;
+  }
+
   function resize() {
     if (g_vrDisplay && g_vrDisplay.isPresenting) {
       // If we're presenting we want to use the drawing buffer size
@@ -2161,11 +2216,15 @@ $(function(){
             console.log("WebVR supported, but no VRDisplays found.")
           }
         });
-      } else if (navigator.getVRDevices) {
-        console.log("Your browser supports WebVR but not the latest version. See webvr.info for more info.");
       } else {
-        console.log("Your browser does not support WebVR. See webvr.info for assistance");
+        if (navigator.getVRDevices) {
+          console.log("Your browser supports WebVR but not the latest version. See webvr.info for more info.");
+        } else {
+          console.log("Your browser does not support WebVR. See webvr.info for assistance");
+        }
       }
+      // Regardless of if we have WebVR support, we can demonstrate stereo rendering inside the window.
+      stereoDemoButton = addButton("Toggle Stereo Demo", "E", getCurrentUrl() + "/vr_assets/button.png", toggleStereoDemo);
     }
     window.addEventListener('resize', function() {onResize();}, false);
     onResize();
