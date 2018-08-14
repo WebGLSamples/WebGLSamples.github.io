@@ -513,15 +513,15 @@ function createProgramFromTags(
   }
 
   if (opt_reflection) {
-    fs = fs.replace(/^.*?\/\/ #noReflection\n/gm, "");
+    fs = fs.replace(/^.*?\/\/ #noReflection\r?\n/gm, "");
   } else {
-    fs = fs.replace(/^.*?\/\/ #reflection\n/gm, "");
+    fs = fs.replace(/^.*?\/\/ #reflection\r?\n/gm, "");
   }
 
   if (opt_normalMaps) {
-    fs = fs.replace(/^.*?\/\/ #noNormalMap\n/gm, "");
+    fs = fs.replace(/^.*?\/\/ #noNormalMap\r?\n/gm, "");
   } else {
-    fs = fs.replace(/^.*?\/\/ #normalMap\n/gm, "");
+    fs = fs.replace(/^.*?\/\/ #normalMap\r?\n/gm, "");
   }
 
   var vs = getScriptText(vertexTagId);
