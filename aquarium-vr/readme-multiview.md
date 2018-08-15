@@ -16,7 +16,7 @@ OpenGL support for Linux is also partially implemented but not fully functional 
 
 Start Chrome with these command line arguments:
 
-chrome.exe --enable-webgl-draft-extensions --gpu-cmd-decoder=passthrough
+chrome.exe --enable-webgl-draft-extensions --use-cmd-decoder=passthrough
 
 Use also --allow-file-access-from-files in case you are opening Aquarium from the local filesystem using a file: URL.
 
