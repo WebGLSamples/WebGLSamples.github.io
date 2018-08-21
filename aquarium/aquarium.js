@@ -26,6 +26,10 @@ if (isMultiviewSupportEnabled()) {
   g.options.useMultiview = { enabled: true, text: 'Use multiview' };
 }
 
+function useMultiviewForStereo() {
+  return multiview && g.options.useMultiview.enabled;
+}
+
 // globals
 var gl;                   // the gl context.
 var multiview;            // multiview extension.
@@ -43,6 +47,7 @@ var g_fog = true;
 var g_numFish = [1, 100, 500, 1000, 5000, 10000, 15000, 20000, 25000, 30000];
 
 var g_stereoDemoActive = false;
+var g_shadersNeedUpdate = false; // Set to true whenever the state has changed so that shaders may need to be changed.
 
 var g_requestId;
 var g_syncManager;
@@ -1246,13 +1251,6 @@ function initialize() {
     var lightRayConstInUse = useMultiview ? lightRayConstMultiview : lightRayConst;
     var fishConstInUse = useMultiview ? fishConstMultiview : fishConst;
 
-    // If we are running > 40hz then turn on a few more options.
-    if (setPretty && g_fpsTimer.averageFPS > 40) {
-      setPretty = false;
-      if (!g.options.normalMaps.enabled) { g.options.normalMaps.toggle(); }
-      if (!g.options.reflection.enabled) { g.options.reflection.toggle(); }
-    }
-
     ambient[0] = g.globals.ambientRed;
     ambient[1] = g.globals.ambientGreen;
     ambient[2] = g.globals.ambientBlue;
@@ -1635,14 +1633,12 @@ function initialize() {
   }
 
   function renderStereo(leftProjectionMatrix, rightProjectionMatrix, viewInverseMatrix, pose) {
-    var useMultiview = multiview && g.options.useMultiview.enabled;
-    if (useMultiview) {
+    if (useMultiviewForStereo()) {
       setupMultiviewFbIfNeeded();
       var halfWidth = Math.floor(canvas.width * 0.5);
       gl.bindFramebuffer(gl.FRAMEBUFFER, g_multiviewFb);
       gl.viewport(0, 0, halfWidth, canvas.height);
       gl.disable(gl.SCISSOR_TEST);
-      setShaders(true);
       render([leftProjectionMatrix, rightProjectionMatrix], viewInverseMatrix, true, pose);
 
       gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
@@ -1653,7 +1649,6 @@ function initialize() {
     } else { // not multiview
       gl.viewport(0, 0, canvas.width * 0.5, canvas.height);
       gl.enable(gl.SCISSOR_TEST);
-      setShaders(false);
       gl.scissor(0, 0, canvas.width * 0.5, canvas.height);
       render(leftProjectionMatrix, viewInverseMatrix, false, pose);
 
@@ -1703,7 +1698,6 @@ function initialize() {
 
     gl.disable(gl.SCISSOR_TEST);
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-    setShaders(false);
     render(monoProjection, viewInverseTemp);
   }
 
@@ -1758,11 +1752,24 @@ function initialize() {
     g_fpsTimer.update(elapsedTime);
     fpsElem.innerHTML = g_fpsTimer.averageFPS;
 
+    // If we are running > 40hz then turn on a few more options.
+    if (setPretty && g_fpsTimer.averageFPS > 40) {
+      setPretty = false;
+      if (!g.options.normalMaps.enabled) { g.options.normalMaps.toggle(); }
+      if (!g.options.reflection.enabled) { g.options.reflection.toggle(); }
+    }
+
     if (g_vrDisplay) {
       g_requestId = g_vrDisplay.requestAnimationFrame(onAnimationFrame);
       g_vrDisplay.getFrameData(g_frameData);
     } else {
       g_requestId = tdl.webgl.requestAnimationFrame(onAnimationFrame, canvas);
+    }
+
+    if (g_shadersNeedUpdate) {
+      var isInStereoMode = (g_vrDisplay && g_vrDisplay.isPresenting) || g_stereoDemoActive;
+      setShaders(isInStereoMode && useMultiviewForStereo());
+      g_shadersNeedUpdate = false;
     }
 
     if (g_vrDisplay && g_vrDisplay.isPresenting) {
@@ -1778,10 +1785,8 @@ function initialize() {
       // Query gamepad button clicked event.
       g_vrUi.queryGamepadStatus();
 
-      var useMultiview = multiview && g.options.useMultiview.enabled;
-
       // TODO: Support VRUI when doing multiview rendering.
-      if (!useMultiview && g_vrUi.isMenuMode) {
+      if (!useMultiviewForStereo() && g_vrUi.isMenuMode) {
 
         // When VR UI in menu mode, UI need a cursor to help user do select operation. Currently, cursor uses
         // head-neck model which means a point in front of user and user could move the point by rotating their head(with HMD).
@@ -1947,6 +1952,7 @@ function initUIStuff() {
     options[name] = {enabled:!option.enabled};
     setSettings({options:options});
     elem.style.color = option.enabled ? "red" : "gray";
+    g_shadersNeedUpdate = true;
   }
 
   var optionsContainer = document.getElementById("optionsContainer");
@@ -2135,6 +2141,8 @@ $(function(){
     // to the recommended dimensions for the display.
     resize();
 
+    g_shadersNeedUpdate = true;
+
     if (g_vrDisplay.isPresenting) {
       if (g_vrDisplay.capabilities.hasExternalDisplay) {
         removeButton(vrButton);
@@ -2165,6 +2173,7 @@ $(function(){
 
   function toggleStereoDemo() {
     g_stereoDemoActive = !g_stereoDemoActive;
+    g_shadersNeedUpdate = true;
   }
 
   function resize() {
@@ -2224,7 +2233,7 @@ $(function(){
         }
       }
       // Regardless of if we have WebVR support, we can demonstrate stereo rendering inside the window.
-      stereoDemoButton = addButton("Toggle Stereo Demo", "E", getCurrentUrl() + "/vr_assets/button.png", toggleStereoDemo);
+      stereoDemoButton = addButton("Toggle Stereo Demo", "", getCurrentUrl() + "/vr_assets/button.png", toggleStereoDemo);
     }
     window.addEventListener('resize', function() {onResize();}, false);
     onResize();
