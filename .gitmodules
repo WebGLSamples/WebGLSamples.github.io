@@ -1,0 +1,9 @@
+[submodule "aquarium-native/thirdparty/glfw"]
+	path = aquarium-native/thirdparty/glfw
+	url = https://github.com/glfw/glfw.git
+[submodule "aquarium-native/thirdparty/stb"]
+	path = aquarium-native/thirdparty/stb
+	url = https://github.com/nothings/stb.git
+[submodule "aquarium-native/thirdparty/rapidjson"]
+	path = aquarium-native/thirdparty/rapidjson
+	url = https://github.com/Tencent/rapidjson.git
