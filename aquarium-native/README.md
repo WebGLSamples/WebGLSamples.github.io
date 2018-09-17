@@ -24,22 +24,22 @@ Native Aquarium is a native implementation of [WebGL Aquarium](https://github.co
     <td>Y</td>
   </tr>
   <tr align=left>
-    <td>\*</td>
+    <td>*</td>
     <td>D3D</td>
     <td>N</td>
   </tr>
   <tr align=left>
-    <td>\*</td>
+    <td>*</td>
     <td>Vulkan</td>
     <td>N</td>
   </tr>
   <tr align=left>
-    <td>\*</td>
+    <td>*</td>
     <td>Metal</td>
     <td>N</td>
   </tr>
   <tr align=left>
-    <td>\*</td>
+    <td>*</td>
     <td>Dawn</td>
     <td>N</td>
   </tr>
@@ -51,7 +51,7 @@ Native Aquarium is a native implementation of [WebGL Aquarium](https://github.co
 Native Aquarium uses cmake to build on Linux, macOS and Windows.
 ```sh
 # cd the repo
-cd <repo>
+cd aquarium-native
 
 # get submodules
 git submodule init && git submodule update
@@ -70,15 +70,15 @@ make
 
 # Run
 ```sh
-# "--fish-count": specifies how many fishes will be rendered
-# "--b" : specifies running a certain backend
+# "--num-fish": specifies how many fishes will be rendered
+# "--backend" : specifies running a certain backend
 
 
 # run on Windows
 run it in Visual Studio
 or
-aquarium.exe --fish-count 10000 --b opengl
+aquarium.exe --num-fish 10000 --backend opengl
 
 # run on Linux and macOS
-./aquarium  --fish-count 10000 --b opengl
+./aquarium  --num-fish 10000 --backend opengl
 ```

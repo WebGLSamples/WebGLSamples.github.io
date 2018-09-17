@@ -71,17 +71,17 @@ void Aquarium::init(int argc, char **argv)
     factory = new ContextFactory();
 
     // Create context of different backends through the cmd args.
-    // "--b" {backend}: create different backends.
-    // "--fish-count" {fishCount}: imply rendering fish count.
+    // "--backend" {backend}: create different backends.
+    // "--num-fish" {numfish}: imply rendering fish count.
     char* pNext;
     for (int i = 1; i < argc; ++i)
     {
         std::string cmd(argv[i]);
-        if (cmd == "--fish-count")
+        if (cmd == "--num-fish")
         {
             mFishCount = strtol(argv[i++ + 1], &pNext, 10);
         }
-        else if (cmd == "--b")
+        else if (cmd == "--backend")
         {
             mBackendpath = argv[i++ + 1];
             context      = factory->createContext(mBackendpath);
