@@ -31,7 +31,7 @@ void TextureGL::loadTexture()
             loadImage(mUrls[i], &pixels);
             context->uploadTexture(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, mFormat, mWidth, mHeight,
                                    pixels);
-            DestoryImageData(pixels);
+            DestroyImageData(pixels);
         }
 
         context->setParameter(mTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -43,7 +43,7 @@ void TextureGL::loadTexture()
     {
         loadImage(mUrls[0], &pixels);
         context->uploadTexture(mTarget, mFormat, mWidth, mHeight, pixels);
-        DestoryImageData(pixels);
+        DestroyImageData(pixels);
 
         if (isPowerOf2(mWidth) && isPowerOf2(mHeight))
         {

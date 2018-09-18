@@ -146,7 +146,7 @@ void FishModelGL::updatePerInstanceUnidorms() const
     contextGL->setUniform(worldPositionUniform.second, worldPositionUniform.first, GL_FLOAT_VEC3);
     contextGL->setUniform(nextPositionUniform.second, nextPositionUniform.first, GL_FLOAT_VEC3);
 }
-void FishModelGL::updateFishCommonUnifroms(float fishLength,
+void FishModelGL::updateFishCommonUniforms(float fishLength,
                                            float fishBendAmount,
                                            float fishWaveLength)
 {

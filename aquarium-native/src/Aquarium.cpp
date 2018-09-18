@@ -514,7 +514,7 @@ void Aquarium::drawFishes()
 
         const Fish &fishInfo = fishTable[i - MODELNAME::MODELSMALLFISHA];
         int numFish          = fishInfo.num;
-        model->updateFishCommonUnifroms(fishInfo.fishLength, fishInfo.fishBendAmount,
+        model->updateFishCommonUniforms(fishInfo.fishLength, fishInfo.fishBendAmount,
                                         fishInfo.fishWaveLength);
         float fishBaseClock   = g.mclock * g_fishSpeed;
         float fishRadius      = fishInfo.radius;

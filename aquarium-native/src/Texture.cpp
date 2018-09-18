@@ -37,7 +37,7 @@ bool Texture::isPowerOf2(int value)
 }
 
 // Free image data after upload to gpu
-void Texture::DestoryImageData(uint8_t *pixels)
+void Texture::DestroyImageData(uint8_t *pixels)
 {
     free(pixels);
     pixels = nullptr;

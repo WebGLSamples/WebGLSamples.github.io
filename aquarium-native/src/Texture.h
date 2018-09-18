@@ -19,7 +19,7 @@ class Texture
   protected:
     bool isPowerOf2(int);
     bool loadImage(const std::string &filename, uint8_t **pixels);
-    void DestoryImageData(uint8_t *pixels);
+    void DestroyImageData(uint8_t *pixels);
 
     std::vector<std::string> mUrls;
     int mWidth;
