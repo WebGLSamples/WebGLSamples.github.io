@@ -15,7 +15,7 @@ class FishModelGL : public FishModel
   public:
     FishModelGL(const ContextGL *context, Global *g, MODELGROUP type, MODELNAME name, bool blend);
     void applyUniforms() const override;
-    void updatePerInstanceUnidorms() const override;
+    void updatePerInstanceUniforms() const override;
     void updateFishCommonUniforms(float fishLength,
                                   float fishBendAmount,
                                   float fishWaveLength) override;

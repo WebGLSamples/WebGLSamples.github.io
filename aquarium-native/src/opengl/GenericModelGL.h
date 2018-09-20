@@ -17,7 +17,7 @@ class GenericModelGL : public GenericModel
                    MODELNAME name,
                    bool blend);
     void applyUniforms() const override;
-    void updatePerInstanceUnidorms() const override;
+    void updatePerInstanceUniforms() const override;
     void init() override;
     void applyTextures() const override;
     void applyBuffers() const override;

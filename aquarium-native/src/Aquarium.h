@@ -31,7 +31,7 @@ const std::string slash = "/";
 const std::string repoFolder     = "aquarium";
 const std::string sourceFolder   = "src";
 const std::string shaderFolder   = "shaders";
-const std::string resourseFolder = "assets";
+const std::string resourceFolder = "assets";
 
 enum MODELNAME : short
 {

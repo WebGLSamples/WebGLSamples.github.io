@@ -17,7 +17,7 @@ class OutsideModelGL : public OutsideModel
                    MODELNAME name,
                    bool blend);
     void applyUniforms() const override;
-    void updatePerInstanceUnidorms() const override;
+    void updatePerInstanceUniforms() const override;
     void applyTextures() const override;
     void init() override;
     void applyBuffers() const override;

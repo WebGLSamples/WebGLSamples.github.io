@@ -71,7 +71,7 @@ void Aquarium::init(int argc, char **argv)
     factory = new ContextFactory();
 
     // Create context of different backends through the cmd args.
-    // "--backend" {backend}: create different backends.
+    // "--backend" {backend}: create different backends. currently opengl is supported.
     // "--num-fish" {numfish}: imply rendering fish count.
     char* pNext;
     for (int i = 1; i < argc; ++i)
@@ -147,7 +147,7 @@ void Aquarium::setUpSkyBox(std::vector<std::string> *skyUrls)
     for (const auto v : g_skyBoxUrls)
     {
         std::ostringstream url;
-        url << mPath << sourceFolder << slash << resourseFolder << slash
+        url << mPath << sourceFolder << slash << resourceFolder << slash
         << v;
 
         skyUrls->push_back(url.str());
@@ -175,11 +175,11 @@ void Aquarium::setupModelEnumMap()
     }
 }
 
-// Load world matixes of models from json file.
+// Load world matrices of models from json file.
 void Aquarium::loadPlacement()
 {
     std::ostringstream oss;
-    oss << mPath << sourceFolder << slash << resourseFolder << slash
+    oss << mPath << sourceFolder << slash << resourceFolder << slash
         << "PropPlacement.js";
     std::string proppath = oss.str();
     std::ifstream PlacementStream(proppath, ios::in);
@@ -206,7 +206,7 @@ void Aquarium::loadPlacement()
         }
 
         MODELNAME modelname = mModelEnumMap[name.GetString()];
-        mAquariumModels[modelname]->worldmatrixes.push_back(matrix);
+        mAquariumModels[modelname]->worldmatrices.push_back(matrix);
     }
 }
 
@@ -222,7 +222,7 @@ void Aquarium::loadModels()
 void Aquarium::loadModel(const G_sceneInfo &info)
 {
     std::ostringstream oss;
-    oss << mPath << sourceFolder << slash << resourseFolder << slash;
+    oss << mPath << sourceFolder << slash << resourceFolder << slash;
     std::string imagePath = oss.str();
     oss << info.namestr << ".js";
     std::string modelPath = oss.str();
@@ -584,9 +584,9 @@ void Aquarium::updateWorldProjections(const float *w)
 
 void Aquarium::updateWorldMatrixAndDraw(const Model *model)
 {
-    if (model->worldmatrixes.size())
+    if (model->worldmatrices.size())
     {
-        for (auto &world : model->worldmatrixes)
+        for (auto &world : model->worldmatrices)
         {
             updateWorldProjections(world.data());
             model->draw();

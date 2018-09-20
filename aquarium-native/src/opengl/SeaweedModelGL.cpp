@@ -82,7 +82,7 @@ void SeaweedModelGL::applyBuffers() const
 
 void SeaweedModelGL::draw() const
 {
-    updatePerInstanceUnidorms();
+    updatePerInstanceUniforms();
 
     contextGL->drawElements(indicesBuffer);
 }
@@ -103,7 +103,7 @@ void SeaweedModelGL::applyUniforms() const
     contextGL->setUniform(viewProjectionUniform.second, viewProjectionUniform.first, GL_FLOAT_MAT4);
 }
 
-void SeaweedModelGL::updatePerInstanceUnidorms() const
+void SeaweedModelGL::updatePerInstanceUniforms() const
 {
     contextGL->setUniform(worldUniform.second, worldUniform.first, GL_FLOAT_MAT4);
     contextGL->setUniform(timeUniform.second, &timeUniform.first, GL_FLOAT);

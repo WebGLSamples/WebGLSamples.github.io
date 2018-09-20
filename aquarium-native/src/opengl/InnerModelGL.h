@@ -13,7 +13,7 @@ class InnerModelGL : public InnerModel
   public:
     InnerModelGL(const ContextGL *context, Global *g, MODELGROUP type, MODELNAME name, bool blend);
     void applyUniforms() const override;
-    void updatePerInstanceUnidorms() const override;
+    void updatePerInstanceUniforms() const override;
     void init() override;
     void applyTextures() const override;
     void applyBuffers() const override;

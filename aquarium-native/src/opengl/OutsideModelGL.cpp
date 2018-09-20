@@ -83,7 +83,7 @@ void OutsideModelGL::applyBuffers() const
 
 void OutsideModelGL::draw() const
 {
-    updatePerInstanceUnidorms();
+    updatePerInstanceUniforms();
     contextGL->drawElements(indicesBuffer);
 }
 
@@ -102,7 +102,7 @@ void OutsideModelGL::applyUniforms() const
     contextGL->setUniform(fogColorUniform.second, fogColorUniform.first, GL_FLOAT_VEC4);
 }
 
-void OutsideModelGL::updatePerInstanceUnidorms() const
+void OutsideModelGL::updatePerInstanceUniforms() const
 {
     contextGL->setUniform(worldUniform.second, worldUniform.first, GL_FLOAT_MAT4);
     contextGL->setUniform(worldViewProjectionUniform.second, worldViewProjectionUniform.first,

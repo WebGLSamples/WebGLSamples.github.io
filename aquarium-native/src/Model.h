@@ -32,7 +32,7 @@ class Model
         : mType(type), mName(name), mBlend(blend), mProgram(nullptr){};
     virtual ~Model();
     virtual void applyUniforms() const     = 0;
-    virtual void updatePerInstanceUnidorms() const = 0;
+    virtual void updatePerInstanceUniforms() const = 0;
     virtual void draw() const = 0;
 
     void applyPrograms() const;
@@ -42,7 +42,7 @@ class Model
     void prepare(const Context *context);
     virtual void init() = 0;
 
-    std::vector<std::vector<float>> worldmatrixes;
+    std::vector<std::vector<float>> worldmatrices;
     std::unordered_map<std::string, Texture *> textureMap;
     std::unordered_map<std::string, Buffer *> bufferMap;
 

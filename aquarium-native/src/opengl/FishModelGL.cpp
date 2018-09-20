@@ -115,7 +115,7 @@ void FishModelGL::applyBuffers() const
 
 void FishModelGL::draw() const
 {
-    updatePerInstanceUnidorms();
+    updatePerInstanceUniforms();
     contextGL->drawElements(indicesBuffer);
 }
 
@@ -139,7 +139,7 @@ void FishModelGL::applyUniforms() const
     contextGL->setUniform(fishWaveLengthUniform.second, &fishWaveLengthUniform.first, GL_FLOAT);
 }
 
-void FishModelGL::updatePerInstanceUnidorms() const
+void FishModelGL::updatePerInstanceUniforms() const
 {
     contextGL->setUniform(scaleUniform.second, &scaleUniform.first, GL_FLOAT);
     contextGL->setUniform(timeUniform.second, &timeUniform.first, GL_FLOAT);
