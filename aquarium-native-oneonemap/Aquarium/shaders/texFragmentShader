@@ -1,0 +1,13 @@
+#version 430 core
+
+precision mediump float;
+
+in vec2 v_texCoord;
+uniform vec4 colorMult;
+uniform sampler2D colorMap;
+
+out vec4 outColor;
+
+void main() {
+  outColor = texture(colorMap, v_texCoord) * colorMult;
+}

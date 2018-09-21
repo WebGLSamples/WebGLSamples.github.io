@@ -1,0 +1,19 @@
+#version 430 core
+
+precision mediump float;
+uniform sampler2D rampSampler;
+uniform sampler2D colorSampler;
+
+// Incoming variables from vertex shader
+layout(location =0) in vec2 outputTexcoord;
+layout(location =1) in float outputPercentLife;
+layout(location =2) in vec4 outputColorMult;
+
+out vec4 outColor;
+
+void main() {
+  vec4 colorMult = texture(rampSampler, 
+                             vec2(outputPercentLife, 0.5)) *
+                   outputColorMult;
+  outColor = texture(colorSampler, outputTexcoord) * colorMult;
+}
