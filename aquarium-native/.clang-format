@@ -1,0 +1,32 @@
+# Defines the AQUARIUM style for automatic reformatting.
+BasedOnStyle: Chromium
+
+# Allow double brackets such as std::vector<std::vector<int>>.
+Standard: Cpp11
+
+# Indent 4 spaces at a time.
+IndentWidth: 4
+
+# Keep lines under 100 columns long.
+ColumnLimit: 100
+
+# Always break before braces
+BreakBeforeBraces: Allman
+
+# Indent case labels.
+IndentCaseLabels: true
+
+# Right-align pointers and references
+PointerAlignment: Right
+
+# AQUARIUM likes to align things as much as possible.
+AlignOperands: true
+AlignConsecutiveAssignments: true
+
+# Use 2 space negative offset for access modifiers
+AccessModifierOffset: -2
+
+AllowShortCaseLabelsOnASingleLine: false
+
+# Useful for spacing out functions in classes
+KeepEmptyLinesAtTheStartOfBlocks: true
