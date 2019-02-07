@@ -58,6 +58,7 @@ a {
 }
 CANVAS {
   background-color: gray;
+  display: block;
 }
 #advanced {
   color: gray;
@@ -83,6 +84,58 @@ CANVAS {
 img {
   border: solid black 2px;
 }
+      .fulldialog {
+        display: flex;
+        display: -webkit-flex;
+        flex-flow: column;
+        -webkit-flex-flow: column;
+        justify-content: center;
+        align-content: center;
+        align-items: center;
+        -webkit-justify-content: center;
+        -webkit-align-content: center;
+        -webkit-align-items: center;
+
+        position: absolute;
+        z-index: 10;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.8);
+      }
+      .fulldialog > * {
+        padding: 1em;
+        background-color: rgba(0,0,0,0.8);
+        border: 1px solid #666;
+        border-radius: 0.5em;
+      }
+#start {
+  background-color: rgba(0,0,0,0.0);
+}
+#start>div {
+  text-align: center;
+}
+#start>div>div {
+  text-align: left;
+  color: red;
+  font-weight: bold;
+}
+#start img {
+  display: inline-block;
+  width: 10em;
+  height: 10em;
+}
+#start:after {
+ box-shadow: inset 0 0 10em rgba(0,0,0,0.9);
+ position: absolute;
+ top: 0;
+ left: 0;
+ width: 100%;
+ height: 100%;
+ z-index: 12;
+ content: "";
+}
 </style>
 </head>
 <body>
@@ -99,18 +152,23 @@ img {
 <div id="viewContainer">
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
 </div>
-  <div style="display:none;">
-  <video id="vid">
+<div id="start" class="fulldialog">
+    <div>
+      <img src="../video/start.svg" />
+    </div>
+</div>
+<div style="display:none;">
+  <video id="vid" src="sample-video.mp4">
     <!--
     <source src="http://studio.html5rocks.com/samples/video-player/chromeicon.mp4" type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"' />
     <source src="http://videos-cdn.mozilla.net/firefox/3.6/getpersonas.ogv" type='video/ogg; codecs="theora, vorbis"' /> 
     <source src="sample-video.theora.ogv" type='video/ogg; codecs="theora, vorbis"' /> 
-    -->
     <source src="sample-video.theora.ogv" type='video/ogg; codecs="theora, vorbis"' /> 
     <source src="sample-video.webmvp8.webm" type='video/webm; codecs="vp8, vorbis"' /> 
     <source src="sample-video.mp4" type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"' />
+    -->
   </video>
-  </div>
+</div>
 </body>
 <!-- ===[ basic ]============================================== -->
 <script id="basicVertexShader" type="text/something-not-javascript">
@@ -188,6 +246,8 @@ tdl.require('tdl.primitives');
 tdl.require('tdl.programs');
 tdl.require('tdl.textures');
 tdl.require('tdl.webgl');
+
+var isiOS = window.navigator.userAgent.match(/iPhone|iPad|iPod/i);
 
 // globals
 var gl;                   // the gl context.
@@ -477,19 +537,57 @@ function continueSetup() {
 
   var startTime = 0;  // 196
   var copyVideo = false;
+  var setVideo = false;
   var madeVideoTexture = false;
+  var audio;
   var video = document.getElementById("vid");
-  video.addEventListener("playing", function() {
-        copyVideo = true;
-      }, true);
-  video.addEventListener("ended", function() {
-        video.currentTime = startTime; video.play();
-      }, true);
-  video.addEventListener("error", function() {
-        tdl.log("could not play video");
-      }, true);
-  video.volume = 0;
-  video.play();
+
+  {
+    // we need to start inside a touch event
+    var start = document.querySelector("#start");
+    var once = false;
+
+    start.addEventListener('touchstart', onTouch);
+    start.addEventListener('mousedown', onTouch);
+    function onTouch() {
+      if (once) {
+        return;
+      }
+      once = true;
+      start.style.display = "none";
+      video.addEventListener("playing", function() {
+            copyVideo = true;
+          }, true);
+      video.addEventListener("ended", function() {
+            video.currentTime = startTime; video.play();
+          }, true);
+      video.addEventListener("error", function(e) {
+            console.error("could not play video" + e);
+          }, true);
+      video.volume = 0;
+      if (isiOS) {
+        // iOS9 doesn't let us play video without going fullscreen :(
+        // so a workaround, which I'm sure Apple will *fix* as in "make it not work"
+        // is to create an audio tag using the same video
+        // play the audio. DON'T PLAY THE VIDEO. Set the video's currentTime to match
+        // the audio.  I can't believe this works
+        audio = document.createElement("audio");
+        audio.volume = 0;
+        audio.src = "sample-video.mp4";
+        audio.addEventListener("ended", function() {
+          audio.currentTime = 0;
+          audio.play();
+        });
+        audio.play();
+        video.addEventListener("canplaythrough", function() {
+          setVideo = true;
+        }, true);
+        video.load();
+      } else {
+        video.play();
+      }
+    }
+  }
 
   var showRT = false;
   document.addEventListener('keypress', function(event) {
@@ -549,9 +647,9 @@ function continueSetup() {
     target[1] = g_targetHeight;
     target[2] = Math.cos(g_eyeClock + Math.PI) * g_targetRadius;
 
-    if (copyVideo) {
-      if (video.currentTime < startTime) {
-        video.currentTime = startTime;
+    if (copyVideo || setVideo) {
+      if (setVideo) {
+        video.currentTime = audio.currentTime;
       }
       gl.bindTexture(gl.TEXTURE_2D, g_videoTexture.texture);
       if (!madeVideoTexture) {

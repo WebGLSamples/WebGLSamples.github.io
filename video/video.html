@@ -94,7 +94,7 @@
       <source src="../color-adjust/sample-video.theora.ogv" type='video/ogg; codecs="theora, vorbis"' />
       <source src="../color-adjust/sample-video.webmvp8.webm" type='video/webm; codecs="vp8, vorbis"' />
     </video>
-    <div id="start" class="fulldialog" style="display: none;">
+    <div id="start" class="fulldialog">
         <div>
           <img src="start.svg" />
         </div>
@@ -170,7 +170,6 @@ void main() {
   <script src="../js/twgl-full.min.js"></script>
   <script>
     "use strict";
-    var isMobile = window.navigator.userAgent.match(/Android|iPhone|iPad|iPod|Windows Phone/i);
     var isiOS = window.navigator.userAgent.match(/iPhone|iPad|iPod/i);
     twgl.setDefaults({attribPrefix: "a_"});
     var m4 = twgl.m4;
@@ -259,14 +258,18 @@ void main() {
       console.log("could not play video");
     }, true);
 
-    if (!isMobile) {
-      // If it's desktop we can start the video automaically
-      video.play();
-    } else {
-      // otherwise we need to start inside a touch event
+    {
+      // we need to start inside a touch event
       var start = document.querySelector("#start");
-      start.style.display = "";
-      start.addEventListener('touchstart', function() {
+      var once = false;
+
+      start.addEventListener('touchstart', onTouch);
+      start.addEventListener('mousedown', onTouch);
+      function onTouch() {
+        if (once) {
+          return;
+        }
+        once = true;
         start.style.display = "none";
         if (isiOS) {
           // iOS9 doesn't let us play video without going fullscreen :(
@@ -288,7 +291,7 @@ void main() {
         } else {
           video.play();
         }
-      });
+      }
     }
 
     function render(time) {
