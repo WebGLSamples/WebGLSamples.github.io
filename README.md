@@ -22,7 +22,7 @@ You can also run the Aquarium synced across multiple machines. [See here for mor
 
 <a href="http://webglsamples.org/blob/blob.html"><img src="http://webglsamples.org/blob/blob.jpg" /></a>
 
-By Henrik RydgŒrd
+By Henrik Rydgï¿½rd
 
 
 ----
@@ -63,7 +63,7 @@ By Greggman
 
 <a href="http://webglsamples.org/electricflower/electricflower.html"><img src="http://webglsamples.org/electricflower/electricflower.jpg" /></a>
 
-By Henrik RydgŒrd
+By Henrik Rydgï¿½rd
 
 ----
 
@@ -167,4 +167,10 @@ By Joshua Trask
 
 By Greggman
 
+----
 
+[Motion Blur](http://webglsamples.org/motionblur/application.html)
+
+<a href="http://webglsamples.org/motionblur/application.html"><img src="http://webglsamples.org/motionblur/scene.png" /></a>
+
+By OÄŸuz EroÄŸlu
