@@ -173,4 +173,4 @@ By Greggman
 
 <a href="http://webglsamples.org/motionblur/application.html"><img src="http://webglsamples.org/motionblur/scene.png" /></a>
 
-By Oğuz Eroğlu
+By Oguz Eroglu
