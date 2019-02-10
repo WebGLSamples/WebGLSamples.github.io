@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset=utf-8>
+    <meta name='viewport' content='width=device-width'/>
+    <title>demo1</title>
+    <link rel="stylesheet" href="./css/jquery.terminal-1.11.3.min.css">
+    <script src="./js/roygbiv.js"></script>
+    <style>
+      body { margin: 0; position: fixed; display: flex;}
+      canvas {display: block;}
+      @font-face {
+        font-family: hack;
+        src: url(./css/Hack-Bold.ttf);
+      }
+      .noselect {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+      #cliDiv {
+          background-color: #000000;
+          opacity: 1;
+          display: block;
+          width: 100%;
+      }
+      .terminal, .cmd, .terminal, .cmd .prompt {
+        color: lime;
+        font-family: hack;
+      }
+    </style>
+  </head>
+  <body style="background-color:black;">
+    <!-- CLI -->
+   <div id="cliDiv">
+     <div id="terminalDiv" class="terminal noselect"></div>
+   </div>
+    <!-- 3D CONTENT -->
+   <canvas id="rendererCanvas"></canvas>
+  </body>
+</html>
