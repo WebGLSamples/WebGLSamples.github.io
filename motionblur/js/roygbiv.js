@@ -11312,8 +11312,8 @@ function generateUniqueObjectName(){
   var generatedName = (Date.now().toString(36) + Math.random().toString(36).substr(2, 5)).toUpperCase();
   var nameFound = true;
   while (nameFound){
-    var nameInAddedObjects = !(typeof addedObjects[generatedName] == "undefined");
-    var nameInGluedObjects = !(typeof objectGroups[generatedName] == "undefined");
+    var nameInAddedObjects = !(typeof addedObjects[generatedName] == UNDEFINED);
+    var nameInGluedObjects = !(typeof objectGroups[generatedName] == UNDEFINED);
     var nameInChildObjects = false;
     for (var gluedObjectName in objectGroups){
       var group = objectGroups[gluedObjectName].group;
@@ -11321,7 +11321,9 @@ function generateUniqueObjectName(){
         nameInChildObjects = true;
       }
     }
-    nameFound = (nameInAddedObjects || nameInGluedObjects || nameInChildObjects);
+    var nameInAddedTexts = !(typeof addedTexts[generatedName] == UNDEFINED);
+    var nameInGridSystems = !(typeof gridSystems[generatedName] == UNDEFINED);
+    nameFound = (nameInAddedObjects || nameInGluedObjects || nameInChildObjects || nameInAddedTexts || nameInGridSystems);
     if (nameFound){
       console.error("[*] Object name generation collision happened: "+generatedName);
       generatedName = (Date.now().toString(36) + Math.random().toString(36).substr(2, 5)).toUpperCase();
@@ -27468,7 +27470,7 @@ var Font = function(name, path, onLoaded, onError, customFontFace){
   this.onLoaded = onLoaded;
   this.onError = onError;
   if (!customFontFace){
-    this.fontFace = new FontFace(name, "url("+path+")");
+    this.fontFace = new FontFace(name, "url(./"+path+")");
   }else{
     this.fontFace = customFontFace
     this.generateFontTexture();
