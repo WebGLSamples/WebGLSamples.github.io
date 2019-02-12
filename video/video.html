@@ -89,11 +89,6 @@
   <body>
     <canvas id="c"></canvas>
     <div id="b"><a href="http://twgljs.org">twgl.js</a> - video texture</div>
-    <video id="vid" style="display: none;">
-      <source src="../color-adjust/sample-video.mp4" type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"' />
-      <source src="../color-adjust/sample-video.theora.ogv" type='video/ogg; codecs="theora, vorbis"' />
-      <source src="../color-adjust/sample-video.webmvp8.webm" type='video/webm; codecs="vp8, vorbis"' />
-    </video>
     <div id="start" class="fulldialog">
         <div>
           <img src="start.svg" />
@@ -170,7 +165,6 @@ void main() {
   <script src="../js/twgl-full.min.js"></script>
   <script>
     "use strict";
-    var isiOS = window.navigator.userAgent.match(/iPhone|iPad|iPod/i);
     twgl.setDefaults({attribPrefix: "a_"});
     var m4 = twgl.m4;
     var gl = twgl.getWebGLContext(document.getElementById("c"));
@@ -244,7 +238,9 @@ void main() {
     var audio;
     var copyVideo;
     var setVideo;
-    var video = document.getElementById("vid");
+    var video = document.createElement("video");
+    video.playsInline = true;
+    video.src = "../color-adjust/sample-video.mp4";
     video.addEventListener("playing", function() {
       copyVideo = true;
     }, true);
@@ -271,26 +267,7 @@ void main() {
         }
         once = true;
         start.style.display = "none";
-        if (isiOS) {
-          // iOS9 doesn't let us play video without going fullscreen :(
-          // so a workaround, which I'm sure Apple will *fix* as in "make it not work"
-          // is to create an audio tag using the same video
-          // play the audio. DON'T PLAY THE VIDEO. Set the video's currentTime to match
-          // the audio.  I can't believe this works
-          audio = document.createElement("audio");
-          audio.src = "../color-adjust/sample-video.mp4";
-          audio.addEventListener("ended", function() {
-            audio.currentTime = 0;
-            audio.play();
-          });
-          audio.play();
-          video.addEventListener("canplaythrough", function() {
-            setVideo = true;
-          }, true);
-          video.load();
-        } else {
-          video.play();
-        }
+        video.play();
       }
     }
 
