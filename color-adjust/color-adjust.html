@@ -32,6 +32,7 @@
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 <title>WebGL Color Adjust</title>
 <style>
 html, body {
@@ -145,9 +146,7 @@ img {
 </div>
 <div id="uiContainer">
   <div>Adjustment</div>
-  <div id="adjustments">
-    <div><input type="checkbox" value="false" id="nearest"><label for="nearest">nearest</label></div>
-  </div>
+  <div id="adjustments"></div>
 </div>
 <div id="viewContainer">
 <canvas id="canvas" width="1024" height="1024" style="width: 100%; height: 100%;"></canvas>
@@ -156,18 +155,6 @@ img {
     <div>
       <img src="../video/start.svg" />
     </div>
-</div>
-<div style="display:none;">
-  <video id="vid" src="sample-video.mp4">
-    <!--
-    <source src="http://studio.html5rocks.com/samples/video-player/chromeicon.mp4" type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"' />
-    <source src="http://videos-cdn.mozilla.net/firefox/3.6/getpersonas.ogv" type='video/ogg; codecs="theora, vorbis"' /> 
-    <source src="sample-video.theora.ogv" type='video/ogg; codecs="theora, vorbis"' /> 
-    <source src="sample-video.theora.ogv" type='video/ogg; codecs="theora, vorbis"' /> 
-    <source src="sample-video.webmvp8.webm" type='video/webm; codecs="vp8, vorbis"' /> 
-    <source src="sample-video.mp4" type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"' />
-    -->
-  </video>
 </div>
 </body>
 <!-- ===[ basic ]============================================== -->
@@ -208,22 +195,24 @@ uniform sampler2D colorCube1;
 varying vec2 v_texCoord;
 
 vec4 sampleAs3DTexture(sampler2D tex, vec3 texCoord, float size) {
-   float sliceSize = 1.0 / size;                         // space of 1 slice
-   float slicePixelSize = sliceSize / size;              // space of 1 pixel
-   float sliceInnerSize = slicePixelSize * (size - 1.0); // space of size pixels
-   float zSlice0 = min(floor(texCoord.z * size), size - 1.0);
-   float zSlice1 = min(zSlice0 + 1.0, size - 1.0);
-   float xOffset = slicePixelSize * 0.5 + texCoord.x * sliceInnerSize;
-   float s0 = xOffset + (zSlice0 * sliceSize);
-   float s1 = xOffset + (zSlice1 * sliceSize);
-   vec4 slice0Color = texture2D(tex, vec2(s0, texCoord.y));
-   vec4 slice1Color = texture2D(tex, vec2(s1, texCoord.y));
-   float zOffset = mod(texCoord.z * size, 1.0);
-   #if defined(USE_NEAREST)
-     return mix(slice0Color, slice1Color, step(0.5, zOffset));
-   #else
-     return mix(slice0Color, slice1Color, zOffset);
-   #endif
+  float sliceSize = 1.0 / size;                  // space of 1 slice
+  float slicePixelSize = sliceSize / size;       // space of 1 pixel
+  float width = size - 1.0;
+  float sliceInnerSize = slicePixelSize * width; // space of size pixels
+  float zSlice0 = floor( texCoord.z * width);
+  float zSlice1 = min( zSlice0 + 1.0, width);
+  float xOffset = slicePixelSize * 0.5 + texCoord.x * sliceInnerSize;
+  float yRange = (texCoord.y * width + 0.5) / size;
+  float s0 = xOffset + (zSlice0 * sliceSize);
+  #if defined(USE_NEAREST)
+    return texture2D(tex, vec2( s0, yRange));
+  #else
+    float s1 = xOffset + (zSlice1 * sliceSize);
+    vec4 slice0Color = texture2D(tex, vec2(s0, yRange));
+    vec4 slice1Color = texture2D(tex, vec2(s1, yRange));
+    float zOffset = mod(texCoord.z * width, 1.0);
+    return mix(slice0Color, slice1Color, zOffset);
+  #endif
 }
 
 void main() {
@@ -282,31 +271,31 @@ var g_eyeSpeed     = 0.0;
 //g_debug = true;
 
 var g_adjustmentImages = [
-  { name: 'default',        url: "adjustments/default.png" },
-  { name: 'monochrome',     url: "adjustments/monochrome.png" },
-  { name: 'sepia',          url: "adjustments/sepia.png" },
-  { name: 'saturated',      url: "adjustments/saturated.png", },
-  { name: 'posterize',      url: "adjustments/posterize.png", },
-  { name: 'posterize-3-rgb',url: "adjustments/posterize-3-rgb.png", },
-  { name: 'posterize-3-lab',url: "adjustments/posterize-3-lab.png", },
-  { name: 'posterize-4-lab',url: "adjustments/posterize-4-lab.png", },
-  { name: 'posterize-more', url: "adjustments/posterize-more.png", },
-  { name: 'inverse',        url: "adjustments/inverse.png", },
-  { name: 'color negative', url: "adjustments/color-negative.png", },
-  { name: 'high contrast',  url: "adjustments/high-contrast-bw.png", },
-  { name: 'funky contrast', url: "adjustments/funky-contrast.png", },
-  { name: 'nightvision',    url: "adjustments/nightvision.png", },
-  { name: 'thermal',        url: "adjustments/thermal.png", },
-  { name: 'b/w',            url: "adjustments/black-white.png", },
-  { name: 'hue +60',        url: "adjustments/hue-plus-60.png", },
-  { name: 'hue +180',       url: "adjustments/hue-plus-180.png", },
-  { name: 'hue -60',        url: "adjustments/hue-minus-60.png", },
-  { name: 'red to cyan',    url: "adjustments/red-to-cyan.png" },
-  { name: 'blues',          url: "adjustments/blues.png" },
-  { name: 'infrared',       url: "adjustments/infrared.png" },
-  { name: 'radioactive',    url: "adjustments/radioactive.png" },
-  { name: 'goolgey',        url: "adjustments/googley.png" },
-  { name: 'bgy',            url: "adjustments/bgy.png" }
+  { name: 'default',         nearest: false, url: "adjustments/default.png" },
+  { name: 'monochrome',      nearest: false, url: "adjustments/monochrome.png" },
+  { name: 'sepia',           nearest: false, url: "adjustments/sepia.png" },
+  { name: 'saturated',       nearest: false, url: "adjustments/saturated.png", },
+  { name: 'posterize',       nearest: true , url: "adjustments/posterize.png", },
+  { name: 'posterize-3-rgb', nearest: true , url: "adjustments/posterize-3-rgb.png", },
+  { name: 'posterize-3-lab', nearest: true , url: "adjustments/posterize-3-lab.png", },
+  { name: 'posterize-4-lab', nearest: true , url: "adjustments/posterize-4-lab.png", },
+  { name: 'posterize-more',  nearest: true , url: "adjustments/posterize-more.png", },
+  { name: 'inverse',         nearest: false, url: "adjustments/inverse.png", },
+  { name: 'color negative',  nearest: false, url: "adjustments/color-negative.png", },
+  { name: 'high contrast',   nearest: false, url: "adjustments/high-contrast-bw.png", },
+  { name: 'funky contrast',  nearest: false, url: "adjustments/funky-contrast.png", },
+  { name: 'nightvision',     nearest: false, url: "adjustments/nightvision.png", },
+  { name: 'thermal',         nearest: false, url: "adjustments/thermal.png", },
+  { name: 'b/w',             nearest: true , url: "adjustments/black-white.png", },
+  { name: 'hue +60',         nearest: false, url: "adjustments/hue-plus-60.png", },
+  { name: 'hue +180',        nearest: false, url: "adjustments/hue-plus-180.png", },
+  { name: 'hue -60',         nearest: false, url: "adjustments/hue-minus-60.png", },
+  { name: 'red to cyan',     nearest: false, url: "adjustments/red-to-cyan.png" },
+  { name: 'blues',           nearest: false, url: "adjustments/blues.png" },
+  { name: 'infrared',        nearest: false, url: "adjustments/infrared.png" },
+  { name: 'radioactive',     nearest: false, url: "adjustments/radioactive.png" },
+  { name: 'goolgey',         nearest: false, url: "adjustments/googley.png" },
+  { name: 'bgy',             nearest: false, url: "adjustments/bgy.png" }
 ];
 
 function ValidateNoneOfTheArgsAreUndefined(functionName, args) {
@@ -447,6 +436,7 @@ function makeSimulatedVolumeImg(name, img, size, callback) {
 function updateSelection(index) {
   function updateTexture(tex, index) {
     var info = g_adjustmentImages[index];
+    g_useNearest = info.nearest;
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
     //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, info.img);
@@ -540,7 +530,9 @@ function continueSetup() {
   var setVideo = false;
   var madeVideoTexture = false;
   var audio;
-  var video = document.getElementById("vid");
+  var video = document.createElement("video");
+  video.playsInline = true;
+  video.src = "sample-video.mp4";
 
   {
     // we need to start inside a touch event
@@ -565,27 +557,7 @@ function continueSetup() {
             console.error("could not play video" + e);
           }, true);
       video.volume = 0;
-      if (isiOS) {
-        // iOS9 doesn't let us play video without going fullscreen :(
-        // so a workaround, which I'm sure Apple will *fix* as in "make it not work"
-        // is to create an audio tag using the same video
-        // play the audio. DON'T PLAY THE VIDEO. Set the video's currentTime to match
-        // the audio.  I can't believe this works
-        audio = document.createElement("audio");
-        audio.volume = 0;
-        audio.src = "sample-video.mp4";
-        audio.addEventListener("ended", function() {
-          audio.currentTime = 0;
-          audio.play();
-        });
-        audio.play();
-        video.addEventListener("canplaythrough", function() {
-          setVideo = true;
-        }, true);
-        video.load();
-      } else {
-        video.play();
-      }
+      video.play();
     }
   }
 
@@ -606,17 +578,7 @@ function continueSetup() {
     worldViewProjection: worldViewProjection
   };
 
-  const nearestElem =  document.querySelector("#nearest");
-  nearestElem.addEventListener('change', function(e) {
-    g_useNearest = e.target.checked;
-  });
-
   const q = parseQuery(window.location.search);
-
-  if (q.nearest && q.nearest !== 'false') {
-    g_useNearest = true;
-    nearestElem.checked = true;
-  }
 
   if (q.adjustment) {
     const ndx = g_adjustmentNames.indexOf(q.adjustment);
