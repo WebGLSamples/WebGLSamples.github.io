@@ -3,15 +3,15 @@
 <head>
 <title>Chrome Book with Offscreen Tabs</title>
 
-<script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
-<script type="text/javascript" src="webgl-utils.js"></script>
-<script type="text/javascript" src="webgl-debug.js"></script>
-<script type="text/javascript" src="chrome_book_graphics.js"></script>
-<script type="text/javascript" src="chrome_book_physics.js"></script>
-<script type="text/javascript" src="chrome_book_mesh.js"></script>
-<script type="text/javascript" src="imageData.js"></script>
+<script src="glMatrix-0.9.5.min.js"></script>
+<script src="webgl-utils.js"></script>
+<script src="webgl-debug.js"></script>
+<script src="chrome_book_graphics.js"></script>
+<script src="chrome_book_physics.js"></script>
+<script src="chrome_book_mesh.js"></script>
+<script src="imageData.js"></script>
 <!-- Interactivity, glue and application-dependent code is in chrome_book_sim.js -->
-<script type="text/javascript" src="chrome_book_sim.js"></script>
+<script src="chrome_book_sim.js"></script>
 
 <script id="shader-fs" type="x-shader/x-fragment"> 
     #ifdef GL_ES
@@ -60,7 +60,7 @@
     }
 </script>
 
-<script type="text/javascript">
+<script>
     function start_sim() {
         var body = document.getElementById('page-body');
         var canvas = document.getElementById('cloth-canvas');

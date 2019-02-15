@@ -179,7 +179,7 @@ function generateSprites(numSprites) {
 }
 
 function render() {
-  tdl.webgl.requestAnimationFrame(render, canvas);
+  requestAnimationFrame(render);
   var now = new Date().getTime() * 0.001;
   var deltaT = now - lastTime;
   fpsTimer.update(deltaT);

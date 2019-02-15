@@ -32,6 +32,7 @@
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 <title>WebGL Clear test</title>
 <style>
 html, body {
@@ -72,8 +73,8 @@ CANVAS {
   height: 100%;
 }
 </style>
-<script type="text/javascript" src="../tdl/base.js"></script>
-<script type="text/javascript">
+<script src="../tdl/base.js"></script>
+<script>
 tdl.require('tdl.buffers');
 tdl.require('tdl.fast');
 tdl.require('tdl.fps');
@@ -146,7 +147,7 @@ function initialize() {
   function render() {
     ++frameCount;
     if (!g_drawOnce) {
-      tdl.webgl.requestAnimationFrame(render, canvas);
+      requestAnimationFrame(render);
     }
     var now = (new Date()).getTime() * 0.001;
     var elapsedTime;

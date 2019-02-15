@@ -32,6 +32,7 @@
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 <title>WebGL SyncMark - Are you synced?</title>
 <style>
 html, body {
@@ -51,8 +52,8 @@ canvas {
   padding: 4px;
 }
 </style>
-<script type="text/javascript" src="../tdl/base.js"></script>
-<script type="text/javascript">
+<script src="../tdl/base.js"></script>
+<script>
 tdl.require('tdl.webgl');
 
 var gl;
@@ -67,7 +68,7 @@ function mainloop() {
   // framerate independent so we will still keep sync even if we
   // lose frames.
   function render() {
-    tdl.webgl.requestAnimationFrame(render, canvas);
+    requestAnimationFrame(render);
     var time = music.currentTime
     gl.enable(gl.SCISSOR_TEST)
     gl.clearColor(0, 0, 0, 1.0)

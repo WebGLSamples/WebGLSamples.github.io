@@ -46,6 +46,7 @@ coder code? if JS counts.
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 <title>WebGL Electric Flower</title>
 <style>
 html, body {
@@ -79,11 +80,11 @@ div.title {
   font-weight: bold;
 }
 </style>
-<script type="text/javascript" src="../khronos/webgl-debug.js"></script>
-<script type="text/javascript" src="../tdl/base.js"></script>
-<script type="text/javascript" src="flower.js"></script>
-<script type="text/javascript" src="postprocess.js"></script>
-<script type="text/javascript">
+<script src="../khronos/webgl-debug.js"></script>
+<script src="../tdl/base.js"></script>
+<script src="flower.js"></script>
+<script src="postprocess.js"></script>
+<script>
 
 tdl.require('tdl.fast');
 tdl.require('tdl.math');
@@ -129,7 +130,7 @@ function mainloop() {
     aspect = canvas.clientWidth / canvas.clientHeight
     var framebuffer = backbuffer;
     singleEffect.render(framebuffer, music_time, g_postProc)
-    g_requestId = tdl.webgl.requestAnimationFrame(render, canvas);
+    g_requestId = requestAnimationFrame(render);
   }
   render();
 }
@@ -211,7 +212,7 @@ window.onload = function() {
 
 function handleContextLost() {
   tdl.log("context lost");
-  tdl.webgl.cancelRequestAnimationFrame(g_requestId);
+  cancelAnimationFrame(g_requestId);
 }
 
 function handleContextRestored() {

@@ -32,11 +32,12 @@
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 <title>Google I/O 2011 - 10000 objects optimized</title>
-<link rel="stylesheet" type="text/css" href="style.css" />
-<script type="text/javascript" src="colors.js"></script>
-<script type="text/javascript" src="../../tdl/base.js"></script>
-<script type="text/javascript">
+<link rel="stylesheet" href="style.css" />
+<script src="colors.js"></script>
+<script src="../../tdl/base.js"></script>
+<script>
 tdl.require('tdl.buffers');
 tdl.require('tdl.fast');
 tdl.require('tdl.fps');
@@ -312,7 +313,7 @@ function initialize() {
   var then = (new Date()).getTime() * 0.001;
 
   function render() {
-    tdl.webgl.requestAnimationFrame(render, canvas);
+    requestAnimationFrame(render);
 
     // Compute the elapsed time since the last rendered frame
     // in seconds.

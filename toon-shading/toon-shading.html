@@ -32,6 +32,7 @@
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 <title>Toon Shading</title>
 <style>
 html, body {
@@ -110,15 +111,15 @@ CANVAS {
   height: 16px;
 }
 </style>  
-<link type="text/css" href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
-<link type="text/css" href="../colorpicker/css/colorpicker.css" rel="stylesheet" />
-<link type="text/css" href="../gradient-editor/gradient-editor.css" rel="stylesheet" />
-<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
-<script type="text/javascript" src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
-<script type="text/javascript" src="../colorpicker/js/colorpicker.js"></script>
-<script type="text/javascript" src="../gradient-editor/gradient-editor.js"></script>
-<script type="text/javascript" src="../tdl/base.js"></script>
-<script type="text/javascript">
+<link href="../jquery-ui-1.8.2.custom/css/ui-lightness/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
+<link href="../colorpicker/css/colorpicker.css" rel="stylesheet" />
+<link href="../gradient-editor/gradient-editor.css" rel="stylesheet" />
+<script src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
+<script src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
+<script src="../colorpicker/js/colorpicker.js"></script>
+<script src="../gradient-editor/gradient-editor.js"></script>
+<script src="../tdl/base.js"></script>
+<script>
 tdl.require('tdl.buffers');
 tdl.require('tdl.fast');
 tdl.require('tdl.fps');
@@ -402,7 +403,7 @@ function initialize() {
   var then = (new Date()).getTime() * 0.001;
 
   function render() {
-    tdl.webgl.requestAnimationFrame(render, canvas);
+    requestAnimationFrame(render);
 
     // Compute the elapsed time since the last rendered frame
     // in seconds.

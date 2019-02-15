@@ -1,6 +1,6 @@
 var PerfHarness = (function(undefined) {
 
-  var g = {
+  const g = {
     count: 1,
     elapsedTime: 0,
     targetFPS: 50,

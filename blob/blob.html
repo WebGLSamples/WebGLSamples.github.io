@@ -46,6 +46,7 @@ coder code? if JS counts.
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 <title>WebGL Blobs</title>
 <style>
 body {
@@ -97,12 +98,12 @@ div.title {
   font-weight: bold;
 }
 </style>
-<script type="text/javascript" src="../khronos/webgl-debug.js"></script>
-<script type="text/javascript" src="../tdl/base.js"></script>
-<script type="text/javascript" src="immediate_sim.js"></script>
-<script type="text/javascript" src="marching_cubes_tables.js"></script>
-<script type="text/javascript" src="marching_cubes.js"></script>
-<script type="text/javascript">
+<script src="../khronos/webgl-debug.js"></script>
+<script src="../tdl/base.js"></script>
+<script src="immediate_sim.js"></script>
+<script src="marching_cubes_tables.js"></script>
+<script src="marching_cubes.js"></script>
+<script>
 
 tdl.require('tdl.fast');
 tdl.require('tdl.fps');
@@ -170,7 +171,7 @@ function mainloop() {
     singleEffect.render(null, now, g_numBlobs)
     frameCount++;
     totalFrameCount++;
-    g_requestId = tdl.webgl.requestAnimationFrame(render, canvas);
+    g_requestId = requestAnimationFrame(render);
   }
 
   // Repeatedly run render(), attempt to hold 60 but the demo is
@@ -271,7 +272,7 @@ window.onload = function() {
 
 function handleContextLost() {
   tdl.log("context lost");
-  tdl.webgl.cancelRequestAnimationFrame(g_requestId);
+  cancelAnimationFrame(g_requestId);
 }
 
 function handleContextRestored() {

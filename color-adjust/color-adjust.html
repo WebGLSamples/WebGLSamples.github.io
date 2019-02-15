@@ -594,7 +594,7 @@ function continueSetup() {
   function render() {
     ++frameCount;
     if (!g_drawOnce) {
-      tdl.webgl.requestAnimationFrame(render, canvas);
+      requestAnimationFrame(render);
     }
     var now = (new Date()).getTime() * 0.001;
     var elapsedTime = now - then;

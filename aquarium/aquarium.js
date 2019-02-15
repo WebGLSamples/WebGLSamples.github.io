@@ -900,7 +900,7 @@ function main() {
 
 function handleContextLost() {
   tdl.log("context lost");
-  tdl.webgl.cancelRequestAnimationFrame(g_requestId);
+  cancelAnimationFrame(g_requestId);
   // remove loading scenes
   for (var name in g_scenes) {
     var scene = g_scenes[name];
@@ -1763,7 +1763,7 @@ function initialize() {
       g_requestId = g_vrDisplay.requestAnimationFrame(onAnimationFrame);
       g_vrDisplay.getFrameData(g_frameData);
     } else {
-      g_requestId = tdl.webgl.requestAnimationFrame(onAnimationFrame, canvas);
+      g_requestId = requestAnimationFrame(onAnimationFrame);
     }
 
     if (g_shadersNeedUpdate) {

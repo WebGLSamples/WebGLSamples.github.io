@@ -32,12 +32,13 @@
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 <title>WebGL FishTank</title>
-<link type="text/css" href="../shared/base.css" rel="stylesheet" />
-<script type="text/javascript" src="../khronos/webgl-debug.js"></script>
-<script type="text/javascript" src="../tdl/base.js"></script>
-<script type="text/javascript" src="../shared/utils.js"></script>
-<script type="text/javascript">
+<link href="../shared/base.css" rel="stylesheet" />
+<script src="../khronos/webgl-debug.js"></script>
+<script src="../tdl/base.js"></script>
+<script src="../shared/utils.js"></script>
+<script>
 tdl.require('tdl.buffers');
 tdl.require('tdl.fast');
 tdl.require('tdl.fps');
@@ -407,7 +408,7 @@ function main() {
 
 function handleContextLost() {
   tdl.log("context lost");
-  tdl.webgl.cancelRequestAnimationFrame(g_requestId);
+  cancelAnimationFrame(g_requestId);
 }
 
 function handleContextRestored() {
@@ -792,7 +793,7 @@ function initialize() {
     g_logGLCalls = false;
 
     if (!g_drawOnce) {
-      g_requestId = tdl.webgl.requestAnimationFrame(render, canvas);
+      g_requestId = requestAnimationFrame(render);
     }
   }
   render();

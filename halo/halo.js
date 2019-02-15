@@ -1002,7 +1002,7 @@ var main = function() {
     canvas.loseContextInNCalls(10000);
 
     tdl.webgl.registerContextLostHandler(canvas, function() {
-            tdl.webgl.cancelRequestAnimationFrame(requestId);
+            cancelAnimationFrame(requestId);
         });
     tdl.webgl.registerContextRestoredHandler(canvas, function() {
             start();
@@ -1035,7 +1035,7 @@ var main = function() {
                 ok = true;
             } finally {
                 if (ok) {
-                  requestId = tdl.webgl.requestAnimationFrame(render, canvas);
+                  requestId = requestAnimationFrame(render);
                 }
             }
         };

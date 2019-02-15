@@ -156,7 +156,7 @@ window.onload = function() {
 function mainloop() {
   var fpsElem = document.getElementById("fps");
   function render() {
-    tdl.webgl.requestAnimationFrame(render, canvas);
+    requestAnimationFrame(render);
     var now = theClock.getTime();
     var elapsedTime;
     if (then == 0.0) {

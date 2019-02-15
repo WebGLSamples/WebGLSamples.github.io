@@ -294,7 +294,7 @@ tdl.writeScriptTag_ = function(src) {
   if (typeof doc != 'undefined' &&
       !tdl.dependencies_.written[src]) {
     tdl.dependencies_.written[src] = true;
-    var html = '<script type="text/javascript" src="' +
+    var html = '<script src="' +
                src + '"></' + 'script>'
     doc.write(html);
   }

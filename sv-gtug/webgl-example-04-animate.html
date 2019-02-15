@@ -1,6 +1,6 @@
 <html>
 <head>
-<script type="text/javascript" src="../tdl/base.js"></script>
+<script src="../tdl/base.js"></script>
 <script>
 tdl.require('tdl.math');
 tdl.require('tdl.webgl');
@@ -111,7 +111,7 @@ function main() {
         indices.length,     // number of vertices
         gl.UNSIGNED_SHORT,  // type of indices
         0);                 // offset
-    tdl.webgl.requestAnimationFrame(render, canvas);
+    requestAnimationFrame(render);
   }
   render();
 }
