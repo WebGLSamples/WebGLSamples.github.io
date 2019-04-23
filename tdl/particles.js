@@ -294,7 +294,7 @@ tdl.particles.ParticleSystem = function(gl,
   var makeShaderSourceMultiview = function(shaderType, shaderString) {
     // Replace shader code to get ESSL3 shader code and enable multiview (huge hack, do not do this at home kids)
     var prefix = ["#version 300 es"];
-    prefix.push("#extension GL_OVR_multiview : require");
+    prefix.push("#extension GL_OVR_multiview2 : require");
     if (shaderType == 'vs') {
       prefix.push("layout(num_views = 2) in;");
     } else {
@@ -327,7 +327,7 @@ tdl.particles.ParticleSystem = function(gl,
   };
 
   var multiviewShaders = [];
-  if (gl.getExtension('WEBGL_multiview')) {
+  if (gl.getExtension('OVR_multiview2')) {
     multiviewShaders.push(new tdl.shader.Shader(gl,
                                                 makeShaderSourceMultiview('vs', tdl.particles.SHADER_STRINGS[0]),
                                                 makeShaderSourceMultiview('fs', tdl.particles.SHADER_STRINGS[2])));

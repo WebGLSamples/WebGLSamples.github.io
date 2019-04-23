@@ -536,7 +536,7 @@ function createProgramFromTags(
 
     var vsPrefix = ["#version 300 es"];
     if (opt_multiview) {
-        vsPrefix.push("#extension GL_OVR_multiview : require");
+        vsPrefix.push("#extension GL_OVR_multiview2 : require");
         vsPrefix.push("layout(num_views = 2) in;");
 
         var addToMain = '';
@@ -556,7 +556,7 @@ function createProgramFromTags(
 
     var fsPrefix = ["#version 300 es"];
     if (opt_multiview) {
-        fsPrefix.push("#extension GL_OVR_multiview : require");
+        fsPrefix.push("#extension GL_OVR_multiview2 : require");
     }
     fsPrefix.push("out mediump vec4 my_FragColor;");
     fs = fsPrefix.join('\n') + fs;
@@ -884,7 +884,7 @@ function main() {
   g_fpsTimer = new tdl.fps.FPSTimer();
   if (isMultiviewSupportEnabled()) {
     gl = tdl.webgl.setupWebGL(canvas, {antialias: false}, undefined, 'webgl2');
-    multiview = gl.getExtension('WEBGL_multiview');
+    multiview = gl.getExtension('OVR_multiview2');
   } else {
     gl = tdl.webgl.setupWebGL(canvas);
   }
@@ -1878,14 +1878,14 @@ function setupMultiviewFbIfNeeded() {
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA8, halfWidth, canvas.height, 2, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-    multiview.framebufferTextureMultiviewWEBGL(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, g_multiviewTex, 0, 0, 2);
+    multiview.framebufferTextureMultiviewOVR(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, g_multiviewTex, 0, 0, 2);
 
     g_multiviewDepth = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, g_multiviewDepth);
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH24_STENCIL8, halfWidth, canvas.height, 2, 0, gl.DEPTH_STENCIL, gl.UNSIGNED_INT_24_8, null);
-    multiview.framebufferTextureMultiviewWEBGL(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, g_multiviewDepth, 0, 0, 2);
+    multiview.framebufferTextureMultiviewOVR(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, g_multiviewDepth, 0, 0, 2);
 
     g_multiviewViewFb = [null, null];
     for (var viewIndex = 0; viewIndex < 2; ++viewIndex) {
