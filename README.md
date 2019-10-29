@@ -169,8 +169,8 @@ By Greggman
 
 ----
 
-[Motion Blur](http://webglsamples.org/motionblur/application.html)
+[ROYGBIV Electroshock](http://webglsamples.org/electroShock/application.html)
 
-<a href="http://webglsamples.org/motionblur/application.html"><img src="http://webglsamples.org/motionblur/scene.png" /></a>
+<a href="http://webglsamples.org/electroShock/application.html"><img src="http://webglsamples.org/electroShock/scene.png" /></a>
 
 By Oguz Eroglu
