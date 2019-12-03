@@ -609,7 +609,7 @@ function continueSetup() {
     target[1] = g_targetHeight;
     target[2] = Math.cos(g_eyeClock + Math.PI) * g_targetRadius;
 
-    if (copyVideo || setVideo) {
+    if (video.currentTime > 0 && (copyVideo || setVideo)) {
       if (setVideo) {
         video.currentTime = audio.currentTime;
       }
