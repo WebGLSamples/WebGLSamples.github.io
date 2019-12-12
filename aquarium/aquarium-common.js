@@ -241,7 +241,8 @@ function setSetting(elem, id) {
  */
 function initializeCommon() {
   if (g.net.sync) {
-    var url = "ws:" + window.location.host;
+    var protocol = window.location.protocol == "https:" ? "wss:" : "ws:" 
+    var url = protocol + window.location.host;
     tdl.log("server:", url);
     g_syncManager.init(url, g.net.slave);
     if (!g.net.slave) {
