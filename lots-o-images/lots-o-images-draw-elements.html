@@ -256,7 +256,14 @@ function initialize() {
 
   document.getElementById("title").innerHTML = document.getElementsByTagName("title")[0].innerHTML;
 
-  gl = tdl.webgl.setupWebGL(canvas, {alpha:false, antialias:false});
+  const ctxOptions =  {
+    alpha: false,
+    antialias: false,
+    preserveDrawingBuffer: false,
+  };
+  tdl.misc.applyUrlSettings(ctxOptions);
+
+  gl = tdl.webgl.setupWebGL(canvas, ctxOptions);
   if (!gl) {
     return false;
   }

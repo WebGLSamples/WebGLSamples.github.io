@@ -299,12 +299,15 @@ function initialize() {
   setTargetFPS(targetFPS);
 
   document.getElementById("title").innerHTML = document.getElementsByTagName("title")[0].innerHTML;
-  
-  const q = window.location.search;
-  const alpha = q.indexOf('alpha') >= 0;
-  const antialias = q.indexOf('antialias') >= 0;
 
-  gl = tdl.webgl.setupWebGL(canvas, {alpha: alpha, antialias: antialias});
+  const ctxOptions =  {
+    alpha: false,
+    antialias: false,
+    preserveDrawingBuffer: false,
+  };
+  tdl.misc.applyUrlSettings(ctxOptions);
+
+  gl = tdl.webgl.setupWebGL(canvas, ctxOptions);
   if (!gl) {
     return false;
   }

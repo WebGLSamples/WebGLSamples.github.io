@@ -24,7 +24,7 @@ var g_eyeRadius         = 9;
 var g_maxObjects        = 250000;
 var g_numObjects        = 100;
 var g_modelsPerBlock    = 50;
-var g_targetFrameRate   = 60 - 2;  // add some fudge so browser that runs at 58-59 can still run the test
+var g_targetFrameRate   = 60 - 5;  // add some fudge so browser that runs at 58-59 can still run the test
 
 function CreateApp() {
   // Create Geometry.

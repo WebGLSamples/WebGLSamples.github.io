@@ -56,7 +56,7 @@ const PerfHarness = (function(undefined) {
 
   const accelerating = function() {
     if (highestElapsedTime > g.targetTime) {
-      g.count -= g.velocity * 2;
+      g.count = Math.max(g.count - g.velocity * 2, 1);
       //g.velocity = 100;//Math.max(1, g.velocity / 4 | 0);
       g.waitFrameCount = elapsedTimes.length * 2;
       state = waitingForStableFramerate;
