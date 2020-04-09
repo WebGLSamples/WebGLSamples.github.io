@@ -180,21 +180,23 @@ function createApp(gl, settings) {
 
     twgl.resizeCanvasToDisplaySize(gl.canvas);
 
-    // Make the camera rotate around the scene.
-    eyePosition[0] = Math.sin(clock * g_eyeSpeed) * g_eyeRadius;
-    eyePosition[1] = g_eyeHeight;
-    eyePosition[2] = Math.cos(clock * g_eyeSpeed) * g_eyeRadius;
+    if (settings.update) {
+      // Make the camera rotate around the scene.
+      eyePosition[0] = Math.sin(clock * g_eyeSpeed) * g_eyeRadius;
+      eyePosition[1] = g_eyeHeight;
+      eyePosition[2] = Math.cos(clock * g_eyeSpeed) * g_eyeRadius;
 
-    // --Update Instance Positions---------------------------------------
-    var advance = elapsedTime / 2;
-    for (var ii = 0; ii < g_numObjects; ++ii) {
-      var instance = instances[ii];
-      instance.xClock += advance * instance.xClockSpeed;
-      instance.yClock += advance * instance.yClockSpeed;
-      instance.zClock += advance * instance.zClockSpeed;
-      instance.x = Math.sin(instance.xClock) * instance.xRadius;
-      instance.y = Math.sin(instance.yClock) * instance.yRadius;
-      instance.z = Math.cos(instance.zClock) * instance.zRadius;
+      // --Update Instance Positions---------------------------------------
+      const advance = elapsedTime / 2;
+      for (let ii = 0; ii < g_numObjects; ++ii) {
+        var instance = instances[ii];
+        instance.xClock += advance * instance.xClockSpeed;
+        instance.yClock += advance * instance.yClockSpeed;
+        instance.zClock += advance * instance.zClockSpeed;
+        instance.x = Math.sin(instance.xClock) * instance.xRadius;
+        instance.y = Math.sin(instance.yClock) * instance.yRadius;
+        instance.z = Math.cos(instance.zClock) * instance.zRadius;
+      }
     }
   }
 
