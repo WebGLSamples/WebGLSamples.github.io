@@ -35,90 +35,40 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 <title>Lots-O-Objects - Draw Elements</title>
 <link rel="stylesheet" href="../google-io/2011/style.css" />
-<script src="../js/perf-harness.js"></script>
-<script src="../tdl/base.js"></script>
-<script>
-g_contextSettings = {
-  alpha: false,
-  antialias: false,
-  preserveDrawingBuffer: false,
-};
-</script>
-<script src="lots-o-objects-draw-elements.js"></script>
-</script>
-</head>
+<style>
+#fpsContainer {
+    width: 200px;
+}
+.fps {
+    white-space: pre;
+}
+.fps input[type=checkbox] + label {
+  color: #888;
+}
+.fps input[type=checkbox]:checked + label {
+  color: #FFF;
+}
+</style></head>
 <body>
-<div id="info"><span><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - <span id="title"></span></span></div>
+<div id="info"><span><span id="title"></span></span></div>
 <div id="fpsContainer">
-  <div class="fps">fps: <span id="fps"></div>
-  <div class="fps">cnt: <span id="cnt"></span></div>
-  <div class="fps">avg: <span id="avg"></span></div>
+  <div>target fps: <span id="targetFPS"></span></div>
+  <div id="targetFPSSlider"></div>
+  <div class="fps">    fps: <span id="fps"></div>
+  <div class="fps">avg-fps: <span id="afps"></div>
+  <div class="fps">  count: <span id="cnt"></span></div>
+  <hr>
 </div>
 <div id="viewContainer">
 <canvas id="canvas" width="512" height="512" style="width: 100%; height: 100%;"></canvas>
 </div>
 </body>
-<script id="sphereVertexShader" type="text/something-not-javascript">
-uniform mat4 worldViewProjection;
-uniform vec3 lightWorldPos;
-uniform mat4 world;
-uniform mat4 viewInverse;
-uniform mat4 worldInverseTranspose;
-attribute vec4 position;
-attribute vec3 normal;
-attribute vec2 texCoord;
-varying vec4 v_position;
-varying vec2 v_texCoord;
-varying vec3 v_normal;
-varying vec3 v_surfaceToLight;
-varying vec3 v_surfaceToView;
-void main() {
-  v_texCoord = texCoord;
-  v_position = (worldViewProjection * position);
-  v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
-  v_surfaceToLight = lightWorldPos - (world * position).xyz;
-  v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
-  gl_Position = v_position;
-}
-
-</script>
-<script id="sphereFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision mediump float;
-#endif
-uniform vec4 colorMult;
-varying vec4 v_position;
-varying vec2 v_texCoord;
-varying vec3 v_normal;
-varying vec3 v_surfaceToLight;
-varying vec3 v_surfaceToView;
-
-uniform sampler2D diffuseSampler;
-uniform vec4 specular;
-uniform sampler2D bumpSampler;
-uniform float shininess;
-uniform float specularFactor;
-
-vec4 lit(float l ,float h, float m) {
-  return vec4(1.0,
-              max(l, 0.0),
-              (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
-              1.0);
-}
-void main() {
-  vec4 diffuse = texture2D(diffuseSampler, v_texCoord) * colorMult;
-  vec3 normal = normalize(v_normal);
-  vec3 surfaceToLight = normalize(v_surfaceToLight);
-  vec3 surfaceToView = normalize(v_surfaceToView);
-  vec3 halfVector = normalize(surfaceToLight + surfaceToView);
-  vec4 litR = lit(dot(normal, surfaceToLight),
-                    dot(normal, halfVector), shininess);
-  gl_FragColor = vec4((
-  vec4(1,1,1,1) * (diffuse * litR.y
-                        + specular * litR.z * specularFactor)).rgb,
-      diffuse.a);
-}
-</script>
+<script src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
+<script src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
+<script src="../js/perf-harness.js"></script>
+<script src="../js/twgl-full.4.x.min.js"></script>
+<script src="lots-o-objects-draw-elements.js"></script>
+<script src="../lots-o-images/launcher.js"></script>
 </html>
 
 

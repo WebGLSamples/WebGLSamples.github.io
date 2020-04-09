@@ -1,120 +1,167 @@
-tdl.require('tdl.buffers');
-tdl.require('tdl.fast');
-tdl.require('tdl.fps');
-tdl.require('tdl.log');
-tdl.require('tdl.math');
-tdl.require('tdl.misc');
-tdl.require('tdl.models');
-tdl.require('tdl.primitives');
-tdl.require('tdl.programs');
-tdl.require('tdl.textures');
-tdl.require('tdl.webgl');
-window.onload = initialize;
 
-// globals
-var gl;                   // the gl context.
-var canvas;               // the canvas
-var math;                 // the math lib.
-var fast;                 // the fast math lib.
+function createApp(gl, settings) {
+  const g_sortByModel       = false;
+  const g_eyeSpeed          = 0.5;
+  const g_eyeHeight         = 2;
+  const g_eyeRadius         = 9;
+  let g_numObjects          = 0;
 
-var g_sortByModel       = false;
-var g_eyeSpeed          = 0.5;
-var g_eyeHeight         = 2;
-var g_eyeRadius         = 9;
-var g_maxObjects        = 250000;
-var g_numObjects        = 100;
-var g_modelsPerBlock    = 50;
-var g_targetFrameRate   = 60 - 5;  // add some fudge so browser that runs at 58-59 can still run the test
+  const m4 = twgl.m4;
+  const v3 = twgl.v3;
 
-function CreateApp() {
   // Create Geometry.
-  var sphereArrays = tdl.primitives.createSphere(0.4, 6, 6);
-  var cubeArrays = tdl.primitives.createCube(0.8);
-  var coneArrays = tdl.primitives.createTruncatedCone(
-      0.4, 0.0, 0.8, 12, 1, true, true);
-
-  // Load textures
-  var textures = {
-      diffuseSampler: tdl.textures.loadTexture('happy-face.png')
-  };
-
-  // Create Shader Program
-  var program = tdl.programs.loadProgramFromScriptTags(
-      'sphereVertexShader',
-      'sphereFragmentShader');
-
-  // --Setup Models---------------------------------------
-  var models = [
-    new tdl.models.Model(program, sphereArrays, textures),
-    new tdl.models.Model(program, cubeArrays, textures),
-    new tdl.models.Model(program, coneArrays, textures)
+  const bufferInfos = [
+    twgl.primitives.createSphereBufferInfo(gl, 0.4, 6, 6),
+    twgl.primitives.createCubeBufferInfo(gl, 0.8),
+    twgl.primitives.createTruncatedConeBufferInfo(
+      gl, 0.4, 0.0, 0.8, 12, 1, true, true),
   ];
 
-  // -- Setup Instances ----------------------------------
+  // Load textures
+  const texture = twgl.createTexture(gl, {src: 'happy-face.png'});
 
-  var instances = [];
-  for (var ii = 0; ii < g_maxObjects; ++ii) {
+  const vs = `
+  uniform mat4 worldViewProjection;
+  uniform vec3 lightWorldPos;
+  uniform mat4 world;
+  uniform mat4 viewInverse;
+  uniform mat4 worldInverseTranspose;
+  attribute vec4 position;
+  attribute vec3 normal;
+  attribute vec2 texcoord;
+  varying vec4 v_position;
+  varying vec2 v_texcoord;
+  varying vec3 v_normal;
+  varying vec3 v_surfaceToLight;
+  varying vec3 v_surfaceToView;
+  void main() {
+    v_texcoord = texcoord;
+    v_position = (worldViewProjection * position);
+    v_normal = (worldInverseTranspose * vec4(normal, 0)).xyz;
+    v_surfaceToLight = lightWorldPos - (world * position).xyz;
+    v_surfaceToView = (viewInverse[3] - (world * position)).xyz;
+    gl_Position = v_position;
+  }
+  `;
+  const fs = `
+  precision mediump float;
+  uniform vec4 colorMult;
+  varying vec4 v_position;
+  varying vec2 v_texcoord;
+  varying vec3 v_normal;
+  varying vec3 v_surfaceToLight;
+  varying vec3 v_surfaceToView;
+
+  uniform sampler2D diffuseSampler;
+  uniform vec4 specular;
+  uniform sampler2D bumpSampler;
+  uniform float shininess;
+  uniform float specularFactor;
+
+  vec4 lit(float l ,float h, float m) {
+    return vec4(1.0,
+                max(l, 0.0),
+                (l > 0.0) ? pow(max(0.0, h), m) : 0.0,
+                1.0);
+  }
+  void main() {
+    vec4 diffuse = texture2D(diffuseSampler, v_texcoord) * colorMult;
+    vec3 normal = normalize(v_normal);
+    vec3 surfaceToLight = normalize(v_surfaceToLight);
+    vec3 surfaceToView = normalize(v_surfaceToView);
+    vec3 halfVector = normalize(surfaceToLight + surfaceToView);
+    vec4 litR = lit(dot(normal, surfaceToLight),
+                      dot(normal, halfVector), shininess);
+    gl_FragColor = vec4((
+    vec4(1,1,1,1) * (diffuse * litR.y
+                          + specular * litR.z * specularFactor)).rgb,
+        diffuse.a);
+  }
+  `;
+
+  const programInfo = twgl.createProgramInfo(gl, [vs, fs]);
+
+  // Used to make sure the test is always the same
+  let randomSeed_ = 0;
+  let RANDOM_RANGE_ = Math.pow(2, 32);
+  function pseudoRandom() {
+    return (randomSeed_ =
+            (134775813 * randomSeed_ + 1) %
+            RANDOM_RANGE_) / RANDOM_RANGE_;
+  }
+
+  function r(min, max) {
+    if (max === undefined) {
+      max = min;
+      min = 0;
+    }
+    return Math.random() * (max - min) + min;
+  }
+
+  const instances = [];
+
+  function addInstance() {
     instances.push({
       x: 0,
       y: 0,
       z: 0,
-      colorMult: new Float32Array([Math.random(), Math.random(), Math.random(), 1]),
-      modelIndex: Math.floor(ii / g_modelsPerBlock) % models.length,
-      xRadius: math.pseudoRandom() * 5,
-      yRadius: math.pseudoRandom() * 5,
-      zRadius: math.pseudoRandom() * 5,
-      xClockSpeed: (math.pseudoRandom() + 0.5),
-      yClockSpeed: (math.pseudoRandom() + 0.5),
-      zClockSpeed: (math.pseudoRandom() + 0.5),
-      xClock: math.pseudoRandom() * Math.PI * 2,
-      yClock: math.pseudoRandom() * Math.PI * 2,
-      zClock: math.pseudoRandom() * Math.PI * 2
+      colorMult: new Float32Array([r(1), r(1), r(1), 0.8]),
+      modelIndex: instances.length % bufferInfos.length,
+      xRadius: pseudoRandom() * 5,
+      yRadius: pseudoRandom() * 5,
+      zRadius: pseudoRandom() * 5,
+      xClockSpeed: (pseudoRandom() + 0.5),
+      yClockSpeed: (pseudoRandom() + 0.5),
+      zClockSpeed: (pseudoRandom() + 0.5),
+      xClock: pseudoRandom() * Math.PI * 2,
+      yClock: pseudoRandom() * Math.PI * 2,
+      zClock: pseudoRandom() * Math.PI * 2
     });
-  }
 
-  // pre-sort by model.
-  if (g_sortByModel) {
-    instances.sort(function(a, b) {
-      if (a.modelIndex < b.modelIndex) return -1;
-      if (a.modelIndex > b.modelIndex) return  1;
-      return 0;
-    });
+    // pre-sort by model.
+    if (g_sortByModel) {
+      instances.sort(function(a, b) {
+        if (a.modelIndex < b.modelIndex) return -1;
+        if (a.modelIndex > b.modelIndex) return  1;
+        return 0;
+      });
+    }
   }
 
   // pre-allocate a bunch of arrays
-  var projection = new Float32Array(16);
-  var view = new Float32Array(16);
-  var world = new Float32Array(16);
-  var worldInverse = new Float32Array(16);
-  var worldInverseTranspose = new Float32Array(16);
-  var viewProjection = new Float32Array(16);
-  var worldViewProjection = new Float32Array(16);
-  var viewInverse = new Float32Array(16);
-  var viewProjectionInverse = new Float32Array(16);
-  var eyePosition = new Float32Array(3);
-  var target = new Float32Array(3);
-  var up = new Float32Array([0,1,0]);
-  var lightWorldPos = new Float32Array(3);
-  var v3t0 = new Float32Array(3);
-  var v3t1 = new Float32Array(3);
-  var v3t2 = new Float32Array(3);
-  var v3t3 = new Float32Array(3);
-  var m4t0 = new Float32Array(16);
-  var m4t1 = new Float32Array(16);
-  var m4t2 = new Float32Array(16);
-  var m4t3 = new Float32Array(16);
-  var zero4 = new Float32Array(4);
-  var one4 = new Float32Array([1,1,1,1]);
+  const projection = new Float32Array(16);
+  const view = new Float32Array(16);
+  const world = new Float32Array(16);
+  const worldInverse = new Float32Array(16);
+  const worldInverseTranspose = new Float32Array(16);
+  const viewProjection = new Float32Array(16);
+  const worldViewProjection = new Float32Array(16);
+  const viewInverse = new Float32Array(16);
+  const viewProjectionInverse = new Float32Array(16);
+  const eyePosition = new Float32Array(3);
+  const target = new Float32Array(3);
+  const up = new Float32Array([0,1,0]);
+  const lightWorldPos = new Float32Array(3);
+  const v3t0 = new Float32Array(3);
+  const v3t1 = new Float32Array(3);
+  const v3t2 = new Float32Array(3);
+  const v3t3 = new Float32Array(3);
+  const m4t0 = new Float32Array(16);
+  const m4t1 = new Float32Array(16);
+  const m4t2 = new Float32Array(16);
+  const m4t3 = new Float32Array(16);
+  const zero4 = new Float32Array(4);
+  const one4 = new Float32Array([1,1,1,1]);
 
   // uniforms.
-  var sharedUniforms = {
+  const sharedUniforms = {
     viewInverse: viewInverse,
     lightWorldPos: lightWorldPos,
     specular: one4,
     shininess: 50,
     specularFactor: 0.2,
   };
-  var uniqueUniforms = {
+  const uniqueUniforms = {
     colorMult: new Float32Array([0,0,0,1]),
     world: world,
     worldViewProjection: worldViewProjection,
@@ -122,11 +169,16 @@ function CreateApp() {
     worldInverseTranspose: worldInverseTranspose
   };
 
-  var clock = 0.0;
-  function update(elapsedTime) {
+  let clock = 0.0;
+  function update(elapsedTime, _numObjects) {
     clock += elapsedTime;
 
-    resizeCanvas();
+    while (instances.length < _numObjects) {
+      addInstance();
+    }
+    g_numObjects = _numObjects;
+
+    twgl.resizeCanvasToDisplaySize(gl.canvas);
 
     // Make the camera rotate around the scene.
     eyePosition[0] = Math.sin(clock * g_eyeSpeed) * g_eyeRadius;
@@ -153,64 +205,70 @@ function CreateApp() {
   }
 
   function renderBegin() {
-    var m4 = fast.matrix4;
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
     // clear the screen.
     gl.colorMask(true, true, true, true);
     gl.depthMask(true);
     gl.clearColor(1,1,1,0);
     gl.clearDepth(1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
-
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
+    gl.disable(gl.BLEND);
+
+    if (settings.blend) {
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    }
 
     // Compute a projection and view matrices.
     m4.perspective(
-        projection,
-        math.degToRad(60),
+        60 * Math.PI / 180,
         canvas.clientWidth / canvas.clientHeight,
         1,
-        5000);
+        5000,
+        projection);
     m4.lookAt(
-        view,
         eyePosition,
         target,
-        up);
-    m4.mul(viewProjection, view, projection);
+        up,
+        viewInverse);
+    m4.multiply(projection, view, viewProjection);
     m4.inverse(viewInverse, view);
-    m4.inverse(viewProjectionInverse, viewProjection);
+    m4.inverse(viewProjection, viewProjectionInverse);
 
     // Put the light near the camera
-    m4.getAxis(v3t0, viewInverse, 0); // x
-    m4.getAxis(v3t1, viewInverse, 1); // y
-    m4.getAxis(v3t2, viewInverse, 2); // z
-    fast.mulScalarVector(v3t0, 10, v3t0);
-    fast.mulScalarVector(v3t1, 10, v3t1);
-    fast.mulScalarVector(v3t2, 10, v3t2);
-    fast.addVector(lightWorldPos, eyePosition, v3t0);
-    fast.addVector(lightWorldPos, lightWorldPos, v3t1);
-    fast.addVector(lightWorldPos, lightWorldPos, v3t2);
+    m4.getAxis(viewInverse, 0, v3t0); // x
+    m4.getAxis(viewInverse, 1, v3t1); // y
+    m4.getAxis(viewInverse, 2, v3t2); // z
+    v3.mulScalar(v3t0, 10, v3t0);
+    v3.mulScalar(v3t1, 10, v3t1);
+    v3.mulScalar(v3t2, 10, v3t2);
+    v3.add(eyePosition, v3t0, lightWorldPos);
+    v3.add(lightWorldPos, v3t1, lightWorldPos);
+    v3.add(lightWorldPos, v3t2, lightWorldPos);
   }
 
   function renderScene() {
     // -- Render Instances ---------------------------------------
-
-    var m4 = fast.matrix4;
-    var lastModel = null;
-    for (var ii = 0; ii < g_numObjects; ++ii) {
-      var instance = instances[ii];
-      var model = models[instance.modelIndex];
+    gl.useProgram(programInfo.program);
+    twgl.setUniforms(programInfo, sharedUniforms);
+    let lastModel = null;
+    for (let ii = 0; ii < g_numObjects; ++ii) {
+      const instance = instances[ii];
+      const model = bufferInfos[instance.modelIndex];
       if (model != lastModel) {
         lastModel = model;
-        model.drawPrep(sharedUniforms);
+        twgl.setBuffersAndAttributes(gl, programInfo, model);
       }
-      m4.translation(world, [instance.x, instance.y, instance.z]);
-      m4.mul(worldViewProjection, world, viewProjection);
-      m4.inverse(worldInverse, world);
-      m4.transpose(worldInverseTranspose, worldInverse);
+      m4.translation([instance.x, instance.y, instance.z], world);
+      m4.multiply(viewProjection, world, worldViewProjection);
+      m4.inverse(world, worldInverse);
+      m4.transpose(worldInverse, worldInverseTranspose);
       uniqueUniforms.colorMult = instance.colorMult;
-      model.drawPrep();
-      model.draw(uniqueUniforms);
+      twgl.setUniforms(programInfo, uniqueUniforms);
+      twgl.drawBufferInfo(gl, model);
     }
   }
 
@@ -222,61 +280,5 @@ function CreateApp() {
     update: update,
     render: render
   };
-}
-
-function resizeCanvas() {
-  if (canvas.width != canvas.clientWidth ||
-      canvas.height != canvas.clientHeight) {
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
-    console.log("resized canvas: " + canvas.width + ", " + canvas.height);
-    gl.viewport(0, 0, canvas.clientWidth, canvas.clientHeight);
-  }
-}
-
-function initialize() {
-  math = tdl.math;
-  fast = tdl.fast;
-  canvas = document.getElementById("canvas");
-  var fpsTimer = new tdl.fps.FPSTimer();
-  var fpsElem = document.getElementById("fps");
-  var cntElem = document.getElementById("cnt");
-  var avgElem = document.getElementById("avg");
-
-  document.getElementById("title").innerHTML = document.getElementsByTagName("title")[0].innerHTML;
-
-  var ctxOptions =  g_contextSettings || {
-    alpha: false,
-    antialias: false,
-    preserveDrawingBuffer: false,
-  };
-  tdl.misc.applyUrlSettings(ctxOptions);
-
-  gl = tdl.webgl.setupWebGL(canvas, ctxOptions);
-  if (!gl) {
-    return false;
-  }
-
-  resizeCanvas();
-
-  var app = CreateApp();
-
-  PerfHarness.setTargetFPS(g_targetFrameRate);
-
-  function render(count, averageCount, elapsedTime) {
-    // Update the FPS timer.
-    fpsTimer.update(elapsedTime);
-    fpsElem.innerHTML = fpsTimer.averageFPS;
-
-    cntElem.innerHTML = count;
-    avgElem.innerHTML = averageCount;
-    g_numObjects = count;
-
-    app.update(elapsedTime);
-    app.render();
-  }
-  var framesToAverage = 60;
-  PerfHarness.start(canvas, render, framesToAverage);
-  return true;
 }
 

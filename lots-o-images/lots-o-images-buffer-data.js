@@ -172,6 +172,7 @@ function createApp(gl, settings) {
     gl.colorMask(true, true, true, true);
     gl.clearColor(1, 1, 1, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.disable(gl.BLEND);
 
     if (settings.blend) {
       gl.enable(gl.BLEND);
