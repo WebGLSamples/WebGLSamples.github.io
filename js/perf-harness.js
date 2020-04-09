@@ -1,3 +1,5 @@
+'use strict';
+
 const PerfHarness = (function(undefined) {
 
   const g = {
@@ -105,6 +107,10 @@ const PerfHarness = (function(undefined) {
     g.targetTime = 1 / g.targetFPS;
   };
 
+  const setCount = function(v) {
+    g.count = count;
+  }
+
   const start = function(_canvas, _callback, opt_framesToAverage, opt_targetFPS) {
     canvas = _canvas;
     callback = _callback;
@@ -126,6 +132,7 @@ const PerfHarness = (function(undefined) {
   };
 
   return {
+    setCount: setCount,
     getTargetFPS: getTargetFPS,
     start: start,
     setTargetFPS: setTargetFPS,

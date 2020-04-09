@@ -40,194 +40,200 @@
 #fpsContainer {
     width: 200px;
 }
+.fps {
+    white-space: pre;
+}
+.fps input[type=checkbox] + label {
+  color: #888;
+}
+.fps input[type=checkbox]:checked + label {
+  color: #FFF;
+}
 </style>
 <script src="../jquery-ui-1.8.2.custom/js/jquery-1.4.2.min.js"></script>
 <script src="../jquery-ui-1.8.2.custom/js/jquery-ui-1.8.2.custom.min.js"></script>
 <script src="../js/perf-harness.js"></script>
-<script src="../tdl/base.js"></script>
+<script src="../js/twgl-full.4.x.min.js"></script>
+  </head>
+<body>
+<div id="info"><span><span id="title"></span></span></div>
+<div id="fpsContainer">
+  <div>target fps: <span id="targetFPS"></span></div>
+  <div id="targetFPSSlider"></div>
+  <div class="fps">    fps: <span id="fps"></div>
+  <div class="fps">avg-fps: <span id="afps"></div>
+  <div class="fps">  count: <span id="cnt"></span></div>
+  <hr>
+</div>
+<div id="viewContainer">
+<canvas id="canvas" width="512" height="512" style="width: 100%; height: 100%;"></canvas>
+</div>
+</body>
 <script>
-tdl.require('tdl.buffers');
-tdl.require('tdl.fast');
-tdl.require('tdl.fps');
-tdl.require('tdl.log');
-tdl.require('tdl.math');
-tdl.require('tdl.models');
-tdl.require('tdl.primitives');
-tdl.require('tdl.programs');
-tdl.require('tdl.textures');
-tdl.require('tdl.webgl');
-window.onload = initialize;
+'use strict';
 
-// globals
-var gl;                   // the gl context.
-var canvas;               // the canvas
-var math;                 // the math lib.
-var fast;                 // the fast math lib.
+/* global twgl, PerfHarness */
 
-var g_maxImages = 250000;
-var g_numImages = 100;
-var g_imageSize = 32;
-var g_targetFrameRate = 60 - 2;  // add some fudge so browser that runs at 58-59 can still run the test
+function createApp(gl, settings) {
+  // globals
+  let g_maxImages = 0;
+  let g_numImages = 0;
+  const g_imageSize = 32;
 
-function CreateApp() {
-  var updatePositions = true;
+  const vs = `
+  uniform vec2 dimensions;
+  attribute vec2 position;
+  attribute vec2 texCoord;
+  attribute vec2 worldPosition;
+  attribute vec4 colorMult;
+  varying vec2 v_texCoord;
+  varying vec4 v_colorMult;
+  void main() {
+    v_texCoord = texCoord;
+    v_colorMult = colorMult;
+    gl_Position = vec4(
+      (((position + worldPosition) / dimensions) * 2.0 - 1.0) * vec2(1, -1), 0, 1);
+  }
+  `;
+  const fs = `
+  precision mediump float;
+  varying vec2 v_texCoord;
+  varying vec4 v_colorMult;
 
-  window.addEventListener('keypress', handleKeyPress, false);
+  uniform sampler2D diffuseSampler;
 
-  function handleKeyPress(event) {
-    updatePositions = !updatePositions;
+  void main() {
+    gl_FragColor = texture2D(diffuseSampler, v_texCoord) * v_colorMult;
+  }
+  `;
+
+
+  function r(min, max) {
+    if (max === undefined) {
+      max = min;
+      min = 0;
+    }
+    return Math.random() * (max - min) + min;
   }
 
-  // Create Geometry.
-  var planeArrays = tdl.primitives.createPlane(g_imageSize, g_imageSize, 1, 1);
-  // Don't need the normals.
-  delete planeArrays.nornal;
-  // rotate from xz plane to xy plane
-  tdl.primitives.reorient(planeArrays,
-      [1, 0, 0, 0,
-       0, 0, 1, 0,
-       0, -1, 0, 0,
-       0, 0, 0, 1]);
-  // translate so we position from top left instead of center.
-  tdl.primitives.reorient(planeArrays,
-      [1, 0, 0, 0,
-       0, 1, 0, 0,
-       0, 0, 1, 0,
-       g_imageSize / 2, g_imageSize / 2, 0, 1]);
-
-  // Load textures
-  var textures = {
-      diffuseSampler: tdl.textures.loadTexture('../google-io/2011/assets/google.png')
-  };
-
-  // Create Shader Program
-  var program = tdl.programs.loadProgramFromScriptTags(
-      'sphereVertexShader',
-      'sphereFragmentShader');
-
-  // --Setup Arrays---------------------------------------
-  var arrays = [
-    planeArrays
-  ];
-
-  // -- Setup Instances ----------------------------------
-  var instances = [];
-  var width = canvas.clientWidth - g_imageSize;
-  var height = canvas.clientHeight - g_imageSize;
-  for (var ii = 0; ii < g_maxImages; ++ii) {
-    instances.push({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      colorMult: new Float32Array([Math.random(), Math.random(), Math.random(), Math.random()]),
-      arrayIndex: Math.floor(Math.random() * arrays.length),
-      xVel: 1 * (Math.random() < 0.5 ? -60 : 60),
-      yVel: 1 * (Math.random() < 0.5 ? -60 : 60)
-    });
+  const numVertsPerPlane = 4;
+  const numPlanesPerBuffer = 65536 / numVertsPerPlane;
+  const positions = [];
+  const texcoords = [];
+  const colors = [];
+  const indices = [];
+  for (let i = 0; i < numPlanesPerBuffer; ++i) {
+    positions.push(0, 0, 32, 0, 0, 32, 32, 32);
+    texcoords.push(.0, 0, 1, 0, 0, 1, 1, 1);
+    const color = [r(1), r(1), r(1), r(0.5, 1)];
+    colors.push(...color, ...color, ...color, ...color);
+    const ndx = i * 4;
+    indices.push(
+        ndx    , ndx + 1, ndx + 2,
+        ndx + 2, ndx + 1, ndx + 3);
   }
 
-  // Expand arrays from instances to geometry.
-
-  // Step 1: Add an extra worldPosition and colorMult field to each geometry
-  for (var ii = 0; ii < arrays.length; ++ii) {
-    var numElements = arrays[ii].position.numElements;
-    arrays[ii].worldPosition = new tdl.primitives.AttribBuffer(2, numElements);
-    arrays[ii].colorMult = new tdl.primitives.AttribBuffer(4, numElements);
+  function createBuffer(gl, data, Type, target) {
+    target = target || gl.ARRAY_BUFFER;
+    Type = Type || Float32Array;
+    const buf = gl.createBuffer();
+    gl.bindBuffer(target, buf);
+    gl.bufferData(target, new Type(data), gl.STATIC_DRAW);
+    return buf;
   }
 
-  // Step 2: convert instances to expanded geometry
-  var arrayInstances = [];
-  for (var ii = 0; ii < instances.length; ++ii) {
-    arrayInstances.push(arrays[instances[ii].arrayIndex]);
-  }
-  var expanded = tdl.primitives.concatLarge(arrayInstances);
+  const positionBuffer = createBuffer(gl, positions);
+  const texcoordBuffer = createBuffer(gl, texcoords);
+  const indexBuffer = createBuffer(gl, indices, Uint16Array, gl.ELEMENT_ARRAY_BUFFER);
 
-  // Step 3: Make models from our expanded geometry.
-  var models = [];
-  for (var ii = 0; ii < expanded.arrays.length; ++ii) {
-    models.push(new tdl.models.Model(program, expanded.arrays[ii], textures));
-  }
-
-  // Step 4: Copy in Colors
-  for (var ii = 0; ii < instances.length; ++ii) {
-    var instance = instances[ii];
-    var info = expanded.instances[ii];
-    var index = info.arrayIndex;
-    instance.firstVertex = info.firstVertex;
-    instance.numVertices = info.numVertices;
-    instance.expandedArrayIndex = index;
-    var attribBuffer = expanded.arrays[index].colorMult;
-    attribBuffer.fillRange(instance.firstVertex, instance.numVertices, instance.colorMult);
-  }
-  for (var ii = 0; ii < models.length; ++ii) {
-    var attribBuffer = expanded.arrays[ii].colorMult;
-    models[ii].setBuffer('colorMult', attribBuffer);
+  function createInstanceSet(gl) {
+    const instances = [];
+    for (let i = 0; i < numPlanesPerBuffer; ++i) {
+      instances.push({
+        x: r(gl.canvas.width),
+        y: r(gl.canvas.height),
+        xVel: Math.sign(r(-1000, 1000)) * 60,
+        yVel: Math.sign(r(-1000, 1000)) * 60,
+        firstVertex: i * numVertsPerPlane,
+        numVertices: numVertsPerPlane,
+      });
+    }
+    return {
+      instances,
+      colorBuffer: createBuffer(gl, colors),
+      worldPositionBuffer: createBuffer(gl, positions),
+      worldPosition: new Float32Array(positions.length),
+    };
   }
 
-  // pre-allocate a bunch of arrays
-  var v3t0 = new Float32Array(3);
-  var v3t1 = new Float32Array(3);
-  var v3t2 = new Float32Array(3);
-  var v3t3 = new Float32Array(3);
-  var m4t0 = new Float32Array(16);
-  var m4t1 = new Float32Array(16);
-  var m4t2 = new Float32Array(16);
-  var m4t3 = new Float32Array(16);
-  var zero4 = new Float32Array(4);
-  var one4 = new Float32Array([1,1,1,1]);
-  var dimensions = new Float32Array([1, 1]);
+  const instanceSets = [];
 
-  // uniforms.
-  var sharedUniforms = {
-      dimensions: dimensions
-  };
+  function addInstanceSet(gl) {
+    const instanceSet = createInstanceSet(gl);
+    instanceSets.push(instanceSet);
+    g_maxImages += instanceSet.instances.length;
+  }
 
-  var clock = 0.0;
-  function update(elapsedTime) {
-    clock += elapsedTime;
+  const textures = twgl.createTexture(gl, {
+    src: '../google-io/2011/assets/google.png',
+  });
 
-    resizeCanvas();
+  const program = twgl.createProgram(gl, [vs, fs]);
+  const positionLoc = gl.getAttribLocation(program, 'position');
+  const texcoordLoc = gl.getAttribLocation(program, 'texCoord');
+  const worldPositionLoc = gl.getAttribLocation(program, 'worldPosition');
+  const colorLoc = gl.getAttribLocation(program, 'colorMult');
+  const dimensionsLoc = gl.getUniformLocation(program, 'dimensions');
+
+  function fillRange(dst, offset, count, x, y) {
+    for (let i = 0; i < count; ++i) {
+      dst[offset++] = x;
+      dst[offset++] = y;
+    }
+  }
+
+  function update(elapsedTime, _numImages) {
+    g_numImages = _numImages;
+
+    twgl.resizeCanvasToDisplaySize(gl.canvas);
+
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+    while (g_maxImages < g_numImages) {
+      addInstanceSet(gl);
+    }
 
     // --Update Instance Positions---------------------------------------
-    if (updatePositions) {
-      var width = canvas.clientWidth - g_imageSize;
-      var height = canvas.clientHeight - g_imageSize;
-      var advance = elapsedTime;
-      for (var ii = 0; ii < g_numImages; ++ii) {
-        var instance = instances[ii];
-        instance.x += advance * instance.xVel;
-        instance.y += advance * instance.yVel;
-        if (instance.x < 0) {
-          instance.x = 0;
-          instance.xVel = -instance.xVel;
-        } else if (instance.x > width) {
-          instance.x = width;
-          instance.xVel = -instance.xVel;
+    if (settings.update) {
+      const width = gl.canvas.clientWidth - g_imageSize;
+      const height = gl.canvas.clientHeight - g_imageSize;
+      const advance = elapsedTime;
+      const numSets = Math.ceil(g_numImages / numPlanesPerBuffer);
+      for (let setNdx = 0; setNdx < numSets; ++setNdx) {
+        const {instances, worldPosition, worldPositionBuffer} = instanceSets[setNdx];
+        const numImages = Math.min(numPlanesPerBuffer, g_numImages - setNdx * numPlanesPerBuffer)
+        for (let ii = 0; ii < numImages; ++ii) {
+          const instance = instances[ii];
+          instance.x += advance * instance.xVel;
+          instance.y += advance * instance.yVel;
+          if (instance.x < 0) {
+            instance.x = 0;
+            instance.xVel = Math.abs(instance.xVel);
+          } else if (instance.x > width) {
+            instance.x = width;
+            instance.xVel = -Math.abs(instance.xVel);
+          }
+          if (instance.y < 0) {
+            instance.y = 0;
+            instance.yVel = Math.abs(instance.yVel);
+          } else if (instance.y > height) {
+            instance.y = height;
+            instance.yVel = -Math.abs(instance.yVel);
+          }
+          fillRange(worldPosition, instance.firstVertex * 2, instance.numVertices, instance.x, instance.y);
         }
-        if (instance.y < 0) {
-          instance.y = 0;
-          instance.yVel = -instance.yVel;
-        } else if (instance.y > height) {
-          instance.y = height;
-          instance.yVel = -instance.yVel;
-        }
-        var index = instance.expandedArrayIndex;
-        var attribBuffer = expanded.arrays[index].worldPosition;
-        attribBuffer.fillRange(
-            instance.firstVertex,
-            instance.numVertices,
-            [instance.x, instance.y]);
-        //console.log(instance.x, instance.y);
-      }
-
-      var numImages = g_numImages;
-      var index = 0;
-      while (numImages > 0) {
-        var attribBuffer = expanded.arrays[index].worldPosition;
-        var model = models[index];
-        model.setBuffer('worldPosition', attribBuffer);
-        var numImagesInModel = model.buffers.indices.numElements() / 2;
-        numImages -= numImagesInModel;
-        ++index;
+        gl.bindBuffer(gl.ARRAY_BUFFER, worldPositionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, worldPosition, gl.DYNAMIC_DRAW);
       }
     }
   }
@@ -239,30 +245,45 @@ function CreateApp() {
   }
 
   function renderBegin() {
-    // clear the screen.
     gl.colorMask(true, true, true, true);
     gl.clearColor(1, 1, 1, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    // Pass in the dimensions of the canvas.
-    dimensions[0] = canvas.clientWidth;
-    dimensions[1] = canvas.clientHeight;
+    if (settings.blend) {
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    }
   }
 
   function renderScene() {
-    // -- Render Models ---------------------------------------
-    // We only need to render each model once
-    // as they contain all the instances.
-    var numImages = g_numImages;
-    for (var ii = 0; numImages > 0 && ii < models.length; ++ii) {
-      var model = models[ii];
-      var numImagesInModel = model.buffers.indices.numElements() / 2;
-      var numToDraw = Math.min(numImagesInModel, numImages);
-      model.drawPrep(sharedUniforms);
-      model.draw(numToDraw * 6);
-      numImages -= numToDraw;
+    gl.useProgram(program);
+
+    gl.uniform2f(dimensionsLoc, gl.canvas.width, gl.canvas.height);
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.enableVertexAttribArray(positionLoc);
+    gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, texcoordBuffer);
+    gl.enableVertexAttribArray(texcoordLoc);
+    gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+
+    const numSets = Math.ceil(g_numImages / numPlanesPerBuffer);
+    for (let setNdx = 0; setNdx < numSets; ++setNdx) {
+      const {colorBuffer, worldPositionBuffer} = instanceSets[setNdx];
+      const numImages = Math.min(numPlanesPerBuffer, g_numImages - setNdx * numPlanesPerBuffer);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, worldPositionBuffer);
+      gl.enableVertexAttribArray(worldPositionLoc);
+      gl.vertexAttribPointer(worldPositionLoc, 2, gl.FLOAT, false, 0, 0);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+      gl.enableVertexAttribArray(colorLoc);
+      gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, 0, 0);
+
+      gl.drawElements(gl.TRIANGLES, numImages * 6, gl.UNSIGNED_SHORT, 0);
     }
   }
 
@@ -272,34 +293,102 @@ function CreateApp() {
 
   return {
     update: update,
-    render: render
+    render: render,
   };
 }
 
-function resizeCanvas() {
-  if (canvas.width != canvas.clientWidth ||
-      canvas.height != canvas.clientHeight) {
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
-    console.log("resized canvas: " + canvas.width + ", " + canvas.height);
-    gl.viewport(0, 0, canvas.clientWidth, canvas.clientHeight);
+function createElem(tag, attrs = {}) {
+  const elem = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (typeof value === 'object') {
+      for (const [k, v] of Object.entries(value)) {
+        try {
+        elem[key][k] = v;
+        } catch (e) {
+          debugger;  // eslint-disable-line no-debugger
+        }
+      }
+    } else if (elem[key] === undefined) {
+      elem.setAttribute(key, value);
+    } else {
+      elem[key] = value;
+    }
   }
+  return elem;
+}
+
+function addElem(tag, parent, attrs = {}) {
+  const elem = createElem(tag, attrs);
+  parent.appendChild(elem);
+  return elem;
+}
+
+function noop() {
+}
+
+function addBool(parent, object, propertyName, callback = noop) {
+  const div = addElem('div', parent, {className:'fps'});
+  const id = `input-${performance.now()}-${Math.random() * 100000 | 0}`;
+  const input = addElem('input', div, {
+    type: 'checkbox',
+    id,
+    checked: object[propertyName],
+  });
+  addElem('label', div, {
+    for: id,
+    textContent: propertyName,
+  });
+  input.addEventListener('input', (e) => {
+    const v = input.checked;
+    object[propertyName] = v;
+    callback(v);
+  });
 }
 
 function initialize() {
-  math = tdl.math;
-  fast = tdl.fast;
-  canvas = document.getElementById("canvas");
-  var fpsTimer = new tdl.fps.FPSTimer();
-  var fpsElem = document.getElementById("fps");
-  var cntElem = document.getElementById("cnt");
-  var targetFPSElem = document.getElementById("targetFPS");
+  const canvas = document.querySelector("#canvas");
+  const fpsElem = document.querySelector("#fps");
+  const afpsElem = document.querySelector("#afps");
+  const velElem = document.querySelector("#vel");
+  const cntElem = document.querySelector("#cnt");
+  const acntElem = document.querySelector("#acnt");
+  const targetFPSElem = document.querySelector("#targetFPS");
 
-  var targetFPS = 50;
+  const query = new URLSearchParams(window.location.search);
+  function getQueryBool(id) {
+    const value = (query.get(id) || '').toLowerCase();
+    return value === 'true' || value === '1';
+  }
 
-  var setTargetFPS = function(targetFPS) {
+  const settings =  {
+    alpha: getQueryBool('alpha'),
+    antialias: getQueryBool('antialias'),
+    preserveDrawingBuffer: getQueryBool('preserveDrawingBuffer'),
+    blend: getQueryBool('blend'),
+    update: true,
+  };
+
+  function reload() {
+    const s = new URLSearchParams();
+    s.set('alpha', settings.alpha);
+    s.set('antialias', settings.antialias);
+    s.set('preserveDrawingBuffer', settings.preserveDrawingBuffer);
+    s.set('blend', settings.blend);
+    window.location.search = s.toString();
+  }
+
+  const fpsContainer = document.querySelector('#fpsContainer');
+  addBool(fpsContainer, settings, 'alpha', reload);
+  addBool(fpsContainer, settings, 'preserveDrawingBuffer', reload);
+  addBool(fpsContainer, settings, 'antialias', reload);
+  addBool(fpsContainer, settings, 'blend');
+  addBool(fpsContainer, settings, 'update');
+
+  const targetFPS = 55;
+
+  const setTargetFPS = function(targetFPS) {
     PerfHarness.setTargetFPS(targetFPS);
-    targetFPSElem.innerHTML = targetFPS;
+    targetFPSElem.textContent = targetFPS;
   };
 
   $("#targetFPSSlider").slider({
@@ -308,85 +397,75 @@ function initialize() {
     value: targetFPS,
     slide: function(event, ui) {
       setTargetFPS(ui.value);
-    }
+    },
   });
   setTargetFPS(targetFPS);
 
-  document.getElementById("title").innerHTML = document.getElementsByTagName("title")[0].innerHTML;
+  document.querySelector("#title").textContent = document.querySelector("title").textContent;
 
-  gl = tdl.webgl.setupWebGL(canvas, {alpha:false, antialias:false});
+  const ctxOptions = {
+    alpha: settings.alpha,
+    antialias: settings.antialias,
+    preserveDrawingBuffer: settings.preserveDrawingBuffer,
+  };
+  const gl = canvas.getContext('webgl', ctxOptions);
   if (!gl) {
     return false;
   }
 
-  resizeCanvas();
+  const app = createApp(gl, settings);
 
-  var app = CreateApp();
-  var changeAmount = 1;
+  const elapsedTimeHistory = new Array(10).fill(0);
+  let elapsedTimeTotal = 0;
+  let elapsedTimeHistoryCursor = 0;
+  let elapsedTimeAverage = 0;
+  let direction = 1;
 
-  function sign(v) {
-    return v > 0 ? 1 : (v < 0 ? -1 : 0);
+  function updateElapsedTimeHistory(elapsedTime) {
+    elapsedTimeTotal += elapsedTime - elapsedTimeHistory[elapsedTimeHistoryCursor];
+    elapsedTimeHistory[elapsedTimeHistoryCursor++] = elapsedTime;
+    elapsedTimeHistoryCursor %= elapsedTimeHistory.length;
+    elapsedTimeAverage = elapsedTimeTotal / elapsedTimeHistory.length;
   }
 
-  function render(count, averageCount, elapsedTime) {
+  const numFramesForStable = 1;
+  let lastDirection = 1;
+  let sameDirectionCount = 0;
+  let lastCount = 0;
+  let directionMark;
+  function trackCount(count) {
+    const direction = Math.sign(count - lastCount);
+    if (direction !== lastDirection) {
+      sameDirectionCount = 0;
+    } else {
+      ++sameDirectionCount;
+    }
+    lastDirection = direction;
+    if (sameDirectionCount < numFramesForStable) {
+      directionMark = "-";
+    } else {
+      directionMark = direction > 0 ? '^' : 'v';
+    }
+  }
+
+  function render(count, averageCount, elapsedTime, velocity) {
+    updateElapsedTimeHistory(elapsedTime);
+    trackCount(count);
+
     // Update the FPS timer.
-    fpsTimer.update(elapsedTime);
-    fpsElem.innerHTML = fpsTimer.averageFPS;
+    fpsElem.textContent = 1 / elapsedTime | 0;
+    afpsElem.textContent = 1 / elapsedTimeAverage | 0;
 
-    g_numImages = Math.min(g_maxImages, count);
+    cntElem.textContent = `${count}${directionMark}`;
 
-    cntElem.innerHTML = averageCount;
-
-    app.update(elapsedTime);
+    app.update(elapsedTime, count);
     app.render();
   }
-  var framesToAverage = 60;
   PerfHarness.start(canvas, render, 60);
   return true;
 }
-</script>
-  </head>
-<body>
-<div id="info"><span><a href="http://threedlibrary.googlecode.com" target="_blank">tdl.js</a> - <span id="title"></span></span></div>
-<div id="fpsContainer">
-  <div>target fps: <span id="targetFPS"></span></div>
-  <div id="targetFPSSlider"></div>
-  <div class="fps">fps: <span id="fps"></div>
-  <div class="fps">cnt: <span id="cnt"></span></div>
-</div>
-<div id="viewContainer">
-<canvas id="canvas" width="512" height="512" style="width: 100%; height: 100%;"></canvas>
-</div>
-</body>
-<script id="sphereVertexShader" type="text/something-not-javascript">
-uniform vec2 dimensions;
-attribute vec2 position;
-attribute vec2 texCoord;
-attribute vec2 worldPosition;
-attribute vec4 colorMult;
-varying vec2 v_texCoord;
-varying vec4 v_colorMult;
-void main() {
-  v_texCoord = texCoord;
-  v_colorMult = colorMult;
-  gl_Position = vec4(
-    (((position + worldPosition) / dimensions) * 2.0 - 1.0) * vec2(1, -1), 0, 1);
-}
 
-</script>
-<script id="sphereFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision mediump float;
-#endif
-varying vec2 v_texCoord;
-varying vec4 v_colorMult;
-
-uniform sampler2D diffuseSampler;
-
-void main() {
-  vec4 diffuse = texture2D(diffuseSampler, v_texCoord) * v_colorMult;
-  gl_FragColor = diffuse;
-}
+initialize();
 </script>
 </html>
 
