@@ -1,27 +1,27 @@
-var PerfHarness = (function(undefined) {
+const PerfHarness = (function(undefined) {
 
   const g = {
     count: 1,
     elapsedTime: 0,
     targetFPS: 50,
     targetTime: 1,
-    velocity: 1,
+    velocity: 200,
     direction: 1,
     frames: [],
   };
 
-  var countHistory = [];
-  var totalCount = 0;
-  var countIndex = 0;
-  var skipFrames = 0;
-  var framesToAverage;
-  var then;
-  var callback;
-  var canvas;
+  const countHistory = [];
+  let totalCount = 0;
+  let countIndex = 0;
+  let skipFrames = 0;
+  let framesToAverage;
+  let then;
+  let callback;
+  let canvas;
 
-  var getNow = (function() {
-    var fn;
-    var obj;
+  const getNow = (function() {
+    let fn;
+    let obj;
     if (window.performance) {
       obj = window.performance;
       fn = window.performance.now ||
@@ -38,62 +38,86 @@ var PerfHarness = (function(undefined) {
     };
   }());
 
-  var test = function() {
-    var now = getNow();
+  const elapsedTimes = [0, 0, 0, 0, 0, 0];
+  let totalElapsedTime = 0;
+  let elapsedTimeCursor = 0;
+  let averageElapsedTime = 0;
+  let highestElapsedTime = 0;
+  const recordElapsedTime = function() {
+    totalElapsedTime -= elapsedTimes[elapsedTimeCursor] + g.elapsedTime;
+    elapsedTimes[elapsedTimeCursor] = g.elapsedTime;
+    elapsedTimeCursor = (elapsedTimeCursor + 1) % elapsedTimes.length;
+    averageElapsedTime = totalElapsedTime / elapsedTimes.length;
+    highestElapsedTime = 0;
+    for (let i = 0; i < elapsedTimes.length; ++i) {
+      highestElapsedTime = Math.max(highestElapsedTime, elapsedTimes[i]);
+    }
+  };
+
+  const accelerating = function() {
+    if (highestElapsedTime > g.targetTime) {
+      g.count -= g.velocity * 2;
+      //g.velocity = 100;//Math.max(1, g.velocity / 4 | 0);
+      g.waitFrameCount = elapsedTimes.length * 2;
+      state = waitingForStableFramerate;
+      return;
+    }
+    //g.velocity = 100;//g.velocity * 1.01 + 1 | 0;
+    g.count += g.velocity;
+  };
+
+  const waitingForStableFramerate = function() {
+    --g.waitFrameCount;
+    if (g.waitFrameCount < 0) {
+      state = accelerating;
+    }
+  };
+
+  let state = accelerating;
+
+  const test = function() {
+    const now = getNow();
     g.elapsedTime = now - then;
     then = now;
-    var desiredDirection = (g.elapsedTime < g.targetTime) ? 1 : -1;
-    if (g.direction != desiredDirection) {
-      g.direction = desiredDirection;
-      g.velocity = Math.max(Math.abs(Math.floor(g.velocity / 4)), 1) * g.direction;
-      if (g.direction < 0) {
-        skipFrames = 3;
-      }
-    } else if (skipFrames) {
-      --skipFrames;
-    } else {
-      g.velocity *= 2;
-    }
+    recordElapsedTime();
+    state();
 
     if (g.frames.length < 1000) {
       g.frames.push(g.elapsedTime);
     }
-
-    g.count += g.velocity;
-    g.count = Math.max(1, g.count);
 
     totalCount -= countHistory[countIndex];
     totalCount += g.count;
     countHistory[countIndex] = g.count;
     countIndex = (countIndex + 1) % framesToAverage;
 
-    callback(g.count, Math.floor(totalCount / framesToAverage), g.elapsedTime);
+    callback(g.count, Math.floor(totalCount / framesToAverage), g.elapsedTime, g.velocity);
 
     requestAnimationFrame(test, canvas);
   };
 
-  var getTargetFPS = function() {
-    return targetFPS;
+  const getTargetFPS = function() {
+    return g.targetFPS;
   };
 
-  var setTargetFPS = function(_targetFPS) {
+  const setTargetFPS = function(_targetFPS) {
     g.targetFPS = _targetFPS;
     g.targetTime = 1 / g.targetFPS;
   };
 
-  var start = function(_canvas, _callback, opt_framesToAverage, opt_targetFPS) {
+  const start = function(_canvas, _callback, opt_framesToAverage, opt_targetFPS) {
     canvas = _canvas;
     callback = _callback;
 
     framesToAverage = opt_framesToAverage || 60;
 
-    for (var ii = 0; ii < framesToAverage; ++ii) {
+    for (let ii = 0; ii < framesToAverage; ++ii) {
       countHistory.push(0);
     }
 
     if (opt_targetFPS || !g.targetTime) {
       opt_targetFPS = opt_targetFPS || 50;  // we use 50 instead of 60 since timing is bad.
-      setTargetFPS(opt_targetFPS)
+      setTargetFPS(opt_targetFPS);
     }
 
     then = getNow();
@@ -109,6 +133,6 @@ var PerfHarness = (function(undefined) {
     // This is here for debugging
     g: g,
 
-    endMarker: undefined
+    endMarker: undefined,
   };
 }());

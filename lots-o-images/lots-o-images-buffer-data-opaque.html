@@ -46,6 +46,7 @@
 <script src="../js/perf-harness.js"></script>
 <script src="../tdl/base.js"></script>
 <script>
+/* global tdl, PerfHarness */
 tdl.require('tdl.buffers');
 tdl.require('tdl.fast');
 tdl.require('tdl.fps');
@@ -59,141 +60,125 @@ tdl.require('tdl.webgl');
 window.onload = initialize;
 
 // globals
-var gl;                   // the gl context.
-var canvas;               // the canvas
-var math;                 // the math lib.
-var fast;                 // the fast math lib.
+let gl;                   // the gl context.
+let canvas;               // the canvas
 
-var g_maxImages = 250000;
-var g_numImages = 100;
-var g_imageSize = 32;
-var g_targetFrameRate = 60 - 2;  // add some fudge so browser that runs at 58-59 can still run the test
+const g_maxImages = 250000;
+let g_numImages = 100;
+const g_imageSize = 32;
 
-function CreateApp() {
-  var updatePositions = true;
+function createApp() {
+  let updatePositions = true;
 
   window.addEventListener('keypress', handleKeyPress, false);
 
-  function handleKeyPress(event) {
+  function handleKeyPress() {
     updatePositions = !updatePositions;
   }
 
   // Create Geometry.
-  var planeArrays = tdl.primitives.createPlane(g_imageSize, g_imageSize, 1, 1);
+  const planeArrays = tdl.primitives.createPlane(g_imageSize, g_imageSize, 1, 1);
   // Don't need the normals.
-  delete planeArrays.nornal;
+  delete planeArrays.normal;
   // rotate from xz plane to xy plane
   tdl.primitives.reorient(planeArrays,
       [1, 0, 0, 0,
        0, 0, 1, 0,
        0, -1, 0, 0,
-       0, 0, 0, 1]);
+       0, 0, 0, 1, ]);
   // translate so we position from top left instead of center.
   tdl.primitives.reorient(planeArrays,
       [1, 0, 0, 0,
        0, 1, 0, 0,
        0, 0, 1, 0,
-       g_imageSize / 2, g_imageSize / 2, 0, 1]);
+       g_imageSize / 2, g_imageSize / 2, 0, 1, ]);
 
   // Load textures
-  var textures = {
-      diffuseSampler: tdl.textures.loadTexture('../google-io/2011/assets/google.png')
+  const textures = {
+      diffuseSampler: tdl.textures.loadTexture('../google-io/2011/assets/google.png'),
   };
 
   // Create Shader Program
-  var program = tdl.programs.loadProgramFromScriptTags(
+  const program = tdl.programs.loadProgramFromScriptTags(
       'sphereVertexShader',
       'sphereFragmentShader');
 
   // --Setup Arrays---------------------------------------
-  var arrays = [
-    planeArrays
+  const arrays = [
+    planeArrays,
   ];
 
   // -- Setup Instances ----------------------------------
-  var instances = [];
-  var width = canvas.clientWidth - g_imageSize;
-  var height = canvas.clientHeight - g_imageSize;
-  for (var ii = 0; ii < g_maxImages; ++ii) {
+  const instances = [];
+  const width = canvas.clientWidth - g_imageSize;
+  const height = canvas.clientHeight - g_imageSize;
+  for (let ii = 0; ii < g_maxImages; ++ii) {
     instances.push({
       x: Math.random() * width,
       y: Math.random() * height,
       colorMult: new Float32Array([Math.random(), Math.random(), Math.random(), Math.random()]),
       arrayIndex: Math.floor(Math.random() * arrays.length),
       xVel: 1 * (Math.random() < 0.5 ? -60 : 60),
-      yVel: 1 * (Math.random() < 0.5 ? -60 : 60)
+      yVel: 1 * (Math.random() < 0.5 ? -60 : 60),
     });
   }
 
   // Expand arrays from instances to geometry.
 
   // Step 1: Add an extra worldPosition and colorMult field to each geometry
-  for (var ii = 0; ii < arrays.length; ++ii) {
-    var numElements = arrays[ii].position.numElements;
+  for (let ii = 0; ii < arrays.length; ++ii) {
+    const numElements = arrays[ii].position.numElements;
     arrays[ii].worldPosition = new tdl.primitives.AttribBuffer(2, numElements);
     arrays[ii].colorMult = new tdl.primitives.AttribBuffer(4, numElements);
   }
 
   // Step 2: convert instances to expanded geometry
-  var arrayInstances = [];
-  for (var ii = 0; ii < instances.length; ++ii) {
+  const arrayInstances = [];
+  for (let ii = 0; ii < instances.length; ++ii) {
     arrayInstances.push(arrays[instances[ii].arrayIndex]);
   }
-  var expanded = tdl.primitives.concatLarge(arrayInstances);
+  const expanded = tdl.primitives.concatLarge(arrayInstances);
 
   // Step 3: Make models from our expanded geometry.
-  var models = [];
-  for (var ii = 0; ii < expanded.arrays.length; ++ii) {
+  const models = [];
+  for (let ii = 0; ii < expanded.arrays.length; ++ii) {
     models.push(new tdl.models.Model(program, expanded.arrays[ii], textures));
   }
 
   // Step 4: Copy in Colors
-  for (var ii = 0; ii < instances.length; ++ii) {
-    var instance = instances[ii];
-    var info = expanded.instances[ii];
-    var index = info.arrayIndex;
+  for (let ii = 0; ii < instances.length; ++ii) {
+    const instance = instances[ii];
+    const info = expanded.instances[ii];
+    const index = info.arrayIndex;
     instance.firstVertex = info.firstVertex;
     instance.numVertices = info.numVertices;
     instance.expandedArrayIndex = index;
-    var attribBuffer = expanded.arrays[index].colorMult;
+    const attribBuffer = expanded.arrays[index].colorMult;
     attribBuffer.fillRange(instance.firstVertex, instance.numVertices, instance.colorMult);
   }
-  for (var ii = 0; ii < models.length; ++ii) {
-    var attribBuffer = expanded.arrays[ii].colorMult;
+  for (let ii = 0; ii < models.length; ++ii) {
+    const attribBuffer = expanded.arrays[ii].colorMult;
     models[ii].setBuffer('colorMult', attribBuffer);
   }
 
   // pre-allocate a bunch of arrays
-  var v3t0 = new Float32Array(3);
-  var v3t1 = new Float32Array(3);
-  var v3t2 = new Float32Array(3);
-  var v3t3 = new Float32Array(3);
-  var m4t0 = new Float32Array(16);
-  var m4t1 = new Float32Array(16);
-  var m4t2 = new Float32Array(16);
-  var m4t3 = new Float32Array(16);
-  var zero4 = new Float32Array(4);
-  var one4 = new Float32Array([1,1,1,1]);
-  var dimensions = new Float32Array([1, 1]);
+  const dimensions = new Float32Array([1, 1]);
 
   // uniforms.
-  var sharedUniforms = {
-      dimensions: dimensions
+  const sharedUniforms = {
+      dimensions,
   };
 
-  var clock = 0.0;
   function update(elapsedTime) {
-    clock += elapsedTime;
-
     resizeCanvas();
 
     // --Update Instance Positions---------------------------------------
     if (updatePositions) {
-      var width = canvas.clientWidth - g_imageSize;
-      var height = canvas.clientHeight - g_imageSize;
-      var advance = elapsedTime;
-      for (var ii = 0; ii < g_numImages; ++ii) {
-        var instance = instances[ii];
+      const width = canvas.clientWidth - g_imageSize;
+      const height = canvas.clientHeight - g_imageSize;
+      const advance = elapsedTime;
+      for (let ii = 0; ii < g_numImages; ++ii) {
+        const instance = instances[ii];
         instance.x += advance * instance.xVel;
         instance.y += advance * instance.yVel;
         if (instance.x < 0) {
@@ -210,8 +195,8 @@ function CreateApp() {
           instance.y = height;
           instance.yVel = -instance.yVel;
         }
-        var index = instance.expandedArrayIndex;
-        var attribBuffer = expanded.arrays[index].worldPosition;
+        const index = instance.expandedArrayIndex;
+        const attribBuffer = expanded.arrays[index].worldPosition;
         attribBuffer.fillRange(
             instance.firstVertex,
             instance.numVertices,
@@ -219,13 +204,13 @@ function CreateApp() {
         //console.log(instance.x, instance.y);
       }
 
-      var numImages = g_numImages;
-      var index = 0;
+      let numImages = g_numImages;
+      let index = 0;
       while (numImages > 0) {
-        var attribBuffer = expanded.arrays[index].worldPosition;
-        var model = models[index];
+        const attribBuffer = expanded.arrays[index].worldPosition;
+        const model = models[index];
         model.setBuffer('worldPosition', attribBuffer);
-        var numImagesInModel = model.buffers.indices.numElements() / 2;
+        const numImagesInModel = model.buffers.indices.numElements() / 2;
         numImages -= numImagesInModel;
         ++index;
       }
@@ -255,11 +240,11 @@ function CreateApp() {
     // -- Render Models ---------------------------------------
     // We only need to render each model once
     // as they contain all the instances.
-    var numImages = g_numImages;
-    for (var ii = 0; numImages > 0 && ii < models.length; ++ii) {
-      var model = models[ii];
-      var numImagesInModel = model.buffers.indices.numElements() / 2;
-      var numToDraw = Math.min(numImagesInModel, numImages);
+    let numImages = g_numImages;
+    for (let ii = 0; numImages > 0 && ii < models.length; ++ii) {
+      const model = models[ii];
+      const numImagesInModel = model.buffers.indices.numElements() / 2;
+      const numToDraw = Math.min(numImagesInModel, numImages);
       model.drawPrep(sharedUniforms);
       model.draw(numToDraw * 6);
       numImages -= numToDraw;
@@ -272,13 +257,13 @@ function CreateApp() {
 
   return {
     update: update,
-    render: render
+    render: render,
   };
 }
 
 function resizeCanvas() {
-  if (canvas.width != canvas.clientWidth ||
-      canvas.height != canvas.clientHeight) {
+  if (canvas.width !== canvas.clientWidth ||
+      canvas.height !== canvas.clientHeight) {
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
     console.log("resized canvas: " + canvas.width + ", " + canvas.height);
@@ -287,17 +272,18 @@ function resizeCanvas() {
 }
 
 function initialize() {
-  math = tdl.math;
-  fast = tdl.fast;
   canvas = document.getElementById("canvas");
-  var fpsTimer = new tdl.fps.FPSTimer();
-  var fpsElem = document.getElementById("fps");
-  var cntElem = document.getElementById("cnt");
-  var targetFPSElem = document.getElementById("targetFPS");
+  const fpsTimer = new tdl.fps.FPSTimer();
+  const fpsElem = document.getElementById("fps");
+  const afpsElem = document.getElementById("afps");
+  const velElem = document.getElementById("vel");
+  const cntElem = document.getElementById("cnt");
+  const acntElem = document.getElementById("acnt");
+  const targetFPSElem = document.getElementById("targetFPS");
 
-  var targetFPS = 50;
+  const targetFPS = 55;
 
-  var setTargetFPS = function(targetFPS) {
+  const setTargetFPS = function(targetFPS) {
     PerfHarness.setTargetFPS(targetFPS);
     targetFPSElem.innerHTML = targetFPS;
   };
@@ -308,39 +294,40 @@ function initialize() {
     value: targetFPS,
     slide: function(event, ui) {
       setTargetFPS(ui.value);
-    }
+    },
   });
   setTargetFPS(targetFPS);
 
   document.getElementById("title").innerHTML = document.getElementsByTagName("title")[0].innerHTML;
+  
+  const q = window.location.search;
+  const alpha = q.indexOf('alpha') >= 0;
+  const antialias = q.indexOf('antialias') >= 0;
 
-  gl = tdl.webgl.setupWebGL(canvas, {alpha:false, antialias:false});
+  gl = tdl.webgl.setupWebGL(canvas, {alpha: alpha, antialias: antialias});
   if (!gl) {
     return false;
   }
 
   resizeCanvas();
 
-  var app = CreateApp();
-  var changeAmount = 1;
+  const app = createApp();
 
-  function sign(v) {
-    return v > 0 ? 1 : (v < 0 ? -1 : 0);
-  }
-
-  function render(count, averageCount, elapsedTime) {
+  function render(count, averageCount, elapsedTime, velocity) {
     // Update the FPS timer.
     fpsTimer.update(elapsedTime);
-    fpsElem.innerHTML = fpsTimer.averageFPS;
+    velElem.textContent = velocity;
+    fpsElem.textContent = 1 / elapsedTime | 0;
+    afpsElem.textContent = fpsTimer.averageFPS;
 
     g_numImages = Math.min(g_maxImages, count);
 
-    cntElem.innerHTML = averageCount;
+    cntElem.textContent = count;
+    acntElem.textContent = averageCount;
 
     app.update(elapsedTime);
     app.render();
   }
-  var framesToAverage = 60;
   PerfHarness.start(canvas, render, 60);
   return true;
 }
@@ -351,8 +338,11 @@ function initialize() {
 <div id="fpsContainer">
   <div>target fps: <span id="targetFPS"></span></div>
   <div id="targetFPSSlider"></div>
+  <div class="vel">vel: <span id="vel"></div>
   <div class="fps">fps: <span id="fps"></div>
+  <div class="fps">afps: <span id="afps"></div>
   <div class="fps">cnt: <span id="cnt"></span></div>
+  <div class="fps">acnt: <span id="acnt"></span></div>
 </div>
 <div id="viewContainer">
 <canvas id="canvas" width="512" height="512" style="width: 100%; height: 100%;"></canvas>
