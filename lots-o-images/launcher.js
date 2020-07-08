@@ -112,6 +112,7 @@ function initialize() {
     alpha: settings.alpha,
     antialias: settings.antialias,
     preserveDrawingBuffer: settings.preserveDrawingBuffer,
+    powerPreference: 'high-performance',
   };
   const gl = canvas.getContext('webgl', ctxOptions);
   if (!gl) {
