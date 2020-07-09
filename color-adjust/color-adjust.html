@@ -169,7 +169,12 @@ void main() {
 }
 </script>
 <script id="basicFragmentShader" type="text/something-not-javascript">
-precision mediump float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+#else
+  precision mediump float;
+#endif
+
 uniform sampler2D texture;
 varying vec2 v_texCoord;
 void main() {

@@ -102,7 +102,12 @@ void main() {
 </script>
 
 <script id="skyboxFragmentShader" type="text/something-not-javascript">
-precision mediump float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+#else
+  precision mediump float;
+#endif
+
 
 uniform samplerCube u_skybox;
 uniform mat4 u_viewDirectionProjectionInverse;

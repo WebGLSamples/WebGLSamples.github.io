@@ -886,9 +886,7 @@ void main() {
 }
 </script>
 <script id="constFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
 precision mediump float;
-#endif
 //varying vec2 v_texCoord;
 //varying vec3 v_normal;
 void main() {
@@ -908,9 +906,7 @@ void main() {
 }
 </script>
 <script id="shieldFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
 precision mediump float;
-#endif
 varying vec2 v_texCoord;
 uniform sampler2D diffuseSampler;
 uniform vec4 colorMult;
@@ -929,9 +925,7 @@ void main() {
 }
 </script>
 <script id="shockwaveFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
 precision mediump float;
-#endif
 varying vec2 v_texCoord;
 uniform float voff;
 uniform float time;
@@ -979,8 +973,10 @@ void main() {
 
 </script>
 <script id="planetFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision mediump float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+#else
+  precision mediump float;
 #endif
 uniform vec4 lightColor;
 varying vec4 v_position;
@@ -1056,8 +1052,10 @@ void main() {
 
 </script>
 <script id="waterFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision mediump float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+#else
+  precision mediump float;
 #endif
 uniform vec4 lightColor;
 varying vec4 v_position;
@@ -1134,8 +1132,10 @@ void main() {
 
 </script>
 <script id="meteorFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision mediump float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+#else
+  precision mediump float;
 #endif
 uniform vec4 lightColor;
 varying vec4 v_position;
@@ -1211,8 +1211,10 @@ void main() {
 
 </script>
 <script id="normalMapFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision mediump float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+#else
+  precision mediump float;
 #endif
 uniform vec4 lightColor;
 varying vec4 v_position;
@@ -1267,8 +1269,10 @@ void main() {
 }
 </script>
 <script id="skyboxFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision mediump float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+#else
+  precision mediump float;
 #endif
 uniform samplerCube skybox;
 uniform mat4 viewDirectionProjectionInverse;

@@ -245,7 +245,12 @@ void main() {
 
 </script>
 <script id="fishNormalMapFragmentShader" type="text/something-not-javascript">
-precision mediump float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+#else
+  precision mediump float;
+#endif
+
 uniform vec4 lightColor;
 varying vec4 v_position;
 varying vec2 v_texCoord;
@@ -296,7 +301,12 @@ void main() {
 </script>
 <!-- ===[ fishReflection Shader ]=========================================== -->
 <script id="fishReflectionFragmentShader" type="text/something-not-javascript">
-precision mediump float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+#else
+  precision mediump float;
+#endif
+
 uniform vec4 lightColor;
 varying vec4 v_position;
 varying vec2 v_texCoord;
@@ -396,7 +406,12 @@ void main() {
 
 </script>
 <script id="seaweedFragmentShader" type="text/something-not-javascript">
-precision mediump float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+#else
+  precision mediump float;
+#endif
+
 uniform vec4 lightColor;
 varying vec4 v_position;
 varying vec2 v_texCoord;
@@ -462,7 +477,12 @@ void main() {
 
 </script>
 <script id="diffuseFragmentShader" type="text/something-not-javascript">
-precision mediump float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+#else
+  precision mediump float;
+#endif
+
 uniform vec4 lightColor;
 varying vec4 v_position;
 varying vec2 v_texCoord;
@@ -531,7 +551,12 @@ void main() {
 
 </script>
 <script id="normalMapFragmentShader" type="text/something-not-javascript">
-precision mediump float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+#else
+  precision mediump float;
+#endif
+
 uniform vec4 lightColor;
 varying vec4 v_position;
 varying vec2 v_texCoord;
@@ -612,7 +637,12 @@ void main() {
 
 </script>
 <script id="reflectionMapFragmentShader" type="text/something-not-javascript">
-precision mediump float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+#else
+  precision mediump float;
+#endif
+
 uniform vec4 lightColor;
 varying vec4 v_position;
 varying vec2 v_texCoord;
@@ -696,7 +726,12 @@ void main() {
 
 </script>
 <script id="innerRefractionMapFragmentShader" type="text/something-not-javascript">
-precision mediump float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+#else
+  precision mediump float;
+#endif
+
 uniform vec4 lightColor;
 varying vec4 v_position;
 varying vec2 v_texCoord;
@@ -790,7 +825,12 @@ void main() {
 
 </script>
 <script id="outerRefractionMapFragmentShader" type="text/something-not-javascript">
-precision mediump float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+#else
+  precision mediump float;
+#endif
+
 uniform vec4 lightColor;
 varying vec4 v_position;
 varying vec2 v_texCoord;

@@ -173,8 +173,10 @@ Hold left mouse button to carve.
 </body>
 
 <script id="marching_cube_fs" type="x-shader/x-fragment">
-  #ifdef GL_ES
-  precision mediump float;
+  #ifdef GL_FRAGMENT_PRECISION_HIGH
+    precision highp float;
+  #else
+    precision mediump float;
   #endif
 
   uniform vec4 u_ambientUp;

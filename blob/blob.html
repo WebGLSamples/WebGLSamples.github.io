@@ -305,9 +305,7 @@ function handleContextRestored() {
 </body>
 
 <script id="spinning_cube_fs" type="x-shader/x-fragment">
-  #ifdef GL_ES
   precision mediump float;
-  #endif
   varying vec4 v_color;
   void main(void) {
     gl_FragColor = v_color;
@@ -330,9 +328,7 @@ function handleContextRestored() {
 </script>
 
 <script id="marching_cube_fs" type="x-shader/x-fragment">
-  #ifdef GL_ES
   precision mediump float;
-  #endif
   varying vec4 v_color;
   varying vec3 v_normal;
   uniform vec4 u_ambientUp;
@@ -379,9 +375,7 @@ function handleContextRestored() {
 </script>
 
 <script id="blur_fs" type="text/something-not-javascript">
-  #ifdef GL_ES
   precision mediump float;
-  #endif
   varying vec2 v_texCoord;
   uniform vec2 blurSize;
   uniform vec4 subtract;
@@ -419,9 +413,7 @@ function handleContextRestored() {
 </script>
 
 <script id="radial_fs" type="text/something-not-javascript">
-  #ifdef GL_ES
   precision mediump float;
-  #endif
   varying vec2 v_texCoord0, v_texCoord1, v_texCoord2, v_texCoord3;
   uniform sampler2D mainSampler;
   uniform float amount;
@@ -436,9 +428,7 @@ function handleContextRestored() {
 </script>
 
 <script id="copy_fs" type="text/something-not-javascript">
-  #ifdef GL_ES
   precision mediump float;
-  #endif
   varying vec2 v_texCoord;
   uniform sampler2D mainSampler;
   void main() {
@@ -447,9 +437,7 @@ function handleContextRestored() {
 </script>
 
 <script id="add_fs" type="text/something-not-javascript">
-  #ifdef GL_ES
   precision mediump float;
-  #endif
   varying vec2 v_texCoord;
   uniform sampler2D mainSampler;
   uniform sampler2D secondSampler;

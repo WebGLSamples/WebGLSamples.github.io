@@ -282,8 +282,10 @@ void main() {
 
 </script>
 <script id="sphereFragmentShader" type="text/something-not-javascript">
-#ifdef GL_ES
-precision mediump float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+#else
+  precision mediump float;
 #endif
 uniform vec4 lightColor;
 varying vec4 v_position;

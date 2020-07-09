@@ -227,9 +227,7 @@ tdl.particles.SHADER_STRINGS = [
   '}\n',
 
   // Fragment shader used by both 2D and 3D vertex shaders
-  '#ifdef GL_ES\n' +
   'precision mediump float;\n' +
-  '#endif\n' +
   'uniform sampler2D rampSampler;\n' +
   'uniform sampler2D colorSampler;\n' +
   '\n' +
