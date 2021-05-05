@@ -264,8 +264,8 @@ void main() {
       var start = document.querySelector("#start");
       var once = false;
 
-      start.addEventListener('touchstart', onTouch);
-      start.addEventListener('mousedown', onTouch);
+      start.addEventListener('touchend', onTouch);
+      start.addEventListener('mouseup', onTouch);
       function onTouch() {
         if (once) {
           return;
