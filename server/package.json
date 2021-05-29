@@ -11,6 +11,6 @@
   "dependencies": {
     "express": "^4.16.2",
     "optionator": "^0.8.2",
-    "ws": "^6.0.0"
+    "ws": "^7.4.6"
   }
 }
