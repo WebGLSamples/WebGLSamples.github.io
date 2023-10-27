@@ -2156,20 +2156,43 @@ $(function(){
     }
   }
 
+  var g_session = null;
+
   function onRequestPresent() {
+    return navigator.xr.requestSession('immersive-vr').then((session) => {
+        removeButton(vrButton);
+        vrButton = addButton("Exit VR", "E", getCurrentUrl() + "/vr_assets/button.png", onExitPresent);
+        session.isImmersive = true;
+        g_session = session;
+        session.addEventListener('end', onSessionEnded);
+    });
+    /*
     g_vrDisplay.requestPresent([{ source: canvas }]).then(function() {}, function() {
       console.error("request present failed.");
     });
+    */
   }
 
   function onExitPresent() {
+    session.end();
+    
+
+    /*
     if (!g_vrDisplay.isPresenting)
       return;
 
     g_vrDisplay.exitPresent().then(function() {}, function() {
       console.error("exit present failed.");
     });
+    */
   }
+
+  function onSessionEnded(event) {
+    if (event.session.isImmersive) {
+      removeButton(vrButton);
+      vrButton = addButton("Enter VR", "E", getCurrentUrl() + "/vr_assets/button.png", onRequestPresent); 
+    }
+  }    
 
   function toggleStereoDemo() {
     g_stereoDemoActive = !g_stereoDemoActive;
