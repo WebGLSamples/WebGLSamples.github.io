@@ -91,6 +91,7 @@ var g_lightRayInfo = [];
 var g_session = null;
 var g_xrImmersiveRefSpace = null;
 var g_onXRFrame = ()=>{};
+var g_onAnimationFrame = () => {};
 
 var g_ui = [
   { obj: 'globals',    name: 'speed',           value: 1,     max:  4 },
@@ -1965,6 +1966,7 @@ function initialize() {
     }
   }
 
+  g_onAnimationFrame = onAnimationFrame;
   onAnimationFrame();
   return true;
 }
@@ -2286,10 +2288,9 @@ $(function(){
   }
 
   function onExitPresent() {
-    session.end();
-    g.globals.eyeHeight = g_viewSettings[0].eyeHeight;
-    g.globals.eyeRadius = g_viewSettings[0].eyeRadius;
-
+    g_session.end();
+    location.reload();
+    
     /*
     if (!g_vrDisplay.isPresenting)
       return;
@@ -2302,9 +2303,7 @@ $(function(){
 
   function onSessionEnded(event) {
     if (event.session.isImmersive) {
-      removeButton(vrButton);
-      vrButton = addButton("Enter VR", "E", getCurrentUrl() + "/vr_assets/button.png", onRequestPresent); 
-      g_shadersNeedUpdate = true;
+      onExitPresent();
     }
   }    
 
