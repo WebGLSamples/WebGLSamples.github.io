@@ -1709,6 +1709,7 @@ function initialize() {
     let refSpace = g_xrImmersiveRefSpace;
     let pose = frame.getViewerPose(refSpace);
 
+    var now = theClock.getTime();
     var elapsedTime;
     if(then == 0.0) {
       elapsedTime = 0.0;
@@ -1716,6 +1717,15 @@ function initialize() {
       elapsedTime = now - then;
     }
     then = now;
+
+    if (g.net.sync) {
+      clock = now * g.globals.speed;
+      eyeClock = now * g.globals.eyeSpeed;
+    } else {
+      // we have our own clock.
+      clock += elapsedTime * g.globals.speed;
+      eyeClock += elapsedTime * g.globals.eyeSpeed;
+    }
 
     frameCount++;
     g_fpsTimer.update(elapsedTime);
