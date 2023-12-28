@@ -96,7 +96,7 @@ var g_ui = [
   { obj: 'globals',    name: 'speed',           value: 1,     max:  4 },
   { obj: 'globals',    name: 'targetHeight',    value: 0,     max:  150 },
   { obj: 'globals',    name: 'targetRadius',    value: 88,    max:  200 },
-  { obj: 'globals',    name: 'eyeHeight',       value: 19,    max:  150 },
+  { obj: 'globals',    name: 'eyeHeight',       value: 150,    max:  150 },
   { obj: 'globals',    name: 'eyeRadius',       value: 60,    max:  200 },
   { obj: 'globals',    name: 'eyeSpeed',        value: 0.06,  max:  1 },
   { obj: 'globals',    name: 'fieldOfView',     value: 85,  max:  179, min: 1},
@@ -2272,6 +2272,8 @@ $(function(){
         session.requestReferenceSpace(refSpaceType).then((refSpace) => {
           g_xrImmersiveRefSpace = refSpace
           g_shadersNeedUpdate = true;
+          g.globals.eyeHeight = 15;
+          g.globals.eyeRadius = 1;
           session.requestAnimationFrame(g_onXRFrame);
         });
         session.addEventListener('end', onSessionEnded);
@@ -2285,7 +2287,8 @@ $(function(){
 
   function onExitPresent() {
     session.end();
-    
+    g.globals.eyeHeight = g_viewSettings[0].eyeHeight;
+    g.globals.eyeRadius = g_viewSettings[0].eyeRadius;
 
     /*
     if (!g_vrDisplay.isPresenting)
