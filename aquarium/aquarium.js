@@ -2217,6 +2217,19 @@ $(function(){
     }
   }    
 
+  function onDeviceChange() {
+    vrButton ?? removeButton(vrButton);
+    // Checks to ensure that 'immersive-ar' mode is available, and only
+    // enables the button if so.
+    navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+      if (supported) {
+        vrButton = addButton("Enter VR", "E", getCurrentUrl() + "/vr_assets/button.png", onRequestPresent);
+        g_vrUi = new Ui(gl, g_numFish);
+        g_vrUi.load("./vr_assets/ui/config.js");
+      }
+    });
+  }
+
   function toggleStereoDemo() {
     g_stereoDemoActive = !g_stereoDemoActive;
     g_shadersNeedUpdate = true;
@@ -2248,6 +2261,7 @@ $(function(){
             g_vrUi.load("./vr_assets/ui/config.js");
           }
         });
+        navigator.xr.addEventListener('devicechange', onDeviceChange);
       }
       // Regardless of if we have WebVR support, we can demonstrate stereo rendering inside the window.
       stereoDemoButton = addButton("Toggle Stereo Demo", "", getCurrentUrl() + "/vr_assets/button.png", toggleStereoDemo);
