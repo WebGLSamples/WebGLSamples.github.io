@@ -1776,7 +1776,7 @@ function initialize() {
     eyePosition[1] = g.globals.eyeHeight;
     eyePosition[2] = g.globals.eyeRadius;
 
-    let vrPose = [pose.transform.orientation.x, pose.transform.orientation.y, pose.transform.orientation.z, 1]
+    let vrPose = [pose.transform.orientation.x, pose.transform.orientation.y, pose.transform.orientation.z, pose.transform.orientation.w]
     calculateViewMatrix(viewInverseTemp, vrPose, eyePosition);
 
     let glLayer = session.renderState.baseLayer;
