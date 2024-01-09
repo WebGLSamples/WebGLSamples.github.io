@@ -1770,11 +1770,8 @@ function initialize() {
       }
     }
 
-    // Using head-neck model in VR mode because of unclear distance measurement(vr return position using meters),
-    // user could see around but couldn't move around.
-    eyePosition[0] = g.globals.eyeRadius;
-    eyePosition[1] = g.globals.eyeHeight;
-    eyePosition[2] = g.globals.eyeRadius;
+    const viewPos = pose.views[n].transform.position;
+    eyePosition = [viewPos.x, viewPos.y, viewPos.z];
 
     let vrPose = [pose.transform.orientation.x, pose.transform.orientation.y, pose.transform.orientation.z, pose.transform.orientation.w]
     calculateViewMatrix(viewInverseTemp, vrPose, eyePosition);
