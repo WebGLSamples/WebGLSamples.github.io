@@ -1770,26 +1770,17 @@ function initialize() {
       }
     }
 
-    const viewPos = pose.views[n].transform.position;
-    eyePosition = [viewPos.x, viewPos.y, viewPos.z];
-
-    let vrPose = [pose.transform.orientation.x, pose.transform.orientation.y, pose.transform.orientation.z, pose.transform.orientation.w]
-    calculateViewMatrix(viewInverseTemp, vrPose, eyePosition);
-
     let glLayer = session.renderState.baseLayer;
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
     gl.enable(gl.SCISSOR_TEST);
 
-    let xrViewport = glLayer.getViewport(pose.views[0]);
-    gl.viewport(xrViewport.x, xrViewport.y, xrViewport.width, xrViewport.height);
-    gl.scissor(xrViewport.x, xrViewport.y, xrViewport.width, xrViewport.height);
-    render(pose.views[0].projectionMatrix, viewInverseTemp, false, pose);
-
-    xrViewport = glLayer.getViewport(pose.views[1]);
-    gl.viewport(xrViewport.x, xrViewport.y, xrViewport.width, xrViewport.height);
-    gl.scissor(xrViewport.x, xrViewport.y, xrViewport.width, xrViewport.height);
-    render(pose.views[1].projectionMatrix, viewInverseTemp, false, pose);
+    for (const view of pose.views) {
+      let xrViewport = glLayer.getViewport(view);
+      gl.viewport(xrViewport.x, xrViewport.y, xrViewport.width, xrViewport.height);
+      gl.scissor(xrViewport.x, xrViewport.y, xrViewport.width, xrViewport.height);
+      render(view.projectionMatrix, view.transform.inverse.matrix, false, view); // Not clear on what the final arg is used for here? Glancing at the code it looks like it should probably be view instead of pose.
+    }
     //renderStereo(pose.views[0].projectionMatrix, pose.views[1].projectionMatrix, viewInverseTemp, vrPose);
     // gl.clearColor(Math.cos(now / 2000),
     //               Math.cos(now / 4000),
