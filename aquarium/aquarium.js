@@ -2079,6 +2079,7 @@ $(function(){
 (function() {
   "use strict";
   var vrButton;
+  var vrButtonURL;
   var stereoDemoButton;
 
   function getButtonContainer () {
@@ -2173,10 +2174,12 @@ $(function(){
     return path.substring(0, path.lastIndexOf('/'));
   }
 
+  vrButtonURL = getCurrentUrl() + "/../aquarium-vr/vr_assets/button.png";
+
   function onRequestPresent() {
     return navigator.xr.requestSession('immersive-vr').then((session) => {
         removeButton(vrButton);
-        vrButton = addButton("Exit VR", "E", getCurrentUrl() + "/vr_assets/button.png", onExitPresent);
+        vrButton = addButton("Exit VR", "E", vrButtonURL, onExitPresent);
         session.isImmersive = true;
         g_session = session;
 
@@ -2211,7 +2214,7 @@ $(function(){
     // enables the button if so.
     navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
       if (supported) {
-        vrButton = addButton("Enter VR", "E", getCurrentUrl() + "/vr_assets/button.png", onRequestPresent);
+        vrButton = addButton("Enter VR", "E", vrButtonURL, onRequestPresent);
         g_vrUi = new Ui(gl, g_numFish);
         g_vrUi.load("./vr_assets/ui/config.js");
       }
@@ -2244,7 +2247,7 @@ $(function(){
         // enables the button if so.
         navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
           if (supported) {
-            vrButton = addButton("Enter VR", "E", getCurrentUrl() + "/vr_assets/button.png", onRequestPresent);
+            vrButton = addButton("Enter VR", "E", vrButtonURL, onRequestPresent);
             g_vrUi = new Ui(gl, g_numFish);
             g_vrUi.load("./vr_assets/ui/config.js");
           }
@@ -2252,7 +2255,7 @@ $(function(){
         navigator.xr.addEventListener('devicechange', onDeviceChange);
       }
       // Regardless of if we have WebVR support, we can demonstrate stereo rendering inside the window.
-      stereoDemoButton = addButton("Toggle Stereo Demo", "", getCurrentUrl() + "/vr_assets/button.png", toggleStereoDemo);
+      stereoDemoButton = addButton("Toggle Stereo Demo", "", vrButtonURL, toggleStereoDemo);
     }
     window.addEventListener('resize', function() {onResize();}, false);
     onResize();
