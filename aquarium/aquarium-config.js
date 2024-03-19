@@ -2,5 +2,5 @@
 
 var g_aquariumConfig = {
     aquariumRoot: '',
-    enableVR: false
+    enableVR: true,
 };
