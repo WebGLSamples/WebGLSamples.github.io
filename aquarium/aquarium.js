@@ -46,6 +46,8 @@ var g_sceneGroups = {};  // the placement of the models
 var g_fog = true;
 var g_numFish = [1, 100, 500, 1000, 5000, 10000, 15000, 20000, 25000, 30000];
 
+const searchParams = new URLSearchParams(window.location.search);
+var g_stereoDemoAvailable = searchParams.get("stereo-enabled")=="true" ?? false;
 var g_stereoDemoActive = false;
 var g_shadersNeedUpdate = false; // Set to true whenever the state has changed so that shaders may need to be changed.
 
@@ -2248,8 +2250,10 @@ $(function(){
         });
         navigator.xr.addEventListener('devicechange', onDeviceChange);
       }
-      // Regardless of if we have WebVR support, we can demonstrate stereo rendering inside the window.
-      stereoDemoButton = addButton("Toggle Stereo Demo", "", vrButtonURL, toggleStereoDemo);
+      // Regardless of if we have WebVR support, we can demonstrate stereo rendering inside the window if enable-stereo param is included in url
+      if (g_stereoDemoAvailable) {
+        stereoDemoButton = addButton("Toggle Stereo Demo", "", vrButtonURL, toggleStereoDemo);
+      }
     }
     window.addEventListener('resize', function() {onResize();}, false);
     onResize();
