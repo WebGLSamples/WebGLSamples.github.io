@@ -1779,14 +1779,8 @@ function initialize() {
       let xrViewport = glLayer.getViewport(view);
       gl.viewport(xrViewport.x, xrViewport.y, xrViewport.width, xrViewport.height);
       gl.scissor(xrViewport.x, xrViewport.y, xrViewport.width, xrViewport.height);
-      render(view.projectionMatrix, view.transform.matrix, false, view); // Not clear on what the final arg is used for here? Glancing at the code it looks like it should probably be view instead of pose.
+      render(view.projectionMatrix, view.transform.matrix, false, view); 
     }
-    //renderStereo(pose.views[0].projectionMatrix, pose.views[1].projectionMatrix, viewInverseTemp, vrPose);
-    // gl.clearColor(Math.cos(now / 2000),
-    //               Math.cos(now / 4000),
-    //               Math.cos(now / 6000), 1.0);
-
-    // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     session.requestAnimationFrame(onXRFrame);
   }
 
