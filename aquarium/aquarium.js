@@ -1248,7 +1248,7 @@ function initialize() {
   }
 
   function render(projectionMatrix, viewInverseMatrix, useMultiview, pose,
-                  translationScale, floorAdjust) {
+                  translationScale, floorAdjust, fishScale) {
     var genericConstInUse = useMultiview ? genericConstMultiview : genericConst;
     var outsideConstInUse = useMultiview ? outsideConstMultiview : outsideConst;
     var innerConstInUse = useMultiview ? innerConstMultiview : innerConst;
@@ -1289,6 +1289,9 @@ function initialize() {
       fast.matrix4.setTranslation(viewInverse, v3t0);
     }
 
+    if (fishScale == null) {
+      fishScale = 1;
+    }
 
     // TODO: Support VRUI when using multiview? Would require adding multiview shaders to UI and changing UI matrices when multiview is on.
     if (!useMultiview && presentingVR && pose && g_vrUi) {
@@ -1403,7 +1406,7 @@ function initialize() {
         for (var ii = 0; ii < numFish; ++ii) {
           var fishClock = fishBaseClock + ii * fishOffset;
           var speed = fishSpeed + math.pseudoRandom() * fishSpeedRange;
-          var scale = 1.0 + math.pseudoRandom() * 1;
+          var scale = (1.0 + math.pseudoRandom() * 1) * fishScale;
           var xRadius = fishRadius + pseudoRandom() * fishRadiusRange;
           var yRadius = 2.0 + pseudoRandom() * fishHeightRange;
           var zRadius = fishRadius + pseudoRandom() * fishRadiusRange;
@@ -1804,7 +1807,7 @@ function initialize() {
       let xrViewport = glLayer.getViewport(view);
       gl.viewport(xrViewport.x, xrViewport.y, xrViewport.width, xrViewport.height);
       gl.scissor(xrViewport.x, xrViewport.y, xrViewport.width, xrViewport.height);
-      render(view.projectionMatrix, view.transform.matrix, false, view, 10, 5);
+      render(view.projectionMatrix, view.transform.matrix, false, view, 10, 5, 0.75);
     }
     session.requestAnimationFrame(onXRFrame);
   }
