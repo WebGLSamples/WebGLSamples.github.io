@@ -1247,7 +1247,8 @@ function initialize() {
     lightRay.setProgram(lightRay.programSet.getProgram(shadingSettings));
   }
 
-  function render(projectionMatrix, viewInverseMatrix, useMultiview, pose) {
+  function render(projectionMatrix, viewInverseMatrix, useMultiview, pose,
+                  translationScale, floorAdjust) {
     var genericConstInUse = useMultiview ? genericConstMultiview : genericConst;
     var outsideConstInUse = useMultiview ? outsideConstMultiview : outsideConst;
     var innerConstInUse = useMultiview ? innerConstMultiview : innerConst;
@@ -1276,6 +1277,19 @@ function initialize() {
       fast.matrix4.copy(projection, projectionMatrix);
     }
     fast.matrix4.copy(viewInverse, viewInverseMatrix);
+
+    if (translationScale != null) {
+      fast.matrix4.getTranslation(v3t0, viewInverse);
+      fast.mulScalarVector(v3t0, translationScale, v3t0);
+
+      if (floorAdjust != null) {
+        v3t0[1] += floorAdjust;
+      }
+
+      fast.matrix4.setTranslation(viewInverse, v3t0);
+    }
+
+
     // TODO: Support VRUI when using multiview? Would require adding multiview shaders to UI and changing UI matrices when multiview is on.
     if (!useMultiview && presentingVR && pose && g_vrUi) {
       // Hard coded FPS translation vector and pin the whole UI in front of the user in VR mode. This hard coded position
@@ -1790,7 +1804,7 @@ function initialize() {
       let xrViewport = glLayer.getViewport(view);
       gl.viewport(xrViewport.x, xrViewport.y, xrViewport.width, xrViewport.height);
       gl.scissor(xrViewport.x, xrViewport.y, xrViewport.width, xrViewport.height);
-      render(view.projectionMatrix, view.transform.matrix, false, view); 
+      render(view.projectionMatrix, view.transform.matrix, false, view, 10, 5);
     }
     session.requestAnimationFrame(onXRFrame);
   }
