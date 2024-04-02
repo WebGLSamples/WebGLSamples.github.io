@@ -91,7 +91,7 @@ var g_lightRayOffset = Math.PI * 2 / g_numLightRays;
 var g_lightRayInfo = [];
 var g_session = null;
 var g_xrImmersiveRefSpace = null;
-var g_onXRFrame = ()=>{};
+var g_startXRRendering = () => {};
 var g_onAnimationFrame = () => {};
 
 var g_ui = [
@@ -1706,6 +1706,15 @@ function initialize() {
     render(monoProjection, viewInverseTemp);
   }
 
+  function startXRRendering(now, frame) {
+    var eyeClock = 0;
+    eyePosition[0] = Math.sin(eyeClock) * g.globals.eyeRadius;
+    eyePosition[1] = g.globals.eyeHeight;
+    eyePosition[2] = Math.cos(eyeClock) * g.globals.eyeRadius;
+
+    onXRFrame(now, frame);
+  }
+
   function onXRFrame(now, frame) {
     let session = frame.session;
     let refSpace = g_xrImmersiveRefSpace;
@@ -1786,7 +1795,7 @@ function initialize() {
     session.requestAnimationFrame(onXRFrame);
   }
 
-  g_onXRFrame = onXRFrame;
+  g_startXRRendering = startXRRendering;
 
   function onAnimationFrame() {
     var now = theClock.getTime();
@@ -2185,9 +2194,9 @@ $(function(){
         session.requestReferenceSpace(refSpaceType).then((refSpace) => {
           g_xrImmersiveRefSpace = refSpace
           g_shadersNeedUpdate = true;
-          g.globals.eyeHeight = 15;
-          g.globals.eyeRadius = 1;
-          session.requestAnimationFrame(g_onXRFrame);
+          g.globals.eyeHeight = 150;
+          g.globals.eyeRadius = 10;
+          session.requestAnimationFrame(g_startXRRendering);
         });
         session.addEventListener('end', onSessionEnded);
     });
