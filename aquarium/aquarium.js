@@ -19,7 +19,7 @@ tdl.require('tdl.webgl');
 const g_query = parseQueryString(window.location.search);
 
 function isMultiviewSupportEnabled() {
-  return g_aquariumConfig.enableVR && g_query.enableMultiview && g_query.enableMultiview == 'true';
+  return g_aquariumConfig.enableVR || (g_query.enableMultiview && g_query.enableMultiview == 'true');
 }
 
 if (isMultiviewSupportEnabled()) {
@@ -46,6 +46,8 @@ var g_sceneGroups = {};  // the placement of the models
 var g_fog = true;
 var g_numFish = [1, 100, 500, 1000, 5000, 10000, 15000, 20000, 25000, 30000];
 
+const searchParams = new URLSearchParams(window.location.search);
+var g_stereoDemoAvailable = searchParams.get("stereo-enabled")=="true" ?? false;
 var g_stereoDemoActive = false;
 var g_shadersNeedUpdate = false; // Set to true whenever the state has changed so that shaders may need to be changed.
 
@@ -57,7 +59,6 @@ var g_getCount = 0;
 var g_putCount = 0;
 
 var g_frameData;
-var g_vrDisplay;
 var g_vrUi;
 
 var g_multiviewFb;        // multiview framebuffer.
@@ -88,12 +89,16 @@ var g_lightRayRotRange = 1.0;
 var g_lightRayRotLerp = 0.2;
 var g_lightRayOffset = Math.PI * 2 / g_numLightRays;
 var g_lightRayInfo = [];
+var g_session = null;
+var g_xrImmersiveRefSpace = null;
+var g_startXRRendering = () => {};
+var g_onAnimationFrame = () => {};
 
 var g_ui = [
   { obj: 'globals',    name: 'speed',           value: 1,     max:  4 },
   { obj: 'globals',    name: 'targetHeight',    value: 0,     max:  150 },
   { obj: 'globals',    name: 'targetRadius',    value: 88,    max:  200 },
-  { obj: 'globals',    name: 'eyeHeight',       value: 19,    max:  150 },
+  { obj: 'globals',    name: 'eyeHeight',       value: 150,    max:  150 },
   { obj: 'globals',    name: 'eyeRadius',       value: 60,    max:  200 },
   { obj: 'globals',    name: 'eyeSpeed',        value: 0.06,  max:  1 },
   { obj: 'globals',    name: 'fieldOfView',     value: 85,  max:  179, min: 1},
@@ -883,7 +888,7 @@ function main() {
 
   g_fpsTimer = new tdl.fps.FPSTimer();
   if (isMultiviewSupportEnabled()) {
-    gl = tdl.webgl.setupWebGL(canvas, {antialias: false}, undefined, 'webgl2');
+    gl = tdl.webgl.setupWebGL(canvas, {antialias: false, xrCompatible: true}, undefined, 'webgl2');
     multiview = gl.getExtension('OVR_multiview2');
   } else {
     gl = tdl.webgl.setupWebGL(canvas);
@@ -1242,7 +1247,8 @@ function initialize() {
     lightRay.setProgram(lightRay.programSet.getProgram(shadingSettings));
   }
 
-  function render(projectionMatrix, viewInverseMatrix, useMultiview, pose) {
+  function render(projectionMatrix, viewInverseMatrix, useMultiview, pose,
+                  translationScale, floorAdjust, fishScale) {
     var genericConstInUse = useMultiview ? genericConstMultiview : genericConst;
     var outsideConstInUse = useMultiview ? outsideConstMultiview : outsideConst;
     var innerConstInUse = useMultiview ? innerConstMultiview : innerConst;
@@ -1259,7 +1265,7 @@ function initialize() {
     gl.clearColor(0,0.8,1,0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
-    var presentingVR = g_vrDisplay && g_vrDisplay.isPresenting;
+    var presentingVR = g_session && g_session.isImmersive;
 
     var uiMatrix = new Float32Array(16);
 
@@ -1271,8 +1277,24 @@ function initialize() {
       fast.matrix4.copy(projection, projectionMatrix);
     }
     fast.matrix4.copy(viewInverse, viewInverseMatrix);
+
+    if (translationScale != null) {
+      fast.matrix4.getTranslation(v3t0, viewInverse);
+      fast.mulScalarVector(v3t0, translationScale, v3t0);
+
+      if (floorAdjust != null) {
+        v3t0[1] += floorAdjust;
+      }
+
+      fast.matrix4.setTranslation(viewInverse, v3t0);
+    }
+
+    if (fishScale == null) {
+      fishScale = 1;
+    }
+
     // TODO: Support VRUI when using multiview? Would require adding multiview shaders to UI and changing UI matrices when multiview is on.
-    if (!useMultiview && presentingVR && pose) {
+    if (!useMultiview && presentingVR && pose && g_vrUi) {
       // Hard coded FPS translation vector and pin the whole UI in front of the user in VR mode. This hard coded position
       // vector used only once here.
       calculateViewMatrix(uiMatrix, pose.orientation, [0, 0, 10]);
@@ -1384,7 +1406,7 @@ function initialize() {
         for (var ii = 0; ii < numFish; ++ii) {
           var fishClock = fishBaseClock + ii * fishOffset;
           var speed = fishSpeed + math.pseudoRandom() * fishSpeedRange;
-          var scale = 1.0 + math.pseudoRandom() * 1;
+          var scale = (1.0 + math.pseudoRandom() * 1) * fishScale;
           var xRadius = fishRadius + pseudoRandom() * fishRadiusRange;
           var yRadius = 2.0 + pseudoRandom() * fishHeightRange;
           var zRadius = fishRadius + pseudoRandom() * fishRadiusRange;
@@ -1701,6 +1723,97 @@ function initialize() {
     render(monoProjection, viewInverseTemp);
   }
 
+  function startXRRendering(now, frame) {
+    var eyeClock = 0;
+    eyePosition[0] = Math.sin(eyeClock) * g.globals.eyeRadius;
+    eyePosition[1] = g.globals.eyeHeight;
+    eyePosition[2] = Math.cos(eyeClock) * g.globals.eyeRadius;
+
+    onXRFrame(now, frame);
+  }
+
+  function onXRFrame(now, frame) {
+    let session = frame.session;
+    let refSpace = g_xrImmersiveRefSpace;
+    let pose = frame.getViewerPose(refSpace);
+
+    var now = theClock.getTime();
+    var elapsedTime;
+    if(then == 0.0) {
+      elapsedTime = 0.0;
+    } else {
+      elapsedTime = now - then;
+    }
+    then = now;
+
+    if (g.net.sync) {
+      clock = now * g.globals.speed;
+      eyeClock = now * g.globals.eyeSpeed;
+    } else {
+      // we have our own clock.
+      clock += elapsedTime * g.globals.speed;
+      eyeClock += elapsedTime * g.globals.eyeSpeed;
+    }
+
+    frameCount++;
+    g_fpsTimer.update(elapsedTime);
+    fpsElem.innerHTML = g_fpsTimer.averageFPS;
+
+    if (g_shadersNeedUpdate) {
+      setShaders(true);
+      g_shadersNeedUpdate = false;
+    }
+
+    if (g_vrUi) {
+      // Set fps and prepare rendering it.
+      g_vrUi.setFps(g_fpsTimer.averageFPS);
+
+      // Query gamepad button clicked event.
+      g_vrUi.queryGamepadStatus();
+
+      // TODO: Support VRUI when doing multiview rendering.
+      if (!useMultiviewForStereo() && g_vrUi.isMenuMode) {
+
+        // When VR UI in menu mode, UI need a cursor to help user do select operation. Currently, cursor uses
+        // head-neck model which means a point in front of user and user could move the point by rotating their head(with HMD).
+        // A click event will be triggered when user stare at a label 2 seconds.
+        // TODO : add gamepad support to control cursor and trigger select event with VR controllers.
+
+        // Jquery selector description.
+        var selectorDescription;
+
+        // VR UI return whether there is an option been selected in VR mode.
+        var clickedLabel = g_vrUi.queryClickedLabel([0, 0, 0], g_frameData.pose.orientation);
+        if (clickedLabel != null) {
+          if (clickedLabel.isAdvancedSettings) {
+            selectorDescription = "#optionsContainer > div:contains(" + clickedLabel.name + ")";
+            $(selectorDescription).click();
+          } else if (clickedLabel.name == "options") {
+            $("#options").click();
+          } else {
+            selectorDescription = "#setSetting" + clickedLabel.name;
+            $(selectorDescription).click();
+          }
+        }
+      }
+    }
+
+    let glLayer = session.renderState.baseLayer;
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
+    gl.enable(gl.SCISSOR_TEST);
+
+    for (const view of pose.views) {
+      let xrViewport = glLayer.getViewport(view);
+      gl.viewport(xrViewport.x, xrViewport.y, xrViewport.width, xrViewport.height);
+      gl.scissor(xrViewport.x, xrViewport.y, xrViewport.width, xrViewport.height);
+      render(view.projectionMatrix, view.transform.matrix, false, view, 10, 5, 0.75);
+    }
+    session.requestAnimationFrame(onXRFrame);
+  }
+
+  g_startXRRendering = startXRRendering;
+
   function onAnimationFrame() {
     var now = theClock.getTime();
     var elapsedTime;
@@ -1759,70 +1872,15 @@ function initialize() {
       if (!g.options.reflection.enabled) { g.options.reflection.toggle(); }
     }
 
-    if (g_vrDisplay) {
-      g_requestId = g_vrDisplay.requestAnimationFrame(onAnimationFrame);
-      g_vrDisplay.getFrameData(g_frameData);
-    } else {
-      g_requestId = requestAnimationFrame(onAnimationFrame);
-    }
+    g_requestId = requestAnimationFrame(onAnimationFrame);
 
     if (g_shadersNeedUpdate) {
-      var isInStereoMode = (g_vrDisplay && g_vrDisplay.isPresenting) || g_stereoDemoActive;
+      var isInStereoMode = g_stereoDemoActive;
       setShaders(isInStereoMode && useMultiviewForStereo());
       g_shadersNeedUpdate = false;
     }
 
-    if (g_vrDisplay && g_vrDisplay.isPresenting) {
-      /* VR UI is enabled in VR Mode. VR UI has two mode, menu mode is the mirror of control panel of
-       * aquarium and non-menu mode may presents fps(could be turn off) in front of user. These two
-       * mode is controlled by isMenuMode flag and this flag is set by any keyboard event or gamepad
-       * button click.
-      */
-
-      // Set fps and prepare rendering it.
-      g_vrUi.setFps(g_fpsTimer.averageFPS);
-
-      // Query gamepad button clicked event.
-      g_vrUi.queryGamepadStatus();
-
-      // TODO: Support VRUI when doing multiview rendering.
-      if (!useMultiviewForStereo() && g_vrUi.isMenuMode) {
-
-        // When VR UI in menu mode, UI need a cursor to help user do select operation. Currently, cursor uses
-        // head-neck model which means a point in front of user and user could move the point by rotating their head(with HMD).
-        // A click event will be triggered when user stare at a label 2 seconds.
-        // TODO : add gamepad support to control cursor and trigger select event with VR controllers.
-
-        // Jquery selector description.
-        var selectorDescription;
-
-        // VR UI return whether there is an option been selected in VR mode.
-        var clickedLabel = g_vrUi.queryClickedLabel([0, 0, 0], g_frameData.pose.orientation);
-        if (clickedLabel != null) {
-          if (clickedLabel.isAdvancedSettings) {
-            selectorDescription = "#optionsContainer > div:contains(" + clickedLabel.name + ")";
-            $(selectorDescription).click();
-          } else if (clickedLabel.name == "options") {
-            $("#options").click();
-          } else {
-            selectorDescription = "#setSetting" + clickedLabel.name;
-            $(selectorDescription).click();
-          }
-        }
-      }
-
-      // Using head-neck model in VR mode because of unclear distance measurement(vr return position using meters),
-      // user could see around but couldn't move around.
-      eyePosition[0] = g.globals.eyeRadius;
-      eyePosition[1] = g.globals.eyeHeight;
-      eyePosition[2] = g.globals.eyeRadius;
-
-      calculateViewMatrix(viewInverseTemp, g_frameData.pose.orientation, eyePosition);
-
-      renderStereo(g_frameData.leftProjectionMatrix, g_frameData.rightProjectionMatrix, viewInverseTemp, g_frameData.pose);
-
-      g_vrDisplay.submitFrame();
-    } else if (g_stereoDemoActive) {
+    if (g_stereoDemoActive) {
       var near = 1;
       var far = 25000;
       var aspect = (canvas.clientWidth * 0.5) / canvas.clientHeight;
@@ -1862,6 +1920,7 @@ function initialize() {
     }
   }
 
+  g_onAnimationFrame = onAnimationFrame;
   onAnimationFrame();
   return true;
 }
@@ -2042,6 +2101,7 @@ $(function(){
 (function() {
   "use strict";
   var vrButton;
+  var vrButtonURL;
   var stereoDemoButton;
 
   function getButtonContainer () {
@@ -2136,38 +2196,50 @@ $(function(){
     return path.substring(0, path.lastIndexOf('/'));
   }
 
-  function onPresentChange() {
-    // When we begin or end presenting, the canvas should be resized
-    // to the recommended dimensions for the display.
-    resize();
-
-    g_shadersNeedUpdate = true;
-
-    if (g_vrDisplay.isPresenting) {
-      if (g_vrDisplay.capabilities.hasExternalDisplay) {
-        removeButton(vrButton);
-        vrButton = addButton("Exit VR", "E", getCurrentUrl() + "/vr_assets/button.png", onExitPresent);
-      }
-    } else {
-      if (g_vrDisplay.capabilities.hasExternalDisplay) {
-        removeButton(vrButton);
-        vrButton = addButton("Enter VR", "E", getCurrentUrl() + "/vr_assets/button.png", onRequestPresent);
-      }
-    }
-  }
+  vrButtonURL = getCurrentUrl() + "/../aquarium-vr/vr_assets/button.png";
 
   function onRequestPresent() {
-    g_vrDisplay.requestPresent([{ source: canvas }]).then(function() {}, function() {
-      console.error("request present failed.");
+    return navigator.xr.requestSession('immersive-vr').then((session) => {
+        removeButton(vrButton);
+        vrButton = addButton("Exit VR", "E", vrButtonURL, onExitPresent);
+        session.isImmersive = true;
+        g_session = session;
+
+        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+
+        let refSpaceType = 'local';
+        session.requestReferenceSpace(refSpaceType).then((refSpace) => {
+          g_xrImmersiveRefSpace = refSpace
+          g_shadersNeedUpdate = true;
+          g.globals.eyeHeight = 150;
+          g.globals.eyeRadius = 10;
+          session.requestAnimationFrame(g_startXRRendering);
+        });
+        session.addEventListener('end', onSessionEnded);
     });
   }
 
   function onExitPresent() {
-    if (!g_vrDisplay.isPresenting)
-      return;
+    g_session.end();
+    location.reload();
+  }
 
-    g_vrDisplay.exitPresent().then(function() {}, function() {
-      console.error("exit present failed.");
+  function onSessionEnded(event) {
+    if (event.session.isImmersive) {
+      onExitPresent();
+    }
+  }    
+
+  function onDeviceChange() {
+    vrButton ?? removeButton(vrButton);
+    // Checks to ensure that 'immersive-ar' mode is available, and only
+    // enables the button if so.
+    navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+      if (supported) {
+        vrButton = addButton("Enter VR", "E", vrButtonURL, onRequestPresent);
+        g_vrUi = new Ui(gl, g_numFish);
+        g_vrUi.load("./vr_assets/ui/config.js");
+      }
     });
   }
 
@@ -2177,19 +2249,9 @@ $(function(){
   }
 
   function resize() {
-    if (g_vrDisplay && g_vrDisplay.isPresenting) {
-      // If we're presenting we want to use the drawing buffer size
-      // recommended by the VRDisplay, since that will ensure the best
-      // results post-distortion.
-      var leftEye = g_vrDisplay.getEyeParameters("left");
-      var rightEye = g_vrDisplay.getEyeParameters("right");
-
-      setCanvasSize(canvas, Math.max(leftEye.renderWidth, rightEye.renderWidth) * 2, Math.max(leftEye.renderHeight, rightEye.renderHeight));
-    } else {
-      // When we're not presenting, we want to change the size of the canvas
-      // to match the window dimensions.
-      setCanvasSize(canvas, g.globals.width, g.globals.height);
-    }
+    // When we're not presenting, we want to change the size of the canvas
+    // to match the window dimensions.
+    setCanvasSize(canvas, g.globals.width, g.globals.height);
   }
 
   function onResize() {
@@ -2202,38 +2264,22 @@ $(function(){
 
   function initPostDOMLoaded() {
     if (g_aquariumConfig.enableVR) {
-      if(navigator.getVRDisplays) {
-        g_frameData = new VRFrameData();
-
-        navigator.getVRDisplays().then(function(displays) {
-          if (displays.length > 0) {
-            g_vrDisplay = displays[0];
-            g_vrDisplay.depthNear = 0.1;
-            g_vrDisplay.depthFar = 1024.0;
-
-            if (g_vrDisplay.capabilities.canPresent) {
-              vrButton = addButton("Enter VR", "E", getCurrentUrl() + "/vr_assets/button.png", onRequestPresent);
-            }
+      if (navigator.xr) {
+        // Checks to ensure that 'immersive-ar' mode is available, and only
+        // enables the button if so.
+        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+          if (supported) {
+            vrButton = addButton("Enter VR", "E", vrButtonURL, onRequestPresent);
             g_vrUi = new Ui(gl, g_numFish);
             g_vrUi.load("./vr_assets/ui/config.js");
-
-            window.addEventListener('vrdisplaypresentchange', onPresentChange, false);
-            window.addEventListener('vrdisplayactivate', onRequestPresent, false);
-            window.addEventListener('vrdisplaydeactivate', onExitPresent, false);
-            window.addEventListener('keydown', function() { g_vrUi.isMenuMode = !g_vrUi.isMenuMode; }, false);
-          } else {
-            console.log("WebVR supported, but no VRDisplays found.")
           }
         });
-      } else {
-        if (navigator.getVRDevices) {
-          console.log("Your browser supports WebVR but not the latest version. See webvr.info for more info.");
-        } else {
-          console.log("Your browser does not support WebVR. See webvr.info for assistance");
-        }
+        navigator.xr.addEventListener('devicechange', onDeviceChange);
       }
-      // Regardless of if we have WebVR support, we can demonstrate stereo rendering inside the window.
-      stereoDemoButton = addButton("Toggle Stereo Demo", "", getCurrentUrl() + "/vr_assets/button.png", toggleStereoDemo);
+      // Regardless of if we have WebVR support, we can demonstrate stereo rendering inside the window if enable-stereo param is included in url
+      if (g_stereoDemoAvailable) {
+        stereoDemoButton = addButton("Toggle Stereo Demo", "", vrButtonURL, toggleStereoDemo);
+      }
     }
     window.addEventListener('resize', function() {onResize();}, false);
     onResize();
