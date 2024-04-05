@@ -1807,7 +1807,7 @@ function initialize() {
       let xrViewport = glLayer.getViewport(view);
       gl.viewport(xrViewport.x, xrViewport.y, xrViewport.width, xrViewport.height);
       gl.scissor(xrViewport.x, xrViewport.y, xrViewport.width, xrViewport.height);
-      render(view.projectionMatrix, view.transform.matrix, false, view, 10, 5, 0.75);
+      render(view.projectionMatrix, view.transform.matrix, false, view, 10, 0, 0.75);
     }
     session.requestAnimationFrame(onXRFrame);
   }
@@ -2199,7 +2199,9 @@ $(function(){
   vrButtonURL = getCurrentUrl() + "/../aquarium-vr/vr_assets/button.png";
 
   function onRequestPresent() {
-    return navigator.xr.requestSession('immersive-vr').then((session) => {
+    return navigator.xr.requestSession('immersive-vr', {
+      requiredFeatures: ['local-floor']
+    }).then((session) => {
         removeButton(vrButton);
         vrButton = addButton("Exit VR", "E", vrButtonURL, onExitPresent);
         session.isImmersive = true;
@@ -2207,12 +2209,11 @@ $(function(){
 
         session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
-        let refSpaceType = 'local';
+        let refSpaceType = 'local-floor';
         session.requestReferenceSpace(refSpaceType).then((refSpace) => {
           g_xrImmersiveRefSpace = refSpace
           g_shadersNeedUpdate = true;
-          g.globals.eyeHeight = 150;
-          g.globals.eyeRadius = 10;
+          g.globals.eyeRadius = 0;
           session.requestAnimationFrame(g_startXRRendering);
         });
         session.addEventListener('end', onSessionEnded);
@@ -2228,7 +2229,7 @@ $(function(){
     if (event.session.isImmersive) {
       onExitPresent();
     }
-  }    
+  }
 
   function onDeviceChange() {
     vrButton ?? removeButton(vrButton);
