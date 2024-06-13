@@ -275,7 +275,8 @@ tdl.particles.CORNERS_ = [
  */
 tdl.particles.ParticleSystem = function(gl,
                                           opt_clock,
-                                          opt_randomFunction) {
+                                          opt_randomFunction,
+                                          opt_vrSupported) {
   this.gl = gl;
 
   // Entities which can be drawn -- emitters or OneShots
@@ -325,7 +326,7 @@ tdl.particles.ParticleSystem = function(gl,
   };
 
   var multiviewShaders = [];
-  if (gl.getExtension('OVR_multiview2')) {
+  if (opt_vrSupported && gl.getExtension('OVR_multiview2')) {
     multiviewShaders.push(new tdl.shader.Shader(gl,
                                                 makeShaderSourceMultiview('vs', tdl.particles.SHADER_STRINGS[0]),
                                                 makeShaderSourceMultiview('fs', tdl.particles.SHADER_STRINGS[2])));

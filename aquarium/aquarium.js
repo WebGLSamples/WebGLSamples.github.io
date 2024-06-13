@@ -60,6 +60,7 @@ var g_putCount = 0;
 
 var g_frameData;
 var g_vrUi;
+var g_vrSupported = false;
 
 var g_multiviewFb;        // multiview framebuffer.
 var g_multiviewViewFb;    // single views inside the multiview framebuffer.
@@ -536,7 +537,7 @@ function createProgramFromTags(
 
   var vs = getScriptText(vertexTagId);
 
-  if (multiview) {
+  if (g_vrSupported && multiview) {
     // Replace shader code to get ESSL3 shader code and enable multiview (huge hack, do not do this at home kids)
 
     var vsPrefix = ["#version 300 es"];
@@ -991,7 +992,7 @@ function initialize() {
   });
 
   var particleSystem = new tdl.particles.ParticleSystem(
-      gl, null, math.pseudoRandom);
+      gl, null, math.pseudoRandom, g_vrSupported);
   setupBubbles(particleSystem);
   var bubbleTimer = 0;
   var bubbleIndex = 0;
@@ -2273,6 +2274,7 @@ $(function(){
             vrButton = addButton("Enter VR", "E", vrButtonURL, onRequestPresent);
             g_vrUi = new Ui(gl, g_numFish);
             g_vrUi.load("./vr_assets/ui/config.js");
+            g_vrSupported = true;
           }
         });
         navigator.xr.addEventListener('devicechange', onDeviceChange);
