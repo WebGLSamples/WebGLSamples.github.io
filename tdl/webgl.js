@@ -98,17 +98,15 @@ tdl.webgl.OTHER_PROBLEM = '' +
  */
 tdl.webgl.setupWebGL = function(canvas, opt_attribs, opt_onError, opt_preferredContextType) {
   function handleCreationError(msg) {
-    var container = canvas.parentNode;
-    if (container) {
-      var str = window.WebGLRenderingContext ?
-           tdl.webgl.OTHER_PROBLEM :
-           tdl.webgl.GET_A_WEBGL_BROWSER;
-      if (msg) {
-        str += "<br/><br/>Status: " + msg;
-      }
-      container.innerHTML = tdl.webgl.makeFailHTML(str);
+    str = window.WebGLRenderingContext ?
+         tdl.webgl.OTHER_PROBLEM :
+         tdl.webgl.GET_A_WEBGL_BROWSER;
+    if (msg) {
+      str += "<br/><br/>Status: " + msg;
     }
   };
+
+  var str = "";
 
   opt_onError = opt_onError || handleCreationError;
 
@@ -131,6 +129,10 @@ tdl.webgl.setupWebGL = function(canvas, opt_attribs, opt_onError, opt_preferredC
       }, false);
     }
   } else {
+    var container = canvas.parentNode;
+    if (container) {
+      container.innerHTML = tdl.webgl.makeFailHTML(str);
+    }
     if (!window.WebGLRenderingContext) {
       opt_onError("");
     }
