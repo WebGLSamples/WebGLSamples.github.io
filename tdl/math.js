@@ -200,9 +200,9 @@ tdl.math.Matrix = goog.typedef;
  */
 tdl.math.pseudoRandom = function() {
   var math = tdl.math;
-  return (math.randomSeed_ =
-          (134775813 * math.randomSeed_ + 1) %
-          math.RANDOM_RANGE_) / math.RANDOM_RANGE_;
+  math.randomSeed_ = (134775813 * math.randomSeed_ + 1) & (math.RANDOM_RANGE_ - 1);
+  math.randomSeed_ += (math.randomSeed_ < 0) * math.RANDOM_RANGE_;
+  return math.randomSeed_ / math.RANDOM_RANGE_;
 };
 
 /**
